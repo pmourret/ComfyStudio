@@ -1,0 +1,46 @@
+#!/bin/bash
+# .githooks/pre-commit
+#
+# Mechanically enforces the two invariants that are cheap and reliable to
+# check without knowing the exact test layout of whatever module changed:
+#   1. Personal character data never enters the versioned tree (ADR-0005)
+#   2. Every staged ComfyUI workflow passes static validation
+#
+# Everything else in CLAUDE.md §11 (running the tests for the module you
+# touched) stays a human/Claude Code discipline — this hook does not try
+# to guess which tests are relevant.
+
+set -e
+
+staged_files=$(git diff --cached --name-only --diff-filter=ACM)
+
+# 1. Block personal character data from ever being committed.
+blocked=$(echo "$staged_files" | grep -E '^CHARACTERS/' || true)
+if [ -n "$blocked" ]; then
+  echo "COMMIT BLOCKED — files under CHARACTERS/ are personal data, never versioned (ADR-0005):"
+  echo "$blocked" | sed 's/^/  /'
+  exit 1
+fi
+
+# 2. Validate every staged ComfyUI workflow (detected by content, not just
+#    extension, since config.json/scenes.json/tools.json are also *.json).
+workflow_files=""
+for f in $(echo "$staged_files" | grep -E '\.json$' || true); do
+  if [ -f "$f" ] && grep -qE '"nodes"|"class_type"' "$f" 2>/dev/null; then
+    workflow_files="$workflow_files $f"
+  fi
+done
+
+if [ -n "$workflow_files" ]; then
+  for f in $workflow_files; do
+    echo "Validating workflow: $f"
+    if ! python AUTOMATION/wf_check.py --roles "$f"; then
+      echo "COMMIT BLOCKED — wf_check.py --roles failed on $f"
+      echo "Fix the workflow, or run 'wf_check.py --essai $f' for the ComfyUI-side error."
+      exit 1
+    fi
+  done
+fi
+
+echo "Reminder (CLAUDE.md §11): make sure you ran the tests for any module you touched."
+exit 0

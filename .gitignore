@@ -1,0 +1,43 @@
+# ---------------------------------------------------------------------------
+# Données personnelles de personnage — jamais dans le tree versionné (ADR-0005).
+# Le dépôt doit pouvoir passer en public sans tri d'urgence : ce qui est ici ne
+# doit jamais être entré dans l'historique git, même une fois.
+# ---------------------------------------------------------------------------
+
+# Références d'entrée lourdes (assets d'identité, scènes, sources réelles).
+# Contient des photos réelles de tiers — motif principal de cette section.
+/INPUTS/
+
+# Sorties de production (images/vidéos générées, y compris NSFW).
+# Divergence assumée avec le repo Léna, qui traçait /PROD/journal_batch.csv et
+# /PROD/mesures.json : ici la base SQLite est la source de vérité (J0), et ces
+# deux fichiers sont des données de personnage, pas du code.
+/PROD/
+
+# Réglages mesurés et contenu rédigé, propres à un personnage. Ils restent sur
+# le disque (le runner et les tests les lisent) mais hors de git, en attendant
+# leur déplacement vers CHARACTERS/<nom>/ à J4.
+AUTOMATION/config.json
+AUTOMATION/scenes*
+AUTOMATION/creative*
+
+# Base SQLite : se régénère avec AUTOMATION/tests/migrer_base.py (idempotent).
+*.db
+*.db-wal
+*.db-shm
+
+# ---------------------------------------------------------------------------
+# Artefacts d'exécution et fichiers de travail
+# ---------------------------------------------------------------------------
+__pycache__/
+*.pyc
+*.bak
+*.avant-*
+*.tmp
+
+# Réglages Claude Code propres à la machine (le settings.json partagé, lui,
+# reste versionné).
+.claude/settings.local.json
+
+# Espace de travail de l'outil de design, pas une source du projet.
+.kombai/
