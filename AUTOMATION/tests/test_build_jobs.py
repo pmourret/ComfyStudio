@@ -22,8 +22,11 @@ import lena_batch as lb  # noqa: E402
 
 SCENES = AUTOMATION / "scenes.json"
 # Banque telle qu'elle etait avant la migration : tenues encore en dur dans les
-# prompts, aucun champ wardrobe. C'est l'entree du test de non-regression.
-SCENES_AVANT = AUTOMATION / "scenes.avant-refonte.json"
+# prompts, aucun champ wardrobe. C'est l'entree du test de non-regression, et
+# c'est une FIXTURE versionnee : elle est figee pour toujours, contrairement a
+# scenes.json qui vit avec la production. Ne jamais la regenerer ni la mettre
+# a jour — la modifier revient a desactiver le test byte-exact.
+SCENES_AVANT = HERE / "fixtures" / "scenes-byte-exact.json"
 CREATIVE = lb.load_creative()
 ECHECS = []
 
@@ -102,19 +105,20 @@ def test_no_variants():
     verifie(all(j["variant"] == "" for j in jobs), "aucune variante")
     verifie(len({(j["scene"], j["index"]) for j in jobs}) == len(jobs),
             "une seule tenue par scene — pas de doublon scene/index")
-    if SCENES_AVANT.exists():
-        # Le repli --no-variants doit valoir aussi sur la banque FIGEE, et on la
-        # compare a SA PROPRE attente — pas au compte de la banque vivante.
-        # Celle-ci grandit : le 25/08/2026 l'ajout d'une seule scene de niveau 0
-        # faisait echouer un test qui ne parlait pourtant pas d'elle. L'egalite
-        # entre les deux banques ne tenait que par coincidence.
-        avant_data = lb.load_json(SCENES_AVANT)
-        avant = lb.build_jobs(SCENES_AVANT, filtres(no_variants=True),
-                              creative=CREATIVE)
-        attendu_avant = sum(s.get("count", 1) for s in avant_data["scenes"]
-                            if lb.scene_band(s)[0] == 0)
-        verifie(len(avant) == attendu_avant,
-                f"banque figee : meme repli ({len(avant)} jobs)")
+    # Le repli --no-variants doit valoir aussi sur la banque FIGEE, et on la
+    # compare a SA PROPRE attente — pas au compte de la banque vivante.
+    # Celle-ci grandit : le 25/08/2026 l'ajout d'une seule scene de niveau 0
+    # faisait echouer un test qui ne parlait pourtant pas d'elle. L'egalite
+    # entre les deux banques ne tenait que par coincidence.
+    # Plus de garde `exists()` ici : la fixture est versionnee, son absence est
+    # un echec a signaler, pas un cas a sauter en silence.
+    avant_data = lb.load_json(SCENES_AVANT)
+    avant = lb.build_jobs(SCENES_AVANT, filtres(no_variants=True),
+                          creative=CREATIVE)
+    attendu_avant = sum(s.get("count", 1) for s in avant_data["scenes"]
+                        if lb.scene_band(s)[0] == 0)
+    verifie(len(avant) == attendu_avant,
+            f"banque figee : meme repli ({len(avant)} jobs)")
 
 
 def test_filtrage_intensite():

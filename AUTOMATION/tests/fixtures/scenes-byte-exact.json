@@ -1,0 +1,116 @@
+{
+  "_lisez_moi": [
+    "Banque de scenes pour le runner batch. Le prompt final est assemble ainsi :",
+    "  prefix + anchor + ', ' + scene.prompt + [', ' + variante] + ', ' + texture",
+    "Ne JAMAIS decrire le visage dans une scene : c'est PuLID qui le porte.",
+    "L'ancre (cheveux + yeux + taches de rousseur) est obligatoire, PuLID ne la",
+    "transporte pas. Voir DOCS/lena-realisme.md.",
+    "count : nombre d'images par scene (chaque image a un seed different).",
+    "variants : si present, chaque variante produit count images de plus.",
+    "guidance / steps / refiner_denoise : facultatifs, ecrasent config.json pour",
+    "cette scene seulement. Utile quand une scene demande plus d'obeissance au",
+    "prompt (decor precis, accessoires) : monter guidance a 2.8-3.2.",
+    "direction : note globale ajoutee a la fin de TOUS les prompts. Sert a donner une intention de serie (ex : 'autumn palette, softer light')."
+  ],
+  "prefix": "raw, unedited photo of",
+  "anchor": "a 22-year-old French woman, long dark brown hair falling past her shoulders, green eyes, dense freckles across her nose and cheeks",
+  "direction": "",
+  "texture": "visible skin texture and pores, light film grain, desaturated palette of terracotta, sage, cream and warm brown, shot on 35mm, natural no-makeup look",
+  "scenes": [
+    {
+      "id": "cafe_terrasse",
+      "category": "lifestyle",
+      "format": "4:5",
+      "count": 2,
+      "prompt": "sitting at a small table on a cafe terrace in the late afternoon, half body, three-quarter angle, looking slightly away from the camera, wearing a beige knit sweater, warm low sunlight from the side, blurred street behind",
+      "variants": [
+        "overcast grey afternoon, flat diffuse light",
+        "early morning, empty terrace, long shadows"
+      ]
+    },
+    {
+      "id": "cuisine_matin",
+      "category": "lifestyle",
+      "format": "4:5",
+      "count": 2,
+      "prompt": "standing in a sunlit kitchen holding a mug, medium shot, facing the camera with a faint natural smile, wearing a plain cream linen shirt, soft window light from the left, wooden shelves and plants in the background"
+    },
+    {
+      "id": "salon_lecture",
+      "category": "lifestyle",
+      "format": "4:5",
+      "count": 1,
+      "prompt": "curled up on a sofa reading a book, seen from the side, wearing an oversized grey cardigan, warm lamp light, evening, cluttered living room with a blanket and a cold cup of tea"
+    },
+    {
+      "id": "selfie_miroir_entree",
+      "category": "selfie_miroir",
+      "format": "9:16",
+      "count": 2,
+      "prompt": "mirror selfie in a hallway, phone partially visible in one hand, neutral daylight, wearing a grey cotton tank top and jeans, slight head tilt, coats hanging behind her, imperfect framing"
+    },
+    {
+      "id": "selfie_voiture",
+      "category": "selfie",
+      "format": "9:16",
+      "count": 1,
+      "prompt": "close selfie taken in a parked car, seatbelt visible, daylight through the windscreen, wearing a plain white t-shirt, hair loose, slightly off-centre framing"
+    },
+    {
+      "id": "rando_montagne",
+      "category": "voyage",
+      "format": "4:5",
+      "count": 2,
+      "prompt": "on a mountain hiking trail, wide shot from the waist up, overcast diffuse light, wearing an olive windbreaker, wind in the hair, valley and low clouds behind",
+      "variants": [
+        "golden hour, warm rim light on the shoulders"
+      ]
+    },
+    {
+      "id": "ruelle_ville",
+      "category": "voyage",
+      "format": "2:3",
+      "count": 1,
+      "prompt": "walking in a narrow old town street, half body, looking back over the shoulder, wearing a dark wool coat, late afternoon shade with a strip of sunlight on the wall"
+    },
+    {
+      "id": "sport_tapis",
+      "category": "sport",
+      "format": "9:16",
+      "count": 2,
+      "guidance": 3.0,
+      "prompt": "sitting on a yoga mat in a home gym after training, half body, catching her breath, wearing a black sports bra and fitted shorts, daylight from a large window, water bottle and towel on the floor"
+    },
+    {
+      "id": "sport_course",
+      "category": "sport",
+      "format": "4:5",
+      "count": 1,
+      "prompt": "standing on a park path after a run, hands on hips, medium shot, wearing a grey technical top, cool morning light, wet asphalt and bare trees behind"
+    },
+    {
+      "id": "mode_tenue_jour",
+      "category": "mode",
+      "format": "2:3",
+      "count": 2,
+      "prompt": "full outfit shot standing against a plain concrete wall, three-quarter body, one hand in a pocket, wearing a terracotta midi dress and a cream cardigan, soft even daylight",
+      "variants": [
+        "wearing wide beige trousers and a simple white shirt"
+      ]
+    },
+    {
+      "id": "mode_detail_atelier",
+      "category": "mode",
+      "format": "4:5",
+      "count": 1,
+      "prompt": "seated on a stool in a bright workshop, half body, leaning forward with elbows on the knees, wearing a sage green linen shirt, large window light, tools and fabric out of focus behind"
+    },
+    {
+      "id": "soir_balcon",
+      "category": "lifestyle",
+      "format": "9:16",
+      "count": 1,
+      "prompt": "leaning on a balcony railing at dusk, half body, looking out at the street, wearing a thin dark sweater, mixed street lighting and blue evening sky"
+    }
+  ]
+}
