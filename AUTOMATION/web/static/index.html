@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Léna — production</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand">Production <i>Léna</i></div>
+  <div class="tabs">
+    <button class="on" data-s="creer">Créer</button>
+    <button data-s="galerie">Galerie <span class="n" id="nGal">0</span></button>
+    <button data-s="trier">Revue <span class="n" id="nTri">0</span></button>
+  </div>
+  <div class="status"><span class="dot" id="dot"></span><span id="stTxt">connexion…</span></div>
+  <div class="advwrap">
+    <button class="btn sm" id="btnAdv">⚙ Avancé</button>
+    <!-- l'onglet « Branche NSFW » a disparu le 26/08/2026 : son ecran EST
+         desormais le cran NSFW du curseur. Deux entrees pour la meme operation
+         donnaient deux champs d'instruction qui s'ignoraient. -->
+    <div class="advmenu" id="advMenu">
+      <button data-s="scenes">Banque de scènes</button>
+      <button data-s="journal">Journal</button>
+      <button data-s="appli">Application</button>
+    </div>
+  </div>
+</header>
+
+<!-- barre d'intensite : seul controle global, visible sur tous les ecrans -->
+<div class="intbar">
+  <div class="inner">
+    <span class="lab">Intensité</span>
+    <div class="seg" id="intSel"></div>
+    <span class="tiny" id="intHint"></span>
+  </div>
+</div>
+
+<!-- Le serveur n'a pas rendu ce qu'il fallait : on le DIT. Sans ce bandeau, une
+     erreur sur /api/scenes ou /api/creative laissait l'ecran Creer entierement
+     vide — ni intention, ni scene, ni curseur — et sans un mot. -->
+<div id="panneBar" hidden>
+  <b>Le tableau de bord ne peut pas charger</b>
+  <span id="panneTxt"></span>
+  <div class="spacer" style="flex:1"></div>
+  <button class="btn sm" id="btnRecharger">Réessayer</button>
+</div>
+
+<main>
+<!-- ================================================================= CREER -->
+<div class="screen on" id="creer">
+  <div class="wrap">
+    <div id="runPanel" style="display:none"></div>
+
+    <div class="step" id="stepIntent">
+      <h2><i class="num">1</i> · Intention</h2>
+      <div class="intents" id="intentGrid"></div>
+      <!-- les intentions sans aucune scene ne restent pas grisees en tete de
+           grille : elles passent ici, et le clic mene au composeur -->
+      <div id="intentVides" hidden>
+        <div class="sep">à peupler — aucune scène à ce niveau</div>
+        <div class="intents" id="intentVideGrid"></div>
+      </div>
+    </div>
+
+    <div class="step" id="stepTone" hidden>
+      <h2><i class="num">2</i> · Ton <span class="tiny" id="toneHint"></span></h2>
+      <div class="chips" id="toneRow"></div>
+    </div>
+
+    <div class="step" id="stepScenes" hidden>
+      <h2><i class="num">3</i> · Scènes <span class="tiny" id="sceneHint"></span></h2>
+      <div class="scenes" id="sceneGrid"></div>
+    </div>
+
+    <!-- CRAN NSFW : on edite une image deja validee, on n'engendre rien. -->
+    <div class="step" id="stepSource" hidden>
+      <h2><i class="num">1</i> · Image source
+        <span class="tiny" id="srcHint"></span>
+        <span class="spacer" style="flex:1"></span>
+        <button class="link" id="btnDisarm">désarmer la branche</button>
+      </h2>
+      <div class="srcgrid" id="srcGrid"></div>
+    </div>
+
+    <div class="step" id="stepEdit" hidden>
+      <h2><i class="num">2</i> · Instruction d'édition
+        <span class="tiny">— en anglais, court et concret</span></h2>
+
+      <details class="adv preamb">
+        <summary>ce que le graphe garantit déjà, sans que tu l'écrives</summary>
+        <pre id="preambule"></pre>
+        <p class="tiny">Inutile de le répéter dans l'instruction : elle ne sert
+          qu'à dire <b>ce qui change</b>.</p>
+      </details>
+
+      <textarea id="editInstr" placeholder="ex: unbuttoned shirt"></textarea>
+      <div id="instrAlertes"></div>
+      <p class="tiny" style="margin:6px 0 0">La sortie va dans
+        <code>PROD/_NSFW/</code> et n'est jamais exportée.</p>
+
+      <details class="adv" id="instrBiblio" style="margin-top:14px">
+        <summary>instructions déjà employées <span class="tiny" id="biblioN"></span></summary>
+        <div id="biblioList"></div>
+      </details>
+    </div>
+  </div>
+
+  <div id="gearPanel">
+      <div class="gh">
+        <h3>Réglages</h3>
+        <div class="spacer" style="flex:1"></div>
+        <span class="tiny" id="gearDiff"></span>
+        <button class="btn sm" id="btnReset" title="Remet chaque réglage à la valeur mesurée du projet">Valeurs mesurées</button>
+      </div>
+      <p class="gintro">Chaque réglage dit ce qu'il fait et ce qu'il coûte. Les valeurs
+        marquées <b class="mes">mesuré</b> sont celles validées par les tests du projet :
+        s'en écarter est permis, mais c'est un choix, pas un réglage neutre.</p>
+      <div id="gearBody"></div>
+  </div>
+
+  <div class="launch" id="launchBar">
+    <!-- Ce qui part vraiment. Sur une scène type, 69 % du prompt final est
+         assemblé hors de la vue de qui écrit la scène : tant que ce n'était pas
+         affiché, un résultat raté ne se diagnostiquait pas. -->
+    <div id="apercuPanel" hidden></div>
+    <div class="inner">
+      <div class="sum">
+        <b id="sumN">—</b>
+        <div id="sumT">choisis une intention</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="seg" id="qual">
+        <button class="on" data-q="realisme">Réalisme</button>
+        <button data-q="rapide">Rapide</button>
+        <button data-q="brut">Brut</button>
+      </div>
+      <button class="btn sm" id="btnApercu" title="Voir le prompt envoyé">Prompt</button>
+      <button class="btn" id="btnGear" title="Réglages">⚙</button>
+      <button class="btn primary" id="btnRun">Générer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================= TRIER -->
+<div class="screen" id="trier">
+  <div class="wrap">
+    <div class="viewsel">
+      <div class="seg" id="spaceSel">
+        <button class="on" data-sp="lena">Léna</button>
+        <button data-sp="nsfw">NSFW</button>
+      </div>
+      <div class="seg" id="bucketSel">
+        <button class="on" data-b="A_REVOIR">À revoir <span id="bA_REVOIR">0</span></button>
+        <button data-b="OK">Validées <span id="bOK">0</span></button>
+        <button data-b="REJET">Rejetées <span id="bREJET">0</span></button>
+        <!-- SANS_VISAGE : verdict reel du QC (aucun visage detecte), le dossier
+             etait rempli par le runner mais n'avait aucune entree ici — les
+             images y devenaient introuvables et intriables -->
+        <button data-b="SANS_VISAGE">Sans visage <span id="bSANS_VISAGE">0</span></button>
+        <button data-b="ARCHIVE">Archivées <span id="bARCHIVE">0</span></button>
+      </div>
+      <div class="seg" id="scoreSel">
+        <button class="on" data-f="tout">Tout<span class="n"></span></button>
+        <button data-f="haut">Excellentes<span class="n"></span></button>
+        <button data-f="moyen">Correctes<span class="n"></span></button>
+        <button data-f="bas">Sous la bande<span class="n"></span></button>
+      </div>
+      <div class="spacer"></div>
+      <div class="seg" id="viewSel">
+        <button data-v="revue">Revue</button>
+        <button class="on" data-v="grille">Grille</button>
+      </div>
+      <button class="btn sm" id="btnMesurer" style="display:none"></button>
+      <button class="btn sm" id="btnUndo" disabled>Annuler</button>
+    </div>
+    <div id="triageBody"></div>
+  </div>
+</div>
+
+<!-- ================================================================ SCENES -->
+<div id="dirtyBar" hidden>
+  <b>Modifications non enregistrées</b>
+  <span>des scènes existent seulement dans cette page — elles seront perdues au
+        rechargement, et la production ne les voit pas.</span>
+  <div class="spacer" style="flex:1"></div>
+  <button class="btn sm" id="btnDirtySave">Enregistrer maintenant</button>
+</div>
+
+<div class="screen" id="scenes">
+  <div class="wrap">
+    <div class="compose">
+      <h2 style="margin-bottom:10px">Décrire une intention · le modèle local écrit les scènes</h2>
+      <textarea id="intention" placeholder="ex : Léna aime passer du temps dans son jardin, elle y bouture ses plantes le matin"></textarea>
+      <div class="grid4" style="margin-top:12px">
+        <label class="f"><span>intention imposée (optionnel)</span>
+          <select id="cmpCat"><option value="">— le modèle choisit —</option></select></label>
+        <label class="f"><span>nombre de scènes</span>
+          <input id="cmpN" type="number" min="1" max="6" value="3"></label>
+        <div style="display:flex;align-items:flex-end">
+          <button class="btn primary" id="btnCompose">Proposer des scènes</button></div>
+        <div style="display:flex;align-items:flex-end"><span class="tiny" id="cmpMsg"></span></div>
+      </div>
+      <div id="props"></div>
+    </div>
+
+    <h2 style="margin-top:34px">Squelettes de pose <span class="tiny" id="nPoses"></span></h2>
+    <p class="tiny" style="margin:6px 0 16px">Un squelette OpenPose extrait d'une
+      photo, imposable à une scène (ControlNet, cran SFW uniquement — voir
+      DOCS/lena-pose-controlnet.md). <b>La photo source ne reste jamais sur le
+      disque</b> : seul le squelette est gardé.</p>
+    <div class="posegrid" id="poseGrid"></div>
+    <div class="poseUpload">
+      <label class="btn sm" for="poseFile">choisir une photo</label>
+      <input type="file" id="poseFile" accept="image/png,image/jpeg,image/webp" hidden>
+      <span class="tiny" id="poseFileName"></span>
+      <button class="btn" id="btnPoseExtract" disabled>Extraire le squelette</button>
+      <span class="tiny" id="poseMsg"></span>
+    </div>
+
+    <h2>Note de direction — ajoutée à la fin de tous les prompts</h2>
+    <input id="direction" placeholder="ex : autumn palette, softer light — laisser vide si aucune">
+    <p class="tiny" style="margin:6px 0 22px">Sert à donner une intention de série sans
+      réécrire chaque scène. Se vide aussi vite qu'elle se met.</p>
+
+    <h2>Ancre d'identité — ajoutée à toutes les scènes</h2>
+    <textarea id="anchor" style="min-height:64px"></textarea>
+    <p class="tiny" style="margin:6px 0 22px">Ne décris jamais le visage dans une scène :
+      PuLID le porte. Ici on ne met que ce que PuLID ne transporte pas (cheveux, yeux,
+      taches de rousseur).</p>
+
+    <h2>Scènes <span class="tiny" id="nScenes"></span></h2>
+    <div id="sceneCards"></div>
+    <button class="btn" id="btnAddScene">+ Ajouter une scène</button>
+
+    <details class="adv" style="margin-top:24px">
+      <summary>JSON brut</summary>
+      <textarea id="rawJson" spellcheck="false" style="margin-top:12px;min-height:320px"></textarea>
+      <button class="btn sm" id="btnRawApply" style="margin-top:10px">Appliquer le JSON</button>
+    </details>
+  </div>
+  <div class="launch">
+    <div class="inner">
+      <div class="sum"><b>scenes.json</b><div id="scMsg">une sauvegarde .bak est faite à chaque enregistrement</div></div>
+      <div class="spacer"></div>
+      <button class="btn primary" id="btnSaveScenes">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- =============================================================== JOURNAL -->
+<div class="screen" id="journal">
+  <div class="wrap">
+    <div class="viewsel">
+      <div class="seg" id="jFilter">
+        <button class="on" data-f="">Tout</button>
+        <button data-f="OK">OK</button>
+        <button data-f="A_REVOIR">À revoir</button>
+        <button data-f="REJET">Rejet</button>
+      </div>
+      <div class="spacer"></div>
+      <span class="tiny" id="jInfo"></span>
+    </div>
+    <table id="jt"><thead><tr>
+      <th>date</th><th>scène</th><th>format</th><th>seed</th><th>score</th>
+      <th>verdict</th><th>durée</th></tr></thead><tbody></tbody></table>
+  </div>
+</div>
+
+<!-- ============================================================ APPLICATION
+     Paramétrage de l'app elle-même — distinct du panneau ⚙ de l'écran Créer,
+     qui règle une génération, pas les deux processus qui la rendent possible. -->
+<div class="screen" id="appli">
+  <div class="wrap">
+    <h2>Tableau de bord</h2>
+    <p class="tiny" style="margin:6px 0 16px">Le serveur web local — celui que
+      tu utilises en ce moment.</p>
+    <div class="appliActs">
+      <button class="btn" id="btnAppRestart">Redémarrer</button>
+      <button class="btn danger" id="btnAppStop">Arrêter</button>
+    </div>
+
+    <h2 style="margin-top:34px">ComfyUI <span class="tiny" id="comfyEtat"></span></h2>
+    <p class="tiny" style="margin:6px 0 16px">Le moteur de génération (GPU).
+      <b>Windows ne permet pas un arrêt propre</b> : le processus est coupé
+      net, sans le temps de finir un job en cours. Utile pour libérer la VRAM
+      ou reprendre en compte un custom node mis à jour.</p>
+    <div class="appliActs">
+      <button class="btn" id="btnComfyRestart">Redémarrer</button>
+      <button class="btn danger" id="btnComfyStop">Arrêter</button>
+    </div>
+
+    <h2 style="margin-top:34px">Journal</h2>
+    <pre class="log" id="appliLog" style="display:block;max-height:220px"></pre>
+  </div>
+</div>
+</main>
+</div>
+
+<div id="declineBox"><div class="card" id="declineCard"></div></div>
+<div id="armBox"><div class="card" id="armCard"></div></div>
+<!-- ================================================================= EDITEUR
+     Recadrage/rotation/couleur/grain, tout côté navigateur (canvas) — aucun
+     calcul GPU, résultat instantané. Enregistre toujours un NOUVEAU fichier,
+     jamais un écrasement : l'original reste comparable, supprimable à part. -->
+<div id="editorBox">
+  <div class="edWrap">
+    <div class="edStage">
+      <canvas id="edCanvas"></canvas>
+      <div id="edCropBox">
+        <div class="edHandle" data-h="nw"></div><div class="edHandle" data-h="ne"></div>
+        <div class="edHandle" data-h="sw"></div><div class="edHandle" data-h="se"></div>
+      </div>
+    </div>
+    <div class="edSide">
+      <h3>Éditer</h3>
+      <div class="edSec">
+        <div class="edLab">Recadrage</div>
+        <div class="seg" id="edRatio">
+          <button class="on" data-r="libre">Libre</button>
+          <button data-r="1:1">1:1</button>
+          <button data-r="4:5">4:5</button>
+          <button data-r="2:3">2:3</button>
+          <button data-r="9:16">9:16</button>
+        </div>
+      </div>
+      <div class="edSec">
+        <div class="edLab">Rotation</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="btn sm" id="edRotL">↺ 90°</button>
+          <button class="btn sm" id="edRotR">90° ↻</button>
+        </div>
+        <div class="edRow"><span>redresser</span><span class="edVal" id="v_edStraighten">0°</span></div>
+        <input type="range" id="edStraighten" min="-15" max="15" step="0.5" value="0">
+      </div>
+      <div class="edSec">
+        <div class="edLab">Colorimétrie</div>
+        <div class="edRow"><span>luminosité</span><span class="edVal" id="v_edBright">0</span></div>
+        <input type="range" id="edBright" min="-60" max="60" step="1" value="0">
+        <div class="edRow"><span>contraste</span><span class="edVal" id="v_edContrast">0</span></div>
+        <input type="range" id="edContrast" min="-60" max="60" step="1" value="0">
+        <div class="edRow"><span>saturation</span><span class="edVal" id="v_edSat">0</span></div>
+        <input type="range" id="edSat" min="-100" max="100" step="1" value="0">
+        <div class="edRow"><span>température</span><span class="edVal" id="v_edTemp">0</span></div>
+        <input type="range" id="edTemp" min="-50" max="50" step="1" value="0">
+      </div>
+      <div class="edSec">
+        <div class="edLab">Grain <span class="tiny">— manuel, sans rapport avec le grain calibré de la production</span></div>
+        <div class="edRow"><span>quantité</span><span class="edVal" id="v_edGrain">0</span></div>
+        <input type="range" id="edGrain" min="0" max="100" step="1" value="0">
+      </div>
+      <div class="edSpacer"></div>
+      <p class="tiny" id="edMsg"></p>
+      <div class="edBtns">
+        <button class="btn sm" id="edReset">Réinitialiser</button>
+        <button class="link" id="edCancel">annuler</button>
+        <button class="btn primary" id="edSave">Enregistrer une copie</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="lightbox"><img alt=""></div>
+<div id="toast"><span id="toastTxt"></span><button class="link" id="toastAct" style="display:none"></button></div>
+
+<script src="/static/core.js"></script>
+<script src="/static/create.js"></script>
+<script src="/static/review.js"></script>
+<script src="/static/advanced.js"></script>
+<script src="/static/appli.js"></script>
+<script src="/static/editor.js"></script>
+<script src="/static/boot.js"></script>
+</body>
+</html>

@@ -1,0 +1,554 @@
+/* Feuille de style du tableau de bord Lena.
+   Extrait de index.html le 24/08/2026 — code inchange.
+   Ordre de chargement significatif : voir index.html. */
+:root{
+  --bg:#15120f; --panel:#1e1a17; --panel2:#262019; --line:#342b25; --line2:#463a31;
+  --txt:#f0e9e2; --dim:#a3948a; --dim2:#7a6c63;
+  --acc:#c9714a; --acc-d:#a85a37;
+  --ok:#7fa87f; --warn:#d8a657; --bad:#c0605a; --high:#4fae5c; --none:var(--dim2);
+  --r:10px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--txt);overflow:hidden;
+     font:15px/1.55 system-ui,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+
+/* ---------------------------------------------------------------- structure */
+.app{display:flex;flex-direction:column;height:100%}
+header{display:flex;align-items:center;gap:20px;padding:0 20px;height:56px;
+       background:var(--panel);border-bottom:1px solid var(--line);flex:none}
+.brand{font-size:16px;font-weight:600;letter-spacing:.2px}
+.brand i{color:var(--acc);font-style:normal}
+.tabs{display:flex;gap:4px;margin-left:8px}
+.tabs button{background:none;border:0;color:var(--dim);padding:8px 15px;border-radius:8px;
+             cursor:pointer;font-size:14px}
+.tabs button:hover{color:var(--txt);background:var(--panel2)}
+.tabs button.on{color:var(--txt);background:var(--panel2);font-weight:600}
+.tabs button .n{font-size:11px;background:var(--line2);border-radius:9px;padding:1px 6px;margin-left:6px;color:var(--txt)}
+.tabs button.on .n{background:var(--acc);color:#1a1310}
+.status{margin-left:auto;display:flex;align-items:center;gap:9px;font-size:13px;color:var(--dim)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--bad)}
+.dot.on{background:var(--ok);box-shadow:0 0 0 3px #7fa87f22}
+/* barre d'intensite — hors du <main> qui defile, donc toujours a l'ecran */
+.intbar{flex:none;background:var(--panel);border-bottom:1px solid var(--line);
+        padding:9px 20px}
+.intbar .inner{max-width:1180px;margin:0 auto;display:flex;align-items:center;
+        gap:14px;flex-wrap:wrap}
+.intbar .lab{font-size:12px;text-transform:uppercase;letter-spacing:.9px;
+        color:var(--dim);font-weight:600}
+.intbar .seg button{padding:6px 16px}
+.intbar .seg button.locked{color:var(--dim2);cursor:not-allowed}
+.intbar .seg button.locked:hover{color:var(--dim2)}
+.intbar .seg button .n{font-size:11px;opacity:.6;margin-left:6px;
+        font-variant-numeric:tabular-nums}
+/* escalade complete sur les 4 paliers — avant, seuls lv2/lv3 avaient une regle
+   propre et lv0/lv1 retombaient sur le meme accent que tous les autres
+   controles segmentes de l'appli (qualite, bucket, vue...), rendant le curseur
+   d'intensite indistinguable d'un simple selecteur */
+.intbar .seg button.lv0.on{background:var(--ok);color:#15120f}
+.intbar .seg button.lv1.on{background:var(--acc)}
+.intbar .seg button.lv2.on{background:var(--warn)}
+.intbar .seg button.lv3.on{background:var(--bad);color:var(--txt)}
+main{flex:1;overflow:auto;position:relative}
+.screen{display:none;height:100%}
+.screen.on{display:block}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 20px 120px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);
+   margin:0 0 12px;font-weight:600}
+.muted{color:var(--dim);font-size:13px}
+.tiny{font-size:12px;color:var(--dim2)}
+
+/* ------------------------------------------------------------------ boutons */
+.btn{background:var(--panel2);border:1px solid var(--line2);border-radius:8px;
+     padding:9px 16px;cursor:pointer;font-size:14px}
+.btn:hover{border-color:var(--dim2)}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:#1a1310;font-weight:600}
+.btn.primary:hover{background:var(--acc-d);border-color:var(--acc-d)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.sm{padding:6px 11px;font-size:13px}
+.link{background:none;border:0;color:var(--acc);cursor:pointer;font-size:13px;padding:0;text-decoration:underline}
+
+/* ------------------------------------------------------------------- creer */
+/* Un bloc = une decision. Les suivants n'existent pas tant qu'elle n'est pas
+   prise : c'est tout le principe du parcours lineaire. */
+.step{margin-bottom:30px}
+.step[hidden]{display:none}
+.step h2{display:flex;align-items:baseline;gap:10px}
+.step h2 .tiny{text-transform:none;letter-spacing:0}
+
+.intents{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px}
+.it{background:var(--panel);border:2px solid var(--line);border-radius:var(--r);
+    padding:16px 14px;cursor:pointer;text-align:left;transition:border-color .12s}
+.it:hover{border-color:var(--line2)}
+.it.on{border-color:var(--acc);background:var(--panel2)}
+.it .ic{font-size:22px;line-height:1;display:block;margin-bottom:9px}
+.it b{display:block;font-size:14px;font-weight:600}
+.it span{font-size:11.5px;color:var(--dim)}
+.it.vide{opacity:.5}
+.it.vide span{color:var(--dim2)}
+
+.chips{display:flex;gap:9px;flex-wrap:wrap}
+.chip-t{background:var(--panel2);border:1px solid var(--line);border-radius:20px;
+        padding:8px 16px;cursor:pointer;font-size:13.5px;user-select:none}
+.chip-t:hover{border-color:var(--line2)}
+.chip-t.on{background:var(--txt);border-color:var(--txt);color:var(--bg);font-weight:600}
+
+.sc .info .stat{display:flex;align-items:center;gap:6px;margin-top:5px;font-size:11.5px}
+.sc .info .stat .dotm{width:7px;height:7px;border-radius:50%;flex:none}
+.sc .tags{margin-top:5px;font-size:10.5px;color:var(--dim2);overflow:hidden;
+          text-overflow:ellipsis;white-space:nowrap}
+.sc .aff{position:absolute;top:8px;left:8px;background:#000000aa;color:var(--acc);
+         border-radius:10px;padding:1px 7px;font-size:10.5px;font-weight:700}
+
+/* menu Avance : tout ce qui n'est plus dans le chemin par defaut */
+/* actif quand un ecran ouvert depuis ce menu est affiche (scenes/journal/nsfw) :
+   ces ecrans n'ont pas d'onglet dans .tabs, sans ca rien n'indiquait plus
+   quelle section etait active */
+#btnAdv.on{background:var(--acc);border-color:var(--acc);color:#1a1310;font-weight:600}
+.advwrap{position:relative}
+.advmenu{position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);
+         border:1px solid var(--line2);border-radius:9px;padding:5px;min-width:190px;
+         box-shadow:0 12px 30px #0009;z-index:20;display:none}
+.advmenu.on{display:block}
+.advmenu button{display:flex;width:100%;align-items:center;gap:8px;background:none;
+        border:0;color:var(--txt);padding:8px 11px;border-radius:6px;cursor:pointer;
+        font-size:13.5px;text-align:left}
+.advmenu button:hover{background:var(--panel2)}
+.advmenu button .n{margin-left:auto;font-size:11px;color:var(--dim)}
+
+/* panneau de reglages, ouvert par l'engrenage de la barre de lancement */
+#gearPanel{position:fixed;right:20px;bottom:96px;width:min(620px,calc(100vw - 40px));
+        max-height:calc(100vh - 190px);overflow:auto;
+        background:var(--panel);border:1px solid var(--line2);border-radius:12px;
+        padding:18px;box-shadow:0 16px 44px #000a;z-index:8;display:none}
+#gearPanel.on{display:block}
+#gearPanel h3{margin:0;font-size:13px;text-transform:uppercase;
+        letter-spacing:.9px;color:var(--dim);font-weight:600}
+.gh{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.gintro{margin:0 0 18px;font-size:12.5px;line-height:1.6;color:var(--dim)}
+#btnGear.modif{border-color:var(--acc);color:var(--acc)}
+
+/* --- une section de reglages --- */
+.rgs{border-top:1px solid var(--line);padding-top:14px;margin-top:14px}
+.rgs:first-child{border-top:0;padding-top:0;margin-top:0}
+.rgs h4{margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.8px;
+        color:var(--dim2);font-weight:600}
+
+/* --- un reglage --- */
+.rg{margin-bottom:16px}
+.rg:last-child{margin-bottom:0}
+.rgh{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.rgh b{font-size:13.5px;font-weight:600}
+.rgv{font-variant-numeric:tabular-nums;font-size:13px;color:var(--acc);font-weight:600}
+.mes{font-size:10px;text-transform:uppercase;letter-spacing:.6px;padding:2px 6px;
+     border-radius:5px;background:#2a3a2a;color:var(--ok);border:1px solid #354a35}
+.mes.off{background:transparent;color:var(--dim2);border-color:var(--line);
+         opacity:.55}
+.rg.modif .rgh b{color:var(--acc)}
+.rge{display:flex;justify-content:space-between;font-size:11px;color:var(--dim2);
+     margin-top:3px}
+.rgq{margin:6px 0 0;font-size:12.5px;line-height:1.6;color:var(--dim)}
+.rgq .cout{display:block;margin-top:4px;color:var(--dim2)}
+/* un reglage dont l'interrupteur maitre est coupe ne pilote plus rien */
+.rg.inerte{opacity:.42}
+.rg.inerte input{pointer-events:none}
+.rg.b{display:block}
+.rg.b .rgq{margin-left:26px}
+.rg select,.rg input[type=number]{width:100%;background:var(--panel2);
+        border:1px solid var(--line2);border-radius:8px;padding:8px 10px}
+
+/* --- curseur --- */
+.rg input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:4px;
+        border-radius:3px;background:var(--line2);outline:none;margin:2px 0}
+.rg input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+        width:16px;height:16px;border-radius:50%;background:var(--acc);
+        border:2px solid var(--panel);cursor:pointer;box-shadow:0 1px 4px #0008}
+.rg input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
+        background:var(--acc);border:2px solid var(--panel);cursor:pointer}
+
+/* ----------------------------------------------------------------- produire */
+.spacer{flex:1}
+.scenes{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:14px}
+.sc{background:var(--panel);border:2px solid var(--line);border-radius:var(--r);
+    overflow:hidden;cursor:pointer;position:relative;transition:border-color .12s}
+.sc:hover{border-color:var(--line2)}
+.sc.on{border-color:var(--acc)}
+.sc .ph{aspect-ratio:4/5;background:var(--panel2) center/cover;position:relative}
+.sc .ph.empty::after{content:'aucune image';position:absolute;inset:0;display:flex;
+  align-items:center;justify-content:center;color:var(--dim2);font-size:12px}
+.sc .tick{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;
+  background:#00000088;border:1.5px solid #ffffff55;display:flex;align-items:center;
+  justify-content:center;font-size:13px;color:transparent}
+.sc.on .tick{background:var(--acc);border-color:var(--acc);color:#1a1310;font-weight:700}
+.sc .info{padding:9px 11px}
+.sc .info b{display:block;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sc .info span{font-size:11.5px;color:var(--dim)}
+
+details.adv{margin-top:22px;border-top:1px solid var(--line);padding-top:16px}
+details.adv summary{cursor:pointer;color:var(--dim);font-size:13px;list-style:none}
+details.adv summary::-webkit-details-marker{display:none}
+details.adv summary::before{content:'▸ ';color:var(--acc)}
+details.adv[open] summary::before{content:'▾ '}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:16px;margin-top:16px}
+label.f{display:block}
+label.f span{display:block;font-size:12px;color:var(--dim);margin-bottom:5px}
+input,select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);
+  border-radius:7px;padding:8px 10px}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--acc)}
+.seg{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{background:none;border:0;padding:8px 15px;cursor:pointer;color:var(--dim);font-size:13.5px}
+.seg button.on{background:var(--acc);color:#1a1310;font-weight:600}
+.seg button:disabled{opacity:.35;cursor:not-allowed}
+.check{display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer}
+.check input{width:auto}
+
+/* barre de lancement collée en bas */
+.launch{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(transparent,var(--bg) 22%);
+        padding:26px 20px 18px;z-index:6}
+.launch .inner{max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:16px;
+        background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:13px 18px;
+        box-shadow:0 10px 30px #0007}
+.launch .sum b{font-size:16px}
+.launch .sum div{font-size:12.5px;color:var(--dim)}
+
+/* --------------------------------------------------------------- execution */
+.run{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:20px}
+.bar{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;margin:12px 0}
+.bar>div{height:100%;background:var(--acc);width:0;transition:width .5s}
+.strip{display:flex;gap:9px;overflow-x:auto;padding:4px 0 2px}
+.strip img{height:104px;border-radius:7px;border:2px solid var(--line);cursor:zoom-in}
+.strip img.OK{border-color:var(--ok)} .strip img.A_REVOIR{border-color:var(--warn)}
+.strip img.REJET{border-color:var(--bad)}
+pre.log{background:#100e0c;border:1px solid var(--line);border-radius:8px;padding:11px;
+        max-height:190px;overflow:auto;font-size:12px;margin:10px 0 0;white-space:pre-wrap;color:#c8bcb2}
+
+/* ------------------------------------------------------------------- trier */
+#trier .wrap{padding-bottom:24px}
+.triage{display:grid;grid-template-columns:1fr 300px;gap:22px;align-items:start}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+       display:flex;align-items:center;justify-content:center;min-height:62vh;position:relative;overflow:hidden}
+.stage img{max-width:100%;max-height:72vh;display:block}
+.nav{position:absolute;top:50%;transform:translateY(-50%);background:#000000aa;border:0;
+     color:#fff;width:42px;height:64px;cursor:pointer;font-size:20px}
+.nav.prev{left:0;border-radius:0 8px 8px 0} .nav.next{right:0;border-radius:8px 0 0 8px}
+.side{position:sticky;top:12px;display:flex;flex-direction:column;gap:14px}
+.meta{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:15px}
+.meta dt{font-size:11.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+.meta dd{margin:0 0 11px;font-size:14px}
+.score{font-size:30px;font-weight:700;line-height:1}
+.score small{font-size:12px;font-weight:500;color:var(--dim);display:block;margin-top:3px}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.acts .btn{justify-content:center;text-align:center}
+.acts .btn.wide{grid-column:1/-1}
+.kbd{font:12px ui-monospace,monospace;background:var(--panel2);border:1px solid var(--line2);
+     border-radius:4px;padding:1px 5px;color:var(--dim)}
+.viewsel{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:9px;overflow:hidden;position:relative}
+.chip{position:absolute;top:8px;left:8px;padding:2px 9px;border-radius:11px;font-size:12.5px;
+      font-weight:700;color:#15120f;font-variant-numeric:tabular-nums;
+      box-shadow:0 2px 8px #0006;pointer-events:none}
+.chip.high{background:var(--high)} .chip.ok{background:var(--ok)}
+.chip.warn{background:var(--warn)} .chip.bad{background:var(--bad)}
+.chip.none{background:var(--line2);color:var(--dim)}
+.seg button .n{font-size:11px;opacity:.65;margin-left:5px;font-variant-numeric:tabular-nums}
+/* Image visee par le clavier en vue grille. Sans ce reperage, V/X/A triaient
+   la premiere image de la liste sans que rien ne l'indique. */
+.tile.cur{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc)}
+.tile img{width:100%;aspect-ratio:4/5;object-fit:cover;display:block;cursor:zoom-in;background:#0d0b0a}
+.tile .m{padding:8px 10px;font-size:12px;color:var(--dim)}
+.tile .m b{color:var(--txt);font-size:12.5px}
+.badge{padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;color:#15120f;float:right}
+.badge.high{background:var(--high)} .badge.ok{background:var(--ok)}
+.badge.warn{background:var(--warn)} .badge.bad{background:var(--bad)}
+/* sous-scores de realisme : barres compactes sous la vignette */
+.bars{padding:0 10px 4px;display:flex;flex-direction:column;gap:3px}
+.b2{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--dim2)}
+.b2 span{width:30px;flex:none}
+.b2 u{flex:1;height:4px;background:var(--panel2);border-radius:2px;
+      overflow:hidden;text-decoration:none}
+.b2 u i{display:block;height:100%;background:var(--dim2)}
+.b2 u i.dans{background:var(--ok)} .b2 u i.hors{background:var(--warn)}
+.b2 b{width:34px;text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
+.nomeas{padding:6px 10px;font-size:10.5px;color:var(--dim2)}
+
+/* actions directes : plus besoin d'ouvrir l'image pour la trier */
+.tacts{display:flex;gap:3px;padding:6px 8px;border-top:1px solid var(--line)}
+.tacts button{flex:1;background:none;border:1px solid transparent;border-radius:6px;
+   color:var(--dim);cursor:pointer;padding:5px 0;font-size:14px;line-height:1}
+.tacts button:hover{background:var(--panel2);border-color:var(--line2);color:var(--txt)}
+.tacts button.on{background:var(--acc);border-color:var(--acc);color:#1a1310}
+/* jugement de realisme : vert pour convaincante, rouge pour "ça se voit que
+   c'est genere" — avant, les deux rendaient dans le meme accent, seul le
+   glyphe (minuscule) les distinguait */
+.tacts button[data-f="ok"].on{background:var(--ok);border-color:var(--ok);color:#15120f}
+.tacts button[data-f="ia"].on{background:var(--bad);border-color:var(--bad);color:#15120f}
+.tacts .sep{width:1px;background:var(--line);margin:3px 2px;flex:none}
+.tile.ia{opacity:.62}
+.tile.ia .chip{filter:saturate(.4)}
+
+/* declinaison : repartir d'une image gardee, sans repasser par un batch */
+#declineBox,#armBox{position:fixed;inset:0;background:#000c;display:none;
+   align-items:center;justify-content:center;z-index:32;padding:24px}
+#declineBox.on,#armBox.on{display:flex}
+#armBox .card{background:var(--panel);border:1px solid var(--line2);border-radius:12px;
+   padding:22px;width:min(560px,100%);box-shadow:0 18px 50px #000b}
+#armBox h3{margin:0 0 12px;font-size:17px}
+#armBox p,#armBox li{color:var(--dim);font-size:13.5px}
+#armBox ul{padding-left:20px;margin:10px 0}
+#declineBox .card{background:var(--panel);border:1px solid var(--line2);
+   border-radius:12px;padding:20px;width:min(460px,100%);box-shadow:0 18px 50px #000b}
+#declineBox h3{margin:0 0 4px;font-size:16px}
+#declineBox .src{font-size:12.5px;color:var(--dim);margin-bottom:16px}
+#declineBox .dm{display:flex;width:100%;align-items:center;gap:10px;margin-bottom:9px;
+   justify-content:flex-start;text-align:left}
+#declineBox .dm .n{margin-left:auto;font-size:11.5px;color:var(--dim)}
+#declineBox .dm:disabled{opacity:.38}
+#declineBox .lab{font-size:12px;text-transform:uppercase;letter-spacing:.9px;
+   color:var(--dim);font-weight:600;margin:16px 0 8px}
+
+.empty{text-align:center;color:var(--dim);padding:60px 20px}
+.empty b{display:block;color:var(--txt);font-size:16px;margin-bottom:6px}
+
+/* ------------------------------------------------------------------ scenes */
+.sceneCard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+           padding:16px;margin-bottom:14px}
+.sceneCard .top{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+.sceneCard .top input.id{font-weight:600;max-width:230px}
+.sceneCard textarea{min-height:78px;resize:vertical}
+.sceneCard .rowf{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:12px}
+.del{margin-left:auto;background:none;border:0;color:var(--dim2);cursor:pointer;font-size:18px}
+.del:hover{color:var(--bad)}
+
+/* ------------------------------------------------------------------ divers */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+th{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+td.num{font-variant-numeric:tabular-nums}
+#lightbox{position:fixed;inset:0;background:#000d;display:none;align-items:center;
+          justify-content:center;z-index:30;padding:26px;cursor:zoom-out}
+#lightbox img{max-width:100%;max-height:100%;border-radius:6px}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120%);
+       background:var(--panel);border:1px solid var(--line2);border-radius:10px;
+       padding:11px 16px;display:flex;gap:14px;align-items:center;z-index:40;
+       box-shadow:0 8px 26px #0008;transition:transform .22s;font-size:14px}
+#toast.on{transform:translateX(-50%) translateY(0)}
+
+/* --------------------------------------------------------------- composeur */
+.compose{background:linear-gradient(180deg,#221c18,#1e1a17);border:1px solid var(--line2);
+         border-radius:var(--r);padding:18px;margin-bottom:22px}
+.compose textarea{min-height:70px}
+.prop{background:var(--panel2);border:1px solid var(--line2);border-radius:9px;
+      padding:13px;margin-top:10px}
+.prop .h{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+.prop .h b{font-size:14px}
+.prop .p{font-size:13px;color:var(--dim);margin:0 0 8px}
+.prop .v{font-size:12px;color:var(--dim2)}
+
+/* -------------------------------------------------------------------- nsfw */
+.lockbox{max-width:640px;margin:40px auto;background:var(--panel);
+         border:1px solid var(--line2);border-radius:var(--r);padding:26px}
+.lockbox h3{margin:0 0 12px;font-size:17px}
+.lockbox p{color:var(--dim);font-size:14px}
+.lockbox ul{color:var(--dim);font-size:13.5px;padding-left:20px}
+.warnband{background:#3a1d1a;border:1px solid #6b2f28;color:#e8c4bf;border-radius:8px;
+          padding:10px 14px;font-size:13px;margin-bottom:16px}
+.srcgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;
+         max-height:330px;overflow:auto;padding:3px}
+.src{border:2px solid var(--line);border-radius:8px;overflow:hidden;cursor:pointer;position:relative}
+.src.on{border-color:var(--acc)}
+.src img{width:100%;aspect-ratio:4/5;object-fit:cover;display:block}
+.src .tick{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;
+  background:#000000aa;border:1.5px solid #ffffff55;color:transparent;font-size:12px;
+  display:flex;align-items:center;justify-content:center}
+.src.on .tick{background:var(--acc);border-color:var(--acc);color:#1a1310;font-weight:700}
+
+@media(max-width:820px){
+  .triage{grid-template-columns:1fr}
+  .side{position:static}
+  .tabs button{padding:8px 10px;font-size:13px}
+  .wrap{padding:16px 13px 130px}
+  .stage{min-height:auto}
+  .stage img{max-height:52vh}
+}
+
+/* ------------------------------------------- modifications non enregistrees */
+#dirtyBar{display:flex;align-items:center;gap:12px;padding:9px 20px;flex:none;
+        background:#3a2a18;border-bottom:1px solid #5a4020;font-size:13px}
+#dirtyBar[hidden]{display:none}
+#dirtyBar b{color:var(--warn)}
+#dirtyBar span{color:var(--dim)}
+.sc .nonsauv{position:absolute;left:8px;bottom:8px;background:#3a2a18;color:var(--warn);
+        border:1px solid #5a4020;border-radius:5px;padding:2px 6px;font-size:10px;
+        text-transform:uppercase;letter-spacing:.5px}
+
+/* ============================== refonte du 26/08/2026 — cran NSFW unifie ===
+   L'onglet « Branche NSFW » a disparu : sa grille de sources, son champ
+   d'instruction et son lancement vivent sur le cran NSFW du curseur. Les regles
+   .srcgrid / .src plus haut servent donc maintenant l'ecran Creer. */
+
+/* numero d'etape : la numerotation est contextuelle (1-2 en edition,
+   1-2-3-4 en generation), donc portee par un element et non par le texte */
+.step h2 .num{font-style:normal;color:var(--acc)}
+.step h2 .spacer{flex:1}
+
+/* intentions sans aucune scene : sous un separateur, en fin de bloc 1 */
+#intentVides[hidden]{display:none}
+#intentVides .sep{margin:22px 0 12px;color:var(--dim);font-size:12px;
+  text-transform:uppercase;letter-spacing:.6px;display:flex;align-items:center;gap:12px}
+#intentVides .sep::after{content:'';flex:1;height:1px;background:var(--line)}
+#intentVides .it{opacity:.72}
+#intentVides .it:hover{opacity:1;border-color:var(--acc)}
+
+/* source « a revoir » : la pastille reutilise .aff des cartes de scene */
+.src .aff{position:absolute;top:6px;left:6px;background:#3a2a18;color:var(--warn);
+  border:1px solid #5a4020;border-radius:5px;padding:1px 5px;font-size:9.5px;
+  text-transform:uppercase;letter-spacing:.4px}
+.srcgrid .empty{grid-column:1/-1;padding:34px 16px;font-size:13px}
+
+/* preambule du graphe, montre au lieu d'etre paraphrase */
+details.preamb{margin-top:0;border-top:0;padding-top:0;margin-bottom:12px}
+#preambule{white-space:pre-wrap;background:var(--panel);border:1px solid var(--line);
+  border-radius:8px;padding:12px 14px;margin:10px 0 6px;color:var(--dim);
+  font-size:12px;line-height:1.55}
+
+/* alertes d'instruction : un panneau, jamais un blocage */
+#instrAlertes{display:flex;flex-direction:column;gap:6px}
+#instrAlertes:not(:empty){margin-top:10px}
+.alerte{background:#3a2a18;border:1px solid #5a4020;color:#e5d3b4;border-radius:8px;
+  padding:9px 12px;font-size:12.5px;line-height:1.5}
+.alerte::before{content:'! ';color:var(--warn);font-weight:700}
+
+/* bibliotheque : ce que le journal sait deja des instructions employees */
+#biblioList{display:flex;flex-direction:column;gap:4px;margin-top:10px;
+  max-height:280px;overflow:auto}
+.bib{display:flex;align-items:baseline;gap:10px;padding:7px 10px;border-radius:7px;
+  cursor:pointer;border:1px solid transparent}
+.bib:hover{background:var(--panel);border-color:var(--line2)}
+.bib .sc{font-variant-numeric:tabular-nums;font-size:12px;min-width:42px;flex:none}
+.bib .tx{flex:1;font-size:12.5px;color:var(--txt);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.bib .warn{color:var(--warn);font-weight:700;flex:none}
+.bib .n{color:var(--dim2);font-size:11px;flex:none}
+
+/* sections de rendu repliees (P7) : 13 reglages sur 23 passent sous un pli.
+   Rien n'est supprime — et une section fermee annonce ce qu'elle cache. */
+.rgs.pli details summary{cursor:pointer;list-style:none;display:flex;
+  align-items:baseline;gap:10px}
+.rgs.pli details summary::-webkit-details-marker{display:none}
+.rgs.pli details summary::before{content:'▸';color:var(--acc);font-size:11px}
+.rgs.pli details[open] summary::before{content:'▾'}
+.rgs.pli summary h4{margin:0;display:inline}
+.rgs.pli .ecart{font-size:11px;color:var(--dim2)}
+.rgs.pli .ecart.on{color:var(--warn)}
+
+/* panne de chargement : meme forme que #dirtyBar, ton d'alerte franc.
+   Un ecran vide qui ne s'explique pas coute plus cher qu'une erreur affichee. */
+#panneBar{display:flex;align-items:center;gap:12px;padding:9px 20px;flex:none;
+        background:#3a1d1a;border-bottom:1px solid #6b2f28;font-size:13px}
+#panneBar[hidden]{display:none}
+#panneBar b{color:#e8877c}
+#panneBar span{color:var(--dim)}
+
+/* ------------------------------------------- apercu du prompt (26/08/2026)
+   69 % du prompt final etait assemble hors de vue. Le panneau s'ouvre AU-DESSUS
+   de la barre de lancement, qui est collee en bas de l'ecran. */
+#apercuPanel{max-width:1180px;margin:0 auto 10px;max-height:52vh;overflow:auto}
+#apercuPanel[hidden]{display:none}
+.ap{background:var(--panel);border:1px solid var(--line2);border-radius:12px;
+  padding:14px 18px;box-shadow:0 10px 30px #0007}
+.aph{display:flex;align-items:baseline;gap:12px;margin-bottom:10px}
+.aph b{font-size:14px}
+.fr{display:flex;gap:12px;align-items:baseline;padding:5px 0;
+  border-top:1px solid var(--line)}
+.fr .pc{min-width:34px;text-align:right;font-size:11px;color:var(--dim2);
+  font-variant-numeric:tabular-nums;flex:none}
+.fr .src{min-width:118px;font-size:11.5px;color:var(--dim);flex:none;
+  text-transform:uppercase;letter-spacing:.4px}
+.fr .tx{font-size:12.5px;line-height:1.5}
+/* la scene est le seul fragment que l'utilisateur ecrit : on la distingue */
+.fr.sc{background:#1d2420;margin:0 -18px;padding-left:18px;padding-right:18px}
+.fr.sc .src,.fr.sc .tx{color:var(--txt)}
+.fr.sc .src{color:var(--acc)}
+.ech{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.ech b{font-size:11.5px;color:var(--dim);text-transform:uppercase;
+  letter-spacing:.4px;display:block;margin-bottom:8px}
+.ech .e{display:inline-block;background:#3a2a18;border:1px solid #5a4020;
+  color:#e5d3b4;border-radius:6px;padding:3px 8px;margin:0 6px 6px 0;font-size:12px}
+.ech .e i{color:var(--dim);font-style:normal;font-size:10.5px}
+.amd{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.amd.inerte{opacity:.45}
+.amd textarea{min-height:56px}
+
+/* -------------------------------------------- pose imposee (26/08/2026)
+   ControlNet, groupe 13 du workflow de production. Voir DOCS/lena-pose-controlnet.md */
+.posePrev{width:64px;height:64px;flex:none;border:1px solid var(--line2);
+  border-radius:8px;overflow:hidden;background:#000;margin-top:22px}
+.posePrev[hidden]{display:none}
+.posePrev img{width:100%;height:100%;object-fit:contain}
+
+.sc .posebadge{position:absolute;top:8px;right:8px;background:#000000aa;color:#9fd8ff;
+  border-radius:10px;padding:1px 7px;font-size:10.5px;font-weight:700}
+
+/* =============================================== 26/08/2026 — quatre ajouts
+   banque de poses (upload), suppression definitive, ecran Application,
+   editeur photo phase 1. */
+
+/* -------------------------------------------------------------- bouton danger */
+.btn.danger{background:transparent;border-color:#6b2f28;color:#e8877c}
+.btn.danger:hover{background:#3a1d1a;border-color:#8a3c30}
+
+/* --------------------------------------------------- banque de poses (Scenes) */
+.posegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));
+  gap:10px;margin-bottom:14px}
+.posecard{position:relative;border:1px solid var(--line2);border-radius:8px;
+  overflow:hidden;background:#000;aspect-ratio:1}
+.posecard img{width:100%;height:100%;object-fit:contain}
+.posecard .del{position:absolute;top:4px;right:4px;width:20px;height:20px;
+  border-radius:50%;border:1px solid #6b2f28;background:#000000cc;color:#e8877c;
+  font-size:13px;line-height:1;cursor:pointer}
+.posecard .del:hover{background:#3a1d1a}
+.poseUpload{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:26px}
+
+/* ------------------------------------------------- suppression definitive */
+.tacts .del{background:transparent;border:0;color:var(--dim2);cursor:pointer;
+  font-size:14px;padding:2px 4px}
+.tacts .del:hover{color:#e8877c}
+.secActs{display:flex;gap:10px;margin-top:14px}
+
+/* ------------------------------------------------------------- Application */
+.appliActs{display:flex;gap:12px;margin:14px 0 6px}
+
+/* ---------------------------------------------------------------- editeur */
+#editorBox{position:fixed;inset:0;background:#000d;display:none;
+  align-items:center;justify-content:center;z-index:40;padding:20px}
+#editorBox.on{display:flex}
+.edWrap{display:flex;gap:0;background:var(--panel);border:1px solid var(--line2);
+  border-radius:12px;overflow:hidden;max-width:1160px;width:100%;
+  max-height:calc(100vh - 40px)}
+.edStage{position:relative;flex:1;display:flex;align-items:center;
+  justify-content:center;background:#0a0a0a;padding:16px;min-width:0}
+.edStage canvas{max-width:100%;max-height:100%;display:block;border-radius:2px}
+#edCropBox{position:absolute;border:1.5px solid var(--acc);
+  box-shadow:0 0 0 2000px #00000066;cursor:move;touch-action:none}
+.edHandle{position:absolute;width:14px;height:14px;background:var(--acc);
+  border-radius:50%;transform:translate(-50%,-50%);cursor:nwse-resize;touch-action:none}
+.edHandle[data-h="nw"]{left:0;top:0}
+.edHandle[data-h="ne"]{left:100%;top:0;cursor:nesw-resize}
+.edHandle[data-h="sw"]{left:0;top:100%;cursor:nesw-resize}
+.edHandle[data-h="se"]{left:100%;top:100%}
+.edSide{width:280px;flex:none;padding:20px;overflow-y:auto;
+  border-left:1px solid var(--line)}
+.edSide h3{margin:0 0 16px;font-size:16px}
+.edSec{margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.edSec:last-of-type{border-bottom:0}
+.edLab{font-size:11.5px;color:var(--dim);text-transform:uppercase;
+  letter-spacing:.5px;margin-bottom:10px}
+.edRow{display:flex;justify-content:space-between;font-size:12.5px;
+  color:var(--dim);margin-top:10px}
+.edVal{color:var(--txt);font-variant-numeric:tabular-nums}
+.edSec input[type=range]{width:100%;margin-top:2px}
+.edSpacer{flex:1;min-height:10px}
+.edBtns{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.edBtns .btn{width:100%}
