@@ -37,21 +37,32 @@ tout le reste, éditer normalement.
 
 ## Bandes de lecture du score d'identité
 
+Bandes du code de ce repo (`AUTOMATION/qc_identity.py`, cohérentes avec
+`config.json`) — ce sont celles qui font foi :
+
 | Score | Lecture |
 |---|---|
-| **0.72 – 0.78** | conforme — toute la production validée est dans cette bande |
-| **0.71** | **seuil d'alerte** |
+| **≥ 0.72** | conforme — seuil auquel la production existante a réellement été triée |
+| **0.71** | **seuil d'alerte** (frontière OK/À_REVOIR observée entre 0.713 et 0.727) |
 | 0.60 – 0.71 | dérive visible, à revoir |
-| < 0.55 | ce n'est plus le même visage |
+| **< 0.60** | ce n'est plus le même visage |
 
-**Divergence à connaître** (relevée le 27/08/2026 en portant ce fichier) :
-la borne haute 0.78 vient de la documentation amont, mais
-`AUTOMATION/config.json` porte `qc.threshold_ok: 0.72`,
-`qc.threshold_watch: 0.6` et `qc.threshold_high: 0.74`, avec la note que la
-plage réellement observée sur les 10 premières mesures est **0.674 – 0.749**
-et que `threshold_high` est *« provisoire, à recalibrer sur quelques
-centaines de lignes de journal »*. Les deux ne disent pas la même chose sur
-le haut de bande.
+**Deux divergences avec la documentation amont**, relevées le 27/08/2026 en
+portant ce fichier — dans les deux cas c'est le code de ce repo qui est
+retenu ci-dessus :
+
+- La doc amont annonce une bande conforme **0.72 – 0.78**. `config.json`
+  porte `qc.threshold_high: 0.74` avec la note que la plage réellement
+  observée sur les 10 premières mesures est **0.674 – 0.749**, et que 0.75
+  donnait *« un filtre toujours vide »* — `threshold_high` y est déclaré
+  *« provisoire, à recalibrer sur quelques centaines de lignes de
+  journal »*. La borne 0.78 n'est adossée à aucune mesure de ce repo.
+- La doc amont place le plancher « ce n'est plus le même visage » à
+  **0.55**. `qc_identity.py` et `config.json` (`qc.threshold_watch: 0.6`)
+  disent tous deux **0.60**.
+
+`threshold_high` reste à recalibrer : c'est une borne de **lecture** (filtre
+« Excellentes » du tableau de bord), elle ne trie rien sur le disque.
 
 Conséquence pratique, et elle est ferme : **la config est la source de
 vérité, pas ce tableau** (invariant `CLAUDE.md` §8.4 — aucun seuil en dur,
