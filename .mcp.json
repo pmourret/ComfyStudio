@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "lena": {
+      "command": "h:\\ComfyUI\\ComfyUI_windows_portable\\python_embeded\\python.exe",
+      "args": [
+        "d:\\Projects\\Python\\ComfyStudio\\AUTOMATION\\mcp_lena.py"
+      ],
+      "env": {
+        "PYTHONIOENCODING": "utf-8"
+      }
+    }
+  }
+}
