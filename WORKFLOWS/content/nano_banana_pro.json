@@ -1,0 +1,318 @@
+{
+  "id": "d2a78457-e57e-448b-a5dc-b1c4edbf74a0",
+  "revision": 0,
+  "last_node_id": 37,
+  "last_link_id": 70,
+  "nodes": [
+    {
+      "id": 30,
+      "type": "SaveImage",
+      "pos": [
+        330,
+        80
+      ],
+      "size": [
+        390,
+        440
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 52
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.56",
+        "Node name for S&R": "SaveImage",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "OFM"
+      ]
+    },
+    {
+      "id": 36,
+      "type": "BatchImagesNode",
+      "pos": [
+        -520,
+        150
+      ],
+      "size": [
+        225,
+        86
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "label": "image0",
+          "name": "images.image0",
+          "type": "IMAGE",
+          "link": 69
+        },
+        {
+          "label": "image1",
+          "name": "images.image1",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 70
+        },
+        {
+          "label": "image2",
+          "name": "images.image2",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            56
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.14.1",
+        "Node name for S&R": "BatchImagesNode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 11,
+      "type": "LoadImage",
+      "pos": [
+        -1020,
+        70
+      ],
+      "size": [
+        280,
+        364
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            69
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.52",
+        "Node name for S&R": "LoadImage",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "OFM_00025_.png",
+        "image"
+      ]
+    },
+    {
+      "id": 35,
+      "type": "GeminiImage2Node",
+      "pos": [
+        -120,
+        80
+      ],
+      "size": [
+        410,
+        470
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 56
+        },
+        {
+          "name": "files",
+          "shape": 7,
+          "type": "GEMINI_INPUT_FILES",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            52
+          ]
+        },
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.14.1",
+        "Node name for S&R": "GeminiImage2Node"
+      },
+      "widgets_values": [
+        "Generate a new photo using the LEFT image as the identity source and the RIGHT image as the pose reference only.\n\nThe subject is the woman from the LEFT image. Keep her identity exactly: dark brown medium-length hair, green-grey eyes, freckles scattered across her nose, cheeks and neck, strong dark natural brows, fair skin with warm undertones. She is now shown in a natural side profile view — head angle and framing inspired by the RIGHT image: turned to one side, looking calmly off-frame, hair falling naturally along her face and neck.\n\nDo NOT take from the RIGHT image: the light blonde hair color, the hand raised to the head, the pink nail polish, or the rose bush background.\n\nClothing: simple off-white linen tank top or plain cotton top. No jewelry, no accessories.\n\nBackground: softly blurred, neutral warm-toned foliage — no distinct flowers or recognizable background elements. Soft directional outdoor light from the front-left, warm and natural.\n\nThe image should feel like a candid outdoor moment — she is looking at something quietly, not posing for a camera. Realistic photography style. Vertical crop, 2:3 ratio.",
+        "gemini-3-pro-image-preview",
+        891895825403522,
+        "randomize",
+        "2:3",
+        "2K",
+        "IMAGE",
+        "You are an expert image-generation engine. You must ALWAYS produce an image.\nInterpret all user input—regardless of format, intent, or abstraction—as literal visual directives for image composition.\nIf a prompt is conversational or lacks specific visual details, you must creatively invent a concrete visual scenario that depicts the concept.\nPrioritize generating the visual representation above any text, formatting, or conversational requests."
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 12,
+      "type": "LoadImage",
+      "pos": [
+        -1020,
+        500
+      ],
+      "size": [
+        280,
+        364
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            70
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.52",
+        "Node name for S&R": "LoadImage",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "744fdc7ef12f483ba9428f25919035b7.webp",
+        "image"
+      ]
+    }
+  ],
+  "links": [
+    [
+      52,
+      35,
+      0,
+      30,
+      0,
+      "IMAGE"
+    ],
+    [
+      56,
+      36,
+      0,
+      35,
+      0,
+      "IMAGE"
+    ],
+    [
+      69,
+      11,
+      0,
+      36,
+      0,
+      "IMAGE"
+    ],
+    [
+      70,
+      12,
+      0,
+      36,
+      1,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "Up to 14",
+      "bounding": [
+        -570,
+        40,
+        360,
+        330
+      ],
+      "color": "#3f789e",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1.6105100000000043,
+      "offset": [
+        882.6159037767484,
+        63.885066692903976
+      ]
+    },
+    "frontendVersion": "1.45.19",
+    "workflowRendererVersion": "LG",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true,
+    "ue_links": [],
+    "links_added_by_ue": [],
+    "anomalous_hashes": {}
+  },
+  "version": 0.4
+}

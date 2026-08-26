@@ -1,0 +1,1253 @@
+{
+  "last_node_id": 25,
+  "last_link_id": 28,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "Note",
+      "pos": [
+        0.0,
+        0.0
+      ],
+      "size": [
+        660,
+        700
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "TEST D'IDENTITE PURE - Lena / PuLID-Flux\n=========================================\nBut : verifier que le visage de la base gelee tient sur des generations\nsuccessives, AVANT de brancher quoi que ce soit d'autre.\n\nCHAINE : Load Checkpoint (Flux) -> Apply PuLID Flux -> KSampler\nLa base gelee (LoadImage id 2) n'est JAMAIS regeneree : c'est la reference\nd'identite. Si tu la remplaces, tu redemarres le personnage a zero.\n\nPREREQUIS (deja installes) :\n- custom node ComfyUI_PuLID_Flux_ll\n- models/pulid/pulid_flux_v0.9.1.safetensors\n- models/clip/EVA02_CLIP_L_336_psz14_s6B.pt\n- models/insightface/models/antelopev2/ (5 fichiers .onnx)\n- LoadImage ne lit que ComfyUI/input/ : la base gelee doit y etre copiee.\n\nREGLAGES PuLID (noeud Apply PuLID Flux) :\n- weight 0.85 : force de l'identite. 0.6 = souple / 1.0 = verrouille mais\n  fige les expressions ; au-dela de 1.1 -> aspect plastique, peau lissee.\n- start_at 0.10 : laisse les 10 premiers % du sampling poser la composition,\n  sinon PuLID impose aussi le cadrage et tout devient portrait de face.\n- end_at 1.00 : identite maintenue jusqu'a la fin.\n\nPROTOCOLE DE VALIDATION (critere du brief : 8-10 generations) :\n1. Lancer tel quel (batch de 4, seed randomize).\n2. Coller un autre prompt de test (voir la note du dessous), relancer.\n3. Repeter -> 8 a 12 images, scenes differentes.\n4. QC sur CHAQUE image, 3 points : taches de rousseur / yeux verts / sourcils.\n   Tolerance : >= 8 images sur 10 conformes = configuration validee.\n5. Si echec : monter weight a 0.95 avant de toucher au reste.\n\nSorties : output/OFM/PROD/ID_TEST/"
+      ],
+      "title": "LIRE D'ABORD",
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 2,
+      "type": "Note",
+      "pos": [
+        0.0,
+        940.0
+      ],
+      "size": [
+        660,
+        620
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "PROMPTS DE TEST (a coller un par un dans POSITIF)\n=================================================\nLe prompt ne doit PAS decrire le visage : c'est PuLID qui le porte.\nDecrire scene / lumiere / cadrage / tenue / attitude, ET garder l'ancre\nd'identite (cheveux + taches de rousseur), que PuLID ne transporte pas :\n\n  ANCRE = \"long dark brown hair falling past her shoulders, green eyes,\n           dense freckles across her nose and cheeks\"\n\nAjouter l'ancre a chacun des prompts ci-dessous.\n\n1. cafe terrace, golden hour, seated at a small table, half body, looking away,\n   beige knit sweater, warm backlight, raw unedited photo, 35mm\n\n2. bathroom mirror selfie, phone partially visible, neutral daylight,\n   grey cotton tank top, slight head tilt, raw unedited photo\n\n3. hiking trail in the mountains, overcast diffuse light, wide shot from the\n   waist up, olive windbreaker, wind in the hair, raw unedited photo\n\n4. bedroom, morning light through curtains, sitting on the bed, close portrait,\n   white t-shirt, hair loose, raw unedited photo\n\n5. city street at night, shop windows out of focus, half body, dark jacket,\n   mixed neon and street lighting, raw unedited photo\n\nVARIER SURTOUT : angle (face / trois-quarts / profil), distance (portrait\nserre / plan taille / plan large), lumiere (dure / diffuse / contre-jour).\nC'est la ou une identite mal verrouillee derape en premier."
+      ],
+      "title": "Prompts de test",
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 3,
+      "type": "Note",
+      "pos": [
+        0.0,
+        1880.0
+      ],
+      "size": [
+        660,
+        380
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "CE QUE PuLID NE PORTE PAS (verifie en A/B)\nPuLID ne transfere que le VISAGE (geometrie, yeux, bouche, sourcils).\nIl ne transfere PAS :\n- la longueur et la couleur des cheveux -> sans mention, Flux part sur un\n  carre mi-long chatain\n- la densite des taches de rousseur -> elles s'effacent\n- la morphologie du corps, la carnation des mains, la taille\n=> garder dans CHAQUE prompt positif l'ancre suivante :\n   \"long dark brown hair falling past her shoulders, green eyes,\n    dense freckles across her nose and cheeks\"\nEn revanche, ne PAS decrire la forme du nez, des yeux, des sourcils ou du\nvisage : c'est PuLID qui les porte, et un prompt qui les redecrit entre en\nconcurrence avec lui et provoque la derive qu'on cherche a eviter."
+      ],
+      "title": "Ancre d'identite",
+      "color": "#332",
+      "bgcolor": "#553"
+    },
+    {
+      "id": 4,
+      "type": "CheckpointLoaderSimple",
+      "pos": [
+        860.0,
+        0.0
+      ],
+      "size": [
+        340,
+        100
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            1
+          ]
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            11,
+            12
+          ]
+        },
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            19,
+            28
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CheckpointLoaderSimple"
+      },
+      "widgets_values": [
+        "flux1-dev-fp8.safetensors"
+      ],
+      "title": "Flux.1-dev fp8 (MODEL + CLIP + VAE)",
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 5,
+      "type": "LoadImage",
+      "pos": [
+        860.0,
+        940.0
+      ],
+      "size": [
+        300,
+        340
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            5,
+            8
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "OFM_LENA_BASE_00025_.png"
+      ],
+      "title": "BASE GELEE - ne pas remplacer",
+      "color": "#322",
+      "bgcolor": "#533"
+    },
+    {
+      "id": 6,
+      "type": "PulidFluxModelLoader",
+      "pos": [
+        1240.0,
+        940.0
+      ],
+      "size": [
+        340,
+        60
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "PULIDFLUX",
+          "type": "PULIDFLUX",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PulidFluxModelLoader"
+      },
+      "widgets_values": [
+        "pulid_flux_v0.9.1.safetensors"
+      ]
+    },
+    {
+      "id": 7,
+      "type": "PulidFluxEvaClipLoader",
+      "pos": [
+        1240.0,
+        1040.0
+      ],
+      "size": [
+        340,
+        30
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "EVA_CLIP",
+          "type": "EVA_CLIP",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PulidFluxEvaClipLoader"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 8,
+      "type": "PulidFluxInsightFaceLoader",
+      "pos": [
+        1240.0,
+        1110.0
+      ],
+      "size": [
+        340,
+        60
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "FACEANALYSIS",
+          "type": "FACEANALYSIS",
+          "links": [
+            4,
+            7
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PulidFluxInsightFaceLoader"
+      },
+      "widgets_values": [
+        "CUDA"
+      ]
+    },
+    {
+      "id": 9,
+      "type": "PulidFluxOptions",
+      "pos": [
+        1240.0,
+        1210.0
+      ],
+      "size": [
+        340,
+        110
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "OPTIONS",
+          "type": "OPTIONS",
+          "links": [
+            6,
+            9
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PulidFluxOptions"
+      },
+      "widgets_values": [
+        "large-small",
+        0,
+        1
+      ]
+    },
+    {
+      "id": 10,
+      "type": "ApplyPulidFlux",
+      "pos": [
+        1640.0,
+        940.0
+      ],
+      "size": [
+        340,
+        200
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 1
+        },
+        {
+          "name": "pulid_flux",
+          "type": "PULIDFLUX",
+          "link": 2
+        },
+        {
+          "name": "eva_clip",
+          "type": "EVA_CLIP",
+          "link": 3
+        },
+        {
+          "name": "face_analysis",
+          "type": "FACEANALYSIS",
+          "link": 4
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 5
+        },
+        {
+          "name": "attn_mask",
+          "type": "MASK",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "options",
+          "type": "OPTIONS",
+          "link": 6,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            14
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ApplyPulidFlux"
+      },
+      "widgets_values": [
+        0.85,
+        0.1,
+        1.0
+      ],
+      "title": "Apply PuLID Flux - verrou identite",
+      "color": "#322",
+      "bgcolor": "#533"
+    },
+    {
+      "id": 11,
+      "type": "PulidFluxFaceDetector",
+      "pos": [
+        1240.0,
+        1880.0
+      ],
+      "size": [
+        340,
+        100
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "face_analysis",
+          "type": "FACEANALYSIS",
+          "link": 7
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 8
+        },
+        {
+          "name": "options",
+          "type": "OPTIONS",
+          "link": 9
+        }
+      ],
+      "outputs": [
+        {
+          "name": "embed_face",
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "name": "align_face",
+          "type": "IMAGE",
+          "links": [
+            10
+          ]
+        },
+        {
+          "name": "face_bbox_image",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PulidFluxFaceDetector"
+      },
+      "widgets_values": [],
+      "title": "QC crop de reference"
+    },
+    {
+      "id": 12,
+      "type": "PreviewImage",
+      "pos": [
+        1640.0,
+        1880.0
+      ],
+      "size": [
+        300,
+        300
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "title": "align_face (EVA-CLIP)"
+    },
+    {
+      "id": 13,
+      "type": "Note",
+      "pos": [
+        860.0,
+        1880.0
+      ],
+      "size": [
+        340,
+        420
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "QC DE LA REFERENCE (facultatif mais utile une fois)\nPulid Flux Face Detector montre EXACTEMENT le crop de visage que PuLID\nextrait de la base gelee. Si ce crop est flou, coupe ou attrape un\nmauvais visage, toute la suite est fausse.\n- embed_face   : ce qui part dans InsightFace (identite)\n- align_face   : ce qui part dans EVA-CLIP (details fins)\nSi l'image de reference contient plusieurs visages, regler input_faces_index\ndans Pulid Flux Options.\nCe groupe peut etre mis en Bypass (Ctrl+B) une fois la verification faite."
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 14,
+      "type": "CLIPTextEncode",
+      "pos": [
+        2180.0,
+        0.0
+      ],
+      "size": [
+        460,
+        280
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 11
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            13
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        "raw, unedited photo of a 22-year-old French woman standing in a sunlit kitchen, medium shot, three-quarter angle, looking at the camera with a faint natural smile, long dark brown hair falling past her shoulders, green eyes, dense freckles across her nose and cheeks, wearing a plain cream linen shirt, soft natural window light from the left, visible skin texture and pores, light film grain, desaturated palette of terracotta, sage and warm brown, shot on 35mm, shallow depth of field, no makeup look"
+      ],
+      "title": "POSITIF - scene uniquement (pas le visage)",
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 15,
+      "type": "CLIPTextEncode",
+      "pos": [
+        2180.0,
+        320.0
+      ],
+      "size": [
+        460,
+        100
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 12
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            22
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "title": "NEGATIF (vide - Flux cfg 1)",
+      "color": "#322",
+      "bgcolor": "#533"
+    },
+    {
+      "id": 16,
+      "type": "FluxGuidance",
+      "pos": [
+        2180.0,
+        940.0
+      ],
+      "size": [
+        320,
+        60
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 13
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            21
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FluxGuidance"
+      },
+      "widgets_values": [
+        2.2
+      ]
+    },
+    {
+      "id": 17,
+      "type": "EmptySD3LatentImage",
+      "pos": [
+        2180.0,
+        1060.0
+      ],
+      "size": [
+        320,
+        110
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            17
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "EmptySD3LatentImage"
+      },
+      "widgets_values": [
+        832,
+        1248,
+        4
+      ],
+      "title": "2:3 - 4 variations par run"
+    },
+    {
+      "id": 18,
+      "type": "KSampler",
+      "pos": [
+        2180.0,
+        1240.0
+      ],
+      "size": [
+        320,
+        280
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 14
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 25
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 26
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 17
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            18
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        812345678901234,
+        "fixed",
+        20,
+        1.0,
+        "euler",
+        "simple",
+        1.0
+      ]
+    },
+    {
+      "id": 19,
+      "type": "VAEDecode",
+      "pos": [
+        2180.0,
+        1580.0
+      ],
+      "size": [
+        320,
+        60
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 18
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 19
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            20
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 20,
+      "type": "SaveImage",
+      "pos": [
+        2580.0,
+        940.0
+      ],
+      "size": [
+        480,
+        560
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 20
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "OFM/PROD/ID_TEST/pose_cn_"
+      ],
+      "title": "Sorties du test d'identite"
+    },
+    {
+      "id": 21,
+      "type": "LoadImage",
+      "pos": [
+        2180.0,
+        1830.0
+      ],
+      "size": [
+        300.0,
+        340.0
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            24,
+            27
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "title": "SQUELETTE DE POSE (PNG deja extrait)",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "example.png"
+      ]
+    },
+    {
+      "id": 22,
+      "type": "ControlNetLoader",
+      "pos": [
+        2520.0,
+        1830.0
+      ],
+      "size": [
+        340.0,
+        60.0
+      ],
+      "flags": {},
+      "order": 21,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CONTROL_NET",
+          "type": "CONTROL_NET",
+          "links": [
+            23
+          ]
+        }
+      ],
+      "title": "Union Pro 2.0 (auto-detection du mode)",
+      "properties": {
+        "Node name for S&R": "ControlNetLoader"
+      },
+      "widgets_values": [
+        "FLUX.1-dev-ControlNet-Union-Pro-2.0.safetensors"
+      ]
+    },
+    {
+      "id": 23,
+      "type": "ControlNetApplyAdvanced",
+      "pos": [
+        2520.0,
+        1930.0
+      ],
+      "size": [
+        340.0,
+        190.0
+      ],
+      "flags": {},
+      "order": 22,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 21
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 22
+        },
+        {
+          "name": "control_net",
+          "type": "CONTROL_NET",
+          "link": 23
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 24
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 28,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            25
+          ]
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            26
+          ]
+        }
+      ],
+      "title": "Apply ControlNet - pose",
+      "properties": {
+        "Node name for S&R": "ControlNetApplyAdvanced"
+      },
+      "widgets_values": [
+        0.9,
+        0.0,
+        0.65
+      ]
+    },
+    {
+      "id": 24,
+      "type": "PreviewImage",
+      "pos": [
+        2900.0,
+        1830.0
+      ],
+      "size": [
+        300.0,
+        300.0
+      ],
+      "flags": {},
+      "order": 23,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 27
+        }
+      ],
+      "outputs": [],
+      "title": "QC - squelette reellement envoye",
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 25,
+      "type": "Note",
+      "pos": [
+        2180.0,
+        2200.0
+      ],
+      "size": [
+        1020.0,
+        180.0
+      ],
+      "flags": {},
+      "order": 24,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Protocole A/B",
+      "properties": {
+        "text": ""
+      },
+      "widgets_values": [
+        "05 - POSE (ControlNet Union Pro 2.0)  <- BANC D'ESSAI, PAS DE LA PRODUCTION\n==========================================================================\nCE QUI EST TESTE ICI\nEst-ce que ControlNet peut imposer une pose SANS abimer le verrou PuLID ?\nPuLID et ControlNet injectent tous les deux dans les memes blocs de Flux.\nRien dans les mesures du projet ne dit ce que ca fait au score d'identite.\nTant que ce n'est pas mesure, ca ne descend pas dans lena_master_prod.\n\nENTREE = UN SQUELETTE, JAMAIS UNE PHOTO\nLe PNG charge ici doit venir de WORKFLOWS/utils/pose_extract_ui.json.\nAucune photo reelle de tiers n'entre dans ce graphe (regle CLAUDE.md).\n\nMODELE\nUnion Pro 2.0 (num_mode = null) : il detecte seul le type de conditionnement.\nNE PAS ajouter SetUnionControlNetType ni SetShakkerLabsUnionControlNetType --\nces noeuds servent a la version 1.0 (num_mode = 10) et n'ont pas de sens ici.\n\nREGLAGES DE DEPART (fiche du modele, mode Pose)\n  strength 0.9 / start 0.00 / end 0.65\nend 0.65 laisse les 35 % derniers pas a PuLID seul : la pose est posee tot,\nl'identite finit le travail. C'est le reglage le plus favorable a l'identite.\n\nPROTOCOLE A/B -- a faire avant toute idee de mise en production\n  Le seed est FIXE (interrupteur 'fixed') et la guidance est a 2.2 comme en\n  production : c'est volontaire, sans ca les deux passes ne sont pas comparables.\n  A. Selectionner ce groupe, Ctrl+B pour le bypasser. Lancer -> reference.\n  B. Ctrl+B pour le reactiver. Lancer -> avec pose.\n  C. Passer AUTOMATION/qc_identity.py sur PROD/ID_TEST/ et comparer.\n\nLECTURE DU RESULTAT (bande du projet : 0.72-0.78, alerte sous 0.71)\n  - identite stable et pose suivie          -> candidat pour le groupe 04\n  - identite qui chute sous 0.71            -> baisser strength (0.7) puis end\n                                               (0.5) et remesurer\n  - pose non suivie meme a strength 1.0     -> le squelette est mauvais,\n                                               reprendre l'extraction\nNe JAMAIS compenser une perte d'identite en touchant a PuLID (end_at 0.70\ndonne 0.44, c'est mesure). C'est ControlNet qui cede, pas le verrou."
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    }
+  ],
+  "links": [
+    [
+      1,
+      4,
+      0,
+      10,
+      0,
+      "MODEL"
+    ],
+    [
+      2,
+      6,
+      0,
+      10,
+      1,
+      "PULIDFLUX"
+    ],
+    [
+      3,
+      7,
+      0,
+      10,
+      2,
+      "EVA_CLIP"
+    ],
+    [
+      4,
+      8,
+      0,
+      10,
+      3,
+      "FACEANALYSIS"
+    ],
+    [
+      5,
+      5,
+      0,
+      10,
+      4,
+      "IMAGE"
+    ],
+    [
+      6,
+      9,
+      0,
+      10,
+      6,
+      "OPTIONS"
+    ],
+    [
+      7,
+      8,
+      0,
+      11,
+      0,
+      "FACEANALYSIS"
+    ],
+    [
+      8,
+      5,
+      0,
+      11,
+      1,
+      "IMAGE"
+    ],
+    [
+      9,
+      9,
+      0,
+      11,
+      2,
+      "OPTIONS"
+    ],
+    [
+      10,
+      11,
+      1,
+      12,
+      0,
+      "IMAGE"
+    ],
+    [
+      11,
+      4,
+      1,
+      14,
+      0,
+      "CLIP"
+    ],
+    [
+      12,
+      4,
+      1,
+      15,
+      0,
+      "CLIP"
+    ],
+    [
+      13,
+      14,
+      0,
+      16,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      14,
+      10,
+      0,
+      18,
+      0,
+      "MODEL"
+    ],
+    [
+      17,
+      17,
+      0,
+      18,
+      3,
+      "LATENT"
+    ],
+    [
+      18,
+      18,
+      0,
+      19,
+      0,
+      "LATENT"
+    ],
+    [
+      19,
+      4,
+      2,
+      19,
+      1,
+      "VAE"
+    ],
+    [
+      20,
+      19,
+      0,
+      20,
+      0,
+      "IMAGE"
+    ],
+    [
+      21,
+      16,
+      0,
+      23,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      22,
+      15,
+      0,
+      23,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      23,
+      22,
+      0,
+      23,
+      2,
+      "CONTROL_NET"
+    ],
+    [
+      24,
+      21,
+      0,
+      23,
+      3,
+      "IMAGE"
+    ],
+    [
+      25,
+      23,
+      0,
+      18,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      26,
+      23,
+      1,
+      18,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      27,
+      21,
+      0,
+      24,
+      0,
+      "IMAGE"
+    ],
+    [
+      28,
+      4,
+      2,
+      23,
+      4,
+      "VAE"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "00 - MODELE FLUX",
+      "bounding": [
+        820.0,
+        -110.0,
+        420.0,
+        250.0
+      ],
+      "color": "#3f789e",
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "01 - IDENTITE LENA (PuLID)  <- coeur du systeme",
+      "bounding": [
+        820.0,
+        830.0,
+        1200.0,
+        530.0
+      ],
+      "color": "#8a3f3f",
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "02 - QC DE LA REFERENCE (bypassable)",
+      "bounding": [
+        820.0,
+        1770.0,
+        1160.0,
+        570.0
+      ],
+      "color": "#b58b2a",
+      "flags": {}
+    },
+    {
+      "id": 4,
+      "title": "03 - PROMPT DE SCENE",
+      "bounding": [
+        2140.0,
+        -110.0,
+        540.0,
+        570.0
+      ],
+      "color": "#a1309b",
+      "flags": {}
+    },
+    {
+      "id": 5,
+      "title": "04 - GENERATION + SORTIES",
+      "bounding": [
+        2140.0,
+        830.0,
+        960.0,
+        850.0
+      ],
+      "color": "#3f9e6f",
+      "flags": {}
+    },
+    {
+      "id": 5,
+      "title": "05 - POSE (ControlNet Union Pro 2.0)",
+      "bounding": [
+        2140.0,
+        1770.0,
+        1100.0,
+        650.0
+      ],
+      "color": "#a1309b",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.55,
+      "offset": [
+        0,
+        0
+      ]
+    }
+  },
+  "version": 0.4
+}

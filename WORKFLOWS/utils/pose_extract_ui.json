@@ -1,0 +1,220 @@
+{
+  "last_node_id": 5,
+  "last_link_id": 3,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "Note",
+      "pos": [
+        0.0,
+        0.0
+      ],
+      "size": [
+        660.0,
+        760.0
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "LIRE D'ABORD",
+      "properties": {
+        "text": ""
+      },
+      "widgets_values": [
+        "EXTRACTION DE POSE -- outil ponctuel, HORS chaine de production\n================================================================\nPOURQUOI CE FICHIER EXISTE SEPAREMENT\nLa regle du projet (CLAUDE.md) : une photo reelle de tiers n'entre JAMAIS\ndans un graphe de production. Cet outil est le seul endroit ou elle est\nchargee, et il n'en ressort qu'un SQUELETTE : des segments de couleur sur\nfond noir. Aucun trait de visage, aucune carnation, aucune texture ne\nsurvit a l'extraction.\n\nLe graphe de production ne charge ensuite que le squelette.\n\nMODE D'EMPLOI\n1. Copier la photo source dans ComfyUI/input/ (LoadImage n'y lit que la).\n2. La selectionner dans le noeud PHOTO SOURCE.\n3. Lancer. Verifier le squelette dans l'apercu : s'il est incomplet ou\n   faux, changer de photo -- un mauvais squelette donne une mauvaise pose.\n4. La sortie atterrit dans output/OFM/INPUTS/POSE/.\n5. La recopier dans ComfyUI/input/ pour la rendre selectionnable dans le\n   banc d'essai et, plus tard, dans le workflow de production.\n6. SUPPRIMER la photo source de ComfyUI/input/ une fois le squelette\n   obtenu. Elle n'a plus aucune raison d'etre sur le disque du pipeline.\n\nPOURQUOI detect_face = disable\nC'est un choix propre a ce projet, pas un defaut. Le reglage retire le\nMAILLAGE FACIAL 68 points, qui decrirait la forme des yeux, du nez et de\nla bouche de la personne source -- soit exactement ce que PuLID doit\netre seul a decider.\nAttention a ne pas en conclure qu'il ne reste rien de la tete : le\nsquelette body-18 conserve nez / yeux / oreilles, 5 reperes grossiers.\nC'est voulu et suffisant : ils donnent l'ORIENTATION de la tete (de face,\nde profil, penchee) sans en imposer la geometrie. Verifie sur une sortie\nreelle le 23/08/2026.\n\nPOURQUOI detect_hand = enable\nLes mains sont le defaut le plus visible du pipeline. Un squelette de\nmain donne au modele une structure a suivre, c'est le principal gain\nattendu de ControlNet ici.\n\nPREMIER LANCEMENT\nDWPose telecharge ses deux modeles (yolox_l + dw-ll_ucoco_384, ~200 Mo)\ndans custom_nodes/comfyui_controlnet_aux/ckpts/. Une seule fois."
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 2,
+      "type": "LoadImage",
+      "pos": [
+        760.0,
+        0.0
+      ],
+      "size": [
+        340.0,
+        340.0
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "title": "PHOTO SOURCE (reelle) - ne sort pas d'ici",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "example.png"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "DWPreprocessor",
+      "pos": [
+        1160.0,
+        0.0
+      ],
+      "size": [
+        340.0,
+        240.0
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            2,
+            3
+          ]
+        },
+        {
+          "name": "POSE_KEYPOINT",
+          "type": "POSE_KEYPOINT",
+          "links": null
+        }
+      ],
+      "title": "DWPose - corps + mains, SANS visage",
+      "properties": {
+        "Node name for S&R": "DWPreprocessor"
+      },
+      "widgets_values": [
+        "enable",
+        "enable",
+        "disable",
+        1024,
+        "yolox_l.onnx",
+        "dw-ll_ucoco_384_bs5.torchscript.pt",
+        "disable"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "PreviewImage",
+      "pos": [
+        1560.0,
+        0.0
+      ],
+      "size": [
+        340.0,
+        400.0
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 2
+        }
+      ],
+      "outputs": [],
+      "title": "QC - le squelette reellement extrait",
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 5,
+      "type": "SaveImage",
+      "pos": [
+        1960.0,
+        0.0
+      ],
+      "size": [
+        400.0,
+        460.0
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 3
+        }
+      ],
+      "outputs": [],
+      "title": "Squelette -> OFM/INPUTS/POSE/",
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "OFM/INPUTS/POSE/pose_"
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      2,
+      0,
+      3,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      3,
+      0,
+      4,
+      0,
+      "IMAGE"
+    ],
+    [
+      3,
+      3,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "EXTRACTION DE POSE (photo reelle -> squelette)",
+      "bounding": [
+        720.0,
+        -110.0,
+        1680.0,
+        600.0
+      ],
+      "color": "#3f789e",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

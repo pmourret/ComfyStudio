@@ -1,0 +1,300 @@
+{
+  "last_node_id": 14,
+  "last_link_id": 16,
+  "nodes": [
+    {
+      "id": 14,
+      "type": "Note",
+      "pos": [-1600, -420],
+      "size": [560, 340],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "ANONYMISATION PHOTO REELLE (chien) -> story 9:16\n\nPrincipe : txt2img SDXL + ControlNet Canny. On part d'un EmptyLatentImage (bruit pur), PAS d'un VAEEncode de la photo : AUCUN pixel reel ne survit. La seule info issue de la vraie photo = la carte de contours (canny) du chien recadre.\n\nA REGLER :\n1. LoadImage (id1) : copier ta photo dans ComfyUI/input/ puis la selectionner.\n2. ImageCrop+ (id2) : cadrer SERRE sur le chien. Regle par defaut = 768x1344 (deja 9:16) centre ; ajuste width/height/x_offset/y_offset pour exclure maison/trampoline/mobilier. Astuce : si tu cadres deja en 9:16, l'ImageResize+ ne fait rien (pas de bord de padding).\n3. ControlNetLoader (id8) : necessite un modele a telecharger (voir liste dans ma reponse). Aucun n'est installe pour l'instant.\n4. Seed : KSampler (id11) en control_after_generate=randomize (production).\n\nCheckpoint : juggernautXL_ragnarok (non-Lightning) -> steps 30 / cfg 6. Si tu passes sur realvisxlV50 (Lightning) : steps 6-8 / cfg 1.5-2 / sampler dpmpp_sde."
+      ]
+    },
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [-1600, 40],
+      "size": [340, 380],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        { "name": "IMAGE", "type": "IMAGE", "links": [1] },
+        { "name": "MASK", "type": "MASK", "links": null }
+      ],
+      "properties": { "Node name for S&R": "LoadImage" },
+      "widgets_values": ["dog_source.png", "image"]
+    },
+    {
+      "id": 2,
+      "type": "ImageCrop+",
+      "pos": [-1220, 40],
+      "size": [300, 220],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        { "name": "image", "type": "IMAGE", "link": 1 }
+      ],
+      "outputs": [
+        { "name": "IMAGE", "type": "IMAGE", "links": [2] },
+        { "name": "x", "type": "INT", "links": null },
+        { "name": "y", "type": "INT", "links": null }
+      ],
+      "properties": { "Node name for S&R": "ImageCrop+" },
+      "title": "Crop serre sur le chien",
+      "widgets_values": [768, 1344, "center", 0, 0]
+    },
+    {
+      "id": 3,
+      "type": "ImageResize+",
+      "pos": [-880, 40],
+      "size": [300, 250],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        { "name": "image", "type": "IMAGE", "link": 2 }
+      ],
+      "outputs": [
+        { "name": "IMAGE", "type": "IMAGE", "links": [3] },
+        { "name": "width", "type": "INT", "links": null },
+        { "name": "height", "type": "INT", "links": null }
+      ],
+      "properties": { "Node name for S&R": "ImageResize+" },
+      "title": "Cadre 9:16 (pad)",
+      "widgets_values": [768, 1344, "bicubic", "pad", "always", 8]
+    },
+    {
+      "id": 4,
+      "type": "Canny",
+      "pos": [-540, 40],
+      "size": [280, 120],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        { "name": "image", "type": "IMAGE", "link": 3 }
+      ],
+      "outputs": [
+        { "name": "IMAGE", "type": "IMAGE", "links": [4] }
+      ],
+      "properties": { "Node name for S&R": "Canny" },
+      "title": "Canny (core)",
+      "widgets_values": [0.4, 0.8]
+    },
+    {
+      "id": 5,
+      "type": "CheckpointLoaderSimple",
+      "pos": [-1600, 500],
+      "size": [360, 120],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        { "name": "MODEL", "type": "MODEL", "links": [5] },
+        { "name": "CLIP", "type": "CLIP", "links": [6, 7] },
+        { "name": "VAE", "type": "VAE", "links": [8] }
+      ],
+      "properties": { "Node name for S&R": "CheckpointLoaderSimple" },
+      "widgets_values": ["juggernautXL_ragnarok.safetensors"]
+    },
+    {
+      "id": 8,
+      "type": "ControlNetLoader",
+      "pos": [-1600, 680],
+      "size": [360, 100],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        { "name": "CONTROL_NET", "type": "CONTROL_NET", "links": [11] }
+      ],
+      "properties": { "Node name for S&R": "ControlNetLoader" },
+      "title": "ControlNet Canny SDXL (A TELECHARGER)",
+      "widgets_values": ["controlnet-canny-sdxl-1.0.safetensors"]
+    },
+    {
+      "id": 6,
+      "type": "CLIPTextEncode",
+      "pos": [-1200, 480],
+      "size": [420, 220],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        { "name": "clip", "type": "CLIP", "link": 6 }
+      ],
+      "outputs": [
+        { "name": "CONDITIONING", "type": "CONDITIONING", "links": [9] }
+      ],
+      "properties": { "Node name for S&R": "CLIPTextEncode" },
+      "title": "POSITIF (jardin provencal reconstruit)",
+      "widgets_values": [
+        "a dog standing in a sunny Provencal garden, terracotta sage green and cream color palette, terracotta clay pots, olive tree, warm natural golden sunlight, soft shallow depth of field, blurred background, candid casual phone POV snapshot, realistic photography, natural light, high detail"
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 7,
+      "type": "CLIPTextEncode",
+      "pos": [-1200, 740],
+      "size": [420, 180],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        { "name": "clip", "type": "CLIP", "link": 7 }
+      ],
+      "outputs": [
+        { "name": "CONDITIONING", "type": "CONDITIONING", "links": [10] }
+      ],
+      "properties": { "Node name for S&R": "CLIPTextEncode" },
+      "title": "NEGATIF (bannit le decor reel)",
+      "widgets_values": [
+        "house, building, wall, fence, trampoline, garden furniture, patio, indoor, people, person, human, text, watermark, logo, cartoon, illustration, painting, cgi, 3d render, deformed, extra limbs, blurry subject, low quality, jpeg artifacts"
+      ],
+      "color": "#322",
+      "bgcolor": "#533"
+    },
+    {
+      "id": 9,
+      "type": "ControlNetApplyAdvanced",
+      "pos": [-240, 300],
+      "size": [320, 220],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        { "name": "positive", "type": "CONDITIONING", "link": 9 },
+        { "name": "negative", "type": "CONDITIONING", "link": 10 },
+        { "name": "control_net", "type": "CONTROL_NET", "link": 11 },
+        { "name": "image", "type": "IMAGE", "link": 4 },
+        { "name": "vae", "type": "VAE", "link": null, "shape": 7 }
+      ],
+      "outputs": [
+        { "name": "positive", "type": "CONDITIONING", "links": [12] },
+        { "name": "negative", "type": "CONDITIONING", "links": [13] }
+      ],
+      "properties": { "Node name for S&R": "ControlNetApplyAdvanced" },
+      "widgets_values": [0.75, 0.0, 0.85]
+    },
+    {
+      "id": 10,
+      "type": "EmptyLatentImage",
+      "pos": [-240, 560],
+      "size": [300, 130],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        { "name": "LATENT", "type": "LATENT", "links": [14] }
+      ],
+      "properties": { "Node name for S&R": "EmptyLatentImage" },
+      "title": "Latent 9:16 (768x1344)",
+      "widgets_values": [768, 1344, 1]
+    },
+    {
+      "id": 11,
+      "type": "KSampler",
+      "pos": [140, 300],
+      "size": [320, 260],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        { "name": "model", "type": "MODEL", "link": 5 },
+        { "name": "positive", "type": "CONDITIONING", "link": 12 },
+        { "name": "negative", "type": "CONDITIONING", "link": 13 },
+        { "name": "latent_image", "type": "LATENT", "link": 14 }
+      ],
+      "outputs": [
+        { "name": "LATENT", "type": "LATENT", "links": [15] }
+      ],
+      "properties": { "Node name for S&R": "KSampler" },
+      "widgets_values": [0, "randomize", 30, 6.0, "dpmpp_2m", "karras", 1.0]
+    },
+    {
+      "id": 12,
+      "type": "VAEDecode",
+      "pos": [500, 300],
+      "size": [220, 100],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        { "name": "samples", "type": "LATENT", "link": 15 },
+        { "name": "vae", "type": "VAE", "link": 8 }
+      ],
+      "outputs": [
+        { "name": "IMAGE", "type": "IMAGE", "links": [16] }
+      ],
+      "properties": { "Node name for S&R": "VAEDecode" },
+      "widgets_values": []
+    },
+    {
+      "id": 13,
+      "type": "SaveImage",
+      "pos": [760, 300],
+      "size": [400, 420],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        { "name": "images", "type": "IMAGE", "link": 16 }
+      ],
+      "outputs": [],
+      "properties": { "Node name for S&R": "SaveImage" },
+      "widgets_values": ["OFM/story_dog_anon"]
+    }
+  ],
+  "links": [
+    [1, 1, 0, 2, 0, "IMAGE"],
+    [2, 2, 0, 3, 0, "IMAGE"],
+    [3, 3, 0, 4, 0, "IMAGE"],
+    [4, 4, 0, 9, 3, "IMAGE"],
+    [5, 5, 0, 11, 0, "MODEL"],
+    [6, 5, 1, 6, 0, "CLIP"],
+    [7, 5, 1, 7, 0, "CLIP"],
+    [8, 5, 2, 12, 1, "VAE"],
+    [9, 6, 0, 9, 0, "CONDITIONING"],
+    [10, 7, 0, 9, 1, "CONDITIONING"],
+    [11, 8, 0, 9, 2, "CONTROL_NET"],
+    [12, 9, 0, 11, 1, "CONDITIONING"],
+    [13, 9, 1, 11, 2, "CONDITIONING"],
+    [14, 10, 0, 11, 3, "LATENT"],
+    [15, 11, 0, 12, 0, "LATENT"],
+    [16, 12, 0, 13, 0, "IMAGE"]
+  ],
+  "groups": [
+    {
+      "title": "PREPROCESSING (photo reelle -> carte de controle)",
+      "bounding": [-1620, -40, 1120, 480],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "title": "GENERATION SDXL (decor 100% synthetique)",
+      "bounding": [-1620, 440, 2820, 500],
+      "color": "#a1309b",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

@@ -1,0 +1,284 @@
+{
+  "last_node_id": 13,
+  "last_link_id": 18,
+  "nodes": [
+    {
+      "id": 13,
+      "type": "Note",
+      "pos": [-1000, -240],
+      "size": [520, 150],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "BASE PERSONNAGE (ADN) — Flux.1-dev\n\n1. Generer le prompt 'ADN' via ChatGPT (pipeline §1.2), puis coller sa sortie dans le noeud POSITIF (id 2).\n   Gabarit attendu : 'Full-face vertical portrait, centered composition of a <desc>. She has <traits>. White background. No clothes visible.'\n2. Tester d'abord la BASE 1MP seule (mute le groupe 'HIRES 2K').\n3. Quand le visage convient : fixer le seed du KSampler (id 6) pour rendre la base reproductible, puis activer le groupe HIRES.\n4. La sortie 'OFM_base_2K' devient la reference gelee chargee dans le workflow Nano Banana."
+      ]
+    },
+    {
+      "id": 1,
+      "type": "CheckpointLoaderSimple",
+      "pos": [-1000, 60],
+      "size": [360, 98],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        { "name": "MODEL", "type": "MODEL", "links": [6, 15] },
+        { "name": "CLIP", "type": "CLIP", "links": [1, 2] },
+        { "name": "VAE", "type": "VAE", "links": [9, 17] }
+      ],
+      "properties": { "cnr_id": "comfy-core", "ver": "0.3.56", "Node name for S&R": "CheckpointLoaderSimple" },
+      "widgets_values": ["flux1-dev-fp8.safetensors"]
+    },
+    {
+      "id": 2,
+      "type": "CLIPTextEncode",
+      "pos": [-580, -20],
+      "size": [420, 200],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        { "name": "clip", "type": "CLIP", "link": 1 }
+      ],
+      "outputs": [
+        { "name": "CONDITIONING", "type": "CONDITIONING", "links": [3] }
+      ],
+      "properties": { "cnr_id": "comfy-core", "ver": "0.3.56", "Node name for S&R": "CLIPTextEncode" },
+      "title": "POSITIF (prompt ADN)",
+      "widgets_values": [
+        "Full-face vertical portrait, centered composition of a 22-year-old French woman. She has long brown hair, subtle skin texture and subtle makeup, freckles, blue eyes, full lips. White background. No clothes visible. raw unedited photo, natural skin texture, soft even studio lighting, sharp focus, high detail."
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 3,
+      "type": "CLIPTextEncode",
+      "pos": [-580, 230],
+      "size": [420, 100],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        { "name": "clip", "type": "CLIP", "link": 2 }
+      ],
+      "outputs": [
+        { "name": "CONDITIONING", "type": "CONDITIONING", "links": [5, 14] }
+      ],
+      "properties": { "cnr_id": "comfy-core", "ver": "0.3.56", "Node name for S&R": "CLIPTextEncode" },
+      "title": "NEGATIF (vide - Flux cfg 1)",
+      "widgets_values": [""],
+      "color": "#322",
+      "bgcolor": "#533"
+    },
+    {
+      "id": 4,
+      "type": "FluxGuidance",
+      "pos": [-120, -20],
+      "size": [220, 58],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        { "name": "conditioning", "type": "CONDITIONING", "link": 3 }
+      ],
+      "outputs": [
+        { "name": "CONDITIONING", "type": "CONDITIONING", "links": [4, 13] }
+      ],
+      "properties": { "cnr_id": "comfy-core", "ver": "0.3.56", "Node name for S&R": "FluxGuidance" },
+      "widgets_values": [3.5]
+    },
+    {
+      "id": 5,
+      "type": "EmptySD3LatentImage",
+      "pos": [-120, 100],
+      "size": [220, 106],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        { "name": "LATENT", "type": "LATENT", "links": [7] }
+      ],
+      "properties": { "cnr_id": "comfy-core", "ver": "0.3.56", "Node name for S&R": "EmptySD3LatentImage" },
+      "title": "Latent 2:3 ~1MP",
+      "widgets_values": [832, 1248, 1]
+    },
+    {
+      "id": 6,
+      "type": "KSampler",
+      "pos": [160, 60],
+      "size": [300, 262],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        { "name": "model", "type": "MODEL", "link": 6 },
+        { "name": "positive", "type": "CONDITIONING", "link": 4 },
+        { "name": "negative", "type": "CONDITIONING", "link": 5 },
+        { "name": "latent_image", "type": "LATENT", "link": 7 }
+      ],
+      "outputs": [
+        { "name": "LATENT", "type": "LATENT", "links": [8, 11] }
+      ],
+      "properties": { "cnr_id": "comfy-core", "ver": "0.3.56", "Node name for S&R": "KSampler" },
+      "title": "KSampler base",
+      "widgets_values": [977406364589975, "randomize", 20, 1.0, "euler", "simple", 1.0]
+    },
+    {
+      "id": 7,
+      "type": "VAEDecode",
+      "pos": [500, 60],
+      "size": [180, 46],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        { "name": "samples", "type": "LATENT", "link": 8 },
+        { "name": "vae", "type": "VAE", "link": 9 }
+      ],
+      "outputs": [
+        { "name": "IMAGE", "type": "IMAGE", "links": [10] }
+      ],
+      "properties": { "cnr_id": "comfy-core", "ver": "0.3.56", "Node name for S&R": "VAEDecode" },
+      "title": "Decode base"
+    },
+    {
+      "id": 8,
+      "type": "SaveImage",
+      "pos": [500, 160],
+      "size": [340, 300],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        { "name": "images", "type": "IMAGE", "link": 10 }
+      ],
+      "outputs": [
+        { "name": "images", "type": "IMAGE", "links": null }
+      ],
+      "properties": { "cnr_id": "comfy-core", "ver": "0.3.56", "Node name for S&R": "SaveImage" },
+      "title": "Save base 1MP",
+      "widgets_values": ["OFM_base"]
+    },
+    {
+      "id": 9,
+      "type": "LatentUpscale",
+      "pos": [160, 380],
+      "size": [280, 130],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        { "name": "samples", "type": "LATENT", "link": 11 }
+      ],
+      "outputs": [
+        { "name": "LATENT", "type": "LATENT", "links": [12] }
+      ],
+      "properties": { "cnr_id": "comfy-core", "ver": "0.3.56", "Node name for S&R": "LatentUpscale" },
+      "title": "Upscale latent -> 2K",
+      "widgets_values": ["nearest-exact", 1344, 2016, "disabled"]
+    },
+    {
+      "id": 10,
+      "type": "KSampler",
+      "pos": [480, 380],
+      "size": [300, 262],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        { "name": "model", "type": "MODEL", "link": 15 },
+        { "name": "positive", "type": "CONDITIONING", "link": 13 },
+        { "name": "negative", "type": "CONDITIONING", "link": 14 },
+        { "name": "latent_image", "type": "LATENT", "link": 12 }
+      ],
+      "outputs": [
+        { "name": "LATENT", "type": "LATENT", "links": [16] }
+      ],
+      "properties": { "cnr_id": "comfy-core", "ver": "0.3.56", "Node name for S&R": "KSampler" },
+      "title": "KSampler hires (denoise 0.45)",
+      "widgets_values": [977406364589975, "randomize", 20, 1.0, "euler", "simple", 0.45]
+    },
+    {
+      "id": 11,
+      "type": "VAEDecode",
+      "pos": [820, 380],
+      "size": [180, 46],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        { "name": "samples", "type": "LATENT", "link": 16 },
+        { "name": "vae", "type": "VAE", "link": 17 }
+      ],
+      "outputs": [
+        { "name": "IMAGE", "type": "IMAGE", "links": [18] }
+      ],
+      "properties": { "cnr_id": "comfy-core", "ver": "0.3.56", "Node name for S&R": "VAEDecode" },
+      "title": "Decode 2K"
+    },
+    {
+      "id": 12,
+      "type": "SaveImage",
+      "pos": [820, 480],
+      "size": [340, 300],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        { "name": "images", "type": "IMAGE", "link": 18 }
+      ],
+      "outputs": [
+        { "name": "images", "type": "IMAGE", "links": null }
+      ],
+      "properties": { "cnr_id": "comfy-core", "ver": "0.3.56", "Node name for S&R": "SaveImage" },
+      "title": "Save base 2K",
+      "widgets_values": ["OFM_base_2K"]
+    }
+  ],
+  "links": [
+    [1, 1, 1, 2, 0, "CLIP"],
+    [2, 1, 1, 3, 0, "CLIP"],
+    [3, 2, 0, 4, 0, "CONDITIONING"],
+    [4, 4, 0, 6, 1, "CONDITIONING"],
+    [5, 3, 0, 6, 2, "CONDITIONING"],
+    [6, 1, 0, 6, 0, "MODEL"],
+    [7, 5, 0, 6, 3, "LATENT"],
+    [8, 6, 0, 7, 0, "LATENT"],
+    [9, 1, 2, 7, 1, "VAE"],
+    [10, 7, 0, 8, 0, "IMAGE"],
+    [11, 6, 0, 9, 0, "LATENT"],
+    [12, 9, 0, 10, 3, "LATENT"],
+    [13, 4, 0, 10, 1, "CONDITIONING"],
+    [14, 3, 0, 10, 2, "CONDITIONING"],
+    [15, 1, 0, 10, 0, "MODEL"],
+    [16, 10, 0, 11, 0, "LATENT"],
+    [17, 1, 2, 11, 1, "VAE"],
+    [18, 11, 0, 12, 0, "IMAGE"]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "BASE 1MP (2:3)",
+      "bounding": [-620, -100, 1470, 400],
+      "color": "#3f789e",
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "HIRES 2K (mutable)",
+      "bounding": [140, 320, 1040, 480],
+      "color": "#a1309b",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

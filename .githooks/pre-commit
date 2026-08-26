@@ -24,6 +24,24 @@ fi
 
 # 2. Validate every staged ComfyUI workflow (detected by content, not just
 #    extension, since config.json/scenes.json/tools.json are also *.json).
+#
+#    Default is static validation only: node types known to the running
+#    ComfyUI, UI -> API conversion, an active output node, no orphan links.
+#    That is what applies to any graph, whoever drives it.
+#
+#    Two flags are per-graph and cannot be guessed, so they live in the table
+#    below — leaving them on by default is what made this hook reject 14 of
+#    the repo's own 15 workflows on its first real use:
+#      --roles    checks the role table of ONE runner (wf_check.ROLES_PROD is
+#                 the SFW production runner's). Every other graph legitimately
+#                 lacks those titles.
+#      --groupes  forces groups that a graph ships bypassed; without them the
+#                 conversion yields no active output node.
+#    A graph may also be marked SKIP when wf_check.py cannot parse it yet —
+#    with the reason, so it stays visible instead of silently passing.
+#
+#    Paths here are the J1 ones. J4 moves the character graphs under
+#    CHARACTERS/<name>/ and this table moves with them.
 workflow_files=""
 for f in $(echo "$staged_files" | grep -E '\.json$' || true); do
   if [ -f "$f" ] && grep -qE '"nodes"|"class_type"' "$f" 2>/dev/null; then
@@ -33,9 +51,26 @@ done
 
 if [ -n "$workflow_files" ]; then
   for f in $workflow_files; do
+    extra=()
+    skip_reason=""
+    case "$f" in
+      WORKFLOWS/content/lena_master_prod_ui.json)
+        extra=(--roles) ;;
+      WORKFLOWS/nsfw/lena_nsfw_branch_ui.json)
+        extra=(--groupes "N1 - ENTREES,N2 - MODELE NSFW LOCAL,N3 - EDITION GUIDEE,N3b - REFINER REALISME,N4 - IDENTITE RESTAUREE,N5 - SORTIE") ;;
+      WORKFLOWS/experiments/image_krea2_turbo_t2i.json|WORKFLOWS/nsfw/ltx2_3_persona_i2v_ui.json|WORKFLOWS/nsfw/video_ltx2_3_i2v.json)
+        skip_reason="uses ComfyUI subgraphs (UUID node types) and MarkdownNote; ui_to_api.convert handles neither yet" ;;
+    esac
+
+    if [ -n "$skip_reason" ]; then
+      echo "Skipping workflow: $f"
+      echo "  not validatable by wf_check.py — $skip_reason"
+      continue
+    fi
+
     echo "Validating workflow: $f"
-    if ! python AUTOMATION/wf_check.py --roles "$f"; then
-      echo "COMMIT BLOCKED — wf_check.py --roles failed on $f"
+    if ! python AUTOMATION/wf_check.py "${extra[@]}" "$f"; then
+      echo "COMMIT BLOCKED — wf_check.py failed on $f"
       echo "Fix the workflow, or run 'wf_check.py --essai $f' for the ComfyUI-side error."
       exit 1
     fi
