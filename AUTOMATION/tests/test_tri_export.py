@@ -1,0 +1,187 @@
+# -*- coding: utf-8 -*-
+"""Tri et export : /api/action et /api/undo, sur une arborescence jetable.
+
+POURQUOI CE TEST EXISTE. Ces deux handlers deplacent des fichiers et en
+suppriment : ce sont les seuls endroits de l'application ou une erreur coute une
+image. La revue du 25/08/2026 y a trouve trois defauts :
+
+  - l'annulation appelait `shutil.move` SANS le garde `nom_libre` que l'aller
+    prend soin d'avoir. Un homonyme dans le dossier d'origine etait ecrase sans
+    un mot — et un homonyme, ici, est une image differente ;
+  - annuler un rejet remettait l'image dans OK mais laissait son JPEG supprime :
+    elle revenait « validee » et absente de la publication, sans rien pour le
+    dire ;
+  - apres un renommage de collision, l'export relisait le journal avec le
+    NOUVEAU nom, absent du journal : la ligne revenait vide, donc
+    `categorie = divers` et `format = 4:5`. L'export partait dans le mauvais
+    dossier et une image 9:16 etait redimensionnee en 1080x1350.
+
+Rien n'est simule : ce sont les vraies fonctions, sur un faux PROD/.
+
+Lancer :  python_embeded\\python.exe AUTOMATION\\tests\\test_tri_export.py
+"""
+import asyncio
+import csv
+import shutil
+import sys
+import tempfile
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+OFM = HERE.parents[1]
+sys.path.insert(0, str(OFM / "AUTOMATION" / "web"))
+sys.path.insert(0, str(OFM / "AUTOMATION"))
+
+import app                    # noqa: E402
+import base as db             # noqa: E402
+import mesures as mes         # noqa: E402
+from PIL import Image         # noqa: E402
+
+KO = 0
+
+
+def verifie(ok, texte):
+    global KO
+    print(f"  {'ok   ' if ok else 'ECHEC'} {texte}")
+    if not ok:
+        KO += 1
+
+
+class FausseRequete:
+    """Juste ce qu'un handler lit : le corps JSON et la methode."""
+
+    def __init__(self, corps):
+        self._corps = corps
+        self.method = "POST"
+        self.path = "/test"
+        self.query = {}
+        self.headers = {"Content-Type": "application/json", "Host": "127.0.0.1"}
+
+    async def json(self):
+        return self._corps
+
+
+def appeler(handler, corps=None):
+    reponse = asyncio.run(handler(FausseRequete(corps or {})))
+    import json as _json
+    return _json.loads(reponse.text)
+
+
+def image(chemin, taille=(896, 1120)):
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", taille, (90, 70, 60)).save(chemin)
+
+
+# ------------------------------------------------------- arborescence jetable
+racine = Path(tempfile.mkdtemp(prefix="lena_tri_"))
+app.OFM = racine
+app.THUMBS = racine / "PROD" / ".thumbs"
+mes.FICHIER = racine / "PROD" / "mesures.json"
+db.FICHIER = racine / "PROD" / "lena.db"
+app.UNDO.clear()
+
+for b in ("OK", "A_REVOIR", "REJET", "ARCHIVE"):
+    (racine / "PROD" / "LENA" / b).mkdir(parents=True, exist_ok=True)
+
+# journal : la scene est en 9:16 et de categorie « voyage ». C'est ce que
+# l'export doit retrouver — et ce qu'il perdait apres un renommage.
+journal = racine / "PROD" / "journal_batch.csv"
+with open(journal, "w", newline="", encoding="utf-8") as f:
+    w = csv.writer(f, delimiter=";")
+    w.writerow(app.lb.JOURNAL_COLS)
+    w.writerow(["2026-08-25T10:00:00", "b1", "rando_montagne", "voyage", "1", "doux",
+                "", "9:16", "42", "0.760", "A_REVOIR", "voyage_rando_01.png", "",
+                "60", "un prompt"])
+
+image(racine / "PROD" / "LENA" / "A_REVOIR" / "voyage_rando_01.png")
+
+print("=" * 70)
+print("tri et export - tests")
+print("=" * 70)
+
+print("\n[1] valider : l'export prend la categorie et le format du journal")
+r = appeler(app.api_action, {"name": "voyage_rando_01.png", "bucket": "A_REVOIR",
+                             "action": "valider", "space": "lena"})
+verifie(r["ok"] and r["bucket"] == "OK", "l'image passe en OK")
+exp = racine / "PROD" / "EXPORT" / "voyage" / "voyage_rando_01.jpg"
+verifie(exp.exists(), "l'export est dans EXPORT/voyage (pas dans « divers »)")
+if exp.exists():
+    attendu = tuple(app.cfg()["export_sizes"]["9:16"])
+    with Image.open(exp) as im:
+        verifie(im.size == attendu, f"export a la taille du 9:16 {im.size} == {attendu}")
+
+print("\n[2] rejeter : l'image sort aussi de la publication")
+r = appeler(app.api_action, {"name": "voyage_rando_01.png", "bucket": "OK",
+                             "action": "rejeter", "space": "lena"})
+verifie(r["ok"] and r["bucket"] == "REJET", "l'image passe en REJET")
+verifie(not exp.exists(), "le JPEG est retire de l'export")
+
+print("\n[3] annuler un rejet : l'image ET son export reviennent")
+r = appeler(app.api_undo, {})
+verifie(r["ok"] and r["bucket"] == "OK", "l'image revient dans OK")
+verifie((racine / "PROD" / "LENA" / "OK" / "voyage_rando_01.png").exists(),
+        "le fichier est bien dans OK")
+verifie(exp.exists(), "l'export est REFAIT (il restait supprime avant le correctif)")
+
+print("\n[4] annuler ne doit jamais ecraser un homonyme")
+# on refait le chemin : rejet, puis on place une AUTRE image du meme nom dans OK
+appeler(app.api_action, {"name": "voyage_rando_01.png", "bucket": "OK",
+                         "action": "rejeter", "space": "lena"})
+intruse = racine / "PROD" / "LENA" / "OK" / "voyage_rando_01.png"
+image(intruse, taille=(64, 64))          # image DIFFERENTE, meme nom
+avant = intruse.stat().st_size
+r = appeler(app.api_undo, {})
+verifie(intruse.exists() and intruse.stat().st_size == avant,
+        "l'image deja presente dans OK n'a pas ete ecrasee")
+verifie(r["name"] != "voyage_rando_01.png",
+        f"l'image annulee a ete renommee ({r['name']})")
+verifie((racine / "PROD" / "LENA" / "OK" / r["name"]).exists(),
+        "les deux images coexistent dans OK")
+
+print("\n[5] apres renommage, l'export garde la bonne categorie")
+# l'image renommee n'est PAS dans le journal sous son nouveau nom : c'est le
+# piege. L'export doit malgre tout retrouver « voyage » et le 9:16.
+renomme = r["name"]
+exp2 = racine / "PROD" / "EXPORT" / "voyage" / (Path(renomme).stem + ".jpg")
+verifie(exp2.exists(),
+        f"l'export du fichier renomme est dans EXPORT/voyage ({exp2.name})")
+verifie(not (racine / "PROD" / "EXPORT" / "divers").exists(),
+        "aucun export n'a atterri dans « divers »")
+
+print("\n[6] une action inconnue est refusee proprement")
+try:
+    appeler(app.api_action, {"name": "voyage_rando_01.png", "bucket": "OK",
+                             "action": "supprimer_tout", "space": "lena"})
+    verifie(False, "une action inconnue doit lever une erreur HTTP")
+except Exception as e:
+    verifie(type(e).__name__ == "HTTPBadRequest",
+            f"action inconnue : 400 propre ({type(e).__name__})")
+
+print("\n[7] les vignettes ne survivent pas au deplacement")
+# une vignette est rangee par espace/bucket : l'image qui change de dossier
+# laissait la sienne derriere elle (96 fichiers pour 46 PNG le 25/08/2026)
+tdir = app.THUMBS / "lena" / "OK"
+tdir.mkdir(parents=True, exist_ok=True)
+vignette = tdir / (Path(renomme).stem + ".jpg")
+image(vignette, taille=(64, 64))
+appeler(app.api_action, {"name": renomme, "bucket": "OK",
+                         "action": "archiver", "space": "lena"})
+verifie(not vignette.exists(), "la vignette du dossier quitte est retiree")
+
+orpheline = tdir / "image_disparue.jpg"
+image(orpheline, taille=(64, 64))
+# vignette d'une disposition PRECEDENTE : .thumbs/<bucket>/ sans niveau
+# d'espace. La premiere version du balayage ne descendait pas jusqu'a elle.
+ancienne = app.THUMBS / "OK" / "format_d_avant.jpg"
+image(ancienne, taille=(64, 64))
+retirees = app.purger_vignettes()
+verifie(not orpheline.exists(), "le balayage retire les vignettes sans image")
+verifie(not ancienne.exists(),
+        "le balayage retire aussi celles d'une disposition perimee")
+verifie(retirees >= 2, f"les deux sont comptees ({retirees})")
+
+shutil.rmtree(racine, ignore_errors=True)
+print()
+print("=" * 70)
+print(f"{KO} ECHEC(S)" if KO else "tout est vert")
+sys.exit(1 if KO else 0)
