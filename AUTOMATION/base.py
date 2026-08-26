@@ -1,0 +1,376 @@
+"""Base SQLite : historique, mesures et embeddings de la production.
+
+CE QUI VA EN BASE, CE QUI RESTE EN FICHIER (DOCS/lena-parcours-creatif.md 8.3)
+
+  fichier (git)   scenes.json, creative.json, config.json — du contenu redige par
+                  un humain. On veut le diff, la relecture et le .bak.
+  base            l'historique, les mesures, les embeddings, et la config
+                  EFFECTIVE de chaque batch : c'est ca, la reproductibilite.
+
+Le journal CSV continue d'etre ecrit : il reste lisible dans un tableur et hors de
+tout outil. Mais la base devient la source de verite pour ce qui se lit.
+
+POURQUOI PAS UN ORM. Une dependance de plus dans un Python embarque, pour cinq
+tables et des requetes courtes, ne paie pas. `sqlite3` est dans la bibliotheque
+standard et le schema tient dans cette page.
+
+CONCURRENCE. Le batch ecrit pendant que le tableau de bord lit. WAL le permet, a
+condition que personne ne garde une transaction ouverte : toutes les fonctions ici
+ouvrent, font, commitent.
+
+`ouvrir()` rend une connexion qui se ferme VRAIMENT a la sortie du bloc `with`
+(voir _Connexion). Le gestionnaire de contexte de sqlite3, lui, ne gere que la
+transaction : il commite ou annule, il ne ferme pas. Le comptage de references
+de CPython s'en chargeait des que la variable etait rebindee — donc rien ne
+fuyait vraiment — mais une connexion encore REFERENCEE garde lena.db ouvert, et
+sous Windows cela bloque toute operation de fichier dessus.
+"""
+import json
+import sqlite3
+import sys
+from datetime import datetime
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+OFM = HERE.parent
+FICHIER = OFM / "PROD" / "lena.db"
+
+SCHEMA = """
+PRAGMA journal_mode = WAL;
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS batch (
+  id          TEXT PRIMARY KEY,
+  debut       TEXT,
+  fin         TEXT,
+  params_json TEXT,          -- config EFFECTIVE, figee au lancement
+  backend     TEXT DEFAULT 'local'
+);
+
+CREATE TABLE IF NOT EXISTS image (
+  id          INTEGER PRIMARY KEY,
+  fichier     TEXT UNIQUE NOT NULL,
+  batch_id    TEXT,
+  espace      TEXT DEFAULT 'lena',   -- lena | nsfw
+  bucket      TEXT,
+  scene       TEXT,
+  intention   TEXT,
+  ton         TEXT,
+  intensite   INTEGER,
+  format      TEXT,
+  seed        INTEGER,
+  variante    TEXT,
+  prompt      TEXT,
+  cree_le     TEXT,
+  duree_s     REAL,
+  export      TEXT,
+  source      TEXT,          -- image dont celle-ci derive (branche NSFW)
+  role        TEXT                    -- 'reference' pour le corpus de realisme
+);
+CREATE INDEX IF NOT EXISTS idx_image_scene  ON image(scene);
+CREATE INDEX IF NOT EXISTS idx_image_bucket ON image(bucket);
+
+CREATE TABLE IF NOT EXISTS score (
+  image_id  INTEGER NOT NULL REFERENCES image(id) ON DELETE CASCADE,
+  genre     TEXT NOT NULL,            -- identite | nettete | texture_visage | ...
+  valeur    REAL,
+  mesure_le TEXT,
+  PRIMARY KEY (image_id, genre)
+);
+
+CREATE TABLE IF NOT EXISTS jugement (
+  image_id INTEGER PRIMARY KEY REFERENCES image(id) ON DELETE CASCADE,
+  flag     TEXT,                      -- ok | ia
+  juge_le  TEXT
+);
+
+CREATE TABLE IF NOT EXISTS embedding (
+  image_id INTEGER PRIMARY KEY REFERENCES image(id) ON DELETE CASCADE,
+  modele   TEXT,
+  dim      INTEGER,
+  vec      BLOB                       -- float32 empaquete
+);
+
+-- Jeux de reference d'identite, versionnes : on peut revenir en arriere, et on
+-- sait toujours contre quoi une image a ete mesuree.
+CREATE TABLE IF NOT EXISTS reference_set (
+  id       INTEGER PRIMARY KEY,
+  libelle  TEXT,
+  cree_le  TEXT,
+  actif    INTEGER DEFAULT 0,
+  sante    REAL,                      -- RAPPORT : voir construire_jeu
+  sante_abs REAL,                     -- cos(centroide, base gelee), brut
+  cohesion REAL                       -- cos(centroide, membres) : coherence interne
+);
+CREATE TABLE IF NOT EXISTS reference_member (
+  set_id   INTEGER NOT NULL REFERENCES reference_set(id) ON DELETE CASCADE,
+  image_id INTEGER NOT NULL REFERENCES image(id) ON DELETE CASCADE,
+  PRIMARY KEY (set_id, image_id)
+);
+"""
+
+# Seuil de sante du centroide, en RAPPORT et non en valeur absolue.
+#
+# Correction du 24/08/2026. La spec fixait « cos(centroide, base gelee) >= 0.95 ».
+# Mesure faite : les membres eligibles sont a 0.764 de la base en moyenne, et leur
+# centroide a 0.815. Un centroide d'images situees a 0.76 ne PEUT PAS etre a 0.95
+# d'elle — le seuil etait arithmetiquement inatteignable, il gelait le jeu quoi
+# qu'il arrive.
+#
+# Le bon test est relatif : le centroide s'eloigne-t-il PLUS que ses membres ? Non,
+# normalement il s'en rapproche, la moyenne annulant le bruit propre a chaque image
+# (ici 0.815 contre 0.764, rapport 1.07). Un rapport qui passe SOUS 1 veut dire que
+# les membres derivent dans une direction COMMUNE — c'est ca, la derive du
+# thermometre, et c'est ca qu'on veut attraper.
+SANTE_MINI = 0.98
+
+
+class _Connexion(sqlite3.Connection):
+    """Connexion qui se ferme a la sortie du bloc `with`.
+
+    sqlite3 ne le fait pas : son `__exit__` termine la transaction et s'arrete
+    la. Tous les appelants du depot ecrivent `with base.ouvrir() as cx:` et ne
+    se servent pas de `cx` apres le bloc — verifie le 25/08/2026.
+    """
+
+    def __exit__(self, *args):
+        try:
+            return super().__exit__(*args)
+        finally:
+            self.close()
+
+
+def ouvrir():
+    FICHIER.parent.mkdir(parents=True, exist_ok=True)
+    cx = sqlite3.connect(FICHIER, timeout=10, factory=_Connexion)
+    cx.row_factory = sqlite3.Row
+    cx.executescript(SCHEMA)
+    return cx
+
+
+# ------------------------------------------------------------------- ecriture
+def enregistrer_image(cx, fichier, **champs):
+    """Insere ou met a jour une image par son nom. Retourne son id."""
+    colonnes = ("batch_id", "espace", "bucket", "scene", "intention", "ton",
+                "intensite", "format", "seed", "variante", "prompt", "cree_le",
+                "duree_s", "export", "source", "role")
+    vals = {k: champs.get(k) for k in colonnes}
+    cx.execute("INSERT INTO image (fichier) VALUES (?) ON CONFLICT(fichier) DO NOTHING",
+               (fichier,))
+    sets = ", ".join(f"{k} = COALESCE(?, {k})" for k in colonnes)
+    cx.execute(f"UPDATE image SET {sets} WHERE fichier = ?",
+               [vals[k] for k in colonnes] + [fichier])
+    return cx.execute("SELECT id FROM image WHERE fichier = ?", (fichier,)).fetchone()[0]
+
+
+def renommer(cx, ancien, nouveau):
+    """Suit un fichier renomme. Le tri renomme en cas de collision d'homonymes
+    (voir lena_batch.nom_libre) : sans ca la ligne reste sur l'ancien nom, et la
+    suivante en cree une seconde pour la meme image."""
+    if ancien == nouveau:
+        return
+    cx.execute("UPDATE image SET fichier = ? WHERE fichier = ?", (nouveau, ancien))
+
+
+def enregistrer_score(cx, image_id, genre, valeur, mesure_le=None):
+    if valeur is None:
+        return
+    cx.execute("INSERT INTO score (image_id, genre, valeur, mesure_le) VALUES (?,?,?,?) "
+               "ON CONFLICT(image_id, genre) DO UPDATE SET valeur=excluded.valeur, "
+               "mesure_le=excluded.mesure_le",
+               (image_id, genre, float(valeur),
+                mesure_le or datetime.now().isoformat(timespec="seconds")))
+
+
+def enregistrer_jugement(cx, image_id, flag, juge_le=None):
+    if flag is None:
+        cx.execute("DELETE FROM jugement WHERE image_id = ?", (image_id,))
+        return
+    cx.execute("INSERT INTO jugement (image_id, flag, juge_le) VALUES (?,?,?) "
+               "ON CONFLICT(image_id) DO UPDATE SET flag=excluded.flag, "
+               "juge_le=excluded.juge_le",
+               (image_id, flag, juge_le or datetime.now().isoformat(timespec="seconds")))
+
+
+def enregistrer_embedding(cx, image_id, vecteur, modele="antelopev2"):
+    """vecteur : numpy float32. Stocke tel quel, pour re-scorer sans relire le PNG."""
+    if vecteur is None:
+        return
+    import numpy as np
+    v = np.asarray(vecteur, dtype=np.float32)
+    cx.execute("INSERT INTO embedding (image_id, modele, dim, vec) VALUES (?,?,?,?) "
+               "ON CONFLICT(image_id) DO UPDATE SET modele=excluded.modele, "
+               "dim=excluded.dim, vec=excluded.vec",
+               (image_id, modele, int(v.size), v.tobytes()))
+
+
+def lire_embedding(cx, image_id):
+    import numpy as np
+    r = cx.execute("SELECT vec FROM embedding WHERE image_id = ?", (image_id,)).fetchone()
+    return np.frombuffer(r["vec"], dtype=np.float32) if r else None
+
+
+# ------------------------------------------------------------------- lecture
+def stats_par_scene(cx):
+    """n, ok et moyenne d'identite par scene. Remplace le parcours du CSV.
+
+    `ok` compte le TRI HUMAIN, pas le verdict du QC : `image.bucket` est ecrit a
+    la generation puis mis a jour a chaque action de tri (web.app.noter_bucket).
+    Avant le 25/08/2026 il n'etait ecrit qu'a la generation, et le badge
+    « n produites · ok » des cartes de scene affichait donc un chiffre que le tri
+    ne pouvait plus corriger : une image rejetee a la main y comptait encore
+    comme validee.
+    """
+    q = """
+      SELECT i.scene AS scene, COUNT(*) AS n,
+             SUM(CASE WHEN i.bucket = 'OK' THEN 1 ELSE 0 END) AS ok,
+             AVG(s.valeur) AS avg
+      FROM image i
+      LEFT JOIN score s ON s.image_id = i.id AND s.genre = 'identite'
+      WHERE i.scene IS NOT NULL AND i.role IS NULL AND i.espace = 'lena'
+      GROUP BY i.scene
+    """
+    return {r["scene"]: {"n": r["n"], "ok": r["ok"] or 0,
+                         "avg": round(r["avg"], 3) if r["avg"] is not None else None}
+            for r in cx.execute(q)}
+
+
+def mesures_par_fichier(cx, role=None):
+    """{fichier: {identite, nettete, ..., flag, role}} — forme du store JSON."""
+    where = "WHERE i.role IS ?" if role is None else "WHERE i.role = ?"
+    out = {}
+    for r in cx.execute(f"SELECT id, fichier, role FROM image i {where}", (role,)):
+        e = {"role": r["role"]} if r["role"] else {}
+        for s in cx.execute("SELECT genre, valeur FROM score WHERE image_id = ?", (r["id"],)):
+            e[s["genre"]] = s["valeur"]
+        j = cx.execute("SELECT flag FROM jugement WHERE image_id = ?", (r["id"],)).fetchone()
+        if j and j["flag"]:
+            e["flag"] = j["flag"]
+        out[r["fichier"]] = e
+    return out
+
+
+def derive_par_scene(cx, genre="identite", mini=3):
+    """Moyenne d'identite par scene, du plus ancien au plus recent.
+
+    C'est ce que la base rend possible et que le CSV ne rendait pas : suivre la
+    derive lente d'une scene dans le temps sans relire une seule image.
+    """
+    q = """
+      SELECT i.scene AS scene, i.cree_le AS date, s.valeur AS v
+      FROM image i JOIN score s ON s.image_id = i.id AND s.genre = ?
+      WHERE i.scene IS NOT NULL AND i.role IS NULL AND i.espace = 'lena'
+      ORDER BY i.scene, i.cree_le
+    """
+    par = {}
+    for r in cx.execute(q, (genre,)):
+        par.setdefault(r["scene"], []).append((r["date"], r["v"]))
+    return {k: v for k, v in par.items() if len(v) >= mini}
+
+
+# ------------------------------------------- jeu de reference d'identite
+def centroide(cx, set_id):
+    """Moyenne normalisee des embeddings d'un jeu. None si le jeu est vide."""
+    import numpy as np
+    vecs = [np.frombuffer(r["vec"], dtype=np.float32) for r in cx.execute(
+        "SELECT e.vec FROM embedding e JOIN reference_member m ON m.image_id = e.image_id "
+        "WHERE m.set_id = ?", (set_id,))]
+    if not vecs:
+        return None
+    c = np.mean(np.stack(vecs), axis=0)
+    n = np.linalg.norm(c)
+    return (c / n) if n > 1e-6 else None
+
+
+def construire_jeu(cx, base_embedding, seuil_haut, libelle=None):
+    """Construit un jeu de reference d'identite et rend son bilan.
+
+    LES GARDE-FOUS (DOCS/lena-parcours-creatif.md 8.3), tous appliques ici :
+
+    1. la base gelee reste l'ancre absolue, elle n'est jamais remplacee ;
+    2. une image ne rejoint le jeu que si son score CONTRE LA BASE GELEE est
+       >= seuil_haut. Sans ce portillon, valider des images legerement derivees
+       ferait deriver la reference avec elles — le thermometre bougerait avec la
+       fievre, et c'est precisement ce que le scoring existe pour detecter ;
+    3. la sante du jeu, cos(centroide, base gelee), est calculee et stockee ;
+    4. sous SANTE_MINI le jeu est cree mais laisse INACTIF : on le voit, on ne
+       s'en sert pas ;
+    5. les jeux sont versionnes — on peut revenir a un etat anterieur.
+    """
+    import numpy as np
+    from datetime import datetime as _dt
+    base_embedding = np.asarray(base_embedding, dtype=np.float32)
+
+    eligibles = []
+    for r in cx.execute(
+            "SELECT i.id AS id, e.vec AS vec FROM image i "
+            "JOIN embedding e ON e.image_id = i.id "
+            "WHERE i.espace = 'lena' AND i.role IS NULL"):
+        v = np.frombuffer(r["vec"], dtype=np.float32)
+        if float(np.dot(base_embedding, v)) >= seuil_haut:   # garde-fou 2
+            eligibles.append(r["id"])
+
+    cur = cx.execute("INSERT INTO reference_set (libelle, cree_le, actif) VALUES (?,?,0)",
+                     (libelle or f"auto {_dt.now():%Y-%m-%d %H:%M}",
+                      _dt.now().isoformat(timespec="seconds")))
+    sid = cur.lastrowid
+    cx.executemany("INSERT INTO reference_member (set_id, image_id) VALUES (?,?)",
+                   [(sid, i) for i in eligibles])
+
+    c = centroide(cx, sid)
+    vecs = [np.frombuffer(r["vec"], dtype=np.float32) for r in cx.execute(
+        "SELECT e.vec FROM embedding e JOIN reference_member m ON m.image_id = e.image_id "
+        "WHERE m.set_id = ?", (sid,))]
+    if c is None or not vecs:
+        cx.execute("UPDATE reference_set SET actif = 0 WHERE id = ?", (sid,))
+        return {"id": sid, "membres": 0, "sante": None, "sante_abs": None,
+                "cohesion": None, "sim_membres": None, "actif": False,
+                "seuil": seuil_haut}
+
+    sante_abs = float(np.dot(base_embedding, c))
+    sim_membres = float(np.mean([np.dot(base_embedding, v) for v in vecs]))
+    cohesion = float(np.mean([np.dot(c, v) for v in vecs]))
+    sante = sante_abs / sim_membres if sim_membres > 1e-6 else None   # garde-fou 3
+    actif = 1 if (sante is not None and sante >= SANTE_MINI) else 0   # garde-fou 4
+    cx.execute("UPDATE reference_set SET sante=?, sante_abs=?, cohesion=?, actif=? "
+               "WHERE id = ?", (sante, sante_abs, cohesion, actif, sid))
+    if actif:
+        cx.execute("UPDATE reference_set SET actif = 0 WHERE id != ?", (sid,))
+    return {"id": sid, "membres": len(eligibles), "sante": sante,
+            "sante_abs": sante_abs, "cohesion": cohesion,
+            "sim_membres": sim_membres, "actif": bool(actif), "seuil": seuil_haut}
+
+
+def jeu_actif(cx):
+    r = cx.execute("SELECT * FROM reference_set WHERE actif = 1 "
+                   "ORDER BY id DESC LIMIT 1").fetchone()
+    return dict(r) if r else None
+
+
+def rescorer(cx, reference, genre="identite_centroide"):
+    """Re-score TOUT l'historique contre une reference, sans relire un seul PNG.
+
+    C'est ce que les embeddings en base rendent possible : changer de seuil, de
+    reference ou de ponderation devient une requete, pas un batch d'une heure.
+    Ecrit sous un genre distinct — le score contre la base gelee n'est jamais
+    ecrase, c'est lui qui decide du verdict (garde-fou 2).
+    """
+    import numpy as np
+    reference = np.asarray(reference, dtype=np.float32)
+    n = 0
+    for r in cx.execute("SELECT image_id, vec FROM embedding"):
+        v = np.frombuffer(r["vec"], dtype=np.float32)
+        enregistrer_score(cx, r["image_id"], genre, float(np.dot(reference, v)))
+        n += 1
+    return n
+
+
+def resume(cx):
+    n = lambda t: cx.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+    return {t: n(t) for t in ("batch", "image", "score", "jugement", "embedding",
+                              "reference_set")}
+
+
+if __name__ == "__main__":
+    with ouvrir() as cx:
+        print(json.dumps(resume(cx), indent=2))
