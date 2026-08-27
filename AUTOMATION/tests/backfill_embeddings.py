@@ -58,7 +58,7 @@ def main():
             if m["embedding"] is None:
                 sans_visage += 1
                 continue
-            iid = base.enregistrer_image(cx, nom)
+            iid = base.enregistrer_image(cx, nom, character_id="lena")
             base.enregistrer_embedding(cx, iid, m["embedding"])
             base.enregistrer_score(cx, iid, "identite", m["score"])
             faits += 1
@@ -70,14 +70,14 @@ def main():
         if gelee.exists():
             m = checker.mesure(gelee)
             if m["embedding"] is not None:
-                iid = base.enregistrer_image(cx, gelee.name, role="base_gelee",
-                                             espace="reference")
+                iid = base.enregistrer_image(cx, gelee.name, character_id="lena",
+                                             role="base_gelee", espace="reference")
                 base.enregistrer_embedding(cx, iid, m["embedding"])
                 cx.commit()
                 print(f"  base gelee enregistree : {gelee.name}")
 
         seuil = cfg["qc"].get("threshold_high", 0.74)
-        bilan = base.construire_jeu(cx, checker.base, seuil,
+        bilan = base.construire_jeu(cx, "lena", checker.base, seuil,
                                     libelle="auto — backfill")
         cx.commit()
         print(f"\n  === jeu de reference d'identite ===")
@@ -96,7 +96,7 @@ def main():
 
         if bilan["membres"]:
             c = base.centroide(cx, bilan["id"])
-            n = base.rescorer(cx, c)
+            n = base.rescorer(cx, "lena", c)
             cx.commit()
             print(f"\n  {n} image(s) re-scorees contre le centroide, sans relire un PNG")
             q = ("SELECT i.fichier AS f, "

@@ -106,7 +106,7 @@ def main():
 
     with db.ouvrir() as cx:
         images = {r["fichier"]: r for r in cx.execute(
-            "SELECT fichier, espace, bucket, role FROM image")}
+            "SELECT fichier, character_id, espace, bucket, role FROM image")}
         scores = {}
         for r in cx.execute("SELECT i.fichier, s.genre, s.valeur FROM score s "
                             "JOIN image i ON i.id = s.image_id"):
@@ -117,6 +117,15 @@ def main():
     print(f"\n  disque {len(disque)} PNG · journaux {len(jsfw)}+{len(jnsfw)} lignes · "
           f"mesures {len(mesures)} entrees · base {len(images)} images, "
           f"{len(scores)} scores, {len(juges)} jugements")
+
+    # ======================================================= [0] character_id
+    # J2 : ce repo ne connait qu'un seul personnage pour l'instant. Une ligne
+    # avec un autre character_id (ou NULL, signe d'une ecriture qui a
+    # contourne enregistrer_image) serait la premiere preuve d'un melange.
+    print("\n[0] character_id coherent (un seul personnage existe ici : lena)")
+    autres = sorted({r["character_id"] for r in images.values()} - {"lena"})
+    verifie(not autres, "toutes les images ont character_id='lena'"
+            + (f" — inattendus : {', '.join(str(a) for a in autres)}" if autres else ""))
 
     # ============================================================ [1] le disque
     print("\n[1] chaque image presente sur le disque a sa ligne en base")

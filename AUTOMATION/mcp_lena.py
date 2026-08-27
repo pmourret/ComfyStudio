@@ -120,7 +120,7 @@ def lena_scenes(_):
     try:
         import base
         with base.ouvrir() as cx:
-            stats = base.stats_par_scene(cx)
+            stats = base.stats_par_scene(cx, "lena")
     except Exception:
         stats = {}
     return [{"id": s["id"], "intention": lb.scene_intention(s),
@@ -157,7 +157,7 @@ def lena_mesures(_):
     try:
         import base
         with base.ouvrir() as cx:
-            out["jeu_identite"] = base.jeu_actif(cx)
+            out["jeu_identite"] = base.jeu_actif(cx, "lena")
             out["base"] = base.resume(cx)
     except Exception:
         pass

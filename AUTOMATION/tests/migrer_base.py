@@ -53,11 +53,12 @@ def main():
                     if not r.get("fichier"):
                         continue
                     esp, bkt = ou.get(r["fichier"], ("lena", None))
-                    cx.execute("INSERT INTO batch (id, debut) VALUES (?,?) "
+                    cx.execute("INSERT INTO batch (id, character_id, debut) VALUES (?,?,?) "
                                "ON CONFLICT(id) DO NOTHING",
-                               (r.get("batch"), r.get("date")))
+                               (r.get("batch"), "lena", r.get("date")))
                     iid = base.enregistrer_image(
-                        cx, r["fichier"], batch_id=r.get("batch"), espace=esp,
+                        cx, r["fichier"], character_id="lena",
+                        batch_id=r.get("batch"), espace=esp,
                         bucket=bkt, scene=r.get("scene"),
                         intention=r.get("categorie"), ton=r.get("ton") or None,
                         intensite=int(r["intensite"]) if r.get("intensite") else None,
@@ -81,7 +82,8 @@ def main():
                         continue
                     esp, bkt = ou.get(r["fichier"], ("nsfw", None))
                     iid = base.enregistrer_image(
-                        cx, r["fichier"], batch_id=r.get("batch"), espace=esp,
+                        cx, r["fichier"], character_id="lena",
+                        batch_id=r.get("batch"), espace=esp,
                         bucket=bkt, source=r.get("source"), intention="nsfw",
                         intensite=3, cree_le=r.get("date"),
                         seed=int(r["seed"]) if (r.get("seed") or "").isdigit() else None,
@@ -98,7 +100,8 @@ def main():
             store = json.loads(MESURES.read_text(encoding="utf-8"))
             for nom, e in store.items():
                 esp, bkt = ou.get(nom, (None, None))
-                iid = base.enregistrer_image(cx, nom, espace=esp, bucket=bkt,
+                iid = base.enregistrer_image(cx, nom, character_id="lena",
+                                             espace=esp, bucket=bkt,
                                              role=e.get("role"))
                 # identite_apres_expression comprise : elle est ecrite par le runner
                 # au moment de la generation, mais une base reconstruite de zero ne
@@ -118,11 +121,11 @@ def main():
         print(f"\n  contenu de la base : {json.dumps(base.resume(cx))}")
 
         print("\n  --- controle : stats par scene ---")
-        for scene, s in sorted(base.stats_par_scene(cx).items()):
+        for scene, s in sorted(base.stats_par_scene(cx, "lena").items()):
             moy = f"{s['avg']:.3f}" if s["avg"] is not None else "  —  "
             print(f"    {scene:24} n={s['n']:<3} ok={s['ok']:<3} identite moy {moy}")
 
-        derive = base.derive_par_scene(cx, mini=2)
+        derive = base.derive_par_scene(cx, "lena", mini=2)
         if derive:
             print("\n  --- ce que le CSV ne donnait pas : derive par scene ---")
             for scene, pts in sorted(derive.items()):

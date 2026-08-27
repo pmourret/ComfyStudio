@@ -403,7 +403,7 @@ def scene_stats():
     try:
         import base as db
         with db.ouvrir() as cx:
-            s = db.stats_par_scene(cx)
+            s = db.stats_par_scene(cx, "lena")
         if s:
             return s
     except Exception as e:
