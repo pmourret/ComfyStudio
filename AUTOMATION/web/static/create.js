@@ -178,7 +178,7 @@ async function loadScenes(gardeEditeur){
 
 /* Une scene n'est disponible que si le niveau courant est dans sa bande.
    La bande vient du serveur (SC.meta), qui applique les memes defauts de
-   compatibilite que lena_batch — le front ne les reimplemente pas. */
+   compatibilite que le runner — le front ne les reimplemente pas. */
 /* Niveau auquel la PASSE DE GENERATION tourne. Au niveau 3 la chaine est en deux
    temps : on genere au `base_level` (Soft) puis on edite. Les scenes disponibles
    sont donc celles du niveau de base, pas du niveau affiche — sinon le choix se

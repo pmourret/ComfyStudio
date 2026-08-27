@@ -1,5 +1,5 @@
 @echo off
-REM Tableau de bord Lena. Demarre ComfyUI si besoin, puis le dashboard.
+REM Tableau de bord. Demarre ComfyUI si besoin, puis le dashboard.
 REM
 REM   run_web.bat                 -> demarre ComfyUI (s'il ne tourne pas deja)
 REM                                  puis http://127.0.0.1:8189

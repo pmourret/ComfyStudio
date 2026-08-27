@@ -20,7 +20,7 @@ catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'
   const nav = await chromium.launch(); const page = await nav.newPage();
   const err = []; page.on('pageerror', e => err.push(e.message));
   let ko = 0; const dire = (ok, t) => { console.log(`  ${ok?'ok  ':'KO  '}${t}`); if(!ok) ko++; };
-  await page.goto(process.env.LENA_URL || 'http://127.0.0.1:8189', {waitUntil:'networkidle'});
+  await page.goto(process.env.DASHBOARD_URL || 'http://127.0.0.1:8189', {waitUntil:'networkidle'});
   await page.waitForTimeout(1200);
 
   // cran Suggestif -> Boudoir -> une scene

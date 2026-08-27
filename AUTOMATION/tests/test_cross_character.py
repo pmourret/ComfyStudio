@@ -45,7 +45,7 @@ def vecteur(graine):
 
 def main():
     racine = Path(tempfile.mkdtemp(prefix="cross_character_"))
-    db.FICHIER = racine / "PROD" / "lena.db"
+    db.FICHIER = racine / "PROD" / "comfystudio.db"
     try:
         with db.ouvrir() as cx:
             # ------------------------------------------------- [1] fichiers homonymes

@@ -1,7 +1,7 @@
-"""Tableau de bord local pour la production de Lena.
+"""Tableau de bord local pour la production.
 
 Serveur aiohttp (deja fourni par ComfyUI, aucune dependance a installer) qui
-pilote le meme coeur que la CLI : lena_batch.execute_jobs.
+pilote le meme coeur que la CLI : runner.execute_jobs.
 
     python_embeded\\python.exe ComfyUI\\output\\OFM\\AUTOMATION\\web\\app.py
     -> http://127.0.0.1:8189
@@ -33,7 +33,7 @@ AUTOMATION = HERE.parent
 sys.path.insert(0, str(AUTOMATION))
 
 import env_config  # noqa: E402
-import lena_batch as lb  # noqa: E402
+import runner as lb      # noqa: E402
 import mesures as mes  # noqa: E402
 import compose as composer  # noqa: E402
 import nsfw_batch  # noqa: E402
@@ -342,11 +342,11 @@ def push_log(msg):
 
 # ------------------------------------------------------------------ ressources
 def cfg():
-    return lb.load_json(AUTOMATION / "config.json")
+    return lb.load_config("lena")
 
 
 def scenes_data():
-    return lb.load_json(AUTOMATION / "scenes.json")
+    return lb.load_scenes("lena")
 
 
 def journal_index():
@@ -387,7 +387,7 @@ def duree_unitaire():
     annoncer un reste a faire environ deux fois trop court.
     """
     base = avg_duration()
-    palier = lb.by_level(lb.load_creative(), STATE.get("intensity") or 0)
+    palier = lb.by_level(lb.load_creative("lena"), STATE.get("intensity") or 0)
     if palier and palier.get("pipeline") == "flux+edit":
         base += _moyenne_duree(nsfw_batch.JOURNAL, 60.0)
     return base
@@ -533,7 +533,7 @@ async def api_scenes(request):
     data = scenes_data()
     cats = sorted({lb.scene_intention(s) for s in data["scenes"]})
     # metadonnees du parcours, calculees ici pour que le front n'ait pas a
-    # reimplementer les defauts de compatibilite de lena_batch
+    # reimplementer les defauts de compatibilite du runner
     meta = {s["id"]: {"intention": lb.scene_intention(s),
                       "band": list(lb.scene_band(s)),
                       "tags": s.get("tags", []),
@@ -566,7 +566,7 @@ async def api_scenes_save(request):
         push_log(f"scenes.json REFUSE — {pbs[0]}")
         return web.json_response({"ok": False, "erreur": pbs[0],
                                   "problemes": pbs}, status=400)
-    target = AUTOMATION / "scenes.json"
+    target = lb.scenes_path("lena")
     sauvegarder_rotation(target)
     target.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     push_log(f"scenes.json enregistre ({len(data['scenes'])} scenes, .bak tourne)")
@@ -608,7 +608,7 @@ def fusion_validee(actuel, envoye, ou):
 
 async def api_config_save(request):
     body = await request.json()
-    target = AUTOMATION / "config.json"
+    target = lb.config_path("lena")
     current = cfg()
     current["preset"].update(fusion_validee(current["preset"],
                                             body.get("preset"), "preset"))
@@ -703,7 +703,7 @@ def guard_intensity(body):
         level = int(body.get("intensity") or 0)
     except (TypeError, ValueError):
         return "niveau d'intensite invalide"
-    palier = lb.by_level(lb.load_creative(), level)
+    palier = lb.by_level(lb.load_creative("lena"), level)
     if palier is None:
         return f"niveau d'intensite inconnu : {level}"
     exige = palier.get("requires")
@@ -728,7 +728,7 @@ def guard_intensity(body):
 
 async def api_creative(request):
     """Taxonomie du parcours : intentions, tons, echelle d'intensite."""
-    creative = lb.load_creative()
+    creative = lb.load_creative("lena")
     data = scenes_data()
     configuration = cfg()
     armed = nsfw_batch.is_armed(configuration)
@@ -790,7 +790,7 @@ def appliquer_export(configuration, niveau_demande):
     """Coupe l'export quand le palier DEMANDE ne s'exporte pas.
 
     `sort_and_export` ne connait que `cfg["export"]["enabled"]` — et c'est tres
-    bien : lena_batch n'a pas a connaitre les paliers d'intensite. C'est donc a
+    bien : le runner n'a pas a connaitre les paliers d'intensite. C'est donc a
     l'appelant de traduire la regle du palier en configuration.
 
     Deux cas repares le 24/08/2026, tous deux constates en production :
@@ -800,7 +800,7 @@ def appliquer_export(configuration, niveau_demande):
         autorise. Une demande NSFW deposait donc silencieusement une image Soft
         dans le dossier de publication.
     """
-    palier = lb.by_level(lb.load_creative(), niveau_demande)
+    palier = lb.by_level(lb.load_creative("lena"), niveau_demande)
     if palier and not palier.get("export", True):
         configuration["export"] = dict(configuration["export"], enabled=False)
     return configuration
@@ -815,7 +815,7 @@ def niveau_generation(body):
     rien du tout (voir mode_edition).
     """
     corps = dict(body)
-    palier = lb.by_level(lb.load_creative(), int(body.get("intensity") or 0))
+    palier = lb.by_level(lb.load_creative("lena"), int(body.get("intensity") or 0))
     if palier and palier.get("pipeline") == "flux+edit":
         corps["intensity"] = palier.get("base_level", 1)
     return corps
@@ -833,7 +833,7 @@ def mode_edition(body):
     image existante. Le chemin qui regenerait avant d'editer coutait une passe
     Flux complete (~55 s) pour reproduire une image deja sur le disque.
     """
-    palier = lb.by_level(lb.load_creative(), int(body.get("intensity") or 0))
+    palier = lb.by_level(lb.load_creative("lena"), int(body.get("intensity") or 0))
     return bool(palier and palier.get("pipeline") == "flux+edit"
                 and not body.get("generer_avant"))
 
@@ -945,7 +945,7 @@ async def api_plan(request):
         # rien a batir : le « plan » est la liste des images cochees
         return web.json_response({"total": len(sources_valides(body)), "jobs": [],
                                   "edition": True, "alertes": alertes})
-    jobs = lb.build_jobs(AUTOMATION / "scenes.json",
+    jobs = lb.build_jobs(lb.scenes_path("lena"),
                          filters_from(niveau_generation(body)))
     return web.json_response({"total": len(jobs), "alertes": alertes,
                               "apercu": apercu_prompt(jobs), "jobs": [
@@ -963,7 +963,7 @@ def chainage_nsfw(configuration, use_qc, batch_id):
     l'armement une seconde fois.
     """
     niveau = configuration.get("_intensity", 0)
-    palier = lb.by_level(lb.load_creative(), niveau)
+    palier = lb.by_level(lb.load_creative("lena"), niveau)
     if not palier or palier.get("pipeline") != "flux+edit":
         return None
     instruction = configuration.get("_edit_instruction", "")
@@ -1114,7 +1114,7 @@ def demarrer(jobs, configuration, use_qc, entete=None):
     # le niveau DEMANDE, pas celui de la passe de generation : au niveau 3 les
     # jobs sont batis en Soft, annoncer « Soft » induirait en erreur
     demande = configuration.get("_intensity", jobs[0]["intensity"])
-    palier = lb.by_level(lb.load_creative(), demande)
+    palier = lb.by_level(lb.load_creative("lena"), demande)
     STATE["intensity"] = demande
     exporte = "" if not palier or palier.get("export", True) else " · hors export"
     push_log(entete or (f"batch {batch_id} — intensite "
@@ -1189,8 +1189,8 @@ async def api_decline(request):
         return web.json_response(
             {"ok": False, "erreur": "image absente du journal — impossible de la "
                                     "rejouer (scène et seed inconnus)"}, status=404)
-    creative = lb.load_creative()
-    scenes = AUTOMATION / "scenes.json"
+    creative = lb.load_creative("lena")
+    scenes = lb.scenes_path("lena")
     niveau = int(row.get("intensite") or 0)
 
     if body.get("dry"):
@@ -1308,7 +1308,7 @@ async def api_run(request):
         return web.json_response({"ok": True, "batch_id": batch_id,
                                   "total": len(sources), "edition": True})
 
-    jobs = lb.build_jobs(AUTOMATION / "scenes.json",
+    jobs = lb.build_jobs(lb.scenes_path("lena"),
                          filters_from(niveau_generation(body)))
     if not jobs:
         return web.json_response({"ok": False, "erreur": "aucune scene ne correspond"},
@@ -1546,7 +1546,7 @@ async def api_delete(request):
     """Suppression DEFINITIVE — pas un tri, pas dans UNDO, pas de retour.
 
     Retire le fichier, sa vignette et sa copie d'export. `journal_batch.csv`,
-    `mesures.json` et `PROD/lena.db` restent intacts : ce sont des historiques
+    `mesures.json` et `PROD/comfystudio.db` restent intacts : ce sont des historiques
     append-only ailleurs dans le projet (meme raison que le jugement humain ne
     vit pas dans le journal), pas un index de ce qui existe sur le disque — une
     ligne qui pointe vers un fichier disparu reste un fait vrai : cette image a
@@ -1717,7 +1717,7 @@ async def api_compose(request):
     if not intention:
         return web.json_response({"ok": False, "erreur": "intention vide"}, status=400)
     data = scenes_data()
-    creative = lb.load_creative()
+    creative = lb.load_creative("lena")
     # `intention` est le texte libre en francais decrivant ce qu'on veut ;
     # `intention_cible` est la CLE de taxonomie qu'on impose. Les confondre
     # collait la phrase francaise dans le champ intention des scenes.
@@ -1867,7 +1867,7 @@ async def api_nsfw_instructions(request):
 async def api_nsfw_arm(request):
     """Armement explicite : il faut recopier le mot exact, pas un simple clic."""
     body = await request.json()
-    target = AUTOMATION / "config.json"
+    target = lb.config_path("lena")
     configuration = cfg()
     if body.get("arm"):
         if (body.get("confirm") or "").strip().upper() != "ARMER":
@@ -1950,7 +1950,7 @@ async def index(request):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Tableau de bord Lena")
+    ap = argparse.ArgumentParser(description="Tableau de bord")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8189)
     ap.add_argument("--no-comfy", action="store_true",
@@ -2019,7 +2019,7 @@ def main():
         print("!! expose sur le reseau local, sans authentification. "
               "A n'utiliser que sur un reseau de confiance.", flush=True)
     url = f"http://{'127.0.0.1' if args.host == '0.0.0.0' else args.host}:{args.port}"
-    print(f"Tableau de bord Lena  ->  {url}", flush=True)
+    print(f"Tableau de bord  ->  {url}", flush=True)
     if not args.no_browser:
         import webbrowser
         webbrowser.open(url)

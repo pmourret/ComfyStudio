@@ -22,7 +22,7 @@ ouvrent, font, commitent.
 (voir _Connexion). Le gestionnaire de contexte de sqlite3, lui, ne gere que la
 transaction : il commite ou annule, il ne ferme pas. Le comptage de references
 de CPython s'en chargeait des que la variable etait rebindee — donc rien ne
-fuyait vraiment — mais une connexion encore REFERENCEE garde lena.db ouvert, et
+fuyait vraiment — mais une connexion encore REFERENCEE garde la base ouverte, et
 sous Windows cela bloque toute operation de fichier dessus.
 """
 import json
@@ -33,7 +33,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 OFM = HERE.parent
-FICHIER = OFM / "PROD" / "lena.db"
+FICHIER = OFM / "PROD" / "comfystudio.db"
 
 SCHEMA = """
 PRAGMA journal_mode = WAL;
@@ -183,7 +183,7 @@ def enregistrer_image(cx, fichier, character_id="lena", **champs):
 
 def renommer(cx, ancien, nouveau, character_id="lena"):
     """Suit un fichier renomme. Le tri renomme en cas de collision d'homonymes
-    (voir lena_batch.nom_libre) : sans ca la ligne reste sur l'ancien nom, et la
+    (voir runner.nom_libre) : sans ca la ligne reste sur l'ancien nom, et la
     suivante en cree une seconde pour la meme image."""
     if ancien == nouveau:
         return

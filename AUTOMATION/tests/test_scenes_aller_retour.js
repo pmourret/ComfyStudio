@@ -17,8 +17,8 @@ const path = require('path');
 
 const OFM = path.resolve(__dirname, '..', '..');
 const lire = p => fs.readFileSync(path.join(OFM, p), 'utf8');
-const scenes = JSON.parse(lire('AUTOMATION/scenes.json'));
-const creative = JSON.parse(lire('AUTOMATION/creative.json'));
+const scenes = JSON.parse(lire('CHARACTERS/lena/scenes.json'));
+const creative = JSON.parse(lire('CHARACTERS/lena/creative.json'));
 
 let ko = 0;
 const dire = (ok, txt) => { console.log(`  ${ok ? 'ok  ' : 'KO  '}${txt}`); if (!ok) ko++; };

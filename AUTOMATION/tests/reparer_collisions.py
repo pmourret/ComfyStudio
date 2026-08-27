@@ -12,7 +12,7 @@ deux dossiers. Consequences :
   - le journal et PROD/mesures.json sont indexes par nom : les deux images n'y
     ont qu'une seule entree, et c'est la derniere lue qui gagne.
 
-`lena_batch.nom_libre` empeche desormais le cas de se reproduire. Ce script
+`runner.nom_libre` empeche desormais le cas de se reproduire. Ce script
 nettoie ce qui existe deja : il garde le nom au fichier le plus ancien et renomme
 les autres, en emportant leur entree de mesures.
 
@@ -30,7 +30,7 @@ AUTOMATION = HERE.parent
 OFM = AUTOMATION.parent
 sys.path.insert(0, str(AUTOMATION))
 
-import lena_batch as lb  # noqa: E402
+import runner as lb      # noqa: E402
 import mesures as mes    # noqa: E402
 
 RACINES = [OFM / "PROD" / "LENA", OFM / "PROD" / "_NSFW"]

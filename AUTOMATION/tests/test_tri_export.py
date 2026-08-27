@@ -73,11 +73,11 @@ def image(chemin, taille=(896, 1120)):
 
 
 # ------------------------------------------------------- arborescence jetable
-racine = Path(tempfile.mkdtemp(prefix="lena_tri_"))
+racine = Path(tempfile.mkdtemp(prefix="tri_"))
 app.OFM = racine
 app.THUMBS = racine / "PROD" / ".thumbs"
 mes.FICHIER = racine / "PROD" / "mesures.json"
-db.FICHIER = racine / "PROD" / "lena.db"
+db.FICHIER = racine / "PROD" / "comfystudio.db"
 app.UNDO.clear()
 
 for b in ("OK", "A_REVOIR", "REJET", "ARCHIVE"):

@@ -23,7 +23,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 import env_config                # noqa: E402
-import lena_batch as lb          # noqa: E402
+import runner as lb              # noqa: E402
 import ui_to_api                 # noqa: E402
 
 OFM = HERE.parent

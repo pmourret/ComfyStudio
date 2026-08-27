@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Coherence disque <-> PROD/lena.db. Le controle que la base est bien a jour.
+"""Coherence disque <-> PROD/comfystudio.db. Le controle que la base est bien a jour.
 
 POURQUOI CE TEST EXISTE. La base est la source de verite EN LECTURE (CLAUDE.md,
 section AUTOMATION/base.py) : les ecrans, les stats par scene et le re-scorage de

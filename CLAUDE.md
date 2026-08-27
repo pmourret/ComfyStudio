@@ -184,8 +184,8 @@ dans un ordre précis.
   déclaratif simple (§5) suffit tant qu'un seul développeur ajoute les
   outils
 - **Exposition MCP** des actions de la plateforme — hors scope V1/V2 (V3,
-  `ROADMAP.md`). Un serveur MCP existe déjà côté Léna (`AUTOMATION/
-  mcp_lena.py`, JSON-RPC sur stdio) : **lecture et validation seulement,
+  `ROADMAP.md`). Un serveur MCP existe déjà (`AUTOMATION/
+  mcp_server.py`, JSON-RPC sur stdio) : **lecture et validation seulement,
   aucune génération, rien de la branche NSFW exposé, jamais d'écriture**.
   Ce n'est pas un chantier à démarrer de zéro en V3 — c'est un principe déjà
   posé (§8.10) à généraliser au reste de la plateforme, pas à réinventer

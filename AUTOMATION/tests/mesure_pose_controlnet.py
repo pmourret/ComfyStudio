@@ -42,7 +42,7 @@ AUTOMATION = HERE.parent
 sys.path.insert(0, str(AUTOMATION))
 
 import env_config                # noqa: E402
-import lena_batch as lb          # noqa: E402
+import runner as lb              # noqa: E402
 import ui_to_api                 # noqa: E402
 
 OFM = AUTOMATION.parent
@@ -152,7 +152,7 @@ def main():
     ap.add_argument("--fin", type=float, default=0.65, help="end_percent")
     args = ap.parse_args()
 
-    cfg = lb.load_json(AUTOMATION / "config.json")
+    cfg = lb.load_config("lena")
     url = cfg["comfy_url"].rstrip("/")
     source = OFM / "PROD/LENA/OK" / args.source
 

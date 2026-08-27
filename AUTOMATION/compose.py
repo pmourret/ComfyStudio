@@ -140,17 +140,17 @@ def _slug(x):
 def alertes(scene):
     """Mots qui NE sont pas interdits mais qui meritent un oeil avant d'enregistrer.
 
-    `lena_batch.assert_no_face` refuse la geometrie du visage — c'est un mur. Ici
+    `runner.assert_no_face` refuse la geometrie du visage — c'est un mur. Ici
     c'est un panneau : le composeur propose, il n'enregistre jamais. Le
-    vocabulaire surveille vit dans `lena_batch.WATCH_FACE`, partage avec
+    vocabulaire surveille vit dans `runner.WATCH_FACE`, partage avec
     l'instruction d'edition NSFW.
     """
-    import lena_batch
+    import runner
     trouve = []
     for champ, texte in [("prompt", scene.get("prompt", ""))] + \
                         [("tenue " + k, v) for k, v in (scene.get("wardrobe") or {}).items()] + \
                         [("variante", v) for v in (scene.get("variants") or [])]:
-        for m in lena_batch.WATCH_FACE.findall(texte or ""):
+        for m in runner.WATCH_FACE.findall(texte or ""):
             trouve.append(f"{champ} : « {m.lower()} »")
     return trouve
 
@@ -237,8 +237,8 @@ def compose(intention, count=3, creative=None, comfy_url="http://127.0.0.1:8188"
             for sc in scenes:
                 frags = [sc["prompt"], *sc["variants"], *sc["wardrobe"].values()]
                 try:
-                    import lena_batch
-                    lena_batch.assert_no_face(frags, sc["id"])
+                    import runner
+                    runner.assert_no_face(frags, sc["id"])
                 except Exception:
                     continue
                 sc["alertes"] = alertes(sc)
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    import lena_batch
+    import runner
     scenes, raw = compose(" ".join(sys.argv[1:]) or "Lena jardine le matin",
-                          creative=lena_batch.load_creative())
+                          creative=runner.load_creative("lena"))
     print(json.dumps(scenes, ensure_ascii=False, indent=2))

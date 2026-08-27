@@ -18,16 +18,16 @@ HERE = Path(__file__).resolve().parent
 AUTOMATION = HERE.parent
 sys.path.insert(0, str(AUTOMATION))
 
-import lena_batch as lb  # noqa: E402
+import runner as lb      # noqa: E402
 
-SCENES = AUTOMATION / "scenes.json"
+SCENES = lb.scenes_path("lena")
 # Banque telle qu'elle etait avant la migration : tenues encore en dur dans les
 # prompts, aucun champ wardrobe. C'est l'entree du test de non-regression, et
 # c'est une FIXTURE versionnee : elle est figee pour toujours, contrairement a
 # scenes.json qui vit avec la production. Ne jamais la regenerer ni la mettre
 # a jour — la modifier revient a desactiver le test byte-exact.
 SCENES_AVANT = HERE / "fixtures" / "scenes-byte-exact.json"
-CREATIVE = lb.load_creative()
+CREATIVE = lb.load_creative("lena")
 ECHECS = []
 
 

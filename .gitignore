@@ -14,12 +14,11 @@
 # deux fichiers sont des données de personnage, pas du code.
 /PROD/
 
-# Réglages mesurés et contenu rédigé, propres à un personnage. Ils restent sur
-# le disque (le runner et les tests les lisent) mais hors de git, en attendant
-# leur déplacement vers CHARACTERS/<nom>/ à J4.
-AUTOMATION/config.json
-AUTOMATION/scenes*
-AUTOMATION/creative*
+# Réglages mesurés et contenu rédigé, propres à un personnage. Déplacés de
+# AUTOMATION/ vers CHARACTERS/<nom>/ en J2 (pas attendu J4 : character_id
+# devient réel dans le même mouvement que le découpage des monolithes,
+# CLAUDE.md §1). Toujours hors de git.
+/CHARACTERS/
 
 # Base SQLite : se régénère avec AUTOMATION/tests/migrer_base.py (idempotent).
 *.db

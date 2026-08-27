@@ -31,7 +31,7 @@ sys.path.insert(0, str(HERE))
 
 import ui_to_api  # noqa: E402
 
-# Roles que `lena_batch.WorkflowRunner` cherche dans le graphe de production.
+# Roles que `runner.WorkflowRunner` cherche dans le graphe de production.
 # Les lister ici evite de decouvrir a l'execution qu'un titre a ete renomme.
 ROLES_PROD = [
     ("CLIPTextEncode", "POSITIF - scene"),
@@ -74,7 +74,8 @@ def main():
     url = args.url
     if not url:
         try:
-            url = json.loads((HERE / "config.json").read_text(encoding="utf-8"))["comfy_url"]
+            chemin_config = OFM / "CHARACTERS" / "lena" / "config.json"
+            url = json.loads(chemin_config.read_text(encoding="utf-8"))["comfy_url"]
         except Exception:
             url = "http://127.0.0.1:8188"
 
@@ -156,7 +157,7 @@ def main():
 
     # 6 --------------------------------------------- validation par ComfyUI
     if args.essai:
-        import lena_batch as lb
+        import runner as lb
         pid, err = lb.queue_prompt(url, api, client_id="wf_check")
         if err:
             try:

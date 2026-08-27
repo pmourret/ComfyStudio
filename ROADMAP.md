@@ -17,12 +17,12 @@ prouvent la généralisation — pas juste Léna renommée.
   faussait les badges de comptage). 8 suites de tests vertes hors GPU.
 - **Question de modèle de données fermée** ✅ *(2026-08-27)* : la clé
   `(image_id, genre)` ne porte pas deux mesures concurrentes — c'était déjà
-  résolu dans le code (`lena_batch.ranger_mesures`) par deux `genre`
+  résolu dans le code (`runner.ranger_mesures`) par deux `genre`
   distincts (`identite` neutre, seul à décider du bucket ; `identite_apres_
   expression`, jamais lu par le tri), juste pas formalisé. Décision écrite
   dans `DOCS/adr/0009-score-identite-genres-distincts.md`, vérifiée par
   `test_coherence_base.py` (23/23 sur les deux `genre`)
-- Opérationnel pour `J1` : `PROD/lena.db` est git-ignoré, ne voyage pas
+- Opérationnel pour `J1` : `PROD/comfystudio.db` est git-ignoré, ne voyage pas
   avec le repo — un fork doit régénérer la base via `migrer_base.py`,
   pas copier le fichier
 
@@ -50,17 +50,25 @@ prouvent la généralisation — pas juste Léna renommée.
   GPU verts, 1 échec pré-existant confirmé non lié (`test_serveur_http`
   E5, latence, reproduit à l'identique sur le code d'avant fix)
 - **Dette de fork nettoyée** ✅ *(2026-08-27)* : 6 commentaires (`base.py`,
-  `lena_batch.py`, `expression.py`, `qc_realisme.py`,
+  `runner.py`, `expression.py`, `qc_realisme.py`,
   `tests/backfill_embeddings.py`) citaient `DOCS/lena-parcours-creatif.md`
   par numéro de section — un doc de 1665 lignes qui n'existe que dans
   l'ancien repo Léna, jamais porté ici. Références mortes retirées, le
   raisonnement inline de chaque commentaire suffisait déjà ; pas de doc
   historique importé dans ce repo neuf (cohérent avec `CLAUDE.md`, « ne
   répète pas ce qui est déjà bien écrit là-bas »)
-- Nettoyage cosmétique différé (pas cassé, juste mal nommé) : préfixes
-  `OFM/PROD/...` dans 3 fichiers + serveur `.mcp.json` toujours nommé
-  "lena" — à regrouper avec un futur passage lena→générique, pas une
-  session dédiée
+- **Passage lena→générique des noms de code** ✅ *(2026-08-27, avant J2
+  étape 3)* : fait plus tôt que prévu, à la demande explicite d'une revue
+  avant de poursuivre J2. `lena_batch.py` → `runner.py`, `mcp_lena.py` →
+  `mcp_server.py`, outils MCP `lena_etat/lena_scenes/lena_plan/lena_mesures`
+  → `etat/scenes/plan/mesures`, serveur MCP et base SQLite renommés
+  `comfystudio` (`.mcp.json`, `PROD/comfystudio.db`). Restent nommés
+  d'après Léna, volontairement : la valeur `character_id="lena"` elle-même
+  (c'est le bon identifiant, pas un nom à généraliser), les fichiers de
+  workflow ComfyUI (`WORKFLOWS/*/lena_*.json` — renommage risqué et propre
+  à J4/J6 quand la structure univers/personnage sera tranchée), et les
+  préfixes de namespace `_LENA_EXPR_`/`_LENA_NSFW_SRC_` (évitent une
+  collision, pas des noms de code)
 - Embeddings/centroïde non régénérés ici (`backfill_embeddings.py`
   demande le GPU) — à lancer une fois qu'une génération réelle démarre
   dans ce repo
@@ -75,9 +83,15 @@ prouvent la généralisation — pas juste Léna renommée.
   données plutôt qu'à trancher maintenant
 
 **J2 — Découpage + généralisation du cœur**
-- Découpage des deux monolithes (`web/app.py`, `lena_batch.py`) avec
+- Découpage des deux monolithes (`web/app.py`, `runner.py`) avec
   `character_id` introduit dans le même mouvement
 - Base unique, schéma commun, colonne `character_id`
+- Étape 1 ✅ *(2026-08-27)* : `character_id` dans le schéma (`base.py`),
+  testé par `test_cross_character.py`
+- Étape 2 ✅ *(2026-08-27)* : `config.json`/`scenes.json`/`creative.json`
+  déplacés vers `CHARACTERS/lena/`, chargement paramétré par `character_id`
+- Reste : découpage `runner.py` → `AUTOMATION/runner/` (package
+  prompt/comfy/sortie/cli) puis `web/app.py` → `web/routes/`
 
 **J3 — Frontend**
 - Passage en modules ES, plus de globales partagées entre fichiers

@@ -162,7 +162,7 @@ pour trier les images depuis le canapé. **Aucune authentification** : à réser
 2. Depuis `ComfyUI_windows_portable\` :
 
 ```bat
-python_embeded\python.exe ComfyUI\output\OFM\AUTOMATION\lena_batch.py --dry-run
+python_embeded\python.exe ComfyUI\output\OFM\AUTOMATION\runner.py --dry-run
 ```
 
 (le tableau de bord fait la même chose avec le bouton *Aperçu*)
@@ -174,16 +174,16 @@ Puis, pour produire :
 
 ```bat
 :: toute la banque de scènes, variantes comprises
-python_embeded\python.exe ComfyUI\output\OFM\AUTOMATION\lena_batch.py
+python_embeded\python.exe ComfyUI\output\OFM\AUTOMATION\runner.py
 
 :: une catégorie
-... lena_batch.py --category lifestyle --category selfie
+... runner.py --category lifestyle --category selfie
 
 :: une scène précise, 4 images
-... lena_batch.py --scene cafe_terrasse --count 4
+... runner.py --scene cafe_terrasse --count 4
 
 :: une série de test rapide
-... lena_batch.py --limit 3 --no-variants
+... runner.py --limit 3 --no-variants
 ```
 
 Le raccourci `run_batch.bat` (dans ce dossier) fait la même chose en

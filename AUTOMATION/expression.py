@@ -111,7 +111,7 @@ def appliquer(path, params, comfy_url, timeout=300):
     produite et deja jugee. L'appelant journalise.
     """
     import shutil
-    import lena_batch as lb
+    import runner as lb
     path = Path(path)
     if not params:
         return False

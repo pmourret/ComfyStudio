@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 
 const OFM = path.resolve(__dirname, '..', '..');   // AUTOMATION/tests -> OFM
-const cfg = JSON.parse(fs.readFileSync(path.join(OFM, 'AUTOMATION/config.json'), 'utf8'));
+const cfg = JSON.parse(fs.readFileSync(path.join(OFM, 'CHARACTERS/lena/config.json'), 'utf8'));
 
 /* ---------------------------------------------------------------- DOM stub */
 const NOEUDS = new Map();

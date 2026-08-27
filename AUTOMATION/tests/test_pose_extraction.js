@@ -12,7 +12,7 @@ let chromium;
 try { ({ chromium } = require('playwright')); }
 catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'); process.exit(0); }
 const path = require('path');
-const B = process.env.LENA_URL || 'http://127.0.0.1:8189';
+const B = process.env.DASHBOARD_URL || 'http://127.0.0.1:8189';
 const SOURCE = path.resolve('h:/ComfyUI/ComfyUI_windows_portable/ComfyUI/output/OFM/PROD/LENA/OK/lifestyle_cuisine_matin_20260824_01.png');
 
 (async () => {

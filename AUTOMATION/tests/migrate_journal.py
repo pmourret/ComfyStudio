@@ -19,7 +19,7 @@ AUTOMATION = HERE.parent
 OFM = AUTOMATION.parent
 sys.path.insert(0, str(AUTOMATION))
 
-import lena_batch as lb  # noqa: E402
+import runner as lb      # noqa: E402
 
 JOURNAL = OFM / "PROD" / "journal_batch.csv"
 

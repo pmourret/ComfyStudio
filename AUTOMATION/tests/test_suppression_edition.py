@@ -72,7 +72,7 @@ def image(chemin, taille=(64, 64)):
 
 
 # ------------------------------------------------------- arborescence jetable
-racine = Path(tempfile.mkdtemp(prefix="lena_suppr_"))
+racine = Path(tempfile.mkdtemp(prefix="suppr_"))
 app.OFM = racine
 app.THUMBS = racine / "PROD" / ".thumbs"
 

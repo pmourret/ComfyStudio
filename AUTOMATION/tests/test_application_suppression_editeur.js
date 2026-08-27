@@ -19,7 +19,7 @@
 let chromium;
 try { ({ chromium } = require('playwright')); }
 catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'); process.exit(0); }
-const B = process.env.LENA_URL || 'http://127.0.0.1:8189';
+const B = process.env.DASHBOARD_URL || 'http://127.0.0.1:8189';
 const TEST_IMG = '_TEST_EDITEUR_temp.png';
 
 (async () => {

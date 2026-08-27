@@ -1,6 +1,6 @@
-"""Serveur MCP du projet Lena — sans aucune dependance.
+"""Serveur MCP de la plateforme ComfyStudio — sans aucune dependance.
 
-    python_embeded\\python.exe ComfyUI\\output\\OFM\\AUTOMATION\\mcp_lena.py
+    python_embeded\\python.exe AUTOMATION\\mcp_server.py
 
 MCP est du JSON-RPC 2.0 sur stdin/stdout. Le SDK officiel n'est installe ni dans
 le Python systeme ni dans le Python embarque, et l'installer dans celui de ComfyUI
@@ -14,20 +14,23 @@ volee. Les outils sont donc :
 
   wf_lister / wf_valider   la boucle courte de mise au point d'un graphe
   wf_noeuds                introspection des noeuds installes (types, entrees)
-  lena_etat / lena_scenes  ce que le tableau de bord sait
-  lena_plan                ce qu'un batch produirait — SANS le lancer
-  lena_mesures             bandes de realisme et statistiques par scene
+  etat / scenes            ce que le tableau de bord sait
+  plan                     ce qu'un batch produirait — SANS le lancer
+  mesures                  bandes de realisme et statistiques par scene
 
 Ce qu'il n'expose PAS, volontairement :
 
   - **aucun lancement de generation.** Un agent ne doit pas consommer le GPU ni
-    ecrire dans PROD sur sa propre initiative. `lena_plan` montre, il ne fait pas.
+    ecrire dans PROD sur sa propre initiative. `plan` montre, il ne fait pas.
   - **rien de la branche NSFW.** L'armement est une decision humaine prise dans
     l'interface, pas un appel d'outil (DOCS 8.1).
   - **aucune ecriture** : ni scenes.json, ni config.json, ni tri d'image.
 
 Un serveur MCP branche directement sur ComfyUI court-circuiterait le QC, le tri,
 le journal et les garde-fous. Celui-ci lit le meme etat que le tableau de bord.
+
+Tourne toujours sur le personnage "lena" (seul personnage existant, J2) — pas
+encore de parametre de selection, voir le registre personnage prevu en J4.
 """
 import json
 import sys
@@ -38,13 +41,13 @@ OFM = HERE.parent
 sys.path.insert(0, str(HERE))
 
 PROTOCOLE = "2024-11-05"
-SERVEUR = {"name": "lena", "version": "1.0.0"}
+SERVEUR = {"name": "comfystudio", "version": "1.0.0"}
 
 
 # --------------------------------------------------------------------- outils
 def _cfg():
-    import lena_batch as lb
-    return lb.load_json(HERE / "config.json")
+    import runner as lb
+    return lb.load_config("lena")
 
 
 def wf_lister(_):
@@ -93,7 +96,7 @@ def wf_noeuds(a):
     return {"types": sorted(trouves)[:60], "n": len(trouves)}
 
 
-def lena_etat(_):
+def etat(_):
     """Etat courant : ComfyUI, comptes par dossier de tri, seuils."""
     import urllib.request
     cfg = _cfg()
@@ -113,10 +116,10 @@ def lena_etat(_):
             "preset": cfg["preset"], "dossiers": comptes}
 
 
-def lena_scenes(_):
+def scenes(_):
     """Banque de scenes : id, intention, bande d'intensite, tags, statistiques."""
-    import lena_batch as lb
-    data = lb.load_json(HERE / "scenes.json")
+    import runner as lb
+    data = lb.load_scenes("lena")
     try:
         import base
         with base.ouvrir() as cx:
@@ -131,23 +134,23 @@ def lena_scenes(_):
             for s in data["scenes"]]
 
 
-def lena_plan(a):
+def plan(a):
     """Ce qu'un batch produirait. NE LANCE RIEN : ni GPU, ni ecriture."""
     from types import SimpleNamespace
-    import lena_batch as lb
+    import runner as lb
     args = SimpleNamespace(
         scene=a.get("scenes") or None, category=None, format=a.get("format"),
         count=a.get("count"), limit=a.get("limit"), seed=a.get("seed"),
         no_variants=bool(a.get("no_variants")), intensity=a.get("intensity"),
         tone=a.get("tone"), intention=a.get("intention"))
-    jobs = lb.build_jobs(HERE / "scenes.json", args)
+    jobs = lb.build_jobs(lb.scenes_path("lena"), args)
     return {"total": len(jobs), "note": "aucune generation lancee",
             "jobs": [{"scene": j["scene"], "format": j["format"],
                       "intensite": j["intensity"], "tenue": j["outfit"],
                       "seed": j["seed"], "prompt": j["prompt"]} for j in jobs[:12]]}
 
 
-def lena_mesures(_):
+def mesures(_):
     """Bandes de realisme et sante du jeu de reference d'identite."""
     import mesures as mes
     e = list(mes.charger().values())
@@ -177,16 +180,16 @@ OUTILS = [
      "Cherche un type de noeud installe et rend ses entrees.",
      {"motif": {"type": "string", "description": "fragment du nom du type"},
       "detail": {"type": "boolean", "description": "rendre les entrees si un seul resultat"}}),
-    (lena_etat, "lena_etat", "Etat : ComfyUI, dossiers de tri, seuils, prereglage.", {}),
-    (lena_scenes, "lena_scenes", "Banque de scenes avec intentions, bandes et statistiques.", {}),
-    (lena_plan, "lena_plan",
+    (etat, "etat", "Etat : ComfyUI, dossiers de tri, seuils, prereglage.", {}),
+    (scenes, "scenes", "Banque de scenes avec intentions, bandes et statistiques.", {}),
+    (plan, "plan",
      "Ce qu'un batch produirait, prompts compris. NE LANCE AUCUNE generation.",
      {"scenes": {"type": "array", "items": {"type": "string"}},
       "intensity": {"type": "integer", "description": "0 SFW, 1 Soft, 2 Suggestif"},
       "tone": {"type": "string"}, "intention": {"type": "string"},
       "count": {"type": "integer"}, "limit": {"type": "integer"},
       "no_variants": {"type": "boolean"}}),
-    (lena_mesures, "lena_mesures",
+    (mesures, "mesures",
      "Bandes de realisme, corpus de reference, sante du jeu d'identite.", {}),
 ]
 PAR_NOM = {nom: fn for fn, nom, _, _ in OUTILS}

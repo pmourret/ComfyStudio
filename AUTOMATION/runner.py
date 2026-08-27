@@ -1,9 +1,12 @@
-"""Runner batch Lena : banque de scenes -> ComfyUI -> QC identite -> tri -> export.
+"""Runner batch : banque de scenes -> ComfyUI -> QC identite -> tri -> export.
+
+Commun a tout personnage (character_id explicite, J2) — anciennement
+lena_batch.py tant qu'un seul personnage existait.
 
 Usage (depuis n'importe ou, avec le Python embarque de ComfyUI) :
-    python_embeded\\python.exe AUTOMATION\\lena_batch.py --dry-run
-    python_embeded\\python.exe AUTOMATION\\lena_batch.py --category lifestyle
-    python_embeded\\python.exe AUTOMATION\\lena_batch.py --scene cafe_terrasse --count 4
+    python_embeded\\python.exe AUTOMATION\\runner.py --dry-run
+    python_embeded\\python.exe AUTOMATION\\runner.py --category lifestyle
+    python_embeded\\python.exe AUTOMATION\\runner.py --scene cafe_terrasse --count 4
 
 Le workflow UI est converti en API a chaque lancement : ce que tu edites dans
 ComfyUI est ce qui tourne. Le runner ne modifie jamais le fichier du workflow.
@@ -44,6 +47,31 @@ def log(msg):
     print(f"[{datetime.now():%H:%M:%S}] {msg}", flush=True)
 
 
+# -------------------------------------------------------- donnees de personnage
+# CHARACTERS/<character_id>/{config,scenes,creative}.json (J2) : donnees propres
+# a un personnage, jamais melangees a une autre. Pas encore de registre (J4) —
+# character_id est pour l'instant une simple chaine passee explicitement par
+# l'appelant, "lena" partout ou ce repo ne connait qu'elle.
+def character_dir(character_id):
+    return OFM / "CHARACTERS" / character_id
+
+
+def config_path(character_id):
+    return character_dir(character_id) / "config.json"
+
+
+def scenes_path(character_id):
+    return character_dir(character_id) / "scenes.json"
+
+
+def load_config(character_id):
+    return load_json(config_path(character_id))
+
+
+def load_scenes(character_id):
+    return load_json(scenes_path(character_id))
+
+
 # --------------------------------------------------------- vocabulaire creatif
 # Aucun fragment ajoute au prompt ne doit redecrire le visage : il entrerait en
 # concurrence avec PuLID et ferait baisser le score d'identite (voir CLAUDE.md).
@@ -78,9 +106,11 @@ WATCH_FACE = re.compile(r"\b(hair|skin|tanned?|pale|blonde?|brunette|"
                         r"redhead|makeup|lipstick)\b", re.I)
 
 
-def load_creative(path=None):
-    """Taxonomie creative. Absente = le runner retombe sur l'ancien comportement."""
-    path = Path(path or HERE / "creative.json")
+def load_creative(character_id):
+    """Taxonomie creative du personnage. Absente = le runner retombe sur
+    l'ancien comportement (creative.json est optionnel, contrairement a
+    config.json/scenes.json)."""
+    path = character_dir(character_id) / "creative.json"
     return load_json(path) if path.exists() else {"intentions": [], "tones": [],
                                                   "intensity": []}
 
@@ -189,7 +219,10 @@ def build_jobs(scenes_file, args, creative=None):
     data = load_json(scenes_file)
     prefix, anchor, texture = data["prefix"], data["anchor"], data["texture"]
     direction = (data.get("direction") or "").strip()   # note de direction globale
-    creative = load_creative() if creative is None else creative
+    # "lena" en dur : character_id n'est pas encore un parametre de build_jobs
+    # /jobs_declinaison (J2 etape 3), seul point d'entree ou ce repo suppose
+    # encore un seul personnage.
+    creative = load_creative("lena") if creative is None else creative
 
     brut = getattr(args, "intensity", None)
     level = 0 if brut is None or brut == "" else int(brut)
@@ -312,7 +345,10 @@ def jobs_declinaison(scenes_file, source, mode, creative=None, n=3, tone=None):
     Retourne [] quand la declinaison n'a pas de sens pour cette image — scene sans
     autre variante, niveau deja au maximum : c'est a l'appelant de le dire.
     """
-    creative = load_creative() if creative is None else creative
+    # "lena" en dur : character_id n'est pas encore un parametre de build_jobs
+    # /jobs_declinaison (J2 etape 3), seul point d'entree ou ce repo suppose
+    # encore un seul personnage.
+    creative = load_creative("lena") if creative is None else creative
     sid = source.get("scene")
     niveau = int(source.get("intensite") or 0)
     ton_src = source.get("ton") or None
@@ -360,7 +396,7 @@ def jobs_declinaison(scenes_file, source, mode, creative=None, n=3, tone=None):
 
 
 # ----------------------------------------------------- dialogue avec ComfyUI
-def queue_prompt(url, api, client_id="lena_batch"):
+def queue_prompt(url, api, client_id="runner"):
     """Met un graphe en file. Retourne (prompt_id, erreur)."""
     req = urllib.request.Request(
         url.rstrip("/") + "/prompt",
@@ -704,7 +740,7 @@ def appliquer_expression(path, job, cfg, checker=None, avant=None):
         return {}, avant
     try:
         import expression as ex
-        params = ex.tirage(load_creative(), job.get("tone"), job["seed"])
+        params = ex.tirage(load_creative("lena"), job.get("tone"), job["seed"])
         if not params:
             return {}, avant
         if checker is None or avant is None:
@@ -863,9 +899,10 @@ def execute_jobs(jobs, cfg, checker, batch_id, runner=None, on_event=None,
 
 # ------------------------------------------------------------------------- main
 def main():
-    ap = argparse.ArgumentParser(description="Runner batch Lena")
-    ap.add_argument("--config", default=str(HERE / "config.json"))
-    ap.add_argument("--scenes-file", default=str(HERE / "scenes.json"))
+    ap = argparse.ArgumentParser(description="Runner batch")
+    # "lena" en dur : --character n'existe pas encore (J2 etape 3, cli.py).
+    ap.add_argument("--config", default=str(config_path("lena")))
+    ap.add_argument("--scenes-file", default=str(scenes_path("lena")))
     ap.add_argument("--scene", action="append", help="id de scene (repetable)")
     ap.add_argument("--category", action="append", help="categorie (repetable)")
     ap.add_argument("--format", help="force le format (4:5, 2:3, 9:16, 1:1)")

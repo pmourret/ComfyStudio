@@ -1,4 +1,4 @@
-"""Peuple PROD/lena.db depuis les fichiers existants. Idempotent.
+"""Peuple PROD/comfystudio.db depuis les fichiers existants. Idempotent.
 
     python_embeded\\python.exe ComfyUI\\output\\OFM\\AUTOMATION\\tests\\migrer_base.py
 

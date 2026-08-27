@@ -1,5 +1,5 @@
 @echo off
-REM Runner batch Lena - lance ComfyUI AVANT d'utiliser ce script.
+REM Runner batch - lance ComfyUI AVANT d'utiliser ce script.
 REM Exemples :
 REM   run_batch.bat --dry-run
 REM   run_batch.bat --category lifestyle
@@ -10,6 +10,6 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-"%COMFYUI_PYTHON%" "%~dp0lena_batch.py" %*
+"%COMFYUI_PYTHON%" "%~dp0runner.py" %*
 echo.
 pause

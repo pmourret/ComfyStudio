@@ -30,7 +30,7 @@ sys.path.insert(0, str(OFM / "AUTOMATION"))
 
 import app  # noqa: E402
 
-BANQUE = json.loads((OFM / "AUTOMATION" / "scenes.json").read_text(encoding="utf-8"))
+BANQUE = json.loads((OFM / "CHARACTERS" / "lena" / "scenes.json").read_text(encoding="utf-8"))
 
 KO = 0
 

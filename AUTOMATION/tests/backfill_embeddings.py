@@ -19,7 +19,7 @@ sys.path.insert(0, str(AUTOMATION))
 
 import base          # noqa: E402
 import env_config    # noqa: E402
-import lena_batch as lb  # noqa: E402
+import runner as lb      # noqa: E402
 
 OFM = AUTOMATION.parent
 COMFY = env_config.comfyui_root()
@@ -39,7 +39,7 @@ def fichiers_sur_disque():
 
 
 def main():
-    cfg = lb.load_json(AUTOMATION / "config.json")
+    cfg = lb.load_config("lena")
     checker = lb.make_checker(cfg)
     disque = fichiers_sur_disque()
 

@@ -83,7 +83,7 @@ try:
     print(f"serveur de test sur {BASE}")
     print("=" * 70)
 
-    banque = json.loads((OFM / "AUTOMATION" / "scenes.json").read_text(encoding="utf-8"))
+    banque = json.loads((OFM / "CHARACTERS" / "lena" / "scenes.json").read_text(encoding="utf-8"))
 
     # ============================================================== E2
     print("\n[E2] le bucket SANS_VISAGE est atteignable")
@@ -109,7 +109,7 @@ try:
     code, corps = appel("/api/scenes", {"data": detruite})
     verifie(code == 400 and "seul coup" in json.loads(corps).get("erreur", ""),
             f"l'effacement en lot du 25/08 : refuse ({code})")
-    verifie(json.loads((OFM / "AUTOMATION" / "scenes.json").read_text(encoding="utf-8"))
+    verifie(json.loads((OFM / "CHARACTERS" / "lena" / "scenes.json").read_text(encoding="utf-8"))
             == banque, "le fichier sur disque n'a pas bouge")
 
     # ============================================================== M1
@@ -158,7 +158,7 @@ try:
     # ecrire guidance:"beaucoup" dans le vrai fichier, ce qui a d'ailleurs
     # prouve que le controle de type etait trop laxiste.
     print("\n[M8] /api/config n'accepte que des reglages qui existent")
-    fichier_config = OFM / "AUTOMATION" / "config.json"
+    fichier_config = OFM / "CHARACTERS" / "lena" / "config.json"
     avant_config = fichier_config.read_text(encoding="utf-8")
     code, corps = appel("/api/config", {"preset": {"reglage_invente": 1}})
     verifie(code == 400 and b"inconnu" in corps, f"cle inconnue : refusee ({code})")

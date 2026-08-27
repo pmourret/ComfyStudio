@@ -129,7 +129,7 @@ function renderSceneCards(){
       <div class="rowf" style="margin-top:10px;align-items:flex-start">
         <label class="f"><span>pose imposée (option) — ControlNet, cran SFW
           uniquement<br><span class="tiny">A/B mesuré : 0 image sous la bande
-          d'identité sur 15 — DOCS/lena-pose-controlnet.md. Un squelette repose
+          d'identité sur 15. Un squelette repose
           ou de profil peut ne pas être suivi, vérifier le résultat à l'œil.</span></span>
           <select data-f="pose">${optionsPose(s.pose)}</select></label>
         <div class="posePrev" ${s.pose ? '' : 'hidden'}>
