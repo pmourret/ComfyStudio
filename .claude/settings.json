@@ -11,7 +11,8 @@
       "Bash(git push *)",
       "Bash(H:/ComfyUI/ComfyUI_windows_portable/python_embeded/python.exe -c ' *)",
       "Bash(\"H:/ComfyUI/ComfyUI_windows_portable/python_embeded/python.exe\" AUTOMATION/run_batch.py --limit 1 --no-qc)",
-      "Bash(\"H:\\\\ComfyUI\\\\ComfyUI_windows_portable\\\\python_embeded\\\\python.exe\" AUTOMATION/web/app.py --no-comfy --no-browser --port 8199)"
+      "Bash(\"H:\\\\ComfyUI\\\\ComfyUI_windows_portable\\\\python_embeded\\\\python.exe\" AUTOMATION/web/app.py --no-comfy --no-browser --port 8199)",
+      "Bash(git commit -m ' *)"
     ],
     "deny": [
       "Read(INPUTS/**)",
