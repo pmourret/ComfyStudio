@@ -1,0 +1,19 @@
+{
+  "tools": [
+    {
+      "id": "image-editor",
+      "label": "Éditeur d'image",
+      "scope": "global",
+      "surface": "review-lightbox"
+    }
+  ],
+  "_notes": [
+    "Panel d'outils du Dashboard pour cet univers (CLAUDE.md §5). scope 'global' :",
+    "outil applicable a tout univers (edition d'image, modification live par IA,",
+    "posing) ; scope 'universe' : outil qui n'a de sens que dans ce monde.",
+    "On ne liste ici QUE ce qui existe vraiment — un outil implemente mais non",
+    "enregistre n'apparait nulle part, et c'est voulu (skill nouvel-outil).",
+    "Le rendu data-driven du panel a l'ecran arrive avec le premier outil dedie",
+    "(J5+) ; en J4 ce fichier est expose par /api/universe/tools sans ecran encore."
+  ]
+}

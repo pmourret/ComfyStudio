@@ -1,0 +1,23 @@
+{
+  "id": "rpg-personnage",
+  "label": "RPG / personnage",
+  "model_family": "sdxl",
+  "identity": "lora_sdxl",
+  "identity_alt": ["ipadapter_faceid"],
+  "posing": "controlnet-canny-sdxl",
+  "output_styles": ["realiste", "fantastique", "cartoon", "manga"],
+  "_notes": [
+    "model_family / identity / posing : chaines DECLARATIVES en J4. Elles seront",
+    "cablees a du code en J5 (AUTOMATION/identity/lora_sdxl.py). Source de verite",
+    "des valeurs : .claude/skills/workflow-comfyui/references/modeles-par-univers.md.",
+    "identity_alt : mecanisme d'identite de repli possible pour cet univers",
+    "(IPAdapter FaceID / FaceID-plusv2 SDXL) — l'implementation retenue par",
+    "personnage se tranche a l'onboarding (J6).",
+    "posing : le modele ControlNet de l'univers Flux (Union Pro 2.0) n'est PAS",
+    "utilisable ici, il faut un ControlNet SDXL.",
+    "Univers d'Abyssiaelle. En J4 c'est une ENTREE DE REGISTRE seule : aucun",
+    "personnage onboarde, aucune implementation identity/ (J5), aucun build_jobs",
+    "(J6). Il sert a prouver que le registre generalise — ce n'est pas une copie",
+    "de l'univers de Lena (model_family differente)."
+  ]
+}

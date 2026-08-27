@@ -1,0 +1,16 @@
+{
+  "id": "instagram-influenceur",
+  "label": "Instagram / influenceur",
+  "model_family": "flux",
+  "identity": "pulid_flux",
+  "posing": "flux-controlnet-union-pro-2.0",
+  "output_styles": ["realiste"],
+  "_notes": [
+    "model_family / identity / posing : chaines DECLARATIVES en J4. Elles seront",
+    "cablees a du code en J5 (AUTOMATION/identity/pulid_flux.py). Source de verite",
+    "des valeurs : .claude/skills/workflow-comfyui/references/modeles-par-univers.md.",
+    "output_styles : styles que CET univers peut produire. Le style d'un personnage",
+    "est choisi et fige a sa creation, non modifiable ensuite (CLAUDE.md §3, J5).",
+    "Univers de Lena, porte tel quel depuis le repo mono-personnage."
+  ]
+}

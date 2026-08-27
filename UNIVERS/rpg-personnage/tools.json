@@ -1,0 +1,18 @@
+{
+  "tools": [
+    {
+      "id": "image-editor",
+      "label": "Éditeur d'image",
+      "scope": "global",
+      "surface": "review-lightbox"
+    }
+  ],
+  "_notes": [
+    "Panel d'outils du Dashboard pour cet univers (CLAUDE.md §5). Meme regle que",
+    "l'univers instagram-influenceur : on ne liste que ce qui existe vraiment.",
+    "Les outils orientes monde/lore (editeur de lore, carte, PNJ) sont V3 et ne",
+    "sont pas listes ici tant qu'ils n'existent pas.",
+    "En J4 : aucun personnage de cet univers, donc ce panel n'est encore rendu",
+    "nulle part — il est deja declaratif pour que J6 n'ait qu'a onboarder."
+  ]
+}
