@@ -1,0 +1,35 @@
+/* tokens.css — la SEULE couche d'identite visuelle (J3 etape 3).
+
+   Un univers redefinit ce fichier (palette, typographie, forme) ; base.css /
+   components.css / screens.css n'en dependent que par var(), jamais par une
+   valeur en dur qui encoderait un choix de style. Voir DESIGN.md pour le
+   contrat : ce qui est jetonne, ce qui reste brut en V1 (elevations, scrims,
+   quelques ambiances ponctuelles), et l'inventaire des composants.
+
+   Toutes les valeurs ci-dessous sont celles de l'ancien app.css, a l'identique
+   — l'etape 3 ne change aucun pixel, elle deplace et nomme. */
+:root{
+  /* --- palette : fonds, lignes, textes --- */
+  --bg:#15120f; --panel:#1e1a17; --panel2:#262019;
+  --line:#342b25; --line2:#463a31;
+  --txt:#f0e9e2; --dim:#a3948a; --dim2:#7a6c63;
+  /* accent + texte pose SUR un aplat d'accent (ou de warn/ok clair) */
+  --acc:#c9714a; --acc-d:#a85a37; --on-acc:#1a1310;
+  /* verdicts / etats */
+  --ok:#7fa87f; --warn:#d8a657; --bad:#c0605a; --high:#4fae5c; --none:var(--dim2);
+  /* bandeau d'avertissement (fond / bord / texte) */
+  --warn-bg:#3a2a18; --warn-line:#5a4020; --warn-txt:#e5d3b4;
+  /* bandeau / bouton de danger (fond / bord / texte) */
+  --danger-bg:#3a1d1a; --danger-line:#6b2f28; --danger-txt:#e8877c;
+  /* pastille « mesure » du panneau de reglages */
+  --mes-bg:#2a3a2a; --mes-line:#354a35;
+
+  /* --- typographie --- */
+  --font:15px/1.55 system-ui,'Segoe UI',Roboto,sans-serif;
+  --font-mono:12px ui-monospace,monospace;
+
+  /* --- forme --- */
+  --r:10px;            /* rayon des cartes */
+  --maxw:1180px;       /* largeur max du contenu centre */
+}
+*{box-sizing:border-box}

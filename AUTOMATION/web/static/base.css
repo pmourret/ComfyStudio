@@ -1,0 +1,64 @@
+/* base.css — reset, typographie, primitives de formulaire et de bouton.
+   Structure commune a tout univers (cf. .claude/rules/frontend.md). Ne
+   reference que des tokens de tokens.css. Extrait de app.css en J3 etape 3,
+   ordre des regles inchange. */
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--txt);overflow:hidden;
+     font:var(--font);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+
+/* ---------------------------------------------------------------- structure */
+.app{display:flex;flex-direction:column;height:100%}
+header{display:flex;align-items:center;gap:20px;padding:0 20px;height:56px;
+       background:var(--panel);border-bottom:1px solid var(--line);flex:none}
+.brand{font-size:16px;font-weight:600;letter-spacing:.2px}
+.brand i{color:var(--acc);font-style:normal}
+.tabs{display:flex;gap:4px;margin-left:8px}
+.tabs button{background:none;border:0;color:var(--dim);padding:8px 15px;border-radius:8px;
+             cursor:pointer;font-size:14px}
+.tabs button:hover{color:var(--txt);background:var(--panel2)}
+.tabs button.on{color:var(--txt);background:var(--panel2);font-weight:600}
+.tabs button .n{font-size:11px;background:var(--line2);border-radius:9px;padding:1px 6px;margin-left:6px;color:var(--txt)}
+.tabs button.on .n{background:var(--acc);color:var(--on-acc)}
+.status{margin-left:auto;display:flex;align-items:center;gap:9px;font-size:13px;color:var(--dim)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--bad)}
+.dot.on{background:var(--ok);box-shadow:0 0 0 3px #7fa87f22}
+/* barre d'intensite — hors du <main> qui defile, donc toujours a l'ecran */
+.intbar{flex:none;background:var(--panel);border-bottom:1px solid var(--line);
+        padding:9px 20px}
+.intbar .inner{max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;
+        gap:14px;flex-wrap:wrap}
+.intbar .lab{font-size:12px;text-transform:uppercase;letter-spacing:.9px;
+        color:var(--dim);font-weight:600}
+.intbar .seg button{padding:6px 16px}
+.intbar .seg button.locked{color:var(--dim2);cursor:not-allowed}
+.intbar .seg button.locked:hover{color:var(--dim2)}
+.intbar .seg button .n{font-size:11px;opacity:.6;margin-left:6px;
+        font-variant-numeric:tabular-nums}
+/* escalade complete sur les 4 paliers — avant, seuls lv2/lv3 avaient une regle
+   propre et lv0/lv1 retombaient sur le meme accent que tous les autres
+   controles segmentes de l'appli (qualite, bucket, vue...), rendant le curseur
+   d'intensite indistinguable d'un simple selecteur */
+.intbar .seg button.lv0.on{background:var(--ok);color:var(--bg)}
+.intbar .seg button.lv1.on{background:var(--acc)}
+.intbar .seg button.lv2.on{background:var(--warn)}
+.intbar .seg button.lv3.on{background:var(--bad);color:var(--txt)}
+main{flex:1;overflow:auto;position:relative}
+.screen{display:none;height:100%}
+.screen.on{display:block}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:24px 20px 120px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);
+   margin:0 0 12px;font-weight:600}
+.muted{color:var(--dim);font-size:13px}
+.tiny{font-size:12px;color:var(--dim2)}
+
+/* ------------------------------------------------------------------ boutons */
+.btn{background:var(--panel2);border:1px solid var(--line2);border-radius:8px;
+     padding:9px 16px;cursor:pointer;font-size:14px}
+.btn:hover{border-color:var(--dim2)}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:var(--on-acc);font-weight:600}
+.btn.primary:hover{background:var(--acc-d);border-color:var(--acc-d)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.sm{padding:6px 11px;font-size:13px}
+.link{background:none;border:0;color:var(--acc);cursor:pointer;font-size:13px;padding:0;text-decoration:underline}
+

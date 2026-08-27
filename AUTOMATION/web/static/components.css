@@ -1,0 +1,245 @@
+/* components.css — composants du design system : cartes, panneaux de
+   reglages, barre de lancement, grilles de tri, modales, bandeaux d'etat.
+   Extrait de app.css en J3 etape 3, ordre des regles inchange. */
+/* ------------------------------------------------------------------- creer */
+/* Un bloc = une decision. Les suivants n'existent pas tant qu'elle n'est pas
+   prise : c'est tout le principe du parcours lineaire. */
+.step{margin-bottom:30px}
+.step[hidden]{display:none}
+.step h2{display:flex;align-items:baseline;gap:10px}
+.step h2 .tiny{text-transform:none;letter-spacing:0}
+
+.intents{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px}
+.it{background:var(--panel);border:2px solid var(--line);border-radius:var(--r);
+    padding:16px 14px;cursor:pointer;text-align:left;transition:border-color .12s}
+.it:hover{border-color:var(--line2)}
+.it.on{border-color:var(--acc);background:var(--panel2)}
+.it .ic{font-size:22px;line-height:1;display:block;margin-bottom:9px}
+.it b{display:block;font-size:14px;font-weight:600}
+.it span{font-size:11.5px;color:var(--dim)}
+.it.vide{opacity:.5}
+.it.vide span{color:var(--dim2)}
+
+.chips{display:flex;gap:9px;flex-wrap:wrap}
+.chip-t{background:var(--panel2);border:1px solid var(--line);border-radius:20px;
+        padding:8px 16px;cursor:pointer;font-size:13.5px;user-select:none}
+.chip-t:hover{border-color:var(--line2)}
+.chip-t.on{background:var(--txt);border-color:var(--txt);color:var(--bg);font-weight:600}
+
+.sc .info .stat{display:flex;align-items:center;gap:6px;margin-top:5px;font-size:11.5px}
+.sc .info .stat .dotm{width:7px;height:7px;border-radius:50%;flex:none}
+.sc .tags{margin-top:5px;font-size:10.5px;color:var(--dim2);overflow:hidden;
+          text-overflow:ellipsis;white-space:nowrap}
+.sc .aff{position:absolute;top:8px;left:8px;background:#000000aa;color:var(--acc);
+         border-radius:10px;padding:1px 7px;font-size:10.5px;font-weight:700}
+
+/* menu Avance : tout ce qui n'est plus dans le chemin par defaut */
+/* actif quand un ecran ouvert depuis ce menu est affiche (scenes/journal/nsfw) :
+   ces ecrans n'ont pas d'onglet dans .tabs, sans ca rien n'indiquait plus
+   quelle section etait active */
+#btnAdv.on{background:var(--acc);border-color:var(--acc);color:var(--on-acc);font-weight:600}
+.advwrap{position:relative}
+.advmenu{position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);
+         border:1px solid var(--line2);border-radius:9px;padding:5px;min-width:190px;
+         box-shadow:0 12px 30px #0009;z-index:20;display:none}
+.advmenu.on{display:block}
+.advmenu button{display:flex;width:100%;align-items:center;gap:8px;background:none;
+        border:0;color:var(--txt);padding:8px 11px;border-radius:6px;cursor:pointer;
+        font-size:13.5px;text-align:left}
+.advmenu button:hover{background:var(--panel2)}
+.advmenu button .n{margin-left:auto;font-size:11px;color:var(--dim)}
+
+/* panneau de reglages, ouvert par l'engrenage de la barre de lancement */
+#gearPanel{position:fixed;right:20px;bottom:96px;width:min(620px,calc(100vw - 40px));
+        max-height:calc(100vh - 190px);overflow:auto;
+        background:var(--panel);border:1px solid var(--line2);border-radius:12px;
+        padding:18px;box-shadow:0 16px 44px #000a;z-index:8;display:none}
+#gearPanel.on{display:block}
+#gearPanel h3{margin:0;font-size:13px;text-transform:uppercase;
+        letter-spacing:.9px;color:var(--dim);font-weight:600}
+.gh{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.gintro{margin:0 0 18px;font-size:12.5px;line-height:1.6;color:var(--dim)}
+#btnGear.modif{border-color:var(--acc);color:var(--acc)}
+
+/* --- une section de reglages --- */
+.rgs{border-top:1px solid var(--line);padding-top:14px;margin-top:14px}
+.rgs:first-child{border-top:0;padding-top:0;margin-top:0}
+.rgs h4{margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.8px;
+        color:var(--dim2);font-weight:600}
+
+/* --- un reglage --- */
+.rg{margin-bottom:16px}
+.rg:last-child{margin-bottom:0}
+.rgh{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.rgh b{font-size:13.5px;font-weight:600}
+.rgv{font-variant-numeric:tabular-nums;font-size:13px;color:var(--acc);font-weight:600}
+.mes{font-size:10px;text-transform:uppercase;letter-spacing:.6px;padding:2px 6px;
+     border-radius:5px;background:var(--mes-bg);color:var(--ok);border:1px solid var(--mes-line)}
+.mes.off{background:transparent;color:var(--dim2);border-color:var(--line);
+         opacity:.55}
+.rg.modif .rgh b{color:var(--acc)}
+.rge{display:flex;justify-content:space-between;font-size:11px;color:var(--dim2);
+     margin-top:3px}
+.rgq{margin:6px 0 0;font-size:12.5px;line-height:1.6;color:var(--dim)}
+.rgq .cout{display:block;margin-top:4px;color:var(--dim2)}
+/* un reglage dont l'interrupteur maitre est coupe ne pilote plus rien */
+.rg.inerte{opacity:.42}
+.rg.inerte input{pointer-events:none}
+.rg.b{display:block}
+.rg.b .rgq{margin-left:26px}
+.rg select,.rg input[type=number]{width:100%;background:var(--panel2);
+        border:1px solid var(--line2);border-radius:8px;padding:8px 10px}
+
+/* --- curseur --- */
+.rg input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:4px;
+        border-radius:3px;background:var(--line2);outline:none;margin:2px 0}
+.rg input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+        width:16px;height:16px;border-radius:50%;background:var(--acc);
+        border:2px solid var(--panel);cursor:pointer;box-shadow:0 1px 4px #0008}
+.rg input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
+        background:var(--acc);border:2px solid var(--panel);cursor:pointer}
+
+/* ----------------------------------------------------------------- produire */
+.spacer{flex:1}
+.scenes{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:14px}
+.sc{background:var(--panel);border:2px solid var(--line);border-radius:var(--r);
+    overflow:hidden;cursor:pointer;position:relative;transition:border-color .12s}
+.sc:hover{border-color:var(--line2)}
+.sc.on{border-color:var(--acc)}
+.sc .ph{aspect-ratio:4/5;background:var(--panel2) center/cover;position:relative}
+.sc .ph.empty::after{content:'aucune image';position:absolute;inset:0;display:flex;
+  align-items:center;justify-content:center;color:var(--dim2);font-size:12px}
+.sc .tick{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;
+  background:#00000088;border:1.5px solid #ffffff55;display:flex;align-items:center;
+  justify-content:center;font-size:13px;color:transparent}
+.sc.on .tick{background:var(--acc);border-color:var(--acc);color:var(--on-acc);font-weight:700}
+.sc .info{padding:9px 11px}
+.sc .info b{display:block;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sc .info span{font-size:11.5px;color:var(--dim)}
+
+details.adv{margin-top:22px;border-top:1px solid var(--line);padding-top:16px}
+details.adv summary{cursor:pointer;color:var(--dim);font-size:13px;list-style:none}
+details.adv summary::-webkit-details-marker{display:none}
+details.adv summary::before{content:'▸ ';color:var(--acc)}
+details.adv[open] summary::before{content:'▾ '}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:16px;margin-top:16px}
+label.f{display:block}
+label.f span{display:block;font-size:12px;color:var(--dim);margin-bottom:5px}
+input,select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);
+  border-radius:7px;padding:8px 10px}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--acc)}
+.seg{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{background:none;border:0;padding:8px 15px;cursor:pointer;color:var(--dim);font-size:13.5px}
+.seg button.on{background:var(--acc);color:var(--on-acc);font-weight:600}
+.seg button:disabled{opacity:.35;cursor:not-allowed}
+.check{display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer}
+.check input{width:auto}
+
+/* barre de lancement collée en bas */
+.launch{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(transparent,var(--bg) 22%);
+        padding:26px 20px 18px;z-index:6}
+.launch .inner{max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;gap:16px;
+        background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:13px 18px;
+        box-shadow:0 10px 30px #0007}
+.launch .sum b{font-size:16px}
+.launch .sum div{font-size:12.5px;color:var(--dim)}
+
+/* --------------------------------------------------------------- execution */
+.run{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:20px}
+.bar{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;margin:12px 0}
+.bar>div{height:100%;background:var(--acc);width:0;transition:width .5s}
+.strip{display:flex;gap:9px;overflow-x:auto;padding:4px 0 2px}
+.strip img{height:104px;border-radius:7px;border:2px solid var(--line);cursor:zoom-in}
+.strip img.OK{border-color:var(--ok)} .strip img.A_REVOIR{border-color:var(--warn)}
+.strip img.REJET{border-color:var(--bad)}
+pre.log{background:#100e0c;border:1px solid var(--line);border-radius:8px;padding:11px;
+        max-height:190px;overflow:auto;font-size:12px;margin:10px 0 0;white-space:pre-wrap;color:#c8bcb2}
+
+/* ------------------------------------------------------------------- trier */
+#trier .wrap{padding-bottom:24px}
+.triage{display:grid;grid-template-columns:1fr 300px;gap:22px;align-items:start}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+       display:flex;align-items:center;justify-content:center;min-height:62vh;position:relative;overflow:hidden}
+.stage img{max-width:100%;max-height:72vh;display:block}
+.nav{position:absolute;top:50%;transform:translateY(-50%);background:#000000aa;border:0;
+     color:#fff;width:42px;height:64px;cursor:pointer;font-size:20px}
+.nav.prev{left:0;border-radius:0 8px 8px 0} .nav.next{right:0;border-radius:8px 0 0 8px}
+.side{position:sticky;top:12px;display:flex;flex-direction:column;gap:14px}
+.meta{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:15px}
+.meta dt{font-size:11.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+.meta dd{margin:0 0 11px;font-size:14px}
+.score{font-size:30px;font-weight:700;line-height:1}
+.score small{font-size:12px;font-weight:500;color:var(--dim);display:block;margin-top:3px}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.acts .btn{justify-content:center;text-align:center}
+.acts .btn.wide{grid-column:1/-1}
+.kbd{font:var(--font-mono);background:var(--panel2);border:1px solid var(--line2);
+     border-radius:4px;padding:1px 5px;color:var(--dim)}
+.viewsel{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:9px;overflow:hidden;position:relative}
+.chip{position:absolute;top:8px;left:8px;padding:2px 9px;border-radius:11px;font-size:12.5px;
+      font-weight:700;color:var(--bg);font-variant-numeric:tabular-nums;
+      box-shadow:0 2px 8px #0006;pointer-events:none}
+.chip.high{background:var(--high)} .chip.ok{background:var(--ok)}
+.chip.warn{background:var(--warn)} .chip.bad{background:var(--bad)}
+.chip.none{background:var(--line2);color:var(--dim)}
+.seg button .n{font-size:11px;opacity:.65;margin-left:5px;font-variant-numeric:tabular-nums}
+/* Image visee par le clavier en vue grille. Sans ce reperage, V/X/A triaient
+   la premiere image de la liste sans que rien ne l'indique. */
+.tile.cur{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc)}
+.tile img{width:100%;aspect-ratio:4/5;object-fit:cover;display:block;cursor:zoom-in;background:#0d0b0a}
+.tile .m{padding:8px 10px;font-size:12px;color:var(--dim)}
+.tile .m b{color:var(--txt);font-size:12.5px}
+.badge{padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;color:var(--bg);float:right}
+.badge.high{background:var(--high)} .badge.ok{background:var(--ok)}
+.badge.warn{background:var(--warn)} .badge.bad{background:var(--bad)}
+/* sous-scores de realisme : barres compactes sous la vignette */
+.bars{padding:0 10px 4px;display:flex;flex-direction:column;gap:3px}
+.b2{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--dim2)}
+.b2 span{width:30px;flex:none}
+.b2 u{flex:1;height:4px;background:var(--panel2);border-radius:2px;
+      overflow:hidden;text-decoration:none}
+.b2 u i{display:block;height:100%;background:var(--dim2)}
+.b2 u i.dans{background:var(--ok)} .b2 u i.hors{background:var(--warn)}
+.b2 b{width:34px;text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
+.nomeas{padding:6px 10px;font-size:10.5px;color:var(--dim2)}
+
+/* actions directes : plus besoin d'ouvrir l'image pour la trier */
+.tacts{display:flex;gap:3px;padding:6px 8px;border-top:1px solid var(--line)}
+.tacts button{flex:1;background:none;border:1px solid transparent;border-radius:6px;
+   color:var(--dim);cursor:pointer;padding:5px 0;font-size:14px;line-height:1}
+.tacts button:hover{background:var(--panel2);border-color:var(--line2);color:var(--txt)}
+.tacts button.on{background:var(--acc);border-color:var(--acc);color:var(--on-acc)}
+/* jugement de realisme : vert pour convaincante, rouge pour "ça se voit que
+   c'est genere" — avant, les deux rendaient dans le meme accent, seul le
+   glyphe (minuscule) les distinguait */
+.tacts button[data-f="ok"].on{background:var(--ok);border-color:var(--ok);color:var(--bg)}
+.tacts button[data-f="ia"].on{background:var(--bad);border-color:var(--bad);color:var(--bg)}
+.tacts .sep{width:1px;background:var(--line);margin:3px 2px;flex:none}
+.tile.ia{opacity:.62}
+.tile.ia .chip{filter:saturate(.4)}
+
+/* declinaison : repartir d'une image gardee, sans repasser par un batch */
+#declineBox,#armBox{position:fixed;inset:0;background:#000c;display:none;
+   align-items:center;justify-content:center;z-index:32;padding:24px}
+#declineBox.on,#armBox.on{display:flex}
+#armBox .card{background:var(--panel);border:1px solid var(--line2);border-radius:12px;
+   padding:22px;width:min(560px,100%);box-shadow:0 18px 50px #000b}
+#armBox h3{margin:0 0 12px;font-size:17px}
+#armBox p,#armBox li{color:var(--dim);font-size:13.5px}
+#armBox ul{padding-left:20px;margin:10px 0}
+#declineBox .card{background:var(--panel);border:1px solid var(--line2);
+   border-radius:12px;padding:20px;width:min(460px,100%);box-shadow:0 18px 50px #000b}
+#declineBox h3{margin:0 0 4px;font-size:16px}
+#declineBox .src{font-size:12.5px;color:var(--dim);margin-bottom:16px}
+#declineBox .dm{display:flex;width:100%;align-items:center;gap:10px;margin-bottom:9px;
+   justify-content:flex-start;text-align:left}
+#declineBox .dm .n{margin-left:auto;font-size:11.5px;color:var(--dim)}
+#declineBox .dm:disabled{opacity:.38}
+#declineBox .lab{font-size:12px;text-transform:uppercase;letter-spacing:.9px;
+   color:var(--dim);font-weight:600;margin:16px 0 8px}
+
+.empty{text-align:center;color:var(--dim);padding:60px 20px}
+.empty b{display:block;color:var(--txt);font-size:16px;margin-bottom:6px}
+

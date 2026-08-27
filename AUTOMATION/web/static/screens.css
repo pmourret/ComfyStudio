@@ -1,0 +1,245 @@
+/* screens.css — mise en page propre a un ecran (banque de scenes, composeur,
+   editeur photo, ecran Application) et adaptation mobile. Charge en dernier :
+   ce qui doit primer sur un composomant y est. Extrait de app.css en J3
+   etape 3, ordre des regles inchange. */
+/* ------------------------------------------------------------------ scenes */
+.sceneCard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+           padding:16px;margin-bottom:14px}
+.sceneCard .top{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+.sceneCard .top input.id{font-weight:600;max-width:230px}
+.sceneCard textarea{min-height:78px;resize:vertical}
+.sceneCard .rowf{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:12px}
+.del{margin-left:auto;background:none;border:0;color:var(--dim2);cursor:pointer;font-size:18px}
+.del:hover{color:var(--bad)}
+
+/* ------------------------------------------------------------------ divers */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+th{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+td.num{font-variant-numeric:tabular-nums}
+#lightbox{position:fixed;inset:0;background:#000d;display:none;align-items:center;
+          justify-content:center;z-index:30;padding:26px;cursor:zoom-out}
+#lightbox img{max-width:100%;max-height:100%;border-radius:6px}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120%);
+       background:var(--panel);border:1px solid var(--line2);border-radius:10px;
+       padding:11px 16px;display:flex;gap:14px;align-items:center;z-index:40;
+       box-shadow:0 8px 26px #0008;transition:transform .22s;font-size:14px}
+#toast.on{transform:translateX(-50%) translateY(0)}
+
+/* --------------------------------------------------------------- composeur */
+.compose{background:linear-gradient(180deg,#221c18,var(--panel));border:1px solid var(--line2);
+         border-radius:var(--r);padding:18px;margin-bottom:22px}
+.compose textarea{min-height:70px}
+.prop{background:var(--panel2);border:1px solid var(--line2);border-radius:9px;
+      padding:13px;margin-top:10px}
+.prop .h{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+.prop .h b{font-size:14px}
+.prop .p{font-size:13px;color:var(--dim);margin:0 0 8px}
+.prop .v{font-size:12px;color:var(--dim2)}
+
+/* -------------------------------------------------------------------- nsfw */
+.lockbox{max-width:640px;margin:40px auto;background:var(--panel);
+         border:1px solid var(--line2);border-radius:var(--r);padding:26px}
+.lockbox h3{margin:0 0 12px;font-size:17px}
+.lockbox p{color:var(--dim);font-size:14px}
+.lockbox ul{color:var(--dim);font-size:13.5px;padding-left:20px}
+.warnband{background:var(--danger-bg);border:1px solid var(--danger-line);color:#e8c4bf;border-radius:8px;
+          padding:10px 14px;font-size:13px;margin-bottom:16px}
+.srcgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;
+         max-height:330px;overflow:auto;padding:3px}
+.src{border:2px solid var(--line);border-radius:8px;overflow:hidden;cursor:pointer;position:relative}
+.src.on{border-color:var(--acc)}
+.src img{width:100%;aspect-ratio:4/5;object-fit:cover;display:block}
+.src .tick{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;
+  background:#000000aa;border:1.5px solid #ffffff55;color:transparent;font-size:12px;
+  display:flex;align-items:center;justify-content:center}
+.src.on .tick{background:var(--acc);border-color:var(--acc);color:var(--on-acc);font-weight:700}
+
+@media(max-width:820px){
+  .triage{grid-template-columns:1fr}
+  .side{position:static}
+  .tabs button{padding:8px 10px;font-size:13px}
+  .wrap{padding:16px 13px 130px}
+  .stage{min-height:auto}
+  .stage img{max-height:52vh}
+}
+
+/* ------------------------------------------- modifications non enregistrees */
+#dirtyBar{display:flex;align-items:center;gap:12px;padding:9px 20px;flex:none;
+        background:var(--warn-bg);border-bottom:1px solid var(--warn-line);font-size:13px}
+#dirtyBar[hidden]{display:none}
+#dirtyBar b{color:var(--warn)}
+#dirtyBar span{color:var(--dim)}
+.sc .nonsauv{position:absolute;left:8px;bottom:8px;background:var(--warn-bg);color:var(--warn);
+        border:1px solid var(--warn-line);border-radius:5px;padding:2px 6px;font-size:10px;
+        text-transform:uppercase;letter-spacing:.5px}
+
+/* ============================== refonte du 26/08/2026 — cran NSFW unifie ===
+   L'onglet « Branche NSFW » a disparu : sa grille de sources, son champ
+   d'instruction et son lancement vivent sur le cran NSFW du curseur. Les regles
+   .srcgrid / .src plus haut servent donc maintenant l'ecran Creer. */
+
+/* numero d'etape : la numerotation est contextuelle (1-2 en edition,
+   1-2-3-4 en generation), donc portee par un element et non par le texte */
+.step h2 .num{font-style:normal;color:var(--acc)}
+.step h2 .spacer{flex:1}
+
+/* intentions sans aucune scene : sous un separateur, en fin de bloc 1 */
+#intentVides[hidden]{display:none}
+#intentVides .sep{margin:22px 0 12px;color:var(--dim);font-size:12px;
+  text-transform:uppercase;letter-spacing:.6px;display:flex;align-items:center;gap:12px}
+#intentVides .sep::after{content:'';flex:1;height:1px;background:var(--line)}
+#intentVides .it{opacity:.72}
+#intentVides .it:hover{opacity:1;border-color:var(--acc)}
+
+/* source « a revoir » : la pastille reutilise .aff des cartes de scene */
+.src .aff{position:absolute;top:6px;left:6px;background:var(--warn-bg);color:var(--warn);
+  border:1px solid var(--warn-line);border-radius:5px;padding:1px 5px;font-size:9.5px;
+  text-transform:uppercase;letter-spacing:.4px}
+.srcgrid .empty{grid-column:1/-1;padding:34px 16px;font-size:13px}
+
+/* preambule du graphe, montre au lieu d'etre paraphrase */
+details.preamb{margin-top:0;border-top:0;padding-top:0;margin-bottom:12px}
+#preambule{white-space:pre-wrap;background:var(--panel);border:1px solid var(--line);
+  border-radius:8px;padding:12px 14px;margin:10px 0 6px;color:var(--dim);
+  font-size:12px;line-height:1.55}
+
+/* alertes d'instruction : un panneau, jamais un blocage */
+#instrAlertes{display:flex;flex-direction:column;gap:6px}
+#instrAlertes:not(:empty){margin-top:10px}
+.alerte{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn-txt);border-radius:8px;
+  padding:9px 12px;font-size:12.5px;line-height:1.5}
+.alerte::before{content:'! ';color:var(--warn);font-weight:700}
+
+/* bibliotheque : ce que le journal sait deja des instructions employees */
+#biblioList{display:flex;flex-direction:column;gap:4px;margin-top:10px;
+  max-height:280px;overflow:auto}
+.bib{display:flex;align-items:baseline;gap:10px;padding:7px 10px;border-radius:7px;
+  cursor:pointer;border:1px solid transparent}
+.bib:hover{background:var(--panel);border-color:var(--line2)}
+.bib .sc{font-variant-numeric:tabular-nums;font-size:12px;min-width:42px;flex:none}
+.bib .tx{flex:1;font-size:12.5px;color:var(--txt);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.bib .warn{color:var(--warn);font-weight:700;flex:none}
+.bib .n{color:var(--dim2);font-size:11px;flex:none}
+
+/* sections de rendu repliees (P7) : 13 reglages sur 23 passent sous un pli.
+   Rien n'est supprime — et une section fermee annonce ce qu'elle cache. */
+.rgs.pli details summary{cursor:pointer;list-style:none;display:flex;
+  align-items:baseline;gap:10px}
+.rgs.pli details summary::-webkit-details-marker{display:none}
+.rgs.pli details summary::before{content:'▸';color:var(--acc);font-size:11px}
+.rgs.pli details[open] summary::before{content:'▾'}
+.rgs.pli summary h4{margin:0;display:inline}
+.rgs.pli .ecart{font-size:11px;color:var(--dim2)}
+.rgs.pli .ecart.on{color:var(--warn)}
+
+/* panne de chargement : meme forme que #dirtyBar, ton d'alerte franc.
+   Un ecran vide qui ne s'explique pas coute plus cher qu'une erreur affichee. */
+#panneBar{display:flex;align-items:center;gap:12px;padding:9px 20px;flex:none;
+        background:var(--danger-bg);border-bottom:1px solid var(--danger-line);font-size:13px}
+#panneBar[hidden]{display:none}
+#panneBar b{color:var(--danger-txt)}
+#panneBar span{color:var(--dim)}
+
+/* ------------------------------------------- apercu du prompt (26/08/2026)
+   69 % du prompt final etait assemble hors de vue. Le panneau s'ouvre AU-DESSUS
+   de la barre de lancement, qui est collee en bas de l'ecran. */
+#apercuPanel{max-width:var(--maxw);margin:0 auto 10px;max-height:52vh;overflow:auto}
+#apercuPanel[hidden]{display:none}
+.ap{background:var(--panel);border:1px solid var(--line2);border-radius:12px;
+  padding:14px 18px;box-shadow:0 10px 30px #0007}
+.aph{display:flex;align-items:baseline;gap:12px;margin-bottom:10px}
+.aph b{font-size:14px}
+.fr{display:flex;gap:12px;align-items:baseline;padding:5px 0;
+  border-top:1px solid var(--line)}
+.fr .pc{min-width:34px;text-align:right;font-size:11px;color:var(--dim2);
+  font-variant-numeric:tabular-nums;flex:none}
+.fr .src{min-width:118px;font-size:11.5px;color:var(--dim);flex:none;
+  text-transform:uppercase;letter-spacing:.4px}
+.fr .tx{font-size:12.5px;line-height:1.5}
+/* la scene est le seul fragment que l'utilisateur ecrit : on la distingue */
+.fr.sc{background:#1d2420;margin:0 -18px;padding-left:18px;padding-right:18px}
+.fr.sc .src,.fr.sc .tx{color:var(--txt)}
+.fr.sc .src{color:var(--acc)}
+.ech{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.ech b{font-size:11.5px;color:var(--dim);text-transform:uppercase;
+  letter-spacing:.4px;display:block;margin-bottom:8px}
+.ech .e{display:inline-block;background:var(--warn-bg);border:1px solid var(--warn-line);
+  color:var(--warn-txt);border-radius:6px;padding:3px 8px;margin:0 6px 6px 0;font-size:12px}
+.ech .e i{color:var(--dim);font-style:normal;font-size:10.5px}
+.amd{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.amd.inerte{opacity:.45}
+.amd textarea{min-height:56px}
+
+/* -------------------------------------------- pose imposee (26/08/2026)
+   ControlNet, groupe 13 du workflow de production. Voir DOCS/lena-pose-controlnet.md */
+.posePrev{width:64px;height:64px;flex:none;border:1px solid var(--line2);
+  border-radius:8px;overflow:hidden;background:#000;margin-top:22px}
+.posePrev[hidden]{display:none}
+.posePrev img{width:100%;height:100%;object-fit:contain}
+
+.sc .posebadge{position:absolute;top:8px;right:8px;background:#000000aa;color:#9fd8ff;
+  border-radius:10px;padding:1px 7px;font-size:10.5px;font-weight:700}
+
+/* =============================================== 26/08/2026 — quatre ajouts
+   banque de poses (upload), suppression definitive, ecran Application,
+   editeur photo phase 1. */
+
+/* -------------------------------------------------------------- bouton danger */
+.btn.danger{background:transparent;border-color:var(--danger-line);color:var(--danger-txt)}
+.btn.danger:hover{background:var(--danger-bg);border-color:#8a3c30}
+
+/* --------------------------------------------------- banque de poses (Scenes) */
+.posegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));
+  gap:10px;margin-bottom:14px}
+.posecard{position:relative;border:1px solid var(--line2);border-radius:8px;
+  overflow:hidden;background:#000;aspect-ratio:1}
+.posecard img{width:100%;height:100%;object-fit:contain}
+.posecard .del{position:absolute;top:4px;right:4px;width:20px;height:20px;
+  border-radius:50%;border:1px solid var(--danger-line);background:#000000cc;color:var(--danger-txt);
+  font-size:13px;line-height:1;cursor:pointer}
+.posecard .del:hover{background:var(--danger-bg)}
+.poseUpload{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:26px}
+
+/* ------------------------------------------------- suppression definitive */
+.tacts .del{background:transparent;border:0;color:var(--dim2);cursor:pointer;
+  font-size:14px;padding:2px 4px}
+.tacts .del:hover{color:var(--danger-txt)}
+.secActs{display:flex;gap:10px;margin-top:14px}
+
+/* ------------------------------------------------------------- Application */
+.appliActs{display:flex;gap:12px;margin:14px 0 6px}
+
+/* ---------------------------------------------------------------- editeur */
+#editorBox{position:fixed;inset:0;background:#000d;display:none;
+  align-items:center;justify-content:center;z-index:40;padding:20px}
+#editorBox.on{display:flex}
+.edWrap{display:flex;gap:0;background:var(--panel);border:1px solid var(--line2);
+  border-radius:12px;overflow:hidden;max-width:1160px;width:100%;
+  max-height:calc(100vh - 40px)}
+.edStage{position:relative;flex:1;display:flex;align-items:center;
+  justify-content:center;background:#0a0a0a;padding:16px;min-width:0}
+.edStage canvas{max-width:100%;max-height:100%;display:block;border-radius:2px}
+#edCropBox{position:absolute;border:1.5px solid var(--acc);
+  box-shadow:0 0 0 2000px #00000066;cursor:move;touch-action:none}
+.edHandle{position:absolute;width:14px;height:14px;background:var(--acc);
+  border-radius:50%;transform:translate(-50%,-50%);cursor:nwse-resize;touch-action:none}
+.edHandle[data-h="nw"]{left:0;top:0}
+.edHandle[data-h="ne"]{left:100%;top:0;cursor:nesw-resize}
+.edHandle[data-h="sw"]{left:0;top:100%;cursor:nesw-resize}
+.edHandle[data-h="se"]{left:100%;top:100%}
+.edSide{width:280px;flex:none;padding:20px;overflow-y:auto;
+  border-left:1px solid var(--line)}
+.edSide h3{margin:0 0 16px;font-size:16px}
+.edSec{margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.edSec:last-of-type{border-bottom:0}
+.edLab{font-size:11.5px;color:var(--dim);text-transform:uppercase;
+  letter-spacing:.5px;margin-bottom:10px}
+.edRow{display:flex;justify-content:space-between;font-size:12.5px;
+  color:var(--dim);margin-top:10px}
+.edVal{color:var(--txt);font-variant-numeric:tabular-nums}
+.edSec input[type=range]{width:100%;margin-top:2px}
+.edSpacer{flex:1;min-height:10px}
+.edBtns{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.edBtns .btn{width:100%}
