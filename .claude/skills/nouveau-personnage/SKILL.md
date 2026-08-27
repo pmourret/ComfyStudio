@@ -34,15 +34,18 @@ autre personnage du même univers, même famille de modèle.
 - La bande de score d'identité (scoring contre la base gelée) qui définit
   "conforme" pour ce visage précis — elle n'a aucune raison de coïncider
   avec celle d'un autre personnage
-- Les poids du mécanisme d'identité (ex. `weight`/`start_at`/`end_at` pour
-  un verrou type PuLID, ou le mot déclencheur + poids pour un LoRA de
-  personnage)
+- Les poids du mécanisme d'identité — ils vont dans `config.json` / `identity`,
+  jamais en dur dans le workflow (ADR-0011). Pour un verrou PuLID-Flux :
+  `{ "weight", "start_at", "end_at" }`, injectés par
+  `AUTOMATION/identity/pulid_flux.py`. Pour un LoRA SDXL : mot déclencheur +
+  poids (contrat figé à l'onboarding du premier personnage rpg, J6).
 
 ## Étape 3 — Structure de dossiers
 
 ```
 CHARACTERS/<nom>/
-  config.json       # measured settings (step 2 + step 4)
+  character.json    # registre : universe, output_style, content_types, nsfw
+  config.json       # measured settings (step 2 + step 4), dont `identity`
   scenes.json        # this character's scene bank
   creative.json        # this character's tone/intention taxonomy
   INPUTS/
@@ -79,12 +82,16 @@ directement comme référence visuelle dans un workflow.
 
 ## Étape 7 — Enregistrement dans le registre personnage
 
-Champs à renseigner (`CLAUDE.md` §7) :
-- Univers associé (fixé, non modifiable ensuite)
-- Registre de création : types de contenu actifs — `image` seul en V1,
-  `vidéo`/`voix` déclarés mais inactifs (voir `ROADMAP.md`)
-- NSFW : **off par défaut**, à activer explicitement dans le paramétrage si
-  souhaité
+`CHARACTERS/<nom>/character.json` (git-ignoré, ADR-0010). Champs
+(`CLAUDE.md` §7, ADR-0010/0011) :
+- `universe` : univers associé, **fixé à la création, non modifiable ensuite**
+- `output_style` : style de sortie, choisi dans la map `output_styles` de
+  l'univers, **figé à la création** (changer de style = créer un nouveau
+  personnage). Un univers mono-style n'a qu'un choix.
+- `content_types` : types de contenu actifs — `image` seul en V1,
+  `video`/`voice`/`staging` déclarés inactifs (voir `ROADMAP.md`)
+- `nsfw` : **off par défaut**, armé explicitement dans le paramétrage si
+  souhaité (l'interrupteur vit ici, pas dans `config.json`)
 
 ## Étape 8 — Validation avant première production
 
@@ -97,7 +104,7 @@ batch réel, pas après.
 - [ ] Base personnage gelée, aucune photo de tiers utilisée
 - [ ] Bande d'identité mesurée et documentée pour ce personnage
 - [ ] Structure de dossiers créée
-- [ ] `config.json` mesuré (pas copié tel quel d'un autre personnage)
+- [ ] `config.json` mesuré (pas copié tel quel), dont `identity` (poids du verrou)
 - [ ] `build_jobs` + test byte-exact en place
-- [ ] Registre personnage renseigné (univers, registre de création, NSFW off)
+- [ ] `character.json` renseigné (univers, output_style figé, content_types, NSFW off)
 - [ ] `wf_check.py --roles` et `--essai` passés sur les workflows touchés

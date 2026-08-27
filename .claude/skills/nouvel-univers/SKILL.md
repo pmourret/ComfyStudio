@@ -26,9 +26,27 @@ modèle ne doivent pas en avoir deux implémentations séparées.
 
 Si la famille de modèle choisie a déjà une implémentation dans
 `AUTOMATION/identity/` (voir `CLAUDE.md` §4), la réutiliser. Sinon, écrire
-la nouvelle implémentation derrière l'interface commune
-(`appliquer(job, personnage) -> job modifié`) — ne jamais contourner
-l'interface pour un univers en particulier.
+la nouvelle implémentation derrière l'interface commune — ne jamais
+contourner l'interface pour un univers en particulier.
+
+Contrat d'une implémentation `AUTOMATION/identity/<nom>.py` (voir
+`pulid_flux.py` pour la référence, `DOCS/adr/0011`) :
+- `REQUIRED_ROLES : dict[str, (type_nœud, titre|None)]` — les nœuds du
+  graphe que l'implémentation pilote ; `WorkflowRunner._roles()` les résout
+  et les ajoute à sa table.
+- `apply(api, roles, character_config, job) -> None` — modifie le graphe
+  **converti** (format API) **en place** : injecte les poids du verrou
+  (lus dans `config.json` / `identity`, jamais en dur) et l'asset de
+  référence du personnage (`config.json` / `base_gelee`). Même mécanisme
+  que `WorkflowRunner.api_for` pour guidance/seed. `job` est fourni pour
+  une variation par job éventuelle.
+- Enregistrer l'implémentation dans `AUTOMATION/identity/__init__.py`
+  (`_IMPLS`), et pointer `universe.json` / `identity` sur son nom.
+
+L'implémentation est **choisie par l'univers**, partagée par tous ses
+personnages ; seuls `config.json` / `identity` et les assets changent par
+personnage. La couche de *mesure* (`qc_identity.py`, InsightFace) reste
+commune à tous les univers — `identity/` ne fait que la génération.
 
 Prévoir dès cette étape comment ce mécanisme sera **mesuré** par personnage
 (voir skill `nouveau-personnage`, étape 2) — un univers sans méthode de
@@ -57,11 +75,20 @@ univers plutôt que de supposer que celui d'un autre univers fonctionne.
 
 ```
 UNIVERS/<nom>/
-  tools.json
+  universe.json    # id, label, model_family, identity, posing, output_styles
+  tools.json       # panel d'outils (étape 4)
 ```
 
-Enregistrer l'univers dans le registre (id, famille de modèle, implémentation
-d'identité, chemin `UNIVERS/<nom>/`) — voir `CLAUDE.md` §7.
+`universe.json` (versionné — aucune donnée personnelle, cf. ADR-0010) :
+- `identity` : nom de l'implémentation `AUTOMATION/identity/` (étape 2).
+- `posing` : identifiant du modèle ControlNet compatible (étape 3), ou `null`.
+- `output_styles` : **map** `{ style: { "prompt_add": str, "checkpoint": str|null } }` —
+  les styles que l'univers peut produire et leur effet sur le pipeline. Le
+  style d'un personnage est choisi dans cette map et **figé à sa création**
+  (`CLAUDE.md` §3, ADR-0011). Un univers mono-style met `prompt_add: ""` et
+  `checkpoint: null` (effet nul).
+
+Le scan de `UNIVERS/` découvre l'univers — pas de fichier registre central.
 
 ## Étape 6 — Premier personnage comme validation
 

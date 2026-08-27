@@ -181,11 +181,28 @@ prouvent la généralisation — pas juste Léna renommée.
   panel d'outils rendu à l'écran (aucun outil dédié à peupler), MCP
   conscient du registre (`mcp_server.py` reste `"lena"` en dur — V3).
 
-**J5 — Style figé + verrou d'identité par univers**
+**J5 — Style figé + verrou d'identité par univers** ✅ *(terminé 2026-08-28)*
 - Style de sortie choisi et figé à la création du personnage, non
   modifiable ensuite (confirmé)
 - `AUTOMATION/identity/` avec deux implémentations : `pulid_flux.py`,
   `lora_sdxl.py`
+- Résultat : 3 commits thématiques (+ réparation disque de `config.json`).
+  `AUTOMATION/identity/` = interface choisie par l'univers
+  (`get`/`for_universe`, contrat `REQUIRED_ROLES` + `apply(api, roles,
+  character_config, job)`). `pulid_flux.py` réel : les poids PuLID de Léna
+  sortent du widget du workflow vers `config.json` / `identity` (§8.4),
+  injectés par `WorkflowRunner.api_for` — vérifié graphe-identique + **une
+  génération réelle, identité 0.808, verdict OK**. `lora_sdxl.py` : stub
+  `NotImplementedError` → J6. Style : `character.json` / `output_style` figé,
+  validé contre `universe.output_styles` (liste → map style→effet), appliqué
+  dans `api_for` (inerte pour `realiste`). `qc_identity.py` (mesure) reste
+  commun. ADR-0011. Skills `nouvel-univers`/`nouveau-personnage` alignés sur
+  la signature réelle. Détail : `DOCS/handoffs/2026-08-28-j5-identite-style.md`.
+- Hors périmètre, assumé pour J6/J7 : `lora_sdxl.py` réel + workflow SDXL de
+  production (J6) ; branche NSFW dont l'`ApplyPulidFlux` reste baké, tuning
+  différent (J7, asymétrie assumée ADR-0011) ; `prompt_add`/`checkpoint` des
+  styles non-`realiste` de `rpg-personnage` = placeholders à mesurer à
+  l'onboarding.
 
 **J6 — Premier personnage RPG (Abyssiaelle) opérationnel**
 - `build_jobs` + assembleur de prompt, verrouillé par un test byte-exact
