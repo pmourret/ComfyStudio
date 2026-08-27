@@ -1,0 +1,13 @@
+INPUTS/
+PROD/
+CHARACTERS/
+__pycache__/
+*.pyc
+*.db
+*.db-wal
+*.db-shm
+.venv/
+venv/
+node_modules/
+*.bak
+*.avant-*

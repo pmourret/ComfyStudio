@@ -1,4 +1,24 @@
 {
+  "env": {
+    "CLAUDE_CODE_SUBAGENT_MODEL": "haiku"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(cp PROD/lena.db PROD/lena.db.avant-j2-etape1.bak)",
+      "Bash(mv PROD/lena.db PROD/lena.db.old)",
+      "Bash(git add *)",
+      "Bash(git mv *)",
+      "Bash(git push *)",
+      "Bash(H:/ComfyUI/ComfyUI_windows_portable/python_embeded/python.exe -c ' *)",
+      "Bash(\"H:/ComfyUI/ComfyUI_windows_portable/python_embeded/python.exe\" AUTOMATION/run_batch.py --limit 1 --no-qc)"
+    ],
+    "deny": [
+      "Read(INPUTS/**)",
+      "Read(**/*.db)",
+      "Read(**/*.db-wal)",
+      "Read(**/*.db-shm)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
