@@ -74,19 +74,19 @@ def filters_from(body):
     )
 
 
-def guard_intensity(body):
+def guard_intensity(body, character="lena"):
     """Verrous du curseur. Retourne un message d'erreur, ou None si c'est bon."""
     try:
         level = int(body.get("intensity") or 0)
     except (TypeError, ValueError):
         return "niveau d'intensite invalide"
-    palier = lb.by_level(lb.load_creative("lena"), level)
+    palier = lb.by_level(lb.load_creative(character), level)
     if palier is None:
         return f"niveau d'intensite inconnu : {level}"
     exige = palier.get("requires")
     if exige == "confirm" and not body.get("confirm_intensity"):
         return f"le niveau « {palier['label']} » demande une confirmation"
-    if exige == "armed" and not nsfw_batch.is_armed(ss.cfg()):
+    if exige == "armed" and not nsfw_batch.is_armed(ss.cfg(character)):
         return f"le niveau « {palier['label']} » demande la branche NSFW armee"
     if palier.get("pipeline") == "flux+edit" and not (
             body.get("edit_instruction") or "").strip():
@@ -131,7 +131,7 @@ def appliquer_nsfw(configuration, body):
     return retenu
 
 
-def appliquer_export(configuration, niveau_demande):
+def appliquer_export(configuration, niveau_demande, character="lena"):
     """Coupe l'export quand le palier DEMANDE ne s'exporte pas.
 
     `sort_and_export` ne connait que `cfg["export"]["enabled"]` — et c'est tres
@@ -145,13 +145,13 @@ def appliquer_export(configuration, niveau_demande):
         autorise. Une demande NSFW deposait donc silencieusement une image Soft
         dans le dossier de publication.
     """
-    palier = lb.by_level(lb.load_creative("lena"), niveau_demande)
+    palier = lb.by_level(lb.load_creative(character), niveau_demande)
     if palier and not palier.get("export", True):
         configuration["export"] = dict(configuration["export"], enabled=False)
     return configuration
 
 
-def niveau_generation(body):
+def niveau_generation(body, character="lena"):
     """Niveau auquel la PASSE DE GENERATION tourne.
 
     Au niveau 3 la chaine est en deux temps : on genere au `base_level` (Soft par
@@ -160,13 +160,13 @@ def niveau_generation(body):
     rien du tout (voir mode_edition).
     """
     corps = dict(body)
-    palier = lb.by_level(lb.load_creative("lena"), int(body.get("intensity") or 0))
+    palier = lb.by_level(lb.load_creative(character), int(body.get("intensity") or 0))
     if palier and palier.get("pipeline") == "flux+edit":
         corps["intensity"] = palier.get("base_level", 1)
     return corps
 
 
-def mode_edition(body):
+def mode_edition(body, character="lena"):
     """Vrai quand le cran demande EDITE une image existante au lieu d'engendrer.
 
     C'est le comportement par defaut du cran NSFW, et c'est la regle du projet :
@@ -178,18 +178,18 @@ def mode_edition(body):
     image existante. Le chemin qui regenerait avant d'editer coutait une passe
     Flux complete (~55 s) pour reproduire une image deja sur le disque.
     """
-    palier = lb.by_level(lb.load_creative("lena"), int(body.get("intensity") or 0))
+    palier = lb.by_level(lb.load_creative(character), int(body.get("intensity") or 0))
     return bool(palier and palier.get("pipeline") == "flux+edit"
                 and not body.get("generer_avant"))
 
 
-def sources_valides(body):
+def sources_valides(body, character="lena"):
     """Sources cochees qui existent reellement dans PROD/LENA/OK.
 
     Filtre sur le disque et pas seulement sur la forme du nom : une image triee
     ailleurs entre la selection et le lancement ne doit pas partir en edition.
     """
-    dispo = {f.name for f, _ in nsfw_batch.sources_disponibles(ss.cfg())}
+    dispo = {f.name for f, _ in nsfw_batch.sources_disponibles(ss.cfg(character))}
     return [n for n in (body.get("sources") or [])
             if ss.SAFE_NAME.match(n) and n in dispo]
 
@@ -280,19 +280,20 @@ def apercu_prompt(jobs):
 @routes.post("/api/plan")
 async def api_plan(request):
     body = await request.json()
+    cid = ss.character(request)
     # les alertes ne dependent pas de la validite du plan : on les rend meme
     # quand le garde refuse, sinon l'ecran d'edition n'affiche rien tant que
     # l'instruction est vide — or c'est justement la qu'on la redige
     alertes = nsfw_batch.alertes_instruction(body.get("edit_instruction") or "")
-    if err := guard_intensity(body):
+    if err := guard_intensity(body, cid):
         return web.json_response({"total": 0, "jobs": [], "erreur": err,
                                   "alertes": alertes})
-    if mode_edition(body):
+    if mode_edition(body, cid):
         # rien a batir : le « plan » est la liste des images cochees
-        return web.json_response({"total": len(sources_valides(body)), "jobs": [],
+        return web.json_response({"total": len(sources_valides(body, cid)), "jobs": [],
                                   "edition": True, "alertes": alertes})
-    jobs = lb.build_jobs(lb.scenes_path("lena"),
-                         filters_from(niveau_generation(body)))
+    jobs = lb.build_jobs(lb.scenes_path(cid),
+                         filters_from(niveau_generation(body, cid)))
     return web.json_response({"total": len(jobs), "alertes": alertes,
                               "apercu": apercu_prompt(jobs), "jobs": [
         {"scene": j["scene"], "category": j["category"], "format": j["format"],
@@ -301,7 +302,7 @@ async def api_plan(request):
         for j in jobs]})
 
 
-def chainage_nsfw(configuration, use_qc, batch_id):
+def chainage_nsfw(configuration, use_qc, batch_id, character="lena"):
     """Crochet du niveau 3 : editer la sortie SFW, sans tri intermediaire.
 
     Rend None quand le batch n'est pas de niveau 3. Les garde-fous ne bougent pas :
@@ -309,7 +310,7 @@ def chainage_nsfw(configuration, use_qc, batch_id):
     l'armement une seconde fois.
     """
     niveau = configuration.get("_intensity", 0)
-    palier = lb.by_level(lb.load_creative("lena"), niveau)
+    palier = lb.by_level(lb.load_creative(character), niveau)
     if not palier or palier.get("pipeline") != "flux+edit":
         return None
     instruction = configuration.get("_edit_instruction", "")
@@ -352,7 +353,7 @@ def chainage_nsfw(configuration, use_qc, batch_id):
     return crochet
 
 
-def run_batch_blocking(jobs, configuration, batch_id, use_qc):
+def run_batch_blocking(jobs, configuration, batch_id, use_qc, character="lena"):
     if use_qc:
         ss.checker_partage(configuration)
 
@@ -376,9 +377,10 @@ def run_batch_blocking(jobs, configuration, batch_id, use_qc):
 
     rows, stats = lb.execute_jobs(jobs, configuration,
                                  ss.CHECKER if use_qc else None, batch_id,
-                                 character_id="lena", on_event=on_event,
+                                 character_id=character, on_event=on_event,
                                  should_stop=lambda: ss.STATE["stop"],
-                                 after=chainage_nsfw(configuration, use_qc, batch_id))
+                                 after=chainage_nsfw(configuration, use_qc, batch_id,
+                                                     character))
     return stats
 
 
@@ -430,12 +432,13 @@ def edition_blocking(sources, instruction, configuration, use_qc):
                           should_stop=lambda: ss.STATE["stop"])[1]
 
 
-def demarrer_edition(sources, instruction, configuration, use_qc, niveau):
+def demarrer_edition(sources, instruction, configuration, use_qc, niveau,
+                     character="lena"):
     """Lance une edition. Pendant de `demarrer`, meme etat, meme panneau."""
     batch_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     ss.STATE.update(running=True, stop=False, batch_id=batch_id, index=0,
                    total=len(sources), current=None, stats={}, recent=[],
-                   intensity=niveau,
+                   intensity=niveau, character=character,
                    started_at=datetime.now().isoformat(timespec="seconds"))
     ss.push_log(f"édition {batch_id} — {len(sources)} image(s) déjà validée(s) "
               f"· sortie dans PROD/_NSFW · hors export")
@@ -446,7 +449,7 @@ def demarrer_edition(sources, instruction, configuration, use_qc, niveau):
     return batch_id
 
 
-def demarrer(jobs, configuration, use_qc, entete=None):
+def demarrer(jobs, configuration, use_qc, entete=None, character="lena"):
     """Demarre un batch et rend son identifiant. Un seul chemin de lancement.
 
     Utilise par /api/run (production) et /api/decline (boucle de raffinement).
@@ -455,12 +458,13 @@ def demarrer(jobs, configuration, use_qc, entete=None):
     batch_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     ss.STATE.update(running=True, stop=False, batch_id=batch_id, index=0,
                    total=len(jobs), current=None, stats={}, recent=[],
+                   character=character,
                    started_at=datetime.now().isoformat(timespec="seconds"))
     p = configuration["preset"]
     # le niveau DEMANDE, pas celui de la passe de generation : au niveau 3 les
     # jobs sont batis en Soft, annoncer « Soft » induirait en erreur
     demande = configuration.get("_intensity", jobs[0]["intensity"])
-    palier = lb.by_level(lb.load_creative("lena"), demande)
+    palier = lb.by_level(lb.load_creative(character), demande)
     ss.STATE["intensity"] = demande
     exporte = "" if not palier or palier.get("export", True) else " · hors export"
     ss.push_log(entete or (f"batch {batch_id} — intensite "
@@ -472,7 +476,8 @@ def demarrer(jobs, configuration, use_qc, entete=None):
               f"detail {'ON' if p['facedetailer'] else 'OFF'} · "
               f"grain {'ON' if p['grain_export'] else 'OFF'}")
 
-    _lancer(lambda: run_batch_blocking(jobs, configuration, batch_id, use_qc))
+    _lancer(lambda: run_batch_blocking(jobs, configuration, batch_id, use_qc,
+                                      character))
     return batch_id
 
 
@@ -491,7 +496,7 @@ def palier_edition(creative):
                  if p.get("pipeline") == "flux+edit"), None)
 
 
-def lancer_edition_depuis(name, body, niveau):
+def lancer_edition_depuis(name, body, niveau, character="lena"):
     """Edite UNE image de la revue, sans rien regenerer.
 
     Avant le 26/08/2026, ce geste passait par build_jobs et REGENERAIT la source
@@ -503,18 +508,19 @@ def lancer_edition_depuis(name, body, niveau):
     err = guard_intensity({"intensity": niveau,
                            "confirm_intensity": body.get("confirm_intensity"),
                            "edit_instruction": body.get("edit_instruction"),
-                           "no_qc": body.get("no_qc")})
+                           "no_qc": body.get("no_qc")}, character)
     if err:
         return web.json_response({"ok": False, "erreur": err}, status=403)
-    if nsfw_batch.resoudre_source(name, ss.cfg()) is None:
+    if nsfw_batch.resoudre_source(name, ss.cfg(character)) is None:
         return web.json_response(
             {"ok": False, "erreur": "cette image n'est pas éditable — seules les "
                                     "images validées ou à revoir le sont"}, status=400)
-    configuration = ss.cfg()
+    configuration = ss.cfg(character)
     configuration["_intensity"] = niveau
-    appliquer_export(configuration, niveau)
+    appliquer_export(configuration, niveau, character)
     batch_id = demarrer_edition([name], (body.get("edit_instruction") or "").strip(),
-                                configuration, not body.get("no_qc"), niveau)
+                                configuration, not body.get("no_qc"), niveau,
+                                character)
     return web.json_response({"ok": True, "batch_id": batch_id, "total": 1,
                               "mode": "editer", "edition": True,
                               "libelle": DECLINAISONS["editer"]})
@@ -528,6 +534,7 @@ async def api_decline(request):
     n'affiche que les declinaisons qui ont un sens sur cette image.
     """
     body = await request.json()
+    cid = ss.character(request)
     name = body.get("name", "")
     if not ss.SAFE_NAME.match(name):
         ss.bad_request("nom de fichier invalide")
@@ -536,8 +543,8 @@ async def api_decline(request):
         return web.json_response(
             {"ok": False, "erreur": "image absente du journal — impossible de la "
                                     "rejouer (scène et seed inconnus)"}, status=404)
-    creative = lb.load_creative("lena")
-    scenes = lb.scenes_path("lena")
+    creative = lb.load_creative(cid)
+    scenes = lb.scenes_path(cid)
     niveau = int(row.get("intensite") or 0)
 
     if body.get("dry"):
@@ -553,7 +560,7 @@ async def api_decline(request):
         # le bouton "monter d'un cran" doit refleter les MEMES verrous que le
         # curseur principal : confirmation a montrer, armement a proposer
         # plutot que de laisser cliquer puis echouer sur un toast generique
-        configuration = ss.cfg()
+        configuration = ss.cfg(cid)
         arme = nsfw_batch.is_armed(configuration)
         verrouille = (suivant is not None and suivant.get("requires") == "armed"
                       and not arme)
@@ -590,7 +597,7 @@ async def api_decline(request):
             return web.json_response(
                 {"ok": False, "erreur": "aucun palier d'édition configuré"},
                 status=400)
-        return lancer_edition_depuis(name, body, edit["level"])
+        return lancer_edition_depuis(name, body, edit["level"], cid)
     if mode not in lb.MODES_DECLINAISON:
         return web.json_response({"ok": False, "erreur": "mode inconnu"}, status=400)
     if mode == "intensite":
@@ -598,7 +605,7 @@ async def api_decline(request):
         err = guard_intensity({"intensity": niveau + 1,
                                "confirm_intensity": body.get("confirm_intensity"),
                                "edit_instruction": body.get("edit_instruction"),
-                               "no_qc": body.get("no_qc")})
+                               "no_qc": body.get("no_qc")}, cid)
         if err:
             return web.json_response({"ok": False, "erreur": err}, status=403)
 
@@ -611,14 +618,15 @@ async def api_decline(request):
                   "seeds": "aucune scène correspondante"}[mode]
         return web.json_response({"ok": False, "erreur": raison}, status=400)
 
-    configuration = ss.cfg()
+    configuration = ss.cfg(cid)
     if mode == "intensite":
         # meme cablage que /api/run : c'est ce qui declenche l'enchainement
         configuration["_intensity"] = niveau + 1
         configuration["_edit_instruction"] = (body.get("edit_instruction") or "").strip()
-        appliquer_export(configuration, niveau + 1)
+        appliquer_export(configuration, niveau + 1, cid)
     batch_id = demarrer(jobs, configuration, not body.get("no_qc"),
-                        entete=f"déclinaison « {DECLINAISONS[mode]} » depuis {name}")
+                        entete=f"déclinaison « {DECLINAISONS[mode]} » depuis {name}",
+                        character=cid)
     return web.json_response({"ok": True, "batch_id": batch_id, "total": len(jobs),
                               "mode": mode, "libelle": DECLINAISONS[mode]})
 
@@ -629,48 +637,49 @@ async def api_run(request):
     # tester STATE avant la lecture laissait deux requetes concurrentes franchir
     # le test toutes les deux et lancer deux batches sur le meme GPU.
     body = await request.json()
+    cid = ss.character(request)
     if ss.STATE["running"]:
         return web.json_response({"ok": False, "erreur": "un batch tourne deja"},
                                  status=409)
-    if err := guard_intensity(body):
+    if err := guard_intensity(body, cid):
         return web.json_response({"ok": False, "erreur": err}, status=403)
 
     # Cran NSFW : on edite des images deja validees, on n'engendre rien. Un seul
     # point d'entree pour les deux modes — c'est ce qui a permis de retirer
     # l'onglet NSFW parallele et ses trois champs d'instruction concurrents.
-    if mode_edition(body):
-        sources = sources_valides(body)
+    if mode_edition(body, cid):
+        sources = sources_valides(body, cid)
         if not sources:
             return web.json_response(
                 {"ok": False, "erreur": "aucune image source valide — coche au "
                                         "moins une image déjà validée"}, status=400)
-        configuration = ss.cfg()
+        configuration = ss.cfg(cid)
         configuration["preset"].update(body.get("preset", {}))
         appliquer_nsfw(configuration, body)
         niveau = int(body.get("intensity") or 0)
         configuration["_intensity"] = niveau
-        appliquer_export(configuration, niveau)
+        appliquer_export(configuration, niveau, cid)
         batch_id = demarrer_edition(
             sources, (body.get("edit_instruction") or "").strip(),
-            configuration, not body.get("no_qc"), niveau)
+            configuration, not body.get("no_qc"), niveau, cid)
         return web.json_response({"ok": True, "batch_id": batch_id,
                                   "total": len(sources), "edition": True})
 
-    jobs = lb.build_jobs(lb.scenes_path("lena"),
-                         filters_from(niveau_generation(body)))
+    jobs = lb.build_jobs(lb.scenes_path(cid),
+                         filters_from(niveau_generation(body, cid)))
     if not jobs:
         return web.json_response({"ok": False, "erreur": "aucune scene ne correspond"},
                                  status=400)
 
-    configuration = ss.cfg()
+    configuration = ss.cfg(cid)
     configuration["preset"].update(body.get("preset", {}))
     appliquer_nsfw(configuration, body)
     # l'instruction voyage avec la configuration du batch : run_batch_blocking la
     # relit pour cabler l'enchainement
     configuration["_intensity"] = int(body.get("intensity") or 0)
     configuration["_edit_instruction"] = (body.get("edit_instruction") or "").strip()
-    appliquer_export(configuration, configuration["_intensity"])
-    batch_id = demarrer(jobs, configuration, not body.get("no_qc"))
+    appliquer_export(configuration, configuration["_intensity"], cid)
+    batch_id = demarrer(jobs, configuration, not body.get("no_qc"), character=cid)
     return web.json_response({"ok": True, "batch_id": batch_id, "total": len(jobs)})
 
 
@@ -742,8 +751,9 @@ async def api_nsfw_instructions(request):
 async def api_nsfw_arm(request):
     """Armement explicite : il faut recopier le mot exact, pas un simple clic."""
     body = await request.json()
-    target = lb.config_path("lena")
-    configuration = ss.cfg()
+    cid = ss.character(request)
+    target = lb.config_path(cid)
+    configuration = ss.cfg(cid)
     if body.get("arm"):
         if (body.get("confirm") or "").strip().upper() != "ARMER":
             return web.json_response(

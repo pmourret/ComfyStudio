@@ -158,8 +158,10 @@ const B = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   p2.on('pageerror', e => err2.push(e.message));
   const cinqCents = r => r.fulfill({status: 500, contentType: 'text/html',
                                     body: '500 Internal Server Error'});
-  await p2.route('**/api/scenes', cinqCents);
-  await p2.route('**/api/creative', cinqCents);
+  // depuis J3 etape 4 chaque appel porte ?character=lena : le glob doit
+  // laisser passer une chaine de requete (sinon la route n'intercepte plus rien)
+  await p2.route('**/api/scenes?*', cinqCents);
+  await p2.route('**/api/creative?*', cinqCents);
   await p2.goto(B, { waitUntil: 'networkidle' });
   await p2.waitForTimeout(1500);
   dire(await p2.isVisible('#panneBar'), 'le bandeau de panne s\'affiche');

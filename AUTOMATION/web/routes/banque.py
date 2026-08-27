@@ -131,7 +131,7 @@ def sauvegarder_rotation(target, generations=3):
         shutil.copy(target, target.with_suffix(".json.bak"))
 
 
-def scene_stats():
+def scene_stats(character):
     """Par scene : nombre d'images produites et score d'identite moyen.
 
     Depuis la base quand elle a des donnees — une requete au lieu d'un parcours
@@ -141,7 +141,7 @@ def scene_stats():
     try:
         import base as db
         with db.ouvrir() as cx:
-            s = db.stats_par_scene(cx, "lena")
+            s = db.stats_par_scene(cx, character)
         if s:
             return s
     except Exception as e:
@@ -195,7 +195,8 @@ def scene_previews():
 
 @routes.get("/api/scenes")
 async def api_scenes(request):
-    data = ss.scenes_data()
+    cid = ss.character(request)
+    data = ss.scenes_data(cid)
     cats = sorted({lb.scene_intention(s) for s in data["scenes"]})
     # metadonnees du parcours, calculees ici pour que le front n'ait pas a
     # reimplementer les defauts de compatibilite du runner
@@ -209,7 +210,7 @@ async def api_scenes(request):
                               "scene_ids": [s["id"] for s in data["scenes"]],
                               "previews": scene_previews(),
                               "meta": meta,
-                              "stats": scene_stats(),
+                              "stats": scene_stats(cid),
                               "avg_duration": round(ss.avg_duration()),
                               "poses": pose_tools.poses_disponibles()})
 
@@ -217,6 +218,7 @@ async def api_scenes(request):
 @routes.post("/api/scenes")
 async def api_scenes_save(request):
     body = await request.json()
+    cid = ss.character(request)
     try:
         data = json.loads(body["text"]) if "text" in body else body["data"]
     except Exception as e:
@@ -226,13 +228,13 @@ async def api_scenes_save(request):
     # c'est ce controle qui manquait le 25/08/2026 quand une reconstruction cote
     # interface a efface le parcours creatif des 16 scenes sans que rien ne
     # l'arrete. Il ecrit un fichier que build_jobs saura lire, ou il refuse.
-    pbs = valider_banque(data, ancienne=ss.scenes_data(),
+    pbs = valider_banque(data, ancienne=ss.scenes_data(cid),
                          autoriser_pertes=bool(body.get("autoriser_pertes")))
     if pbs:
         ss.push_log(f"scenes.json REFUSE — {pbs[0]}")
         return web.json_response({"ok": False, "erreur": pbs[0],
                                   "problemes": pbs}, status=400)
-    target = lb.scenes_path("lena")
+    target = lb.scenes_path(cid)
     sauvegarder_rotation(target)
     target.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     ss.push_log(f"scenes.json enregistre ({len(data['scenes'])} scenes, .bak tourne)")
@@ -242,9 +244,10 @@ async def api_scenes_save(request):
 @routes.get("/api/creative")
 async def api_creative(request):
     """Taxonomie du parcours : intentions, tons, echelle d'intensite."""
-    creative = lb.load_creative("lena")
-    data = ss.scenes_data()
-    configuration = ss.cfg()
+    cid = ss.character(request)
+    creative = lb.load_creative(cid)
+    data = ss.scenes_data(cid)
+    configuration = ss.cfg(cid)
     armed = nsfw_batch.is_armed(configuration)
     # compte une seule fois : la sonde disque est la meme pour tous les paliers
     n_sources = len(nsfw_batch.sources_disponibles(configuration)) if armed else 0
@@ -277,11 +280,12 @@ async def api_creative(request):
 async def api_compose(request):
     """Transforme une intention en francais en scenes pretes a relire."""
     body = await request.json()
+    cid = ss.character(request)
     intention = (body.get("intention") or "").strip()
     if not intention:
         return web.json_response({"ok": False, "erreur": "intention vide"}, status=400)
-    data = ss.scenes_data()
-    creative = lb.load_creative("lena")
+    data = ss.scenes_data(cid)
+    creative = lb.load_creative(cid)
     # `intention` est le texte libre en francais decrivant ce qu'on veut ;
     # `intention_cible` est la CLE de taxonomie qu'on impose. Les confondre
     # collait la phrase francaise dans le champ intention des scenes.
@@ -290,7 +294,7 @@ async def api_compose(request):
         loop = asyncio.get_running_loop()
         scenes, raw = await loop.run_in_executor(
             None, lambda: composer.compose(intention, int(body.get("count") or 3),
-                                           creative, ss.cfg()["comfy_url"]))
+                                           creative, ss.cfg(cid)["comfy_url"]))
     except Exception as e:
         ss.push_log(f"composeur : {type(e).__name__} — {e}")
         return web.json_response({"ok": False, "erreur": str(e)}, status=500)

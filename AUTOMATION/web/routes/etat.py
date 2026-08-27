@@ -28,7 +28,8 @@ def duree_unitaire():
     annoncer un reste a faire environ deux fois trop court.
     """
     base = ss.avg_duration()
-    palier = lb.by_level(lb.load_creative("lena"), ss.STATE.get("intensity") or 0)
+    palier = lb.by_level(lb.load_creative(ss.STATE.get("character") or "lena"),
+                         ss.STATE.get("intensity") or 0)
     if palier and palier.get("pipeline") == "flux+edit":
         base += ss._moyenne_duree(nsfw_batch.JOURNAL, 60.0)
     return base
@@ -60,7 +61,7 @@ async def api_state(request):
 
 @routes.get("/api/config")
 async def api_config(request):
-    return web.json_response(ss.cfg())
+    return web.json_response(ss.cfg(ss.character(request)))
 
 
 def fusion_validee(actuel, envoye, ou):
@@ -95,8 +96,9 @@ def fusion_validee(actuel, envoye, ou):
 @routes.post("/api/config")
 async def api_config_save(request):
     body = await request.json()
-    target = lb.config_path("lena")
-    current = ss.cfg()
+    cid = ss.character(request)
+    target = lb.config_path(cid)
+    current = ss.cfg(cid)
     current["preset"].update(fusion_validee(current["preset"],
                                             body.get("preset"), "preset"))
     if "qc" in body:
@@ -120,7 +122,7 @@ async def api_journal(request):
 
 @routes.get("/api/nsfw/state")
 async def api_nsfw_state(request):
-    configuration = ss.cfg()
+    configuration = ss.cfg(ss.character(request))
     armed = nsfw_batch.is_armed(configuration)
     counts = {}
     for b in ("OK", "A_REVOIR", "REJET"):

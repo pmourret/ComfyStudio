@@ -141,6 +141,7 @@ STATE = {
     "recent": [],          # images du batch en cours, pour la bande en direct
     "eta": None,
     "intensity": 0,        # niveau DEMANDE : sert a estimer la duree par image
+    "character": "lena",   # personnage du batch en cours (pose par demarrer*)
 }
 UNDO = []                  # dernieres actions de tri, pour le bouton annuler
 # Il n'y a qu'UN etat d'execution. La branche NSFW avait le sien (NSTATE), avec
@@ -171,14 +172,39 @@ def push_log(msg):
 
 
 # ------------------------------------------------------------------ ressources
-# "lena" en dur : le selecteur de personnage (?character=) est J3, pas J2 —
-# voir CHARACTERS/lena/{config,scenes,creative}.json (J2 etape 2).
-def cfg():
-    return lb.load_config("lena")
+# Selecteur de personnage (J3 etape 4). Le front passe ?character=<id> a chaque
+# requete /api/* (api.js) ; les handlers resolvent l'id par `character(request)`
+# et le passent explicitement (regle backend : jamais un contextvar cache). Le
+# defaut "lena" reste la seule valeur en dur, aux frontieres — pas un
+# `if character == "lena"` (CLAUDE.md §8.7).
+#
+# Hors perimetre V1 (J4) : la disposition disque par personnage (PROD/<X>/,
+# journal, vignettes, export), l'axe SFW/NSFW `space` (dont la valeur SFW se
+# trouve aussi nommee "lena", axe different), UNDO non scope.
+_CHARACTER_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 
 
-def scenes_data():
-    return lb.load_scenes("lena")
+def character(request):
+    """character_id de la requete, valide AVANT de toucher au disque.
+
+    Rejette en 400 JSON (jamais un 500, jamais un chemin) : un id qui n'est pas
+    un slug simple (`?character=../x`), ou dont le dossier CHARACTERS/<id>/
+    n'existe pas.
+    """
+    cid = request.query.get("character", "lena")
+    if not _CHARACTER_RE.match(cid):
+        bad_request(f"character_id invalide : {cid!r}")
+    if not lb.character_dir(cid).is_dir():
+        bad_request(f"personnage inconnu : {cid!r}")
+    return cid
+
+
+def cfg(character="lena"):
+    return lb.load_config(character)
+
+
+def scenes_data(character="lena"):
+    return lb.load_scenes(character)
 
 
 def journal_index():
