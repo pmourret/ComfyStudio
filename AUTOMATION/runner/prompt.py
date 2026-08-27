@@ -50,6 +50,12 @@ def character_universe(character_id):
     return load_character(character_id).get("universe")
 
 
+def character_style(character_id):
+    """Style de sortie du personnage (fige a sa creation, CLAUDE.md §3). Repli
+    `realiste` si le registre ne le porte pas encore."""
+    return load_character(character_id).get("output_style") or "realiste"
+
+
 def content_type_active(character_id, kind):
     """Un type de contenu (image / video / voice / staging) est-il actif pour ce
     personnage. Axe independant de l'univers (ADR-0004) : en V1 seul `image`
@@ -217,6 +223,7 @@ def build_jobs(scenes_file, args, character_id="lena", creative=None):
     prefix, anchor, texture = data["prefix"], data["anchor"], data["texture"]
     direction = (data.get("direction") or "").strip()   # note de direction globale
     creative = load_creative(character_id) if creative is None else creative
+    style = character_style(character_id)               # fige a la creation (J5)
 
     brut = getattr(args, "intensity", None)
     level = 0 if brut is None or brut == "" else int(brut)
@@ -284,6 +291,11 @@ def build_jobs(scenes_file, args, character_id="lena", creative=None):
                 for i in range(count):
                     jobs.append({
                         "character_id": character_id,
+                        # style de sortie fige a la creation (J5) : donnee pour le
+                        # runner (choix de checkpoint / fragment de prompt selon
+                        # l'univers) ; inerte pour Lena (realiste). N'entre pas
+                        # dans le prompt assemble ci-dessus.
+                        "output_style": style,
                         "scene": scene["id"],
                         # `category` n'est plus un champ de scene : c'est
                         # l'intention. Elle portait trois roles a la fois

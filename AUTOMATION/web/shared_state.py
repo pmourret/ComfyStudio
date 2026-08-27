@@ -194,7 +194,8 @@ def character(request):
       - un id qui n'est pas un slug simple (`?character=../x`) ;
       - un dossier CHARACTERS/<id>/ absent ;
       - un dossier sans character.json (registre personnage manquant, J4) ;
-      - un character.json dont l'univers declare n'existe pas dans UNIVERS/.
+      - un character.json dont l'univers declare n'existe pas dans UNIVERS/ ;
+      - un output_style hors des styles declares par l'univers (J5).
     """
     cid = request.query.get("character", "lena")
     if not _CHARACTER_RE.match(cid):
@@ -203,9 +204,14 @@ def character(request):
         bad_request(f"personnage inconnu : {cid!r}")
     if not lb.character_json_path(cid).is_file():
         bad_request(f"personnage {cid!r} sans character.json (registre J4)")
-    uid = lb.load_character(cid).get("universe")
+    reg = lb.load_character(cid)
+    uid = reg.get("universe")
     if not universe.exists(uid):
         bad_request(f"personnage {cid!r} : univers inconnu {uid!r}")
+    style = reg.get("output_style") or "realiste"
+    if style not in universe.style_names(uid):
+        bad_request(f"personnage {cid!r} : style {style!r} absent de l'univers "
+                    f"{uid!r} ({', '.join(universe.style_names(uid))})")
     return cid
 
 

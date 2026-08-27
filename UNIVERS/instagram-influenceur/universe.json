@@ -4,13 +4,16 @@
   "model_family": "flux",
   "identity": "pulid_flux",
   "posing": "flux-controlnet-union-pro-2.0",
-  "output_styles": ["realiste"],
+  "output_styles": {
+    "realiste": { "prompt_add": "", "checkpoint": null }
+  },
   "_notes": [
-    "model_family / identity / posing : chaines DECLARATIVES en J4. Elles seront",
-    "cablees a du code en J5 (AUTOMATION/identity/pulid_flux.py). Source de verite",
-    "des valeurs : .claude/skills/workflow-comfyui/references/modeles-par-univers.md.",
-    "output_styles : styles que CET univers peut produire. Le style d'un personnage",
-    "est choisi et fige a sa creation, non modifiable ensuite (CLAUDE.md §3, J5).",
-    "Univers de Lena, porte tel quel depuis le repo mono-personnage."
+    "model_family / identity / posing : chaines declaratives en J4, cablees en J5",
+    "(identity -> AUTOMATION/identity/pulid_flux.py). Source de verite des valeurs :",
+    ".claude/skills/workflow-comfyui/references/modeles-par-univers.md.",
+    "output_styles : map style -> effet sur le pipeline (prompt_add ajoute au prompt",
+    "positif ; checkpoint swap si non-null). Le style d'un personnage est choisi et",
+    "fige a sa creation, non modifiable ensuite (CLAUDE.md §3). Cet univers ne",
+    "produit que du realiste, sans effet (prompt inchange). Univers de Lena."
   ]
 }

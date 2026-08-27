@@ -83,6 +83,39 @@ def load_tools(uid):
     return data.get("tools", [])
 
 
+class UnknownStyleError(ValueError):
+    """Un style de sortie demande n'est pas declare par l'univers."""
+
+
+def _styles_map(uid):
+    """output_styles de l'univers, toujours sous forme de map style -> effet."""
+    raw = load_universe(uid).get("output_styles") or {}
+    if isinstance(raw, list):                        # tolere l'ancienne forme
+        return {name: {"prompt_add": "", "checkpoint": None} for name in raw}
+    return raw
+
+
+def style_names(uid):
+    """Noms des styles de sortie que l'univers peut produire (CLAUDE.md §3)."""
+    return sorted(_styles_map(uid))
+
+
+def style_effect(uid, name):
+    """Effet d'un style sur le pipeline : {prompt_add, checkpoint}.
+
+    Style inconnu -> UnknownStyleError (jamais un KeyError nu). Les cles
+    absentes sont completees : un univers peut ne declarer que prompt_add.
+    """
+    styles = _styles_map(uid)
+    if name not in styles:
+        raise UnknownStyleError(
+            f"style de sortie inconnu pour l'univers {uid!r} : {name!r} — "
+            f"declares : {', '.join(sorted(styles)) or '(aucun)'}")
+    eff = styles[name]
+    return {"prompt_add": eff.get("prompt_add", ""),
+            "checkpoint": eff.get("checkpoint")}
+
+
 def _diagnostic():
     print("=" * 72)
     print("universe - registre des univers")
@@ -96,7 +129,7 @@ def _diagnostic():
         outils = load_tools(uid)
         print(f"  {uid}")
         print(f"    modele   : {u.get('model_family')}  |  identite : {u.get('identity')}")
-        print(f"    styles   : {', '.join(u.get('output_styles', []))}")
+        print(f"    styles   : {', '.join(style_names(uid))}")
         print(f"    outils   : {', '.join(o['id'] for o in outils) or '(aucun)'}")
     return 0
 

@@ -79,9 +79,10 @@ async def api_character(request):
     return web.json_response({
         "id": cid,
         "name": reg.get("name", cid),
+        "output_style": reg.get("output_style") or "realiste",
         "universe": {"id": uid, "label": u.get("label", uid),
                      "model_family": u.get("model_family"),
-                     "output_styles": u.get("output_styles", [])},
+                     "output_styles": universe.style_names(uid)},
         "content_types": reg.get("content_types", {}),
         "nsfw": bool(reg.get("nsfw")),
     })

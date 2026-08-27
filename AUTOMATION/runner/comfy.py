@@ -10,9 +10,10 @@ import urllib.request
 
 import identity
 import ui_to_api
+import universe
 
 from . import OFM, COMFY_INPUT, load_json
-from .prompt import character_universe
+from .prompt import character_style, character_universe
 
 
 # ----------------------------------------------------- dialogue avec ComfyUI
@@ -61,7 +62,12 @@ class WorkflowRunner:
         # §4), pas par le personnage : tous les personnages d'un univers
         # partagent la meme implementation, seuls config.json/`identity` et
         # `base_gelee` changent. J5.
-        self.identity = identity.for_universe(character_universe(character_id))
+        uid = character_universe(character_id)
+        self.identity = identity.for_universe(uid)
+        # Style de sortie fige a la creation du personnage (CLAUDE.md §3), effet
+        # declare par l'univers. Pour instagram-influenceur / realiste :
+        # prompt_add vide, pas de swap -> graphe inchange. J5.
+        self.style = universe.style_effect(uid, character_style(character_id))
         self.url = cfg["comfy_url"].rstrip("/")
         self.ui = load_json(OFM / cfg["workflow"])
         self.obj = ui_to_api.fetch_object_info(self.url)
@@ -95,6 +101,11 @@ class WorkflowRunner:
             "export_scale": ("ImageScale", "Taille de publication"),
             "grain_node": ("ImageAddNoise", None),
             "sharpen": ("ImageCASharpening+", None),
+            # swap de checkpoint par style de sortie (J5). Absent du graphe Flux
+            # de Lena (checkpoint all-in-one non nomme par ce role) -> None, et
+            # le seul style de son univers est realiste (pas de swap). Sert aux
+            # univers a plusieurs styles (rpg-personnage, J6).
+            "checkpoint": ("CheckpointLoaderSimple", None),
             # roles du verrou d'identite de l'univers (J5). Resolus ici de
             # facon tolerante ; c'est identity.apply() qui refuse si un role
             # obligatoire manque dans le graphe de ce personnage.
@@ -147,7 +158,15 @@ class WorkflowRunner:
             n = self.roles.get(role)
             return api.get(str(n["id"])) if n else None
 
-        node("positive")["inputs"]["text"] = job["prompt"]
+        # Style de sortie de l'univers : un fragment ajoute en fin de prompt, et
+        # eventuellement un swap de checkpoint. Realiste (seul style de Lena) ->
+        # add vide, checkpoint None -> prompt et graphe inchanges (§8.1).
+        add = (self.style.get("prompt_add") or "").strip()
+        node("positive")["inputs"]["text"] = (
+            f"{job['prompt']}, {add}" if add else job["prompt"])
+        ckpt = self.style.get("checkpoint")
+        if ckpt and self.roles.get("checkpoint"):
+            api[str(self.roles["checkpoint"]["id"])]["inputs"]["ckpt_name"] = ckpt
         node("guidance")["inputs"]["guidance"] = p["guidance"]
         node("latent")["inputs"].update(width=w, height=h, batch_size=1)
         node("sampler")["inputs"].update(seed=job["seed"], steps=p["steps"])
