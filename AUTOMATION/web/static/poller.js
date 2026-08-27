@@ -4,7 +4,8 @@
    Extrait de boot.js en J3 (bascule en modules ES) ; possede son propre etat
    d'execution depuis J3 etape 2. */
 import {$} from './dom.js';
-import {api} from './api.js';
+import {api, erreurDe} from './api.js';
+import {signalerPanne} from './health.js';
 import {renderRun, nbSelection, planOk, nsfwTick, estEdition} from './create.js';
 import {loadItems, triageState} from './review.js';
 import {loadScenes} from './scenes-store.js';
@@ -21,6 +22,16 @@ export function refreshCounts(){ tick(); }
 
 export async function tick(){
   let s; try { s = await api('/api/state'); } catch { return; }
+  // /api/state peut revenir malforme (5xx a corps HTML -> api() rend {ok:false}) :
+  // sans garde, `s.counts.X` plus bas leve a chaque tick, en console seulement
+  const err = erreurDe(s) || (s.counts && typeof s.counts === 'object'
+                              ? null : 'réponse illisible du serveur');
+  signalerPanne('sonde', err);
+  if (err){
+    $('#dot').classList.remove('on');
+    $('#stTxt').textContent = 'état indisponible';
+    return;
+  }
   $('#dot').classList.toggle('on', s.comfy);
   $('#stTxt').textContent = s.comfy ? (s.running ? 'production en cours' : 'prêt')
                                     : 'ComfyUI hors ligne';

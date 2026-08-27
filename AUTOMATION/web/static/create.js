@@ -98,7 +98,7 @@ function syncNiveauGuards(){
     $$('#qual button').forEach(x => x.classList.remove('on'));
     $('#qual button[data-q="realisme"]').classList.add('on');
   }
-  if (typeof syncSections === 'function') syncSections();
+  syncSections();
 }
 
 export async function setLevel(lv){

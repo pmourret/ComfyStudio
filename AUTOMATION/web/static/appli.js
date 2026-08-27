@@ -27,10 +27,12 @@ setInterval(() => { if ($('#appli')?.classList.contains('on')) majEtatComfy(); }
    injoignable pendant l'operation, donc pas la peine de garder les tuiles et
    boutons habituels a l'ecran, ils ne repondront a rien. */
 function ecranPatiente(texte){
+  // couleurs/typo via tokens (tokens.css reste charge apres remplacement du
+  // body) — seul chrome de l'appli qui contredisait le contrat de DESIGN.md
   document.body.innerHTML =
     `<div style="min-height:100vh;display:flex;align-items:center;
-       justify-content:center;font-family:system-ui;color:#c7bfae;
-       background:#15110d;text-align:center;padding:40px">
+       justify-content:center;font:var(--font);color:var(--txt);
+       background:var(--bg);text-align:center;padding:40px">
        <div>${texte}</div></div>`;
 }
 

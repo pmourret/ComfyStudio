@@ -3,7 +3,7 @@
    journal encapsules ici, la banque de scenes vit dans scenes-store.js, et on
    repeint sur les evenements `scenes:loaded` / `creative:loaded`. */
 import {$, $$, esc} from './dom.js';
-import {api, post} from './api.js';
+import {api, post, erreurDe} from './api.js';
 import {on} from './bus.js';
 import {toast} from './toast.js';
 import {confirmer} from './modal.js';
@@ -422,7 +422,15 @@ $$('#jFilter button').forEach(b => b.onclick = () => {
   $$('#jFilter button').forEach(x => x.classList.remove('on'));
   b.classList.add('on'); JFILTER = b.dataset.f; drawJournal();
 });
-export async function loadJournal(){ JROWS = (await api('/api/journal')).rows; drawJournal(); }
+export async function loadJournal(){
+  const d = await api('/api/journal');
+  // reponse malformee : sans garde, `.rows` undefined -> drawJournal() leve
+  // (JROWS.filter) et le journal reste vide sans un mot
+  const err = erreurDe(d) || (Array.isArray(d.rows) ? null : 'réponse illisible du serveur');
+  if (err){ $('#jInfo').textContent = 'journal : ' + err; return; }
+  JROWS = d.rows;
+  drawJournal();
+}
 function drawJournal(){
   const rows = JROWS.filter(r => !JFILTER || r.verdict === JFILTER);
   $('#jInfo').textContent = rows.length + ' ligne(s)';

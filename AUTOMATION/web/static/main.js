@@ -12,12 +12,17 @@ import './nav.js';
 import './advanced.js';
 import './appli.js';
 import './editor.js';
+import {reflectCharacter} from './character.js';
 import {go} from './nav.js';
 import {loadConfig} from './config.js';
 import {loadCreative} from './taxonomy.js';
 import {loadScenes} from './scenes-store.js';
 import {nsfwTick, estEdition} from './create.js';
 import {tick} from './poller.js';
+
+// personnage courant reflete dans l'en-tete avant tout le reste : un
+// rechargement en ?character=<x> doit se voir, pas seulement passer dans /api/*
+reflectCharacter();
 
 // config (bandes de score, valeurs mesurees) et taxonomie d'abord : elles
 // conditionnent les deux ecrans ; leurs `*:loaded` declenchent les repeints

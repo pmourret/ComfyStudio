@@ -4,7 +4,8 @@
    triageState() / setTriageEntry() ; les bandes de score viennent de
    config.js. */
 import {$, $$, esc} from './dom.js';
-import {api, post} from './api.js';
+import {api, post, erreurDe} from './api.js';
+import {signalerPanne} from './health.js';
 import {on} from './bus.js';
 import {toast} from './toast.js';
 import {confirmer} from './modal.js';
@@ -73,6 +74,11 @@ export async function loadItems(){
   const seq = ++ITEMS_SEQ;
   const d = await api('/api/gallery?bucket=' + BUCKET + '&space=' + SPACE);
   if (seq !== ITEMS_SEQ) return;
+  // reponse malformee (5xx a corps HTML) : api() rend {ok:false}. Sans garde,
+  // `ITEMS = d.items` (undefined) fait lever applyFilter() -> ecran vide muet
+  const err = erreurDe(d) || (Array.isArray(d.items) ? null : 'réponse illisible du serveur');
+  signalerPanne('galerie', err);
+  if (err){ renderTriage(); return; }   // garde la liste precedente, qui le dit
   ITEMS = d.items;
   BANDES = d.bandes || {};
   JUGES = d.juges || 0;
@@ -314,7 +320,7 @@ function renderTriage(){
     openLight(`/img?bucket=${i.bucket}&space=${i.space}&name=${encodeURIComponent(i.name)}`);
   body.querySelector('#btnSupprDef').onclick = () => supprimerDefinitivement(CUR);
   const be = body.querySelector('#btnOuvrirEditeur');
-  if (be) be.onclick = () => (typeof ouvrirEditeur === 'function') && ouvrirEditeur(i);
+  if (be) be.onclick = () => ouvrirEditeur(i);
   body.querySelectorAll('.acts button').forEach(b => b.onclick = () => act(b.dataset.a));
 }
 function actionsFor(b, space){
@@ -590,8 +596,7 @@ document.addEventListener('keydown', e => {
     if ($('#armBox').classList.contains('on')){ $('#armBox').classList.remove('on'); return; }
     if ($('#declineBox').classList.contains('on')){ fermerDeclinaison(); return; }
     if ($('#lightbox').style.display === 'flex'){ $('#lightbox').style.display = 'none'; return; }
-    if ($('#editorBox')?.classList.contains('on')){
-      if (typeof fermerEditeur === 'function') fermerEditeur(); return; }
+    if ($('#editorBox')?.classList.contains('on')){ fermerEditeur(); return; }
   }
   if (/input|textarea/i.test(e.target.tagName)) return;
   if ($('#armBox').classList.contains('on')) return;
