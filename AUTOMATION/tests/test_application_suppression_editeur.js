@@ -102,18 +102,26 @@ const TEST_IMG = '_TEST_EDITEUR_temp.png';
   dire(cvW > 0, `le canvas est dimensionné (${cvW}px de large)`);
   dire(await page.isVisible('#edCropBox'), 'le cadre de recadrage est affiché');
 
-  // ratio 1:1
+  // ratio 1:1 — depuis J3 (modules ES) l'etat de l'editeur n'est plus global :
+  // on lit la geometrie rendue de #edCropBox au lieu de ED_CROP
   await page.click('#edRatio button[data-r="1:1"]');
   await page.waitForTimeout(200);
-  const cropDims = await page.evaluate(() => ({ w: ED_CROP.w, h: ED_CROP.h }));
-  dire(Math.abs(cropDims.w - cropDims.h) < 1.5, `ratio 1:1 respecté (${cropDims.w.toFixed(1)}x${cropDims.h.toFixed(1)})`);
+  const cropDims = await page.locator('#edCropBox').boundingBox();
+  dire(Math.abs(cropDims.width - cropDims.height) < 2,
+       `ratio 1:1 respecté (${cropDims.width.toFixed(1)}x${cropDims.height.toFixed(1)})`);
 
-  // rotation
-  const rotAvant = await page.evaluate(() => ED_ROT);
+  // rotation — sur une image non carrée (1080x1350), une rotation 90° inverse
+  // l'orientation du canvas (le cadre est re-ajuste au stage, donc les dims ne
+  // sont pas simplement echangees, mais le rapport L/H, lui, s'inverse) ;
+  // c'est l'effet observable de ED_ROT
+  const cvAvant = await page.locator('#edCanvas').evaluate(c => ({ w: c.width, h: c.height }));
   await page.click('#edRotR');
-  await page.waitForTimeout(200);
-  const rotApres = await page.evaluate(() => ED_ROT);
-  dire(rotApres === (rotAvant + 1) % 4, `rotation appliquée (${rotAvant} -> ${rotApres})`);
+  await page.waitForTimeout(250);
+  const cvApres = await page.locator('#edCanvas').evaluate(c => ({ w: c.width, h: c.height }));
+  const ratioAvant = cvAvant.w / cvAvant.h, ratioApres = cvApres.w / cvApres.h;
+  dire(Math.abs(ratioApres - 1 / ratioAvant) < 0.08,
+       `rotation appliquée : canvas ${cvAvant.w}x${cvAvant.h} (${ratioAvant.toFixed(2)}) -> ` +
+       `${cvApres.w}x${cvApres.h} (${ratioApres.toFixed(2)})`);
 
   // curseurs
   await page.fill('#edBright', '30');
@@ -126,16 +134,16 @@ const TEST_IMG = '_TEST_EDITEUR_temp.png';
   await page.waitForTimeout(150);
   dire((await page.textContent('#v_edGrain')).trim() === '50', 'étiquette grain suit le curseur');
 
-  // deplacement du cadre de recadrage (drag)
+  // deplacement du cadre de recadrage (drag) — position rendue de #edCropBox
   const box = await page.locator('#edCropBox').boundingBox();
-  const avantXY = await page.evaluate(() => ({ x: ED_CROP.x, y: ED_CROP.y }));
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2 + 25, box.y + box.height / 2 + 15, { steps: 5 });
   await page.mouse.up();
   await page.waitForTimeout(150);
-  const apresXY = await page.evaluate(() => ({ x: ED_CROP.x, y: ED_CROP.y }));
-  dire(apresXY.x !== avantXY.x || apresXY.y !== avantXY.y, 'le cadre de recadrage se déplace au glisser');
+  const boxApres = await page.locator('#edCropBox').boundingBox();
+  dire(Math.abs(boxApres.x - box.x) > 2 || Math.abs(boxApres.y - box.y) > 2,
+       `le cadre de recadrage se déplace au glisser (${box.x.toFixed(0)},${box.y.toFixed(0)} -> ${boxApres.x.toFixed(0)},${boxApres.y.toFixed(0)})`);
 
   // enregistrement
   await page.click('#edSave');

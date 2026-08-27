@@ -1,12 +1,20 @@
 /* Ecran Creer : curseur d'intensite, intention, ton, scenes, lancement.
-   Extrait de index.html le 24/08/2026 — code inchange.
-   Ordre de chargement significatif : voir index.html. */
+   Bascule en modules ES le 27/08/2026 (J3 etape 1) — comportement inchange,
+   l'etat autrefois global vit dans store.js le temps de l'etape 2. */
+import {$, $$, esc, mmss} from './dom.js';
+import {api, post, erreurDe} from './api.js';
+import {S} from './store.js';
+import {VERDICT_LABEL} from './constants.js';
+import {toast, confirmer, go, signalerPanne, openLight} from './core.js';
+import {renderSceneCards, renderPoses, remplirIntentionsComposeur} from './advanced.js';
+import {ouvrirArmement} from './review.js';
+
 /* ================================================================= INTENSITE */
-const palier = lv => (CREATIVE?.intensity || []).find(p => p.level === lv);
+export const palier = lv => (S.CREATIVE?.intensity || []).find(p => p.level === lv);
 
 const CREATIVE_VIDE = {intentions: [], tones: [], intensity: []};
 
-async function loadCreative(){
+export async function loadCreative(){
   let r;
   try { r = await api('/api/creative'); }
   catch(e){ r = null; }
@@ -15,20 +23,20 @@ async function loadCreative(){
   const err = erreurDe(r) || (Array.isArray(r.intensity) ? null
                               : 'taxonomie illisible (pas d’échelle d’intensité)');
   signalerPanne('taxonomie', err);
-  CREATIVE = err ? CREATIVE_VIDE : r;
+  S.CREATIVE = err ? CREATIVE_VIDE : r;
   renderIntensity(); remplirIntentionsComposeur();
 }
 
 function renderIntensity(){
   const box = $('#intSel');
-  box.innerHTML = (CREATIVE.intensity || []).map(p => `
-    <button data-lv="${p.level}" class="lv${p.level}${p.level === LEVEL ? ' on' : ''}${
+  box.innerHTML = (S.CREATIVE.intensity || []).map(p => `
+    <button data-lv="${p.level}" class="lv${p.level}${p.level === S.LEVEL ? ' on' : ''}${
       p.locked ? ' locked' : ''}" title="${p.locked ? p.reason : (p.prompt_add || 'aucun ajout de prompt')}">
       ${p.locked ? '🔒 ' : ''}${p.label}<span class="n">${p.scenes}</span>
     </button>`).join('');
   box.querySelectorAll('button').forEach(b =>
     b.onclick = () => setLevel(+b.dataset.lv));
-  const p = palier(LEVEL);
+  const p = palier(S.LEVEL);
   // `unite` vient du serveur : le cran qui edite compte des IMAGES sources, pas
   // des scenes — il n'en choisit aucune. Annoncer « 16 scènes » y etait faux.
   const u = p?.unite || 'scène';
@@ -46,24 +54,24 @@ function renderIntensity(){
    `generer_avant` retablit l'enchainement generation -> edition pour le seul cas
    ou il sert — aucune image validee n'existe encore pour la scene voulue.
    Le serveur applique la meme regle dans mode_edition(). */
-const estEdition = () => {
-  const p = palier(LEVEL);
+export const estEdition = () => {
+  const p = palier(S.LEVEL);
   return !!(p && p.pipeline === 'flux+edit' && !champ('generavant', false));
 };
 /* Nombre d'elements coches, quel que soit le mode : des scenes en generation,
    des images sources en edition. Une seule source pour la barre de lancement et
-   pour tick() — sans ca le bouton restait grise en edition, ou SEL est vide. */
-const nbSelection = () => estEdition() ? NSRC.size : SEL.size;
+   pour tick() — sans ca le bouton restait grise en edition, ou S.SEL est vide. */
+export const nbSelection = () => estEdition() ? S.NSRC.size : S.SEL.size;
 
 /* Le niveau NSFW (pipeline flux+edit) s'appuie sur le verdict du QC d'identite :
    en mode edition c'est lui qui donne son dossier a chaque sortie, en mode
    `generer_avant` c'est lui qui decide quelles images enchainer (chainage_nsfw).
-   Sans QC, tout verdict devient "OK". Meme chose pour les prereglages
+   Sans S.QC, tout verdict devient "OK". Meme chose pour les prereglages
    Rapide/Brut, qui coupent le refiner/grain que la branche NSFW herite du
    preset — desactiver plutot que laisser cliquer sur un controle sans effet
    (garde-fou double, voir guard_intensity cote serveur). */
 function syncNiveauGuards(){
-  const p = palier(LEVEL);
+  const p = palier(S.LEVEL);
   const nsfw = !!(p && p.pipeline === 'flux+edit');
   // le panneau est rendu par renderReglages(), qui depend de /api/config :
   // renderIntensity() peut passer ici avant que les controles existent
@@ -81,13 +89,13 @@ function syncNiveauGuards(){
   if (typeof syncSections === 'function') syncSections();
 }
 
-async function setLevel(lv){
+export async function setLevel(lv){
   const p = palier(lv);
   if (!p) return;
   // le rituel d'armement vit desormais sur le cran verrouille du curseur, plus
   // dans un onglet a part : c'est la que la decision se prend, au moment utile
   if (p.locked) return ouvrirArmement(p);
-  if (p.requires === 'confirm' && !CONFIRMED.has(lv)){
+  if (p.requires === 'confirm' && !S.CONFIRMED.has(lv)){
     const ok = await confirmer({
       titre: `Passer en « ${p.label} » ?`,
       corps: `<p>Les images produites à ce niveau <b>ne partent pas dans
@@ -97,18 +105,18 @@ async function setLevel(lv){
         <li>export désactivé pour ce palier</li></ul>`,
       bouton: `Passer en ${p.label}`});
     if (!ok) return;
-    CONFIRMED.add(lv);
+    S.CONFIRMED.add(lv);
   }
-  LEVEL = lv;
-  if (SC){    // les scenes hors bande disparaissent : on elague la selection
+  S.LEVEL = lv;
+  if (S.SC){    // les scenes hors bande disparaissent : on elague la selection
     const dispo = new Set(visibleScenes().map(s => s.id));
-    [...SEL].forEach(id => { if (!dispo.has(id)) SEL.delete(id); });
+    [...S.SEL].forEach(id => { if (!dispo.has(id)) S.SEL.delete(id); });
   }
   renderIntensity();
-  if (SC){
+  if (S.SC){
     // une intention peut devenir vide, ou apparaitre, en changeant de niveau
     renderIntentions();
-    if (INTENT && INTENT !== '*' && !scenesOf(INTENT).length) INTENT = null;
+    if (S.INTENT && S.INTENT !== '*' && !scenesOf(S.INTENT).length) S.INTENT = null;
     renderTones(); renderScenes();
   }
   syncEtapes();
@@ -127,16 +135,16 @@ const numEtape = (id, n) => {
 };
 
 function syncEtapes(){
-  const p = palier(LEVEL);
+  const p = palier(S.LEVEL);
   const editable = !!(p && p.pipeline === 'flux+edit');
   const edition = estEdition();
   $('#stepSource').hidden = !edition;
   $('#stepIntent').hidden = edition;
-  $('#stepTone').hidden   = edition || !INTENT;
-  $('#stepScenes').hidden = edition || !INTENT;
+  $('#stepTone').hidden   = edition || !S.INTENT;
+  $('#stepScenes').hidden = edition || !S.INTENT;
   // en generation, l'instruction n'a de sens qu'une fois l'intention choisie ;
   // en edition elle est la deuxieme et derniere decision
-  $('#stepEdit').hidden = !editable || (!edition && !INTENT);
+  $('#stepEdit').hidden = !editable || (!edition && !S.INTENT);
   if (edition){ numEtape('stepSource', 1); numEtape('stepEdit', 2); }
   else { numEtape('stepIntent', 1); numEtape('stepTone', 2);
          numEtape('stepScenes', 3); numEtape('stepEdit', 4); }
@@ -145,14 +153,14 @@ function syncEtapes(){
 /* ====================================================================== CREER
    Trois blocs, une decision chacun. Les blocs 2 et 3 n'existent pas tant que
    l'intention n'est pas choisie : c'est tout le principe du parcours lineaire. */
-async function loadScenes(gardeEditeur){
+export async function loadScenes(gardeEditeur){
   // proteger par "il y a des modifications non enregistrees" (SC_DIRTY), pas par
   // "l'onglet Scenes est actuellement affiche" : l'ecran reste dans le DOM
   // (juste masque) quand on change d'onglet, donc les valeurs de champ tapees
   // y survivent — le seul vrai risque est de reconstruire #sceneCards depuis
   // le serveur pendant qu'il y a des ajouts ou une application JSON en attente
-  const enEdition = gardeEditeur && SC_DIRTY;
-  const local = enEdition && SC ? SC.data : null;   // edition non enregistree
+  const enEdition = gardeEditeur && S.SC_DIRTY;
+  const local = enEdition && S.SC ? S.SC.data : null;   // edition non enregistree
   let r;
   try { r = await api('/api/scenes'); }
   catch(e){ r = null; }
@@ -165,19 +173,19 @@ async function loadScenes(gardeEditeur){
   if (err){
     // garder la banque precedente si on en avait une : mieux vaut un ecran
     // peut-etre perime, qui le dit, qu'un ecran vide qui ne dit rien
-    if (!SC) SC = {data: {scenes: []}, meta: {}, previews: {}, stats: {}};
+    if (!S.SC) S.SC = {data: {scenes: []}, meta: {}, previews: {}, stats: {}};
     renderIntentions(); renderTones(); renderScenes();
     return;
   }
-  SC = r;
-  if (local) SC.data = local;                       // on ne l'ecrase jamais
+  S.SC = r;
+  if (local) S.SC.data = local;                       // on ne l'ecrase jamais
   renderIntentions(); renderTones(); renderScenes();
   if (!enEdition) renderSceneCards();
   if (typeof renderPoses === 'function') renderPoses();
 }
 
 /* Une scene n'est disponible que si le niveau courant est dans sa bande.
-   La bande vient du serveur (SC.meta), qui applique les memes defauts de
+   La bande vient du serveur (S.SC.meta), qui applique les memes defauts de
    compatibilite que le runner — le front ne les reimplemente pas. */
 /* Niveau auquel la PASSE DE GENERATION tourne. Au niveau 3 la chaine est en deux
    temps : on genere au `base_level` (Soft) puis on edite. Les scenes disponibles
@@ -185,16 +193,16 @@ async function loadScenes(gardeEditeur){
    vide, aucune scene ne declarant la bande 3. Le serveur applique la meme regle
    dans niveau_generation(). */
 const niveauScenes = () => {
-  const p = palier(LEVEL);
-  return p && p.base_level != null ? p.base_level : LEVEL;
+  const p = palier(S.LEVEL);
+  return p && p.base_level != null ? p.base_level : S.LEVEL;
 };
 const inBand = s => {
-  const b = SC.meta?.[s.id]?.band || [0, 1];
+  const b = S.SC.meta?.[s.id]?.band || [0, 1];
   const lv = niveauScenes();
   return b[0] <= lv && lv <= b[1];
 };
-const intentOf = s => SC.meta?.[s.id]?.intention || s.category;
-const scenesOf = key => SC.data.scenes.filter(
+const intentOf = s => S.SC.meta?.[s.id]?.intention || s.category;
+const scenesOf = key => S.SC.data.scenes.filter(
   s => inBand(s) && (key === '*' || intentOf(s) === key));
 
 /* --- bloc 1 : intention ---------------------------------------------------
@@ -204,15 +212,15 @@ const scenesOf = key => SC.data.scenes.filter(
    `herbier` etaient a zero scene a tous les crans — deux cartes mortes sur huit,
    a la toute premiere decision du parcours. */
 function carteIntention(i, n){
-  return `<div class="it${i.key === INTENT ? ' on' : ''}${n ? '' : ' vide'}"
+  return `<div class="it${i.key === S.INTENT ? ' on' : ''}${n ? '' : ' vide'}"
     data-k="${esc(i.key)}"><span class="ic">${i.icon}</span><b>${esc(i.label)}</b>
     <span>${n ? n + ' scène' + (n > 1 ? 's' : '') : 'en composer une'}</span></div>`;
 }
 
 function renderIntentions(){
-  if (!SC || !CREATIVE) return;
-  const items = [...(CREATIVE.intentions || [])
-                   .filter(i => (i.min_intensity || 0) <= LEVEL),
+  if (!S.SC || !S.CREATIVE) return;
+  const items = [...(S.CREATIVE.intentions || [])
+                   .filter(i => (i.min_intensity || 0) <= S.LEVEL),
                  {key: '*', label: 'Toutes', icon: '✳', defaults: {}}];
   const pleines = [], vides = [];
   items.forEach(i => (scenesOf(i.key).length ? pleines : vides)
@@ -239,25 +247,25 @@ function composerPour(key){
 }
 
 function setIntent(key){
-  if (INTENT === key) return;
-  INTENT = key;
-  SEL.clear();                       // changer d'intention repart d'une page vierge
-  const def = (CREATIVE.intentions || []).find(i => i.key === key);
-  TONE = def?.defaults?.tone || TONE || (CREATIVE.tones?.[0]?.key ?? '');
+  if (S.INTENT === key) return;
+  S.INTENT = key;
+  S.SEL.clear();                       // changer d'intention repart d'une page vierge
+  const def = (S.CREATIVE.intentions || []).find(i => i.key === key);
+  S.TONE = def?.defaults?.tone || S.TONE || (S.CREATIVE.tones?.[0]?.key ?? '');
   renderIntentions(); renderTones(); renderScenes();
 }
 
 /* --- bloc 2 : ton --------------------------------------------------------- */
 function renderTones(){
   syncEtapes();                      // la visibilite des blocs vit la-bas
-  if (!INTENT) return;
-  const t = (CREATIVE.tones || []).find(x => x.key === TONE);
+  if (!S.INTENT) return;
+  const t = (S.CREATIVE.tones || []).find(x => x.key === S.TONE);
   $('#toneHint').textContent = t ? '— ' + t.prompt_add : '';
-  $('#toneRow').innerHTML = (CREATIVE.tones || []).map(x =>
-    `<div class="chip-t${x.key === TONE ? ' on' : ''}" data-k="${x.key}">${x.label}</div>`
+  $('#toneRow').innerHTML = (S.CREATIVE.tones || []).map(x =>
+    `<div class="chip-t${x.key === S.TONE ? ' on' : ''}" data-k="${x.key}">${x.label}</div>`
   ).join('');
   $('#toneRow').querySelectorAll('.chip-t').forEach(el => el.onclick = () => {
-    TONE = el.dataset.k; renderTones(); renderScenes();
+    S.TONE = el.dataset.k; renderTones(); renderScenes();
   });
 }
 
@@ -265,34 +273,34 @@ function renderTones(){
 /* Le ton n'enleve aucune scene — il remonte celles qui lui vont bien. Filtrer
    dur menait a des culs-de-sac (lifestyle + elegant : zero scene). */
 const visibleScenes = () => {
-  if (!INTENT) return [];
-  const affine = s => (SC.meta?.[s.id]?.tones || []).includes(TONE) ? 0 : 1;
-  return scenesOf(INTENT).slice()
+  if (!S.INTENT) return [];
+  const affine = s => (S.SC.meta?.[s.id]?.tones || []).includes(S.TONE) ? 0 : 1;
+  return scenesOf(S.INTENT).slice()
     .sort((a, b) => affine(a) - affine(b) || a.id.localeCompare(b.id));
 };
 
 const scoreDot = v => v == null ? 'var(--dim2)'
-  : v >= QC.high ? 'var(--ok)' : v >= QC.ok ? 'var(--warn)' : 'var(--bad)';
+  : v >= S.QC.high ? 'var(--ok)' : v >= S.QC.ok ? 'var(--warn)' : 'var(--bad)';
 
-function renderScenes(){
-  if (!SC) return;
+export function renderScenes(){
+  if (!S.SC) return;
   const list = visibleScenes();
-  $('#sceneHint').textContent = INTENT
+  $('#sceneHint').textContent = S.INTENT
     ? `${list.length} disponible${list.length > 1 ? 's' : ''} à ce niveau`
     : '';
   const g = $('#sceneGrid'); g.innerHTML = '';
   list.forEach(s => {
-    const prev = SC.previews[s.id], st = SC.stats?.[s.id];
-    const aff = (SC.meta?.[s.id]?.tones || []).includes(TONE);
-    const tags = (SC.meta?.[s.id]?.tags || []).slice(0, 3).join(' · ');
-    const pose = SC.meta?.[s.id]?.pose;
+    const prev = S.SC.previews[s.id], st = S.SC.stats?.[s.id];
+    const aff = (S.SC.meta?.[s.id]?.tones || []).includes(S.TONE);
+    const tags = (S.SC.meta?.[s.id]?.tags || []).slice(0, 3).join(' · ');
+    const pose = S.SC.meta?.[s.id]?.pose;
     const el = document.createElement('div');
-    el.className = 'sc' + (SEL.has(s.id) ? ' on' : '');
+    el.className = 'sc' + (S.SEL.has(s.id) ? ' on' : '');
     el.innerHTML = `
       <div class="ph ${prev ? '' : 'empty'}" ${prev ? `style="background-image:url('/img?bucket=${prev.bucket}&name=${encodeURIComponent(prev.name)}&thumb=1')"` : ''}>
         ${aff ? '<div class="aff">ce ton</div>' : ''}
         ${pose ? `<div class="posebadge" title="pose imposée : ${esc(pose)}">⛓ pose</div>` : ''}
-        ${SC.meta?.[s.id] ? '' : '<div class="nonsauv">non enregistrée</div>'}
+        ${S.SC.meta?.[s.id] ? '' : '<div class="nonsauv">non enregistrée</div>'}
         <div class="tick">✓</div></div>
       <div class="info"><b>${s.id}</b>
         <span>${s.format || '4:5'} · ${s.count || 1} img${(s.variants||[]).length ? ' +' + s.variants.length + ' var.' : ''}</span>
@@ -301,7 +309,7 @@ function renderScenes(){
                : '<span style="color:var(--dim2)">jamais produite</span>'}</div>
         ${tags ? `<div class="tags">${tags}</div>` : ''}</div>`;
     el.onclick = () => {
-      SEL.has(s.id) ? SEL.delete(s.id) : SEL.add(s.id);
+      S.SEL.has(s.id) ? S.SEL.delete(s.id) : S.SEL.add(s.id);
       // un amendement est ecrit POUR une scene : changer la selection le rend
       // caduc, et l'appliquer en silence a une autre scene serait pire que tout
       SCENE_OVERRIDE = '';
@@ -318,7 +326,7 @@ function renderScenes(){
     'justify-content:center;min-height:150px;text-align:center';
   neuf.innerHTML = '<div class="info"><b style="font-size:20px">+</b>' +
                    '<span>créer une scène</span></div>';
-  neuf.onclick = () => composerPour(INTENT);
+  neuf.onclick = () => composerPour(S.INTENT);
   g.append(neuf);
   refreshPlan();
 }
@@ -328,18 +336,18 @@ function renderScenes(){
    Une seule grille, un seul champ d'instruction, un seul bouton de lancement. */
 let NSFW_SRC = [];                 // [{name, bucket}] rendues par /api/nsfw/state
 
-async function nsfwTick(){
+export async function nsfwTick(){
   // jeton anti-reponse-perimee : appelee depuis plusieurs sources independantes
-  const seq = ++NSFW_SEQ;
+  const seq = ++S.NSFW_SEQ;
   let d; try { d = await api('/api/nsfw/state'); } catch { return; }
-  if (seq !== NSFW_SEQ) return;
-  if (d.armed !== NARMED){
+  if (seq !== S.NSFW_SEQ) return;
+  if (d.armed !== S.NARMED){
     // l'armement conditionne le verrouillage des paliers du curseur : un
     // desarmement fait ailleurs doit reverrouiller le cran ici aussi
     await loadCreative();
-    if (seq !== NSFW_SEQ) return;
+    if (seq !== S.NSFW_SEQ) return;
   }
-  NARMED = d.armed;
+  S.NARMED = d.armed;
   NSFW_SRC = d.sources || [];
   if (estEdition()) renderSources();
 }
@@ -351,12 +359,12 @@ function renderSources(){
   // et le serveur la refuserait au lancement (sources_valides)
   const dispo = new Set(NSFW_SRC.map(s => s.name));
   let elague = false;
-  [...NSRC].forEach(n => { if (!dispo.has(n)){ NSRC.delete(n); elague = true; } });
+  [...S.NSRC].forEach(n => { if (!dispo.has(n)){ S.NSRC.delete(n); elague = true; } });
   const sig = NSFW_SRC.map(s => s.name).join('|');
-  if (sig !== NSRC_SIG){
-    NSRC_SIG = sig;
+  if (sig !== S.NSRC_SIG){
+    S.NSRC_SIG = sig;
     g.innerHTML = NSFW_SRC.map(s => `
-      <div class="src${NSRC.has(s.name) ? ' on' : ''}" data-n="${esc(s.name)}">
+      <div class="src${S.NSRC.has(s.name) ? ' on' : ''}" data-n="${esc(s.name)}">
         <img loading="lazy" src="/img?bucket=${esc(s.bucket)}&name=${
           encodeURIComponent(s.name)}&thumb=1">
         ${s.bucket === 'OK' ? '' : '<div class="aff">à revoir</div>'}
@@ -366,10 +374,10 @@ function renderSources(){
   } else {
     // ne pas reconstruire pour un simple clic : les vignettes se rechargeraient
     g.querySelectorAll('.src').forEach(el =>
-      el.classList.toggle('on', NSRC.has(el.dataset.n)));
+      el.classList.toggle('on', S.NSRC.has(el.dataset.n)));
   }
   $('#srcHint').textContent = NSFW_SRC.length
-    ? `— ${NSRC.size} cochée${NSRC.size > 1 ? 's' : ''} sur ${NSFW_SRC.length} éditable${
+    ? `— ${S.NSRC.size} cochée${S.NSRC.size > 1 ? 's' : ''} sur ${NSFW_SRC.length} éditable${
         NSFW_SRC.length > 1 ? 's' : ''}`
     : '';
   if (elague) refreshPlan();
@@ -380,7 +388,7 @@ $('#srcGrid').onclick = e => {
   const el = e.target.closest('.src');
   if (!el) return;
   const n = el.dataset.n;
-  NSRC.has(n) ? NSRC.delete(n) : NSRC.add(n);
+  S.NSRC.has(n) ? S.NSRC.delete(n) : S.NSRC.add(n);
   el.classList.toggle('on');
   renderSources(); refreshPlan();
 };
@@ -388,12 +396,12 @@ $('#srcGrid').onclick = e => {
 $('#btnDisarm').onclick = async () => {
   const r = await post('/api/nsfw/arm', {arm: false});
   if (!r.ok) return toast(r.erreur || 'désarmement impossible');
-  NSRC.clear(); NSRC_SIG = null;
+  S.NSRC.clear(); S.NSRC_SIG = null;
   toast('branche désarmée');
   // on ne reste pas sur un cran qui vient d'etre reverrouille
-  if (palier(LEVEL)?.requires === 'armed') LEVEL = 0;
+  if (palier(S.LEVEL)?.requires === 'armed') S.LEVEL = 0;
   await loadCreative();
-  if (SC){ renderIntentions(); renderTones(); renderScenes(); }
+  if (S.SC){ renderIntentions(); renderTones(); renderScenes(); }
   syncEtapes(); nsfwTick(); refreshPlan();
 };
 
@@ -485,7 +493,7 @@ function renderApercu(a){
   if (!APERCU_OUVERT || !a){ box.hidden = true; return; }
   if (!APERCU_BATI) batirApercu();
   box.hidden = false;
-  const sig = JSON.stringify(a) + SEL.size;
+  const sig = JSON.stringify(a) + S.SEL.size;
   if (sig === APERCU_SIG) return;
   APERCU_SIG = sig;
 
@@ -507,7 +515,7 @@ function renderApercu(a){
     </div>` : '';
   // l'amendement n'a de sens que sur UNE scene : avec plusieurs, « la » scene ne
   // designe rien. Le serveur applique la meme regle (scene_override).
-  const uneSeule = SEL.size === 1 && !estEdition();
+  const uneSeule = S.SEL.size === 1 && !estEdition();
   $('#apercuPanel .amd').classList.toggle('inerte', !uneSeule);
   $('#sceneOverride').disabled = !uneSeule;
   $('#apAmdLbl').innerHTML = uneSeule
@@ -648,8 +656,8 @@ REGLAGES.forEach(s => s.items.forEach(i => RG[i.id] = i));
 /* Valeur de reference d'un reglage : celle de config.json, jamais une constante
    ecrite dans le front. Un reglage sans reference (champs de lot) rend ''. */
 function refDe(it){
-  if (it.dest === 'preset') return PRESET_REF[it.cle];
-  if (it.dest === 'nsfw')   return NSFW_REF[it.cle] ?? PRESET_REF[it.cle];
+  if (it.dest === 'preset') return S.PRESET_REF[it.cle];
+  if (it.dest === 'nsfw')   return S.NSFW_REF[it.cle] ?? S.PRESET_REF[it.cle];
   return '';
 }
 
@@ -658,7 +666,7 @@ const fmtVal = (it, v) =>
   : it.pas && it.pas < 1 ? (+v).toFixed(String(it.pas).split('.')[1].length)
   : String(v);
 
-function renderReglages(){
+export function renderReglages(){
   const box = $('#gearBody');
   if (!box) return;
   box.innerHTML = REGLAGES.map(sec => {
@@ -705,13 +713,13 @@ function renderReglages(){
         <span class="ecart" data-sec="${esc(sec.titre)}"></span></summary>
         ${items}</details></section>`;
   }).join('');
-  appliquerValeurs(PRESET_REF, NSFW_REF);
+  appliquerValeurs(S.PRESET_REF, S.NSFW_REF);
   syncSections();
 }
 
 /* Ecrit un jeu de valeurs dans les controles. Sert au chargement, au bouton
    « valeurs mesurees » et aux prereglages de la barre de lancement. */
-function appliquerValeurs(preset, nsfw){
+export function appliquerValeurs(preset, nsfw){
   REGLAGES.forEach(s => s.items.forEach(it => {
     const el = $('#' + it.id);
     if (!el) return;
@@ -728,7 +736,7 @@ function appliquerValeurs(preset, nsfw){
 /* Pastille « mesuré » allumee quand la valeur est celle de config.json, et
    compteur d'ecarts en tete de panneau. C'est tout l'interet : on voit d'un
    coup d'oeil de combien on s'est eloigne des valeurs validees. */
-function majAffichage(){
+export function majAffichage(){
   let ecarts = 0;
   const parSection = {};        // titre -> nb d'ecarts, pour les sections repliees
   REGLAGES.forEach(s => s.items.forEach(it => {
@@ -771,7 +779,7 @@ function majAffichage(){
 
 /* La section NSFW n'a de sens qu'au niveau qui edite. */
 function syncSections(){
-  const p = palier(LEVEL);
+  const p = palier(S.LEVEL);
   const edit = !!(p && p.pipeline === 'flux+edit');
   $$('#gearBody .rgs').forEach(s => {
     if (s.dataset.niveau === 'edit') s.hidden = !edit;
@@ -793,8 +801,8 @@ const PRESETS = {
                     guidance: 3.0}),
 };
 
-function appliquerPreset(q){
-  appliquerValeurs({...PRESET_REF, ...(PRESETS[q] || PRESETS.realisme)()}, NSFW_REF);
+export function appliquerPreset(q){
+  appliquerValeurs({...S.PRESET_REF, ...(PRESETS[q] || PRESETS.realisme)()}, S.NSFW_REF);
 }
 
 /* Un seul ecouteur pour tout le panneau : les controles sont rendus en JS et
@@ -812,14 +820,14 @@ function panneauChange(){
 $('#gearPanel').addEventListener('input', panneauChange);
 $('#gearPanel').addEventListener('change', panneauChange);
 $('#btnReset').onclick = () => {
-  appliquerValeurs(PRESET_REF, NSFW_REF);
+  appliquerValeurs(S.PRESET_REF, S.NSFW_REF);
   $$('#qual button').forEach(x => x.classList.toggle('on', x.dataset.q === 'realisme'));
   refreshPlan();
 };
 
 /* Ce que le panneau envoie au serveur. Les controles sont la source de verite :
    il n'y a plus de jeu de valeurs reconstruit ailleurs. */
-function valeursDe(dest){
+export function valeursDe(dest){
   const out = {};
   REGLAGES.forEach(s => s.items.forEach(it => {
     if (it.dest !== dest) return;
@@ -840,17 +848,17 @@ const champ = (id, def) => {
 
 function payload(){
   return {
-    scenes:[...SEL], categories:[],
+    scenes:[...S.SEL], categories:[],
     count: champ('count', ''), format: champ('format', ''),
     limit: champ('limit', ''), seed: champ('seed', ''),
     no_variants: champ('novar', false), no_qc: champ('noqc', false),
     preset: valeursDe('preset'), nsfw: valeursDe('nsfw'),
-    intensity: LEVEL, confirm_intensity: CONFIRMED.has(LEVEL),
-    tone: TONE, intention: INTENT === '*' ? null : INTENT,
+    intensity: S.LEVEL, confirm_intensity: S.CONFIRMED.has(S.LEVEL),
+    tone: S.TONE, intention: S.INTENT === '*' ? null : S.INTENT,
     edit_instruction: champ('editInstr', ''),
     // cran NSFW : les images a editer, et le mode. Le serveur retranche ce qui
     // n'est plus editable (sources_valides) — la liste peut avoir vieilli.
-    sources: [...NSRC], generer_avant: champ('generavant', false),
+    sources: [...S.NSRC], generer_avant: champ('generavant', false),
     // amendement de scene pour CE lancement : le serveur ne le retient que si
     // une seule scene est cochee, et le passe au meme controle de visage
     scene_override: SCENE_OVERRIDE
@@ -869,15 +877,15 @@ function refreshPlan(){
       renderAlertes(p.alertes);
       renderApercu(null);        // au cran NSFW il n'y a pas de prompt de scene
       const instr = String(champ('editInstr', '')).trim();
-      PLAN_OK = p.total > 0 && !!instr;
+      S.PLAN_OK = p.total > 0 && !!instr;
       $('#sumN').textContent = p.total
         ? p.total + (p.total > 1 ? ' images' : ' image') : '—';
-      $('#sumT').textContent = !NSRC.size ? 'coche au moins une image source'
+      $('#sumT').textContent = !S.NSRC.size ? 'coche au moins une image source'
         : !instr ? 'écris l’instruction d’édition'
         : `${p.total} édition${p.total > 1 ? 's' : ''} · environ ${mmss(p.total * 82)}`;
-      $('#btnRun').textContent = PLAN_OK
+      $('#btnRun').textContent = S.PLAN_OK
         ? `Éditer ${p.total} image${p.total > 1 ? 's' : ''}` : 'Éditer';
-      $('#btnRun').disabled = !PLAN_OK || RUNNING || !$('#dot').classList.contains('on');
+      $('#btnRun').disabled = !S.PLAN_OK || S.RUNNING || !$('#dot').classList.contains('on');
       return;
     }
     $('#btnRun').textContent = 'Générer';
@@ -885,23 +893,23 @@ function refreshPlan(){
     // Les sorties courtes ci-dessous partent sans appeler le plan, donc sans
     // alerte a montrer — on les vide plutot que de laisser une alerte perimee.
     renderAlertes([]);
-    if (!INTENT || !SEL.size){
+    if (!S.INTENT || !S.SEL.size){
       $('#sumN').textContent = '—';
-      $('#sumT').textContent = !INTENT ? 'choisis une intention'
+      $('#sumT').textContent = !S.INTENT ? 'choisis une intention'
                                        : 'sélectionne au moins une scène';
       renderApercu(null);
-      PLAN_OK = false; $('#btnRun').disabled = true; return; }
+      S.PLAN_OK = false; $('#btnRun').disabled = true; return; }
     // Une scene ajoutee mais pas encore enregistree existe dans SC.data (donc
     // dans la grille) mais PAS dans scenes.json, que lit /api/plan. Sans ce
     // message, le plan revenait a zero et le bouton restait grise sans un mot.
-    const inconnues = [...SEL].filter(id => !SC.meta?.[id]);
+    const inconnues = [...S.SEL].filter(id => !S.SC.meta?.[id]);
     if (inconnues.length){
       $('#sumN').textContent = '—';
       $('#sumT').textContent = inconnues.join(', ') +
         (inconnues.length > 1 ? ' ne sont pas enregistrées' : ' n’est pas enregistrée') +
         ' — onglet Scènes, bouton Enregistrer';
       renderApercu(null);
-      PLAN_OK = false; $('#btnRun').disabled = true; return; }
+      S.PLAN_OK = false; $('#btnRun').disabled = true; return; }
     const p = await post('/api/plan', payload());
     renderAlertes(p.alertes);
     // Garder le dernier apercu valide quand le plan echoue : un amendement
@@ -910,20 +918,20 @@ function refreshPlan(){
     // L'erreur est portee par #sumT, pas par l'escamotage du panneau.
     if (p.apercu) renderApercu(p.apercu);
     if (p.erreur){ $('#sumN').textContent = '—'; $('#sumT').textContent = p.erreur;
-      PLAN_OK = false; $('#btnRun').disabled = true; return; }
+      S.PLAN_OK = false; $('#btnRun').disabled = true; return; }
     const q = $('#qual button.on').dataset.q;
-    const unit = q === 'realisme' ? (SC.avg_duration || 55) : q === 'rapide' ? 32 : 22;
-    const niv = palier(LEVEL);
+    const unit = q === 'realisme' ? (S.SC.avg_duration || 55) : q === 'rapide' ? 32 : 22;
+    const niv = palier(S.LEVEL);
     $('#sumN').textContent = p.total + (p.total > 1 ? ' images' : ' image');
-    const ton = (CREATIVE?.tones || []).find(x => x.key === TONE);
-    $('#sumT').textContent = `${SEL.size} scène${SEL.size>1?'s':''} · ` +
+    const ton = (S.CREATIVE?.tones || []).find(x => x.key === S.TONE);
+    $('#sumT').textContent = `${S.SEL.size} scène${S.SEL.size>1?'s':''} · ` +
       `${niv ? niv.label : ''}${ton ? ' · ' + ton.label : ''} · ` +
       `environ ${mmss(p.total*unit)}`;
     // PLAN_OK est la seule source lue par tick() (boot.js) : les deux minuteurs
     // qui se disputent #btnRun.disabled s'accordent ainsi sur la validite du
     // plan, au lieu que l'un re-active un bouton que l'autre venait de couper
-    PLAN_OK = p.total > 0;
-    $('#btnRun').disabled = p.total === 0 || RUNNING || !$('#dot').classList.contains('on');
+    S.PLAN_OK = p.total > 0;
+    $('#btnRun').disabled = p.total === 0 || S.RUNNING || !$('#dot').classList.contains('on');
   }, 220);
 }
 $$('#qual button').forEach(b => b.onclick = () => {
@@ -948,10 +956,10 @@ $('#btnRun').onclick = async () => {
   // optimiste : sans ca, RUNNING reste faux jusqu'au prochain tick() (1,5 s),
   // et un refreshPlan() declenche entre-temps par un changement de champ peut
   // reactiver le bouton avant que le serveur ait confirme le lancement
-  RUNNING = true;
+  S.RUNNING = true;
   const r = await post('/api/run', payload());
   if (!r.ok){
-    RUNNING = false;
+    S.RUNNING = false;
     toast(r.erreur || 'échec du lancement');
     refreshPlan();
   }
@@ -959,7 +967,7 @@ $('#btnRun').onclick = async () => {
 
 /* --------------------------------------------------------- panneau execution */
 let RUN_SIG = null;
-function renderRun(s){
+export function renderRun(s){
   const p = $('#runPanel');
   if (!s.running && !s.total){ p.style.display = 'none'; RUN_SIG = null; return; }
   p.style.display = '';

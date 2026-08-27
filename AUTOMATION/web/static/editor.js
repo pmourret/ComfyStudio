@@ -9,7 +9,14 @@
    fluide pendant qu'on ajuste les curseurs ; l'enregistrement re-dessine tout
    a la resolution ORIGINALE dans un canvas hors-ecran separe, pour ne perdre
    aucune qualite. Les coordonnees du cadre de recadrage sont donc toujours en
-   pixels d'AFFICHAGE, et converties au facteur d'echelle au moment d'exporter. */
+   pixels d'AFFICHAGE, et converties au facteur d'echelle au moment d'exporter.
+
+   Bascule en modules ES le 27/08/2026 (J3 etape 1) — comportement inchange. */
+import {$, $$} from './dom.js';
+import {post} from './api.js';
+import {toast} from './core.js';
+import {loadItems} from './review.js';
+import {refreshCounts} from './poller.js';
 
 let ED_ITEM = null;      // {name, bucket, space}
 let ED_IMG = null;       // HTMLImageElement source, chargee une fois par ouverture
@@ -18,7 +25,7 @@ let ED_RATIO = null;      // null = libre, sinon {w, h}
 let ED_CROP = null;       // {x,y,w,h} en pixels d'affichage (post-rotation 90°)
 let ED_DRAG = null;
 
-async function ouvrirEditeur(item){
+export async function ouvrirEditeur(item){
   if (!item) return;
   ED_ITEM = {name: item.name, bucket: item.bucket, space: item.space};
   $('#editorBox').classList.add('on');
@@ -38,7 +45,7 @@ async function ouvrirEditeur(item){
   img.src = `/img?bucket=${item.bucket}&space=${item.space}&name=${encodeURIComponent(item.name)}`;
 }
 
-function fermerEditeur(){
+export function fermerEditeur(){
   $('#editorBox').classList.remove('on');
   ED_ITEM = null; ED_IMG = null; ED_CROP = null; ED_DRAG = null;
 }
@@ -294,8 +301,8 @@ $('#edSave').onclick = async () => {
     if (!r.ok){ $('#edMsg').textContent = ''; toast(r.erreur || 'échec'); return; }
     toast(`copie enregistrée : ${r.name}`);
     fermerEditeur();
-    if (typeof loadItems === 'function') loadItems();
-    if (typeof refreshCounts === 'function') refreshCounts();
+    loadItems();
+    refreshCounts();
   } finally {
     if ($('#edSave')) $('#edSave').disabled = false;
   }
