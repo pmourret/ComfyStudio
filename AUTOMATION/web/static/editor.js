@@ -14,7 +14,7 @@
    Bascule en modules ES le 27/08/2026 (J3 etape 1) — comportement inchange. */
 import {$, $$} from './dom.js';
 import {post} from './api.js';
-import {toast} from './core.js';
+import {toast} from './toast.js';
 import {loadItems} from './review.js';
 import {refreshCounts} from './poller.js';
 

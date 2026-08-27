@@ -15,8 +15,8 @@
 
    Depuis J3 (bascule en modules ES) : advanced.js s'importe au lieu de s'eval-er.
    Le stub pose `document.querySelector` / `querySelectorAll` (sur lesquels
-   dom.js repose) et amorce l'objet `S` de store.js — meme singleton que
-   advanced.js voit. */
+   dom.js repose) et un `fetch` route-aware ; la banque est chargee via
+   scenes-store.loadScenes() — le meme module que voit advanced.js. */
 const fs = require('fs');
 const path = require('path');
 
@@ -62,7 +62,17 @@ globalThis.document = {
 };
 globalThis.location = {hash: '', search: '', reload(){}};
 globalThis.addEventListener = () => {};
-globalThis.fetch = async () => ({json: async () => ({rows: []}), status: 200});
+// fetch route-aware : scenes-store.js et taxonomy.js chargent leurs donnees
+// par la. La banque servie est une copie profonde, dans la forme de /api/scenes.
+const banque = () => ({data: JSON.parse(JSON.stringify(scenes)), previews: {},
+                       meta: {}, stats: {}, poses: []});
+globalThis.fetch = async u => {
+  const s = String(u);
+  const body = s.startsWith('/api/scenes') ? banque()
+    : s.startsWith('/api/creative') ? creative
+    : {rows: []};
+  return {json: async () => body, status: 200};
+};
 globalThis.setInterval = () => 0;
 globalThis.setTimeout = () => 0;
 globalThis.clearTimeout = () => {};
@@ -106,20 +116,22 @@ const canon = v => Array.isArray(v) ? v.map(canon)
 const meme = (a, b) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
 
 (async () => {
-  let store, adv;
+  let adv, store, taxo;
   try {
-    store = await import(url('store.js'));
-    adv = await import(url('advanced.js'));
+    store = await import(url('scenes-store.js'));
+    taxo = await import(url('taxonomy.js'));
+    adv = await import(url('advanced.js'));   // pose on('scenes:loaded'...) / on('creative:loaded'...)
   } catch (e) {
     console.log('  ECHEC au chargement : ' + (e && e.stack || e));
     process.exit(1);
   }
-  const {S} = store;
+  const {scenes: getSc, loadScenes} = store;
   const {renderSceneCards, collectScenes, tenuesInvalides,
          wardrobeVersTexte, texteVersWardrobe} = adv;
 
-  S.CREATIVE = creative;
-  S.SC = {data: JSON.parse(JSON.stringify(scenes)), previews: {}, meta: {}};
+  // charge par le module (fetch stub) : loadScenes emet `scenes:loaded`
+  await Promise.all([loadScenes(), taxo.loadCreative()]);
+  const SC = getSc();   // la banque en memoire, meme objet que voit advanced.js
 
   function peindreEtRelire(){
     const box = NOEUDS.get('sceneCards') || faire('sceneCards');
@@ -235,17 +247,17 @@ const meme = (a, b) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
      de `wardrobe` avant qu'on l'expose, et celle de tout champ qu'on ajoutera au
      format sans toucher a l'interface. Elle doit traverser l'enregistrement. */
   console.log('\n[7] une cle absente de la carte traverse quand meme');
-  const sauvegarde = S.SC.data.scenes;
-  S.SC.data.scenes = JSON.parse(JSON.stringify(sauvegarde));
-  S.SC.data.scenes[0].cle_non_affichee = {garde: 'moi', niveaux: [1, 2]};
-  S.SC.data.scenes[1].autre_cle_future = 'valeur a preserver';
+  const sauvegarde = SC.data.scenes;
+  SC.data.scenes = JSON.parse(JSON.stringify(sauvegarde));
+  SC.data.scenes[0].cle_non_affichee = {garde: 'moi', niveaux: [1, 2]};
+  SC.data.scenes[1].autre_cle_future = 'valeur a preserver';
   peindreEtRelire();
   const apresInconnues = collectScenes();
   dire(meme(apresInconnues[0].cle_non_affichee, {garde: 'moi', niveaux: [1, 2]}),
        'une cle objet que la carte ignore est conservee intacte');
   dire(apresInconnues[1].autre_cle_future === 'valeur a preserver',
        'une cle texte que la carte ignore est conservee intacte');
-  S.SC.data.scenes = sauvegarde;
+  SC.data.scenes = sauvegarde;
   peindreEtRelire();
 
   console.log();

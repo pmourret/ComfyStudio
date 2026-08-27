@@ -1,45 +1,87 @@
 /* Ecran Revue : tri, sous-scores, jugement, armement, declinaison.
-   Bascule en modules ES le 27/08/2026 (J3 etape 1) — comportement inchange,
-   l'etat autrefois global vit dans store.js le temps de l'etape 2. */
+   Bascule en modules ES le 27/08/2026 (J3). Depuis l'etape 2 : l'etat du tri
+   (bucket / espace / vue / liste / curseur) est encapsule ici et expose par
+   triageState() / setTriageEntry() ; les bandes de score viennent de
+   config.js. */
 import {$, $$, esc} from './dom.js';
 import {api, post} from './api.js';
-import {S} from './store.js';
-import {toast, confirmer, go, syncTriageUi, openLight} from './core.js';
-import {renderReglages, loadCreative, setLevel, palier} from './create.js';
+import {on} from './bus.js';
+import {toast} from './toast.js';
+import {confirmer} from './modal.js';
+import {openLight} from './lightbox.js';
+import {go} from './nav.js';
+import {qc} from './config.js';
+import {creative, loadCreative, palier} from './taxonomy.js';
+import {setLevel} from './create.js';
 import {ouvrirEditeur, fermerEditeur} from './editor.js';
 import {refreshCounts} from './poller.js';
 
+/* --- etat du tri, prive au module ---------------------------------- */
+let BUCKET = 'A_REVOIR';
+let SPACE = 'lena';          // axe SFW/NSFW (valeur SFW 'lena' — != personnage)
+let VIEW = 'grille';
+let ITEMS = [];              // liste du dossier courant
+let VITEMS = [];             // sous-ensemble affiche (filtre de score)
+let CUR = 0;
+let SFILTER = 'tout';
+let BANDES = {};             // etalonnage du realisme, cote serveur
+let JUGES = 0;
+let REFS = {mesurees: 0, total: 0};
+let ITEMS_SEQ = 0;           // jeton anti-reponse-perimee (loadItems)
+
+// bucket/espace/vue courants, pour poller.js (compteurs) et nav.js
+export const triageState = () => ({bucket: BUCKET, space: SPACE, view: VIEW});
+// point d'entree depuis un onglet (Galerie/Revue) : bucket impose, retour SFW
+// strict, vue grille — ouvrir sur du NSFW sans l'avoir choisi serait surprenant
+export function setTriageEntry(bucket){
+  BUCKET = bucket; SPACE = 'lena'; VIEW = 'grille';
+}
+
+/* Reflete BUCKET/SPACE sur les boutons du selecteur de l'ecran #trier et sur
+   l'onglet Galerie/Revue correspondant — appelee depuis nav.go() (clic sur un
+   onglet) et depuis les selecteurs bucket/espace eux-memes, pour que les trois
+   entrees restent synchronisees. La mise en avant Galerie/Revue ne s'applique
+   qu'en espace Léna : le NSFW n'a pas d'onglet propre. */
+export function syncTriageUi(){
+  $$('#bucketSel button').forEach(x => x.classList.toggle('on', x.dataset.b === BUCKET));
+  $$('#spaceSel button').forEach(x => x.classList.toggle('on', x.dataset.sp === SPACE));
+  const routeName = SPACE !== 'lena' ? null
+    : BUCKET === 'OK' ? 'galerie' : BUCKET === 'A_REVOIR' ? 'trier' : null;
+  $$('.tabs button[data-s="galerie"], .tabs button[data-s="trier"]').forEach(x =>
+    x.classList.toggle('on', x.dataset.s === routeName));
+}
+
 /* ===================================================================== TRIER */
 $$('#bucketSel button').forEach(b => b.onclick = () => {
-  S.BUCKET = b.dataset.b; S.CUR = 0; syncTriageUi(); loadItems();
+  BUCKET = b.dataset.b; CUR = 0; syncTriageUi(); loadItems();
 });
 $$('#spaceSel button').forEach(b => b.onclick = () => {
-  S.SPACE = b.dataset.sp; S.CUR = 0; syncTriageUi(); loadItems();
+  SPACE = b.dataset.sp; CUR = 0; syncTriageUi(); loadItems();
 });
 $$('#viewSel button').forEach(b => b.onclick = () => {
   $$('#viewSel button').forEach(x => x.classList.remove('on'));
-  b.classList.add('on'); S.VIEW = b.dataset.v; renderTriage();
+  b.classList.add('on'); VIEW = b.dataset.v; renderTriage();
 });
 $$('#scoreSel button').forEach(b => b.onclick = () => setScoreFilter(b.dataset.f));
-function setScoreFilter(f){ S.SFILTER = f; S.CUR = 0; renderTriage(); }
+function setScoreFilter(f){ SFILTER = f; CUR = 0; renderTriage(); }
 
 export async function loadItems(){
   // jeton anti-reponse-perimee : deux clics rapproches sur deux buckets
   // differents peuvent voir la reponse du premier arriver apres celle du
   // second et ecraser ITEMS avec des donnees qui ne correspondent plus au
   // bucket actuellement selectionne
-  const seq = ++S.ITEMS_SEQ;
-  const d = await api('/api/gallery?bucket=' + S.BUCKET + '&space=' + S.SPACE);
-  if (seq !== S.ITEMS_SEQ) return;
-  S.ITEMS = d.items;
-  S.BANDES = d.bandes || {};
-  S.JUGES = d.juges || 0;
-  S.REFS = d.references || {mesurees: 0, total: 0};
+  const seq = ++ITEMS_SEQ;
+  const d = await api('/api/gallery?bucket=' + BUCKET + '&space=' + SPACE);
+  if (seq !== ITEMS_SEQ) return;
+  ITEMS = d.items;
+  BANDES = d.bandes || {};
+  JUGES = d.juges || 0;
+  REFS = d.references || {mesurees: 0, total: 0};
   const b = $('#btnMesurer');
   b.style.display = d.sans_mesure ? '' : 'none';
   b.disabled = MESURE_EN_COURS;
   b.textContent = MESURE_EN_COURS ? 'mesure…' : `Mesurer (${d.sans_mesure})`;
-  renderTriage();                       // applyFilter() y recalcule S.VITEMS et S.CUR
+  renderTriage();                       // applyFilter() y recalcule VITEMS et CUR
 }
 
 /* Rattrapage des mesures de realisme, par paquets : une passe InsightFace coute
@@ -52,7 +94,7 @@ $('#btnMesurer').onclick = async () => {
   try {
     for (let garde = 0; garde < 40; garde++){
       $('#btnMesurer').textContent = 'mesure…';
-      const r = await post('/api/mesurer', {bucket: S.BUCKET, space: S.SPACE, lot: 20});
+      const r = await post('/api/mesurer', {bucket: BUCKET, space: SPACE, lot: 20});
       if (!r.ok) { toast(r.erreur || 'mesure impossible'); break; }
       if (!r.restant) break;
       $('#btnMesurer').textContent = `mesure… ${r.restant} restante(s)`;
@@ -73,25 +115,25 @@ function etalon(){
   // Les trois barres peuvent etre calibrees separement : prendre la premiere
   // bande venue faisait annoncer une origine pour une echelle que les autres ne
   // partagent pas forcement. On dit ce qui est vrai des trois.
-  const bandes = Object.values(S.BANDES).filter(Boolean);
+  const bandes = Object.values(BANDES).filter(Boolean);
   if (!bandes.length) return '· pas de cible, échelle du dossier';
   const partiel = bandes.length < 3 ? ` · ${bandes.length}/3 mesures calibrées` : '';
   const sources = new Set(bandes.map(b => b.source));
   if (sources.size > 1) return `· cibles mixtes (référence et jugements)${partiel}`;
   return (bandes[0].source === 'reference'
-    ? `· cible : ${S.REFS.mesurees} image(s) de référence`
+    ? `· cible : ${REFS.mesurees} image(s) de référence`
     : `· cible : ${bandes[0].n} image(s) jugées convaincantes`) + partiel;
 }
 
 function barre(label, val, champ){
   if (val == null) return '';
-  const b = S.BANDES[champ];
+  const b = BANDES[champ];
   let lo, hi, cls = '';
   if (b){
     lo = Math.min(b.min, val); hi = Math.max(b.max, val);
     cls = (val >= b.min && val <= b.max) ? 'dans' : 'hors';
   } else {
-    const vals = S.ITEMS.map(i => i[{nettete:'nettete', texture_visage:'texture',
+    const vals = ITEMS.map(i => i[{nettete:'nettete', texture_visage:'texture',
                                    bruit_fond:'fond'}[champ]])
                       .filter(v => v != null);
     lo = Math.min(...vals); hi = Math.max(...vals);
@@ -108,21 +150,15 @@ const flagBtns = i => `
   <button data-f="ia" class="${i.flag === 'ia' ? 'on' : ''}"
     title="Ça se voit que c'est généré (I)">◌</button>`;
 
-/* Les bandes viennent de config.json : le disque et l'ecran parlent du meme seuil. */
-export async function loadQc(){
-  try {
-    const c = await api('/api/config');
-    if (c && c.qc) S.QC = {ok: +c.qc.threshold_ok, watch: +c.qc.threshold_watch,
-                         high: +(c.qc.threshold_high ?? (+c.qc.threshold_ok + 0.03))};
-    if (c && c.preset) S.PRESET_REF = c.preset;
-    if (c && c.nsfw)   S.NSFW_REF   = c.nsfw;
-  } catch(e){ /* on garde les valeurs par defaut */ }
-  renderReglages();      // le panneau ne peut se peindre qu'une fois les
-                         // valeurs de reference connues
+/* Les bandes de lecture du score viennent de config.json (module config.js
+   depuis J3 etape 2) : le disque et l'ecran parlent du meme seuil. On ne fait
+   ici que rafraichir les libelles du filtre quand la config est chargee. */
+on('config:loaded', majTitresScore);
+function majTitresScore(){
   const t = {tout: 'toutes les images du dossier',
-             haut: `score ≥ ${S.QC.high.toFixed(2)}`,
-             moyen:`score ${S.QC.ok.toFixed(2)} à ${S.QC.high.toFixed(2)}`,
-             bas:  `score < ${S.QC.ok.toFixed(2)}, ou visage non mesuré`};
+             haut: `score ≥ ${qc().high.toFixed(2)}`,
+             moyen:`score ${qc().ok.toFixed(2)} à ${qc().high.toFixed(2)}`,
+             bas:  `score < ${qc().ok.toFixed(2)}, ou visage non mesuré`};
   $$('#scoreSel button').forEach(b => b.title = t[b.dataset.f]);
 }
 
@@ -134,7 +170,7 @@ export async function loadQc(){
 const scoreClass = sc => {
   const v = parseFloat(sc);
   if (!sc || isNaN(v)) return 'none';
-  return v >= S.QC.high ? 'high' : v >= S.QC.ok ? 'ok' : v >= S.QC.watch ? 'warn' : 'bad';
+  return v >= qc().high ? 'high' : v >= qc().ok ? 'ok' : v >= qc().watch ? 'warn' : 'bad';
 };
 function scoreBand(sc){
   const c = scoreClass(sc);
@@ -144,42 +180,46 @@ const badge = sc => sc ? `<span class="badge ${scoreClass(sc)}">${parseFloat(sc)
 
 /* VITEMS = ce qui est reellement affiche. ITEMS reste la liste du dossier. */
 function applyFilter(){
-  S.VITEMS = S.SFILTER === 'tout' ? S.ITEMS.slice()
-                              : S.ITEMS.filter(i => scoreBand(i.score) === S.SFILTER);
-  if (S.CUR >= S.VITEMS.length) S.CUR = Math.max(0, S.VITEMS.length - 1);
-  const c = {tout: S.ITEMS.length, haut: 0, moyen: 0, bas: 0};
-  S.ITEMS.forEach(i => c[scoreBand(i.score)]++);
+  VITEMS = SFILTER === 'tout' ? ITEMS.slice()
+                              : ITEMS.filter(i => scoreBand(i.score) === SFILTER);
+  if (CUR >= VITEMS.length) CUR = Math.max(0, VITEMS.length - 1);
+  const c = {tout: ITEMS.length, haut: 0, moyen: 0, bas: 0};
+  ITEMS.forEach(i => c[scoreBand(i.score)]++);
   $$('#scoreSel button').forEach(b => {
     b.querySelector('.n').textContent = c[b.dataset.f] || '';
-    b.classList.toggle('on', b.dataset.f === S.SFILTER);
+    b.classList.toggle('on', b.dataset.f === SFILTER);
   });
 }
 
 function renderTriage(){
   applyFilter();
   const body = $('#triageBody');
-  if (!S.VITEMS.length){
-    const vide = !S.ITEMS.length;
+  if (!VITEMS.length){
+    const vide = !ITEMS.length;
     const done = {A_REVOIR:'Tout est trié.', OK:'Aucune image validée pour l’instant.',
                   REJET:'Aucun rejet.', ARCHIVE:'Aucune image archivée.',
-                  SANS_VISAGE:'Aucune image sans visage détecté.'}[S.BUCKET];
+                  SANS_VISAGE:'Aucune image sans visage détecté.'}[BUCKET];
     body.innerHTML = `<div class="empty">
       <b>${vide ? done : 'Aucune image dans cette bande de score.'}</b>
       ${vide
-        ? (S.BUCKET === 'A_REVOIR'
+        ? (BUCKET === 'A_REVOIR'
             ? 'Les images dont le score sort de la bande conforme atterrissent ici après chaque batch.'
-            : S.BUCKET === 'SANS_VISAGE'
+            : BUCKET === 'SANS_VISAGE'
             ? 'Le contrôle d’identité range ici les images où aucun visage n’a été détecté : dos, plan très large, visage masqué. Elles n’ont pas de score.'
             : 'Rien à afficher dans ce dossier.')
-        : `${S.ITEMS.length} image(s) dans ce dossier, aucune dans cette bande.`}
+        : `${ITEMS.length} image(s) dans ce dossier, aucune dans cette bande.`}
       <div style="margin-top:16px">${vide
-        ? `<button class="btn" onclick="go('creer')">Produire des images</button>`
-        : `<button class="btn" onclick="setScoreFilter('tout')">Tout afficher</button>`}</div></div>`;
+        ? `<button class="btn" id="btnEmptyGo">Produire des images</button>`
+        : `<button class="btn" id="btnEmptyAll">Tout afficher</button>`}</div></div>`;
+    // plus de handler inline (onclick="go(...)") : en modules ES rien n'est
+    // global, il faut cabler apres coup
+    $('#btnEmptyGo')?.addEventListener('click', () => go('creer'));
+    $('#btnEmptyAll')?.addEventListener('click', () => setScoreFilter('tout'));
     return;
   }
-  if (S.VIEW === 'grille'){
-    body.innerHTML = '<div class="grid">' + S.VITEMS.map((i, k) => `
-      <div class="tile${i.flag === 'ia' ? ' ia' : ''}${k === S.CUR ? ' cur' : ''}" data-k="${k}">
+  if (VIEW === 'grille'){
+    body.innerHTML = '<div class="grid">' + VITEMS.map((i, k) => `
+      <div class="tile${i.flag === 'ia' ? ' ia' : ''}${k === CUR ? ' cur' : ''}" data-k="${k}">
         <img loading="lazy" data-k="${k}"
           src="/img?bucket=${i.bucket}&space=${i.space}&name=${encodeURIComponent(i.name)}&thumb=1">
         <div class="chip ${scoreClass(i.score)}">${i.score ? parseFloat(i.score).toFixed(2) : '—'}</div>
@@ -208,12 +248,12 @@ function renderTriage(){
     const courante = body.querySelector('.tile.cur');
     if (courante) courante.scrollIntoView({block: 'nearest'});
     body.querySelectorAll('.tile').forEach(t => t.addEventListener('mousedown', e => {
-      if (e.target.closest('.tacts')) return;      // les boutons posent S.CUR eux-memes
-      S.CUR = +t.dataset.k;                          // cliquer = viser
+      if (e.target.closest('.tacts')) return;      // les boutons posent CUR eux-memes
+      CUR = +t.dataset.k;                          // cliquer = viser
       viserEnGrille();                             // le cadre suit tout de suite
     }));
     body.querySelectorAll('.tile img').forEach(im => im.onclick = () => {
-      S.CUR = +im.dataset.k; S.VIEW = 'revue';
+      CUR = +im.dataset.k; VIEW = 'revue';
       $$('#viewSel button').forEach(x => x.classList.toggle('on', x.dataset.v === 'revue'));
       renderTriage();
     });
@@ -228,7 +268,7 @@ function renderTriage(){
     });
     return;
   }
-  const i = S.VITEMS[S.CUR];
+  const i = VITEMS[CUR];
   const v = parseFloat(i.score || 0);
   const cls = scoreClass(i.score);
   body.innerHTML = `<div class="triage">
@@ -240,15 +280,15 @@ function renderTriage(){
     <div class="side">
       <div class="meta">
         <div class="score" style="color:var(--${cls})">${i.score ? v.toFixed(3) : '—'}
-          <small>similarité à la base gelée${i.score ? (v >= S.QC.ok ? ' · conforme' : v >= S.QC.watch ? ' · à surveiller' : ' · hors bande') : ''}</small></div>
+          <small>similarité à la base gelée${i.score ? (v >= qc().ok ? ' · conforme' : v >= qc().watch ? ' · à surveiller' : ' · hors bande') : ''}</small></div>
         <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
         <dl style="margin:0">
           <dt>scène</dt><dd>${esc(i.scene || '—')}</dd>
           <dt>format · date</dt><dd>${esc(i.format || '—')} · ${esc(i.date)}</dd>
           <dt>seed</dt><dd class="num">${esc(i.seed || '—')}</dd>
         </dl>
-        <div class="tiny">${S.CUR + 1} / ${S.VITEMS.length}${
-          S.SFILTER === 'tout' ? '' : ` · filtre actif sur ${S.ITEMS.length}`}</div>
+        <div class="tiny">${CUR + 1} / ${VITEMS.length}${
+          SFILTER === 'tout' ? '' : ` · filtre actif sur ${ITEMS.length}`}</div>
       </div>
       <div class="meta">
         <dt style="margin-bottom:9px">réalisme ${etalon()}</dt>
@@ -260,7 +300,7 @@ function renderTriage(){
         <div class="tiny" style="margin-top:7px">◉ convaincante <span class="kbd">C</span>
           · ◌ fait IA <span class="kbd">I</span></div>
       </div>
-      <div class="acts">${actionsFor(S.BUCKET, i.space)}</div>
+      <div class="acts">${actionsFor(BUCKET, i.space)}</div>
       <div class="secActs">
         <button class="btn sm" id="btnOuvrirEditeur">✎ Éditer</button>
         <button class="btn sm danger" id="btnSupprDef">🗑 Supprimer définitivement</button>
@@ -272,7 +312,7 @@ function renderTriage(){
   body.querySelector('.next').onclick = () => step(1);
   body.querySelector('#stageImg').onclick = () =>
     openLight(`/img?bucket=${i.bucket}&space=${i.space}&name=${encodeURIComponent(i.name)}`);
-  body.querySelector('#btnSupprDef').onclick = () => supprimerDefinitivement(S.CUR);
+  body.querySelector('#btnSupprDef').onclick = () => supprimerDefinitivement(CUR);
   const be = body.querySelector('#btnOuvrirEditeur');
   if (be) be.onclick = () => (typeof ouvrirEditeur === 'function') && ouvrirEditeur(i);
   body.querySelectorAll('.acts button').forEach(b => b.onclick = () => act(b.dataset.a));
@@ -303,9 +343,9 @@ function actionsFor(b, space){
    touche donc que la classe et le defilement ; rend false si la tuile visee
    n'existe pas (filtre qui vient de changer), auquel cas l'appelant repeint. */
 function viserEnGrille(){
-  if (S.VIEW !== 'grille') return false;
+  if (VIEW !== 'grille') return false;
   const g = $('#triageBody');
-  const cible = g.querySelector(`.tile[data-k="${S.CUR}"]`);
+  const cible = g.querySelector(`.tile[data-k="${CUR}"]`);
   if (!cible) return false;
   g.querySelectorAll('.tile.cur').forEach(x => x.classList.remove('cur'));
   cible.classList.add('cur');
@@ -313,8 +353,8 @@ function viserEnGrille(){
   return true;
 }
 
-const step = d => { if (!S.VITEMS.length) return;
-  S.CUR = (S.CUR + d + S.VITEMS.length) % S.VITEMS.length;
+const step = d => { if (!VITEMS.length) return;
+  CUR = (CUR + d + VITEMS.length) % VITEMS.length;
   if (viserEnGrille()) return;
   renderTriage(); };
 
@@ -322,29 +362,29 @@ const TARGET = {valider:'OK', revoir:'A_REVOIR', rejeter:'REJET',
                 archiver:'ARCHIVE'};
 /* Le jugement de realisme ne deplace rien : il est independant du tri. */
 async function poserFlag(k, f){
-  const it = S.VITEMS[k];
+  const it = VITEMS[k];
   if (!it) return;
   const nouveau = it.flag === f ? null : f;    // recliquer retire le jugement
   const r = await post('/api/flag', {name: it.name, flag: nouveau});
   if (!r.ok) return toast(r.erreur || 'jugement impossible');
   it.flag = nouveau;
-  const src = S.ITEMS.find(x => x.name === it.name);
+  const src = ITEMS.find(x => x.name === it.name);
   if (src) src.flag = nouveau;
   renderTriage();
 }
 
 async function act(a, k){
-  if (!S.VITEMS.length) return;
-  if (a === 'decliner') return ouvrirDeclinaison(k == null ? S.CUR : k);
+  if (!VITEMS.length) return;
+  if (a === 'decliner') return ouvrirDeclinaison(k == null ? CUR : k);
   if (a === 'skip') return step(1);
-  if (k != null) S.CUR = k;
-  if (TARGET[a] === S.BUCKET) return step(1);   // deja dans ce dossier : on avance
-  const it = S.VITEMS[S.CUR];
+  if (k != null) CUR = k;
+  if (TARGET[a] === BUCKET) return step(1);   // deja dans ce dossier : on avance
+  const it = VITEMS[CUR];
   const r = await post('/api/action', {name: it.name, bucket: it.bucket, space: it.space, action: a});
   if (!r.ok) return toast(r.erreur || 'action impossible');
-  const pos = S.ITEMS.indexOf(it);              // retrait dans la liste source
-  if (pos >= 0) S.ITEMS.splice(pos, 1);
-  renderTriage(); refreshCounts();            // applyFilter y reborne S.CUR
+  const pos = ITEMS.indexOf(it);              // retrait dans la liste source
+  if (pos >= 0) ITEMS.splice(pos, 1);
+  renderTriage(); refreshCounts();            // applyFilter y reborne CUR
   const label = {valider:'validée', revoir:'à revoir', rejeter:'rejetée',
                  archiver:'archivée'}[a];
   toast(`${it.scene || it.name} → ${label}`, 'annuler', undo);
@@ -358,7 +398,7 @@ async function act(a, k){
    raccourci clavier — c'est le seul geste de l'appli qui n'a pas de porte de
    sortie. */
 async function supprimerDefinitivement(k){
-  const it = S.VITEMS[k ?? S.CUR];
+  const it = VITEMS[k ?? CUR];
   if (!it) return;
   const ok = await confirmer({
     titre: 'Supprimer définitivement ?',
@@ -371,8 +411,8 @@ async function supprimerDefinitivement(k){
   if (!ok) return;
   const r = await post('/api/delete', {name: it.name, bucket: it.bucket, space: it.space});
   if (!r.ok) return toast(r.erreur || 'suppression impossible');
-  const pos = S.ITEMS.indexOf(it);
-  if (pos >= 0) S.ITEMS.splice(pos, 1);
+  const pos = ITEMS.indexOf(it);
+  if (pos >= 0) ITEMS.splice(pos, 1);
   renderTriage(); refreshCounts();
   toast(`${it.scene || it.name} supprimée définitivement`);
 }
@@ -423,7 +463,7 @@ $('#armBox').onclick = e => {
 let DECLINE_SRC = null, DECLINE_DRY = null;
 
 async function ouvrirDeclinaison(k){
-  const it = S.VITEMS[k];
+  const it = VITEMS[k];
   if (!it) return;
   // /api/decline ne connait que le journal SFW ; le bouton est deja masque en
   // NSFW (actionsFor / tuile grille), ce garde couvre le raccourci clavier D
@@ -484,7 +524,7 @@ async function ouvrirDeclinaison(k){
     if (!el) return;
     el.onclick = () => {
       const cible = niveau == null
-        ? (S.CREATIVE?.intensity || []).find(p => p.pipeline === 'flux+edit')
+        ? (creative()?.intensity || []).find(p => p.pipeline === 'flux+edit')
         : palier(niveau);
       fermerDeclinaison();
       if (cible) ouvrirArmement(cible);
@@ -569,8 +609,8 @@ document.addEventListener('keydown', e => {
   else if (k === 'x') act('rejeter');
   else if (k === 'a') act('archiver');
   else if (k === 'd') act('decliner');
-  else if (k === 'c') poserFlag(S.CUR, 'ok');
-  else if (k === 'i') poserFlag(S.CUR, 'ia');
+  else if (k === 'c') poserFlag(CUR, 'ok');
+  else if (k === 'i') poserFlag(CUR, 'ia');
   else if (k === 'u') undo();
 });
 

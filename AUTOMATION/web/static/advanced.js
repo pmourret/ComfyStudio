@@ -1,18 +1,34 @@
-/* Tiroir Avance : banque de scenes, composeur, branche NSFW, journal.
-   Bascule en modules ES le 27/08/2026 (J3 etape 1) — comportement inchange,
-   l'etat autrefois global vit dans store.js le temps de l'etape 2. */
+/* Tiroir Avance : banque de scenes, composeur, poses, journal.
+   Bascule en modules ES le 27/08/2026 (J3). Depuis l'etape 2 : composeur et
+   journal encapsules ici, la banque de scenes vit dans scenes-store.js, et on
+   repeint sur les evenements `scenes:loaded` / `creative:loaded`. */
 import {$, $$, esc} from './dom.js';
 import {api, post} from './api.js';
-import {S} from './store.js';
-import {toast, confirmer, majDirty} from './core.js';
-import {loadScenes, renderScenes} from './create.js';
+import {on} from './bus.js';
+import {toast} from './toast.js';
+import {confirmer} from './modal.js';
+import {creative} from './taxonomy.js';
+import {scenes, setDirty, loadScenes} from './scenes-store.js';
+import {renderScenes} from './create.js';
+
+/* --- etat du tiroir, prive au module ------------------------------- */
+let PROPS = [];              // propositions du composeur
+let JROWS = [], JFILTER = '';   // journal de generation
+
+/* --- reactions aux chargements (bus) ------------------------------- */
+on('creative:loaded', remplirIntentionsComposeur);
+on('scenes:loaded', ({ok, full}) => {
+  if (!ok) return;
+  if (full) renderSceneCards();
+  renderPoses();
+});
 
 /* ==================================================================== SCENES */
 /* Vocabulaire du parcours, pour le selecteur d'intention des cartes. Une scene
    qui porte une cle absente de creative.json la GARDE : on l'ajoute a la liste
    plutot que de la faire disparaitre du selecteur — donc de la scene. */
 export function optionsIntention(courant){
-  const cles = (S.CREATIVE?.intentions || []).map(i => [i.key, i.label]);
+  const cles = (creative()?.intentions || []).map(i => [i.key, i.label]);
   if (courant && !cles.some(([k]) => k === courant)) cles.push([courant, courant]);
   return '<option value="">— aucune —</option>' + cles.map(([k, l]) =>
     `<option value="${esc(k)}"${k === courant ? ' selected' : ''}>${esc(l)}</option>`).join('');
@@ -23,7 +39,7 @@ export function optionsIntention(courant){
    liste plutot que de la faire disparaitre en silence — meme regle que
    optionsIntention pour une intention hors taxonomie. */
 function optionsPose(courant){
-  const noms = S.SC?.poses || [];
+  const noms = scenes()?.poses || [];
   const tous = courant && !noms.includes(courant) ? [...noms, courant] : noms;
   return '<option value="">— aucune —</option>' + tous.map(n =>
     `<option value="${esc(n)}"${n === courant ? ' selected' : ''}>${esc(n)}</option>`).join('');
@@ -67,7 +83,7 @@ export function tenuesInvalides(){
 }
 
 /* Bande d'une scene : minimum saisi, maximum DEDUIT des tenues declarees.
-   Miroir de `lb.scene_band`. Le serveur reste la reference (S.SC.meta), mais une
+   Miroir de `lb.scene_band`. Le serveur reste la reference (scenes().meta), mais une
    scene ajoutee et pas encore enregistree n'y figure pas — d'ou ce calcul local,
    qui doit rester la copie exacte de la regle serveur. */
 function bandeDe(s){
@@ -81,21 +97,21 @@ function bandeDe(s){
 }
 
 export function renderSceneCards(){
-  $('#anchor').value = S.SC.data.anchor || '';
-  $('#direction').value = S.SC.data.direction || '';
-  $('#nScenes').textContent = S.SC.data.scenes.length + ' scènes';
+  $('#anchor').value = scenes().data.anchor || '';
+  $('#direction').value = scenes().data.direction || '';
+  $('#nScenes').textContent = scenes().data.scenes.length + ' scènes';
   const box = $('#sceneCards'); box.innerHTML = '';
-  S.SC.data.scenes.forEach((s, k) => {
+  scenes().data.scenes.forEach((s, k) => {
     const el = document.createElement('div');
     el.className = 'sceneCard';
-    el.dataset.k = k;          // index dans S.SC.data.scenes : c'est cette ancre qui
+    el.dataset.k = k;          // index dans scenes().data.scenes : c'est cette ancre qui
                                // permet a collectScenes de FUSIONNER au lieu de
                                // reconstruire (voir sa docstring)
     const band = bandeDe(s);
     el.innerHTML = `
       <div class="top">
         <input class="id" data-f="id" value="${esc(s.id)}">
-        <span class="tiny">${(S.SC.previews[s.id] ? 'déjà produite' : 'jamais produite')}</span>
+        <span class="tiny">${(scenes().previews[s.id] ? 'déjà produite' : 'jamais produite')}</span>
         <button class="del" title="supprimer">×</button>
       </div>
       <div class="rowf">
@@ -120,7 +136,7 @@ export function renderSceneCards(){
           <input data-f="band_lo" type="number" min="0" max="3" value="${band[0]}" style="width:88px"></label>
         <label class="f"><span>tons affins — virgules</span>
           <input data-f="tones" value="${esc((s.tones || []).join(', '))}"
-                 placeholder="${esc((S.CREATIVE?.tones || []).map(t => t.key).join(', '))}"></label>
+                 placeholder="${esc((creative()?.tones || []).map(t => t.key).join(', '))}"></label>
         <label class="f"><span>tags — virgules</span>
           <input data-f="tags" value="${esc((s.tags || []).join(', '))}"></label>
       </div>
@@ -151,24 +167,24 @@ export function renderSceneCards(){
       // on releve d'abord l'etat des champs : renderSceneCards() repeint depuis
       // SC.data.scenes, donc sans ca une saisie en cours dans une AUTRE carte
       // serait perdue en supprimant celle-ci
-      S.SC.data.scenes = collectScenes();
-      S.SC.data.scenes.splice(k, 1);
-      S.SC_DIRTY = true; majDirty(); renderSceneCards(); };
+      scenes().data.scenes = collectScenes();
+      scenes().data.scenes.splice(k, 1);
+      setDirty(true); renderSceneCards(); };
     box.append(el);
   });
-  $('#rawJson').value = JSON.stringify(S.SC.data, null, 2);
+  $('#rawJson').value = JSON.stringify(scenes().data, null, 2);
 }
 $('#btnAddScene').onclick = () => {
   // relever la saisie en cours avant de repeindre, sinon ajouter une scene
   // efface ce qui etait tape dans les autres cartes
-  S.SC.data.scenes = collectScenes();
+  scenes().data.scenes = collectScenes();
   // une scene neuve nait avec la forme complete : sans bande ni tenue elle
   // n'existerait qu'au niveau 0 et le curseur d'intensite n'aurait pas prise
-  S.SC.data.scenes.push({id:'nouvelle_scene',
+  scenes().data.scenes.push({id:'nouvelle_scene',
                        intention:'lifestyle', tags:[], tones:[],
                        intensity:0, format:'4:5', count:1, prompt:'',
                        wardrobe:{'0':'everyday clothing'}, variants:[]});
-  S.SC_DIRTY = true; majDirty();
+  setDirty(true);
   renderSceneCards();
   $('#sceneCards').lastElementChild.scrollIntoView({behavior:'smooth', block:'center'});
 };
@@ -176,7 +192,7 @@ $('#btnAddScene').onclick = () => {
 // comme une modification non enregistree — sinon seuls l'ajout et le JSON brut
 // etaient proteges, pas l'edition d'une scene existante
 $('#sceneCards').addEventListener('input', e => {
-  S.SC_DIRTY = true; majDirty();
+  setDirty(true);
   // le plafond affiche est deduit des tenues : le tenir a jour a la frappe,
   // sans repeindre la carte (ce qui ferait perdre le curseur de saisie)
   if (e.target.dataset.f === 'wardrobe'){
@@ -209,7 +225,7 @@ export function collectScenes(){
     const cles   = t => t.split(',').map(x => x.trim()).filter(Boolean);
     const lignes = t => t.split('\n').map(x => x.trim()).filter(Boolean);
 
-    const s = {...(S.SC.data.scenes[+card.dataset.k] || {})};   // <- la fusion
+    const s = {...(scenes().data.scenes[+card.dataset.k] || {})};   // <- la fusion
     s.id = g('id'); s.format = g('format');
     s.count = parseInt(g('count')) || 1; s.prompt = g('prompt');
 
@@ -248,13 +264,12 @@ async function enregistrerScenes(){
     $('#scMsg').textContent = msg;
     return {ok: false, erreur: msg};
   }
-  S.SC.data.anchor = $('#anchor').value.trim();
-  S.SC.data.direction = $('#direction').value.trim();
-  S.SC.data.scenes = collectScenes();
-  const r = await post('/api/scenes', {data: S.SC.data});
+  scenes().data.anchor = $('#anchor').value.trim();
+  scenes().data.direction = $('#direction').value.trim();
+  scenes().data.scenes = collectScenes();
+  const r = await post('/api/scenes', {data: scenes().data});
   $('#scMsg').textContent = r.ok ? 'enregistré · sauvegarde .bak faite' : r.erreur;
-  if (r.ok){ S.SC_DIRTY = false; await loadScenes(); }
-  majDirty();
+  if (r.ok){ setDirty(false); await loadScenes(); }
   return r;
 }
 $('#btnSaveScenes').onclick = async () => {
@@ -266,7 +281,7 @@ $('#btnDirtySave').onclick = async () => {
   toast(r.ok ? 'scenes.json enregistré' : (r.erreur || 'échec de l’enregistrement'));
 };
 $('#btnRawApply').onclick = () => {
-  try { S.SC.data = JSON.parse($('#rawJson').value); S.SC_DIRTY = true; majDirty();
+  try { scenes().data = JSON.parse($('#rawJson').value); setDirty(true);
         renderSceneCards(); renderScenes();
         toast('JSON appliqué — pense à enregistrer'); }
   catch(e){ toast('JSON invalide : ' + e.message); }
@@ -277,9 +292,9 @@ $('#btnRawApply').onclick = () => {
    pouvoir inventer une taxonomie parallele. */
 export function remplirIntentionsComposeur(){
   const sel = $('#cmpCat');
-  if (!sel || !S.CREATIVE) return;
+  if (!sel || !creative()) return;
   sel.innerHTML = '<option value="">— le modèle choisit —</option>' +
-    (S.CREATIVE.intentions || []).map(i => `<option value="${i.key}">${i.label}</option>`).join('');
+    (creative().intentions || []).map(i => `<option value="${i.key}">${i.label}</option>`).join('');
 }
 
 $('#btnCompose').onclick = async () => {
@@ -292,13 +307,13 @@ $('#btnCompose').onclick = async () => {
                                         intention_cible: $('#cmpCat').value});
   $('#btnCompose').disabled = false;
   if (!r.ok){ $('#cmpMsg').textContent = ''; return toast(r.erreur || 'échec'); }
-  S.PROPS = r.scenes;
-  $('#cmpMsg').textContent = S.PROPS.length + ' proposition(s)';
+  PROPS = r.scenes;
+  $('#cmpMsg').textContent = PROPS.length + ' proposition(s)';
   renderProps();
 };
 
 function renderProps(){
-  $('#props').innerHTML = S.PROPS.map((s, k) => `
+  $('#props').innerHTML = PROPS.map((s, k) => `
     <div class="prop">
       <div class="h"><b>${esc(s.id)}</b>
         <span class="tiny">${esc(s.intention || s.category)} · ${esc(s.format)} · ${s.count} img
@@ -317,10 +332,10 @@ function renderProps(){
       ${s.variants.length ? '<div class="v">variantes · ' + esc(s.variants.join(' | ')) + '</div>' : ''}
     </div>`).join('');
   $('#props').querySelectorAll('[data-add]').forEach(b => b.onclick = async () => {
-    const sc = S.PROPS[+b.dataset.add];
-    S.SC.data.scenes = collectScenes();      // meme raison que dans btnAddScene
-    S.SC.data.scenes.push(sc); S.SC_DIRTY = true; S.PROPS.splice(+b.dataset.add, 1);
-    renderProps(); renderSceneCards(); majDirty();
+    const sc = PROPS[+b.dataset.add];
+    scenes().data.scenes = collectScenes();      // meme raison que dans btnAddScene
+    scenes().data.scenes.push(sc); setDirty(true); PROPS.splice(+b.dataset.add, 1);
+    renderProps(); renderSceneCards();
     $('#sceneCards').lastElementChild.scrollIntoView({behavior:'smooth', block:'center'});
     // on enregistre TOUT DE SUITE : une scene qui n'existe que dans la page est
     // invisible pour la production et perdue au rechargement. L'ancien parcours
@@ -331,7 +346,7 @@ function renderProps(){
                : `${sc.id} ajoutée mais NON enregistrée — ${r.erreur || 'échec'}`);
   });
   $('#props').querySelectorAll('[data-drop]').forEach(b => b.onclick = () => {
-    S.PROPS.splice(+b.dataset.drop, 1); renderProps(); });
+    PROPS.splice(+b.dataset.drop, 1); renderProps(); });
 }
 
 /* ====================================================================== NSFW
@@ -347,7 +362,7 @@ function renderProps(){
    peut transiter — jamais conservee : voir AUTOMATION/pose_tools.py, qui la
    retire de ComfyUI/input a la fin de l'extraction, succes ou echec. */
 export function renderPoses(){
-  const noms = S.SC?.poses || [];
+  const noms = scenes()?.poses || [];
   const g = $('#poseGrid');
   if (!g) return;
   $('#nPoses').textContent = noms.length ? `— ${noms.length}` : '';
@@ -368,7 +383,7 @@ export function renderPoses(){
     const r = await post('/api/pose/delete', {name: nom});
     if (!r.ok) return toast(r.erreur || 'échec');
     toast('squelette retiré');
-    await loadScenes(true); renderPoses();
+    await loadScenes(true);
   });
 }
 
@@ -396,7 +411,7 @@ $('#btnPoseExtract')?.addEventListener('click', async () => {
     $('#poseMsg').textContent = '';
     $('#poseFile').value = ''; $('#poseFileName').textContent = '';
     toast(`squelette extrait : ${r.name}`);
-    await loadScenes(true); renderPoses();
+    await loadScenes(true);
   } finally {
     $('#btnPoseExtract').disabled = !$('#poseFile').files.length;
   }
@@ -405,11 +420,11 @@ $('#btnPoseExtract')?.addEventListener('click', async () => {
 /* =================================================================== JOURNAL */
 $$('#jFilter button').forEach(b => b.onclick = () => {
   $$('#jFilter button').forEach(x => x.classList.remove('on'));
-  b.classList.add('on'); S.JFILTER = b.dataset.f; drawJournal();
+  b.classList.add('on'); JFILTER = b.dataset.f; drawJournal();
 });
-export async function loadJournal(){ S.JROWS = (await api('/api/journal')).rows; drawJournal(); }
+export async function loadJournal(){ JROWS = (await api('/api/journal')).rows; drawJournal(); }
 function drawJournal(){
-  const rows = S.JROWS.filter(r => !S.JFILTER || r.verdict === S.JFILTER);
+  const rows = JROWS.filter(r => !JFILTER || r.verdict === JFILTER);
   $('#jInfo').textContent = rows.length + ' ligne(s)';
   $('#jt tbody').innerHTML = rows.map(r => `<tr>
     <td>${(r.date||'').replace('T',' ').slice(5,16)}</td>

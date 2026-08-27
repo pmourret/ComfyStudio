@@ -7,8 +7,9 @@
 
    Depuis J3 (bascule en modules ES) : create.js s'importe au lieu de s'eval-er.
    Le stub n'installe plus `$`/`$$` en global — il pose `document.querySelector`,
-   sur lequel dom.js repose. L'etat n'est plus des globals mais l'objet `S` de
-   store.js, qu'on amorce apres l'import (meme singleton que create.js voit). */
+   sur lequel dom.js repose, et un `fetch` route-aware. Les valeurs mesurees
+   viennent de config.loadConfig() (qui emet `config:loaded` -> renderReglages),
+   la taxonomie de taxonomy.loadCreative(). */
 const fs = require('fs');
 const path = require('path');
 
@@ -53,7 +54,15 @@ globalThis.document = {
 };
 globalThis.location = {hash: '', search: '', reload(){}};
 globalThis.addEventListener = () => {};
-globalThis.fetch = async () => ({json: async () => ({}), status: 200});
+// fetch route-aware : config.js/taxonomy.js chargent leurs donnees par la
+const REPONSES = {
+  '/api/config': {qc: cfg.qc, preset: cfg.preset, nsfw: cfg.nsfw},
+  '/api/creative': {intentions: [], tones: [], intensity: []},
+};
+globalThis.fetch = async u => {
+  const key = Object.keys(REPONSES).find(k => String(u).startsWith(k));
+  return {json: async () => (key ? REPONSES[key] : {}), status: 200};
+};
 globalThis.setInterval = () => 0;
 globalThis.setTimeout = () => 0;
 globalThis.clearTimeout = () => {};
@@ -62,25 +71,23 @@ let ko = 0;
 const dire = (ok, txt) => { console.log(`  ${ok ? 'ok  ' : 'KO  '}${txt}`); if (!ok) ko++; };
 
 (async () => {
-  let mod, store;
+  let create, config, taxonomy;
   try {
-    store = await import(url('store.js'));
-    mod = await import(url('create.js'));
+    config = await import(url('config.js'));
+    taxonomy = await import(url('taxonomy.js'));
+    create = await import(url('create.js'));   // pose on('config:loaded', renderReglages)
   } catch (e) {
     console.log('  ECHEC au chargement : ' + (e && e.stack || e));
     process.exit(1);
   }
-  const {S} = store;
-  const {renderReglages, majAffichage, valeursDe, appliquerPreset} = mod;
+  const {renderReglages, majAffichage, valeursDe, appliquerPreset} = create;
 
-  // etat amorce : create.js lit ces champs sur le meme S
-  S.PRESET_REF = cfg.preset;
-  S.NSFW_REF = cfg.nsfw;
-  S.LEVEL = 0;
-  S.CREATIVE = {intensity: [], intentions: [], tones: []};
+  // les valeurs mesurees et la taxonomie viennent du serveur (fetch stub) ;
+  // loadConfig() emet `config:loaded` -> renderReglages() se peint tout seul
+  await Promise.all([config.loadConfig(), taxonomy.loadCreative()]);
 
   /* ------------------------------------------------------------------- peint */
-  renderReglages();
+  renderReglages();   // explicite en plus, pour ne dependre d'aucun timing du bus
   const html = NOEUDS.get('gearBody').innerHTML;
 
   dire(html.length > 2000, `le panneau produit du HTML (${html.length} caracteres)`);

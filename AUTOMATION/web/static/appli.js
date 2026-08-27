@@ -3,12 +3,12 @@
    l'ecran Creer, qui regle une generation, pas les deux processus qui la
    rendent possible. Actions consequentes : confirmation systematique, et pour
    ComfyUI un arret n'est JAMAIS propre sous Windows (pas de signal
-   d'extinction gracieuse, TerminateProcess coupe net) — le dire avant d'agir.
-   Bascule en modules ES le 27/08/2026 (J3 etape 1) — comportement inchange. */
+   d'extinction gracieuse, TerminateProcess coupe net) — le dire avant d'agir. */
 import {$} from './dom.js';
 import {api, post} from './api.js';
-import {S} from './store.js';
-import {toast, confirmer} from './core.js';
+import {toast} from './toast.js';
+import {confirmer} from './modal.js';
+import {isRunning} from './poller.js';
 
 function appliLog(msg){
   const el = $('#appliLog');
@@ -66,7 +66,7 @@ $('#btnAppStop')?.addEventListener('click', async () => {
 });
 
 $('#btnComfyStop')?.addEventListener('click', async () => {
-  const enCours = S.RUNNING;
+  const enCours = isRunning();
   const ok = await confirmer({
     titre: 'Arrêter ComfyUI ?',
     corps: `<p>${enCours ? '<b>Une génération est en cours sur ce tableau de '
@@ -82,7 +82,7 @@ $('#btnComfyStop')?.addEventListener('click', async () => {
 });
 
 $('#btnComfyRestart')?.addEventListener('click', async () => {
-  const enCours = S.RUNNING;
+  const enCours = isRunning();
   const ok = await confirmer({
     titre: 'Redémarrer ComfyUI ?',
     corps: `<p>${enCours ? '<b>Une génération est en cours sur ce tableau de '

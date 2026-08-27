@@ -1,21 +1,27 @@
-/* Point d'entree unique (J3 etape 1). Remplace boot.js.
+/* Point d'entree unique (J3). Remplace boot.js.
 
-   Importe tous les modules — leurs gestionnaires d'evenements se posent au
-   chargement — puis lance la sequence d'init dans l'ordre historique de
-   index.html : bandes de score et taxonomie d'abord (elles conditionnent les
-   deux ecrans), puis navigation, banque, sonde d'etat, grille NSFW. */
+   Importe les modules a effet de bord (leurs gestionnaires d'evenements et
+   leurs abonnements au bus se posent au chargement) puis lance la sequence
+   d'init dans l'ordre historique de index.html : config et taxonomie d'abord
+   (elles conditionnent les deux ecrans), puis navigation, banque, sonde
+   d'etat, grille NSFW. */
 import {$} from './dom.js';
-import './core.js';
+import './lightbox.js';
+import './health.js';
+import './nav.js';
 import './advanced.js';
 import './appli.js';
 import './editor.js';
-import {go} from './core.js';
-import {loadCreative, loadScenes, nsfwTick, estEdition} from './create.js';
-import {loadQc} from './review.js';
+import {go} from './nav.js';
+import {loadConfig} from './config.js';
+import {loadCreative} from './taxonomy.js';
+import {loadScenes} from './scenes-store.js';
+import {nsfwTick, estEdition} from './create.js';
 import {tick} from './poller.js';
 
-// bandes de score et taxonomie d'abord : elles conditionnent les deux ecrans
-Promise.all([loadQc(), loadCreative()]).then(() => {
+// config (bandes de score, valeurs mesurees) et taxonomie d'abord : elles
+// conditionnent les deux ecrans ; leurs `*:loaded` declenchent les repeints
+Promise.all([loadConfig(), loadCreative()]).then(() => {
   go(location.hash.slice(1) || 'creer', true);
   loadScenes(); tick(); nsfwTick();
 });
