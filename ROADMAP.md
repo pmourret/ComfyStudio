@@ -130,10 +130,22 @@ prouvent la généralisation — pas juste Léna renommée.
   `/api/state` répondant en HTTP avec les vrais compteurs de production.
 - **J2 terminé.**
 
-**J3 — Frontend**
+**J3 — Frontend** ✅ *(terminé 2026-08-27)*
 - Passage en modules ES, plus de globales partagées entre fichiers
 - Design system minimal commun
 - Sélecteur de personnage (rechargement simple `?character=`)
+- Résultat : 4 commits thématiques (`ffcae6d` modules ES + `store.js`
+  transitoire, `bb5d79b` encapsulation + bus + `store.js`/`core.js`
+  supprimés, `67cae3b` `app.css` → `tokens/base/components/screens.css` +
+  `DESIGN.md`, `4f5de9a` `?character=` bout en bout). 20 modules ES, aucune
+  globale partagée ; découpage CSS contigu (cascade identique, vérifiée par
+  reconstruction) ; `?character=` validé contre `CHARACTERS/<id>/` avant tout
+  accès disque, `test_character_param.py` prouve l'isolation lecture+écriture.
+  Playwright installé hors du repo pour les 4 fumigations navigateur (zéro
+  erreur JS à chaque étape). Détail : `DOCS/handoffs/2026-08-27-j3-frontend.md`.
+- Hors périmètre, assumé pour J4 : disposition disque par personnage
+  (`PROD/<X>/`, journal, vignettes, export, `/img`), axe SFW/NSFW `space`,
+  `UNDO` non scopé, branding de l'en-tête.
 
 **J4 — Registre univers + registre personnage**
 - Registre univers : id, famille de modèle / mécanisme d'identité, panel
