@@ -3,7 +3,7 @@
 Question INDEPENDANTE de l'identite. `qc_identity` repond a « est-ce bien Lena »,
 ce module repond a « est-ce credible comme photo ». Le verdict de tri ne depend
 que de l'identite ; ces mesures sont enregistrees et affichees, elles ne deplacent
-aucun fichier tant qu'elles ne sont pas calibrees (DOCS/lena-parcours-creatif.md 5.4).
+aucun fichier tant qu'elles ne sont pas calibrees.
 
 TROIS MESURES
 

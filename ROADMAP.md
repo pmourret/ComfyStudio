@@ -15,10 +15,13 @@ prouvent la généralisation — pas juste Léna renommée.
   jugements), test de cohérence vérifié contre l'état pré-migration — a
   trouvé un 3ᵉ écart non vu en revue (tri désynchronisé sur 22 fichiers,
   faussait les badges de comptage). 8 suites de tests vertes hors GPU.
-- Ouvert, à trancher avant que `J2` touche le schéma : clé `(image_id,
-  genre)` porte deux mesures concurrentes (QC neutre vs. re-mesure
-  post-édition) — pas une décision de séquencement, une décision de
-  modèle de données
+- **Question de modèle de données fermée** ✅ *(2026-08-27)* : la clé
+  `(image_id, genre)` ne porte pas deux mesures concurrentes — c'était déjà
+  résolu dans le code (`lena_batch.ranger_mesures`) par deux `genre`
+  distincts (`identite` neutre, seul à décider du bucket ; `identite_apres_
+  expression`, jamais lu par le tri), juste pas formalisé. Décision écrite
+  dans `DOCS/adr/0009-score-identite-genres-distincts.md`, vérifiée par
+  `test_coherence_base.py` (23/23 sur les deux `genre`)
 - Opérationnel pour `J1` : `PROD/lena.db` est git-ignoré, ne voyage pas
   avec le repo — un fork doit régénérer la base via `migrer_base.py`,
   pas copier le fichier
@@ -31,32 +34,45 @@ prouvent la généralisation — pas juste Léna renommée.
   personnelle dans l'historique (vérifié `--all`). Base régénérée via
   `migrer_base.py`, `test_coherence_base.py` vert. Repo Léna intact
   (copie, pas déplacement).
-- **Point structurel trouvé, à traiter en premier à `J2`** : 8 modules
-  déduisent le chemin de l'installation ComfyUI par position relative sur
-  le disque (`Path(__file__).parents[N]`) — fonctionnait tant que le repo
-  vivait dans `ComfyUI/output/`, casse maintenant qu'il en est sorti.
-  Fix attendu : chemin ComfyUI explicite (variable d'environnement ou
-  entrée de config), pas une traversée de dossiers recalculée — sans ça,
-  le problème revient dès que quelqu'un d'autre clone le repo (Mission :
-  passage en public), pas seulement à ce déplacement-ci
+- **Point structurel de J1 traité** ✅ *(2026-08-27)* : chemin ComfyUI en
+  configuration explicite (`.env` + `AUTOMATION/env_config.py`, point de
+  lecture unique, distinct de `config.json`). 9 emplacements Python
+  corrigés + 2 trouvés hors de la liste de départ (`run_web.bat`/
+  `run_batch.bat` cassés par la même maladie ; `WORKFLOWS/utils/
+  pose_extract_ui.json` avait un préfixe en dur qui faisait vraiment
+  échouer l'extraction de pose, pas juste un nom cosmétique). **Vérification
+  réelle confirmée** *(2026-08-27)* : `--essai` sur `pose_extract_ui.json`
+  accepté par ComfyUI, puis extraction de pose réelle de bout en bout
+  (`pose_tools.extraire()`) — fichier retrouvé dans `INPUTS/POSE/` via le
+  préfixe `_LENA_POSE/` et la relecture du `subfolder`, move confirmé (pas
+  une copie), photo temporaire bien effacée de `ComfyUI/input/`. `DOCS/adr/
+  0008-chemin-comfyui-configuration-explicite.md` écrit. 6/6 tests hors
+  GPU verts, 1 échec pré-existant confirmé non lié (`test_serveur_http`
+  E5, latence, reproduit à l'identique sur le code d'avant fix)
+- **Dette de fork nettoyée** ✅ *(2026-08-27)* : 6 commentaires (`base.py`,
+  `lena_batch.py`, `expression.py`, `qc_realisme.py`,
+  `tests/backfill_embeddings.py`) citaient `DOCS/lena-parcours-creatif.md`
+  par numéro de section — un doc de 1665 lignes qui n'existe que dans
+  l'ancien repo Léna, jamais porté ici. Références mortes retirées, le
+  raisonnement inline de chaque commentaire suffisait déjà ; pas de doc
+  historique importé dans ce repo neuf (cohérent avec `CLAUDE.md`, « ne
+  répète pas ce qui est déjà bien écrit là-bas »)
+- Nettoyage cosmétique différé (pas cassé, juste mal nommé) : préfixes
+  `OFM/PROD/...` dans 3 fichiers + serveur `.mcp.json` toujours nommé
+  "lena" — à regrouper avec un futur passage lena→générique, pas une
+  session dédiée
 - Embeddings/centroïde non régénérés ici (`backfill_embeddings.py`
   demande le GPU) — à lancer une fois qu'une génération réelle démarre
   dans ce repo
-- Audit des skills Léna vs ComfyStudio fait, **écarts portés** (3 commits) :
-  `workflow-comfyui` gagne ses deux références manquantes
-  (`format-ui-mecanique.md`, `protocole-identite.md`), et les deux skills
-  sans équivalent sont créés (`comfyui-custom-nodes`,
-  `image-realism-check`). Portage vérifié contre le code de ce repo, pas
-  recopié : trois divergences avec la doc amont corrigées au passage
-  (journal CSV → base SQLite, sonde de netteté ad hoc → `qc_realisme.py`,
-  plancher d'identité 0.55 → 0.60 conformément à `qc_identity.py`)
-- Fixture du test byte-exact récupérée et versionnée
-  (`AUTOMATION/tests/fixtures/scenes-byte-exact.json`) : elle n'avait pas
-  suivi le fork, donc l'invariant §8.3 n'était plus tenu par rien depuis
-  `J1`. Le test tourne de nouveau, 26 jobs comparés à l'octet près
-- Reste ouvert pour `J2` : `qc.threshold_high` (0.74) est déclaré
-  provisoire dans `config.json` et n'est adossé qu'à 10 mesures — à
-  recalibrer quand la base aura assez de lignes
+- Audit des skills Léna vs ComfyStudio fait, puis porté : `workflow-comfyui`
+  enrichi (141 lignes + 2 références écrites contre `ui_to_api.py` réel,
+  pas contre la doc — a trouvé 3 faits non documentés même côté Léna),
+  `comfyui-custom-nodes` et `image-realism-check` créés et vérifiés contre
+  l'environnement réel, pas juste copiés
+- Mineur, noté pour mémoire : `qc.threshold_high` = 0.74 (mesuré,
+  provisoire, config.json) retenu contre 0.78 (doc Léna, non sourcé dans
+  ce repo) — lecture seule, sans urgence, à recalibrer avec plus de
+  données plutôt qu'à trancher maintenant
 
 **J2 — Découpage + généralisation du cœur**
 - Découpage des deux monolithes (`web/app.py`, `lena_batch.py`) avec

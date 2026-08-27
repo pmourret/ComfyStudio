@@ -1,6 +1,6 @@
 """Base SQLite : historique, mesures et embeddings de la production.
 
-CE QUI VA EN BASE, CE QUI RESTE EN FICHIER (DOCS/lena-parcours-creatif.md 8.3)
+CE QUI VA EN BASE, CE QUI RESTE EN FICHIER
 
   fichier (git)   scenes.json, creative.json, config.json — du contenu redige par
                   un humain. On veut le diff, la relecture et le .bak.
@@ -285,7 +285,7 @@ def centroide(cx, set_id):
 def construire_jeu(cx, base_embedding, seuil_haut, libelle=None):
     """Construit un jeu de reference d'identite et rend son bilan.
 
-    LES GARDE-FOUS (DOCS/lena-parcours-creatif.md 8.3), tous appliques ici :
+    LES GARDE-FOUS, tous appliques ici :
 
     1. la base gelee reste l'ancre absolue, elle n'est jamais remplacee ;
     2. une image ne rejoint le jeu que si son score CONTRE LA BASE GELEE est
