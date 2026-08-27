@@ -32,7 +32,9 @@ OFM = HERE.parents[1]
 sys.path.insert(0, str(OFM / "AUTOMATION" / "web"))
 sys.path.insert(0, str(OFM / "AUTOMATION"))
 
-import app                    # noqa: E402
+import shared_state as ss      # noqa: E402
+from routes import tri        # noqa: E402
+import runner as lb            # noqa: E402
 import base as db             # noqa: E402
 import mesures as mes         # noqa: E402
 from PIL import Image         # noqa: E402
@@ -74,11 +76,11 @@ def image(chemin, taille=(896, 1120)):
 
 # ------------------------------------------------------- arborescence jetable
 racine = Path(tempfile.mkdtemp(prefix="tri_"))
-app.OFM = racine
-app.THUMBS = racine / "PROD" / ".thumbs"
+ss.OFM = racine
+ss.THUMBS = racine / "PROD" / ".thumbs"
 mes.FICHIER = racine / "PROD" / "mesures.json"
 db.FICHIER = racine / "PROD" / "comfystudio.db"
-app.UNDO.clear()
+ss.UNDO.clear()
 
 for b in ("OK", "A_REVOIR", "REJET", "ARCHIVE"):
     (racine / "PROD" / "LENA" / b).mkdir(parents=True, exist_ok=True)
@@ -88,7 +90,7 @@ for b in ("OK", "A_REVOIR", "REJET", "ARCHIVE"):
 journal = racine / "PROD" / "journal_batch.csv"
 with open(journal, "w", newline="", encoding="utf-8") as f:
     w = csv.writer(f, delimiter=";")
-    w.writerow(app.lb.JOURNAL_COLS)
+    w.writerow(lb.JOURNAL_COLS)
     w.writerow(["2026-08-25T10:00:00", "b1", "rando_montagne", "voyage", "1", "doux",
                 "", "9:16", "42", "0.760", "A_REVOIR", "voyage_rando_01.png", "",
                 "60", "un prompt"])
@@ -100,24 +102,24 @@ print("tri et export - tests")
 print("=" * 70)
 
 print("\n[1] valider : l'export prend la categorie et le format du journal")
-r = appeler(app.api_action, {"name": "voyage_rando_01.png", "bucket": "A_REVOIR",
+r = appeler(tri.api_action, {"name": "voyage_rando_01.png", "bucket": "A_REVOIR",
                              "action": "valider", "space": "lena"})
 verifie(r["ok"] and r["bucket"] == "OK", "l'image passe en OK")
 exp = racine / "PROD" / "EXPORT" / "voyage" / "voyage_rando_01.jpg"
 verifie(exp.exists(), "l'export est dans EXPORT/voyage (pas dans « divers »)")
 if exp.exists():
-    attendu = tuple(app.cfg()["export_sizes"]["9:16"])
+    attendu = tuple(ss.cfg()["export_sizes"]["9:16"])
     with Image.open(exp) as im:
         verifie(im.size == attendu, f"export a la taille du 9:16 {im.size} == {attendu}")
 
 print("\n[2] rejeter : l'image sort aussi de la publication")
-r = appeler(app.api_action, {"name": "voyage_rando_01.png", "bucket": "OK",
+r = appeler(tri.api_action, {"name": "voyage_rando_01.png", "bucket": "OK",
                              "action": "rejeter", "space": "lena"})
 verifie(r["ok"] and r["bucket"] == "REJET", "l'image passe en REJET")
 verifie(not exp.exists(), "le JPEG est retire de l'export")
 
 print("\n[3] annuler un rejet : l'image ET son export reviennent")
-r = appeler(app.api_undo, {})
+r = appeler(tri.api_undo, {})
 verifie(r["ok"] and r["bucket"] == "OK", "l'image revient dans OK")
 verifie((racine / "PROD" / "LENA" / "OK" / "voyage_rando_01.png").exists(),
         "le fichier est bien dans OK")
@@ -125,12 +127,12 @@ verifie(exp.exists(), "l'export est REFAIT (il restait supprime avant le correct
 
 print("\n[4] annuler ne doit jamais ecraser un homonyme")
 # on refait le chemin : rejet, puis on place une AUTRE image du meme nom dans OK
-appeler(app.api_action, {"name": "voyage_rando_01.png", "bucket": "OK",
+appeler(tri.api_action, {"name": "voyage_rando_01.png", "bucket": "OK",
                          "action": "rejeter", "space": "lena"})
 intruse = racine / "PROD" / "LENA" / "OK" / "voyage_rando_01.png"
 image(intruse, taille=(64, 64))          # image DIFFERENTE, meme nom
 avant = intruse.stat().st_size
-r = appeler(app.api_undo, {})
+r = appeler(tri.api_undo, {})
 verifie(intruse.exists() and intruse.stat().st_size == avant,
         "l'image deja presente dans OK n'a pas ete ecrasee")
 verifie(r["name"] != "voyage_rando_01.png",
@@ -150,7 +152,7 @@ verifie(not (racine / "PROD" / "EXPORT" / "divers").exists(),
 
 print("\n[6] une action inconnue est refusee proprement")
 try:
-    appeler(app.api_action, {"name": "voyage_rando_01.png", "bucket": "OK",
+    appeler(tri.api_action, {"name": "voyage_rando_01.png", "bucket": "OK",
                              "action": "supprimer_tout", "space": "lena"})
     verifie(False, "une action inconnue doit lever une erreur HTTP")
 except Exception as e:
@@ -160,11 +162,11 @@ except Exception as e:
 print("\n[7] les vignettes ne survivent pas au deplacement")
 # une vignette est rangee par espace/bucket : l'image qui change de dossier
 # laissait la sienne derriere elle (96 fichiers pour 46 PNG le 25/08/2026)
-tdir = app.THUMBS / "lena" / "OK"
+tdir = ss.THUMBS / "lena" / "OK"
 tdir.mkdir(parents=True, exist_ok=True)
 vignette = tdir / (Path(renomme).stem + ".jpg")
 image(vignette, taille=(64, 64))
-appeler(app.api_action, {"name": renomme, "bucket": "OK",
+appeler(tri.api_action, {"name": renomme, "bucket": "OK",
                          "action": "archiver", "space": "lena"})
 verifie(not vignette.exists(), "la vignette du dossier quitte est retiree")
 
@@ -172,9 +174,9 @@ orpheline = tdir / "image_disparue.jpg"
 image(orpheline, taille=(64, 64))
 # vignette d'une disposition PRECEDENTE : .thumbs/<bucket>/ sans niveau
 # d'espace. La premiere version du balayage ne descendait pas jusqu'a elle.
-ancienne = app.THUMBS / "OK" / "format_d_avant.jpg"
+ancienne = ss.THUMBS / "OK" / "format_d_avant.jpg"
 image(ancienne, taille=(64, 64))
-retirees = app.purger_vignettes()
+retirees = ss.purger_vignettes()
 verifie(not orpheline.exists(), "le balayage retire les vignettes sans image")
 verifie(not ancienne.exists(),
         "le balayage retire aussi celles d'une disposition perimee")

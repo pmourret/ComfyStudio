@@ -32,7 +32,8 @@ OFM = HERE.parents[1]
 sys.path.insert(0, str(OFM / "AUTOMATION" / "web"))
 sys.path.insert(0, str(OFM / "AUTOMATION"))
 
-import app                    # noqa: E402
+import shared_state as ss      # noqa: E402
+from routes import tri        # noqa: E402
 from PIL import Image         # noqa: E402
 
 KO = 0
@@ -73,8 +74,8 @@ def image(chemin, taille=(64, 64)):
 
 # ------------------------------------------------------- arborescence jetable
 racine = Path(tempfile.mkdtemp(prefix="suppr_"))
-app.OFM = racine
-app.THUMBS = racine / "PROD" / ".thumbs"
+ss.OFM = racine
+ss.THUMBS = racine / "PROD" / ".thumbs"
 
 for b in ("OK", "A_REVOIR", "REJET", "ARCHIVE"):
     (racine / "PROD" / "LENA" / b).mkdir(parents=True, exist_ok=True)
@@ -88,24 +89,24 @@ print("=" * 70)
 print("\n[1] suppression definitive — cas nominal")
 image(racine / "PROD" / "LENA" / "OK" / "gardee.png")
 image(racine / "PROD" / "EXPORT" / "lifestyle" / "gardee.jpg", taille=(1080, 1350))
-app.THUMBS.mkdir(parents=True, exist_ok=True)
-(app.THUMBS / "lena" / "OK").mkdir(parents=True, exist_ok=True)
-(app.THUMBS / "lena" / "OK" / "gardee.jpg").write_bytes(b"\x00")
+ss.THUMBS.mkdir(parents=True, exist_ok=True)
+(ss.THUMBS / "lena" / "OK").mkdir(parents=True, exist_ok=True)
+(ss.THUMBS / "lena" / "OK" / "gardee.jpg").write_bytes(b"\x00")
 
-r, code = appeler(app.api_delete, {"name": "gardee.png", "bucket": "OK", "space": "lena"})
+r, code = appeler(tri.api_delete, {"name": "gardee.png", "bucket": "OK", "space": "lena"})
 verifie(r.get("ok") is True, "réponse ok")
 verifie(not (racine / "PROD" / "LENA" / "OK" / "gardee.png").exists(),
         "le fichier a disparu du disque")
 verifie(not (racine / "PROD" / "EXPORT" / "lifestyle" / "gardee.jpg").exists(),
         "la copie d'export a disparu")
-verifie(not (app.THUMBS / "lena" / "OK" / "gardee.jpg").exists(),
+verifie(not (ss.THUMBS / "lena" / "OK" / "gardee.jpg").exists(),
         "la vignette a disparu")
 
 print("\n[2] suppression — garde-fous")
-r, code = appeler(app.api_delete, {"name": "absente.png", "bucket": "OK", "space": "lena"})
+r, code = appeler(tri.api_delete, {"name": "absente.png", "bucket": "OK", "space": "lena"})
 verifie(code == 404, f"fichier introuvable -> 404 ({code})")
 try:
-    appeler(app.api_delete, {"name": "../../etc/passwd", "bucket": "OK", "space": "lena"})
+    appeler(tri.api_delete, {"name": "../../etc/passwd", "bucket": "OK", "space": "lena"})
     verifie(False, "un nom hors motif aurait dû lever bad_request")
 except Exception:
     verifie(True, "un nom de fichier invalide est refusé (chemin hors motif)")
@@ -113,7 +114,7 @@ except Exception:
 # =========================================================== api_edit_save
 print("\n[3] copie éditée — cas nominal")
 image(racine / "PROD" / "LENA" / "A_REVOIR" / "scene_01.png")
-r, code = appeler(app.api_edit_save, {
+r, code = appeler(tri.api_edit_save, {
     "name": "scene_01.png", "bucket": "A_REVOIR", "space": "lena",
     "data_base64": png_base64()})
 verifie(r.get("ok") is True, "réponse ok")
@@ -124,7 +125,7 @@ verifie((racine / "PROD" / "LENA" / "A_REVOIR" / "scene_01.png").exists(),
         "l'ORIGINAL existe toujours — jamais un écrasement")
 
 print("\n[4] copie éditée — collision de nom")
-r2, code = appeler(app.api_edit_save, {
+r2, code = appeler(tri.api_edit_save, {
     "name": "scene_01.png", "bucket": "A_REVOIR", "space": "lena",
     "data_base64": png_base64((10, 10, 10))})
 verifie(r2.get("name") == "scene_01_edit_2.png",
@@ -133,23 +134,23 @@ verifie((racine / "PROD" / "LENA" / "A_REVOIR" / "scene_01_edit.png").exists(),
         "la première copie n'a pas été écrasée par la seconde")
 
 print("\n[5] copie éditée — garde-fous")
-r, code = appeler(app.api_edit_save, {
+r, code = appeler(tri.api_edit_save, {
     "name": "absente.png", "bucket": "A_REVOIR", "space": "lena",
     "data_base64": png_base64()})
 verifie(code == 404, f"original introuvable -> 404 ({code})")
 
-r, code = appeler(app.api_edit_save, {
+r, code = appeler(tri.api_edit_save, {
     "name": "scene_01.png", "bucket": "A_REVOIR", "space": "lena",
     "data_base64": "ceci n'est pas du base64 valide !!"})
 verifie(code == 400, f"base64 mal formé -> 400 ({code})")
 
-r, code = appeler(app.api_edit_save, {
+r, code = appeler(tri.api_edit_save, {
     "name": "scene_01.png", "bucket": "A_REVOIR", "space": "lena",
     "data_base64": ""})
 verifie(code == 400, f"image vide -> 400 ({code})")
 
-gros = base64.b64encode(b"\x00" * (app.TAILLE_MAX_PHOTO + 1)).decode()
-r, code = appeler(app.api_edit_save, {
+gros = base64.b64encode(b"\x00" * (ss.TAILLE_MAX_PHOTO + 1)).decode()
+r, code = appeler(tri.api_edit_save, {
     "name": "scene_01.png", "bucket": "A_REVOIR", "space": "lena",
     "data_base64": gros})
 verifie(code == 400, f"image trop lourde -> 400 ({code})")

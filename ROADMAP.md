@@ -109,7 +109,26 @@ prouvent la généralisation — pas juste Léna renommée.
   Vérification réelle : batch complet d'une image via ComfyUI, fichier
   atterri dans `PROD/LENA/OK/`, ligne base avec `character_id='lena'`
   confirmée par requête directe. Suite de tests complète verte.
-- Reste : `web/app.py` → `web/routes/`
+- Étape 4 ✅ *(2026-08-27)* : `web/app.py` (2031 lignes) découpé en
+  `web/shared_state.py` (STATE/UNDO/CHECKER, `cfg()`/`scenes_data()`,
+  middlewares, `bucket_dir()`, vignettes, sonde ComfyUI — importé par tous
+  les modules de routes, jamais dupliqué) et
+  `web/routes/{etat,banque,vignettes,production,tri}.py` (31 routes,
+  `aiohttp.web.RouteTableDef()` par module, chemins d'URL inchangés).
+  `app.py` ne fait plus que l'assemblage (~90 lignes). État partagé
+  toujours référencé via l'objet module (`ss.OFM`, `ss.UNDO`, jamais un
+  import statique de la valeur) pour que le monkey-patching des tests
+  continue de fonctionner. 2 bugs mineurs trouvés et corrigés en cours de
+  découpage (`import json` manquant dans `production.py` pour
+  `api_nsfw_arm` ; imports `asyncio`/`shutil` redondants en corps de
+  fonction, consolidés en tête de module). 3 fichiers de test mis à jour
+  vers les nouveaux emplacements (`test_valider_banque.py`,
+  `test_tri_export.py`, `test_suppression_edition.py` — monkey-patchent
+  `shared_state.OFM`/`THUMBS`/`UNDO`) ; `test_serveur_http.py` inchangé
+  (lance `app.py` en sous-processus HTTP, aucun couplage direct). Suite de
+  tests complète verte, plus vérification serveur réel : lancement direct,
+  `/api/state` répondant en HTTP avec les vrais compteurs de production.
+- **J2 terminé.**
 
 **J3 — Frontend**
 - Passage en modules ES, plus de globales partagées entre fichiers
