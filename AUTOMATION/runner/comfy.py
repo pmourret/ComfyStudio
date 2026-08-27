@@ -1,0 +1,198 @@
+"""Dialogue avec ComfyUI : file d'attente, attente de resultat, graphe de
+production. Aucun couplage personnage — ce module ne connait ni character_id
+ni CHARACTERS/.
+"""
+import json
+import shutil
+import time
+import urllib.error
+import urllib.request
+
+import ui_to_api
+
+from . import OFM, COMFY_INPUT, load_json
+
+
+# ----------------------------------------------------- dialogue avec ComfyUI
+def queue_prompt(url, api, client_id="runner"):
+    """Met un graphe en file. Retourne (prompt_id, erreur)."""
+    req = urllib.request.Request(
+        url.rstrip("/") + "/prompt",
+        data=json.dumps({"prompt": api, "client_id": client_id}).encode(),
+        headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return json.load(r)["prompt_id"], None
+    except urllib.error.HTTPError as e:
+        return None, e.read().decode()[:800]
+
+
+def wait_prompt(url, prompt_id, timeout=900):
+    """Attend la fin d'un job. Retourne (images, erreur, duree)."""
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        with urllib.request.urlopen(f"{url.rstrip('/')}/history/{prompt_id}",
+                                    timeout=30) as r:
+            hist = json.load(r)
+        if prompt_id in hist:
+            entry = hist[prompt_id]
+            errors = [m for m in entry.get("status", {}).get("messages", [])
+                      if m[0] == "execution_error"]
+            images = [im for out in entry.get("outputs", {}).values()
+                      for im in out.get("images", [])
+                      if im.get("type") == "output"]
+            err = None
+            if errors:
+                d = errors[0][1]
+                err = f"{d.get('node_type')}: {d.get('exception_message', '')[:200]}"
+            return images, err, time.time() - t0
+        time.sleep(2)
+    return [], "timeout", time.time() - t0
+
+
+# ---------------------------------------------------------------- graphe ComfyUI
+class WorkflowRunner:
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.url = cfg["comfy_url"].rstrip("/")
+        self.ui = load_json(OFM / cfg["workflow"])
+        self.obj = ui_to_api.fetch_object_info(self.url)
+        p = cfg["preset"]
+        groups = []
+        if p.get("upscale_2k"):
+            # Groupe 09 : 4x NMKD-Siax puis redescente 2K, sans repasser par Flux.
+            # Mesure du 24/08/2026, seed fixe, meme scene : nettete 143 -> 187
+            # (+31 %), identite -0.004, +4 s. Compatible FaceDetailer, contrairement
+            # au groupe 05 (hires latent) qui echoue au VAEDecode sur cette machine.
+            groups.append("UPSCALE IMAGE 2K")
+        if p.get("facedetailer"):
+            groups.append("FACEDETAILER")
+        if p.get("grain_export"):
+            groups.append("GRAIN + EXPORT")
+        self.active_groups = groups
+        self.roles = self._roles()
+
+    def _roles(self):
+        f = ui_to_api.find_node
+        r = {
+            "positive": f(self.ui, "CLIPTextEncode", "POSITIF - scene"),
+            "guidance": f(self.ui, "FluxGuidance"),
+            "latent": f(self.ui, "EmptySD3LatentImage", "Format -"),
+            "sampler": f(self.ui, "KSampler", "passe 1"),
+            "save": f(self.ui, "SaveImage", "SORTIE production"),
+        }
+        for key, (typ, title) in {
+            "switch": ("Switch any [Crystools]", None),
+            "refiner": ("KSampler", "img2img denoise"),
+            "export_scale": ("ImageScale", "Taille de publication"),
+            "grain_node": ("ImageAddNoise", None),
+            "sharpen": ("ImageCASharpening+", None),
+            # groupe 13 - POSE CONTROLNET, bypasse par defaut dans le graphe.
+            # A/B mesure : DOCS/lena-pose-controlnet.md. Absent d'un workflow
+            # plus ancien -> le runner s'adapte, comme les autres roles
+            # optionnels, et api_for() refuse explicitement si une scene
+            # demande une pose sur un graphe qui ne l'a pas.
+            "pose_squelette": ("LoadImage", "SQUELETTE DE POSE"),
+            "pose_loader": ("ControlNetLoader", None),
+            "pose_apply": ("ControlNetApplyAdvanced", None),
+            "pose_preview": ("PreviewImage", "QC - squelette reellement envoye"),
+        }.items():
+            try:
+                r[key] = f(self.ui, typ, title)
+            except LookupError:
+                r[key] = None          # groupe absent : le runner s'adapte
+        return r
+
+    def api_for(self, job, batch_id):
+        cfg = self.cfg
+        p = dict(cfg["preset"], **job.get("overrides", {}))
+        w, h = cfg["formats"][job["format"]]
+
+        # La pose est PAR JOB (une scene l'impose ou non), donc decidee ici et
+        # non dans self.active_groups (fixe pour tout le batch). Le groupe est
+        # bypasse par defaut dans le graphe : convert() l'exclut entierement
+        # tant qu'on ne force pas le mode de ses noeuds a 0 (actif). Meme
+        # mecanisme que le desarmement du LoRA cote NSFW (node_modes).
+        node_modes = {}
+        pose = job.get("pose")
+        if pose:
+            manquants = [k for k in ("pose_squelette", "pose_loader", "pose_apply")
+                        if self.roles.get(k) is None]
+            if manquants:
+                raise RuntimeError(
+                    f"scene « {job['scene']} » impose une pose, mais ce workflow "
+                    f"n'a pas le groupe POSE CONTROLNET ({', '.join(manquants)} "
+                    f"introuvable(s))")
+            for key in ("pose_squelette", "pose_loader", "pose_apply", "pose_preview"):
+                role = self.roles.get(key)
+                if role:
+                    node_modes[role["id"]] = 0
+
+        api = ui_to_api.convert(self.ui, self.obj, active_groups=self.active_groups,
+                                node_modes=node_modes)
+
+        def node(role):
+            n = self.roles.get(role)
+            return api.get(str(n["id"])) if n else None
+
+        node("positive")["inputs"]["text"] = job["prompt"]
+        node("guidance")["inputs"]["guidance"] = p["guidance"]
+        node("latent")["inputs"].update(width=w, height=h, batch_size=1)
+        node("sampler")["inputs"].update(seed=job["seed"], steps=p["steps"])
+        node("save")["inputs"]["filename_prefix"] = (
+            f"OFM/PROD/_BATCH/{batch_id}/{job['scene']}")
+
+        sw = node("switch")
+        if sw:
+            sw["inputs"]["boolean"] = bool(p.get("refiner"))
+        ref = node("refiner")
+        if ref:
+            ref["inputs"]["denoise"] = p.get("refiner_denoise", 0.40)
+            ref["inputs"]["seed"] = job["seed"] + 7
+        gr = node("grain_node")
+        if gr is not None:
+            # `ImageAddNoise` ajoute du bruit RGB : autant de chrominance que de
+            # luminance, et a plat sur toute la plage tonale. Un capteur ne fait ni
+            # l'un ni l'autre (mesure). On le met a zero et c'est
+            # AUTOMATION/grain.py qui pose le grain.
+            gr["inputs"]["strength"] = float(p.get("grain_strength", 0.0))
+            gr["inputs"]["seed"] = job["seed"] + 5
+        sh = node("sharpen")
+        if sh is not None:
+            # pilote au lieu d'etre fige dans le widget : c'est le meme reglage
+            # que la branche NSFW, il ne doit exister qu'a un seul endroit
+            sh["inputs"]["amount"] = float(p.get("sharpen", 0.30))
+        exp = node("export_scale")
+        if exp and p.get("grain_export"):
+            ew, eh = cfg["export_sizes"][job["format"]]
+            exp["inputs"].update(width=ew, height=eh)
+
+        if pose:
+            # LoadImage ne lit que ComfyUI/input : la banque INPUTS/POSE/ n'est
+            # pas ce dossier, il faut y copier le squelette. Retour sur mtime :
+            # eviter une copie a chaque image d'un meme batch sans jamais servir
+            # une version perimee si le squelette a ete regenere entre-temps.
+            src = OFM / "INPUTS" / "POSE" / pose
+            if not src.exists():
+                raise FileNotFoundError(
+                    f"scene « {job['scene']} » : squelette introuvable — "
+                    f"{src.relative_to(OFM)}")
+            dst = COMFY_INPUT / src.name
+            if not dst.exists() or dst.stat().st_mtime < src.stat().st_mtime:
+                shutil.copy(src, dst)
+            node("pose_squelette")["inputs"]["image"] = dst.name
+            ap = node("pose_apply")["inputs"]
+            # Reglages de l'A/B (DOCS/lena-pose-controlnet.md) : fiche du
+            # modele, confirmee par la mesure (15 images, 0 sous la bande).
+            # start toujours a 0.0 — laisser PuLID seul composer les tout
+            # premiers pas n'a jamais fait partie du protocole valide.
+            ap["strength"] = float(p.get("pose_strength", 0.9))
+            ap["start_percent"] = 0.0
+            ap["end_percent"] = float(p.get("pose_end", 0.65))
+        return api
+
+    def queue(self, api):
+        return queue_prompt(self.url, api)
+
+    def wait(self, prompt_id, timeout=900):
+        return wait_prompt(self.url, prompt_id, timeout)

@@ -10,6 +10,6 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-"%COMFYUI_PYTHON%" "%~dp0runner.py" %*
+"%COMFYUI_PYTHON%" "%~dp0run_batch.py" %*
 echo.
 pause

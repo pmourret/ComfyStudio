@@ -90,8 +90,26 @@ prouvent la généralisation — pas juste Léna renommée.
   testé par `test_cross_character.py`
 - Étape 2 ✅ *(2026-08-27)* : `config.json`/`scenes.json`/`creative.json`
   déplacés vers `CHARACTERS/lena/`, chargement paramétré par `character_id`
-- Reste : découpage `runner.py` → `AUTOMATION/runner/` (package
-  prompt/comfy/sortie/cli) puis `web/app.py` → `web/routes/`
+- Étape 3 ✅ *(2026-08-27)* : `runner.py` découpé en paquet
+  `AUTOMATION/runner/{prompt,comfy,sortie,cli}.py` — `execute_jobs` reste
+  la colonne vertébrale unique (§8.2), déplacée dans `sortie.py`.
+  `character_id` enfilé jusqu'au rangement (`sort_and_export` :
+  `PROD/<character_id.upper()>/`, `character_id="lena"` reproduit
+  exactement `PROD/LENA/` — aucune donnée déplacée, aucun `if character ==
+  "lena"` en dur, §8.7) et jusqu'à la base (`ecrire_en_base`,
+  `ranger_mesures`). Export namespacé par personnage
+  (`PROD/EXPORT/<character_id>/<catégorie>`, évite qu'un futur second
+  personnage mélange ses publications). CLI : `--character` réellement
+  fonctionnel (défaut `lena`), nouveau lanceur `AUTOMATION/run_batch.py`
+  (un fichier à l'intérieur d'un paquet ne peut pas s'exécuter directement,
+  imports relatifs). 2 appels non couverts par les tests automatisés
+  trouvés et corrigés à la main (`jobs_declinaison` dans `/api/decline` —
+  argument `creative` positionnel décalé silencieusement par le nouveau
+  paramètre `character_id`, aurait cassé au premier clic sur "décliner").
+  Vérification réelle : batch complet d'une image via ComfyUI, fichier
+  atterri dans `PROD/LENA/OK/`, ligne base avec `character_id='lena'`
+  confirmée par requête directe. Suite de tests complète verte.
+- Reste : `web/app.py` → `web/routes/`
 
 **J3 — Frontend**
 - Passage en modules ES, plus de globales partagées entre fichiers

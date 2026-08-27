@@ -1030,7 +1030,7 @@ def run_batch_blocking(jobs, configuration, batch_id, use_qc):
 
     rows, stats = lb.execute_jobs(jobs, configuration,
                                  CHECKER if use_qc else None, batch_id,
-                                 on_event=on_event,
+                                 character_id="lena", on_event=on_event,
                                  should_stop=lambda: STATE["stop"],
                                  after=chainage_nsfw(configuration, use_qc, batch_id))
     return stats
@@ -1201,7 +1201,7 @@ async def api_decline(request):
                                if t["key"] != (row.get("ton") or None)]
             else:
                 dispo[mode] = len(lb.jobs_declinaison(
-                    scenes, row, mode, creative, n=int(body.get("n") or 3)))
+                    scenes, row, mode, creative=creative, n=int(body.get("n") or 3)))
         suivant = lb.by_level(creative, niveau + 1)
         # le bouton "monter d'un cran" doit refleter les MEMES verrous que le
         # curseur principal : confirmation a montrer, armement a proposer
@@ -1255,7 +1255,7 @@ async def api_decline(request):
         if err:
             return web.json_response({"ok": False, "erreur": err}, status=403)
 
-    jobs = lb.jobs_declinaison(scenes, row, mode, creative,
+    jobs = lb.jobs_declinaison(scenes, row, mode, creative=creative,
                                n=int(body.get("n") or 3), tone=body.get("tone"))
     if not jobs:
         raison = {"lumiere": "cette scène n'a pas d'autre variante de lumière",
