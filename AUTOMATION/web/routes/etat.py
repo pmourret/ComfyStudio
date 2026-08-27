@@ -16,6 +16,7 @@ import shared_state as ss
 import comfy_server
 import nsfw_batch
 import runner as lb
+import universe
 
 routes = web.RouteTableDef()
 
@@ -62,6 +63,39 @@ async def api_state(request):
 @routes.get("/api/config")
 async def api_config(request):
     return web.json_response(ss.cfg(ss.character(request)))
+
+
+@routes.get("/api/character")
+async def api_character(request):
+    """Personnage courant + son univers, pour l'en-tete (registre J4).
+
+    `character(request)` a deja garanti que le personnage a un character.json
+    pointant vers un univers existant — pas de gestion d'erreur en plus ici.
+    """
+    cid = ss.character(request)
+    reg = lb.load_character(cid)
+    uid = reg.get("universe")
+    u = universe.load_universe(uid)
+    return web.json_response({
+        "id": cid,
+        "name": reg.get("name", cid),
+        "universe": {"id": uid, "label": u.get("label", uid),
+                     "model_family": u.get("model_family"),
+                     "output_styles": u.get("output_styles", [])},
+        "content_types": reg.get("content_types", {}),
+        "nsfw": bool(reg.get("nsfw")),
+    })
+
+
+@routes.get("/api/universe/tools")
+async def api_universe_tools(request):
+    """Panel d'outils declare pour l'univers du personnage (tools.json, §5).
+
+    Expose des J4 ; l'ecran qui le consomme arrive avec le premier outil dedie
+    (J5+). Ici pour que le panel ne soit jamais un `if character == "lena"` en
+    dur le jour ou un second personnage existe (§8.7)."""
+    uid = lb.character_universe(ss.character(request))
+    return web.json_response({"universe": uid, "tools": universe.load_tools(uid)})
 
 
 def fusion_validee(actuel, envoye, ou):

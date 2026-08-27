@@ -44,6 +44,15 @@ const B = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   const crans = await page.$$eval('#intSel button', bs => bs.map(b => b.textContent.trim()));
   dire(crans.length === 4, `4 crans : ${crans.join(' | ')}`);
 
+  console.log('\n[1b] en-tete reflete le registre personnage (J4)');
+  const brand = (await page.textContent('.brand')).replace(/\s+/g, ' ').trim();
+  dire(/Léna/.test(brand), `.brand porte le nom lisible du registre : « ${brand} »`);
+  dire(await vu('.brand-uni'), 'le tag univers est peint dans l\'en-tete');
+  const uni = ((await page.textContent('.brand-uni')) || '').trim();
+  dire(/Instagram/i.test(uni), `tag univers = « ${uni} »`);
+  const titre = await page.title();
+  dire(/Léna — production/.test(titre), `titre d'onglet = « ${titre} »`);
+
   console.log('\n[2] cran SFW — parcours par scenes');
   dire(await vu('#stepIntent'), 'bloc Intention visible');
   dire(!(await vu('#stepSource')), 'bloc Image source masque');
