@@ -65,6 +65,12 @@ def poser_fixture():
     if PROBE.exists():
         shutil.rmtree(PROBE)
     PROBE.mkdir(parents=True)
+    # character.json : registre personnage (J4). character() le refuse sans lui,
+    # ou si son univers n'existe pas. Univers reel pour rester dans le heureux.
+    (PROBE / "character.json").write_text(json.dumps(
+        {"id": "probe", "name": "Probe", "universe": "instagram-influenceur",
+         "content_types": {"image": True}, "nsfw": False},
+        ensure_ascii=False, indent=2), encoding="utf-8")
     # config : copie de lena, avec un marqueur distinctif verifiable
     cfg = json.loads((LENA / "config.json").read_text(encoding="utf-8"))
     cfg["base_gelee"] = "PROBE_MARKER_00000_.png"

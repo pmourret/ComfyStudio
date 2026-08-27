@@ -12,12 +12,17 @@ from types import SimpleNamespace
 from . import OFM, load_json
 
 # -------------------------------------------------------- donnees de personnage
-# CHARACTERS/<character_id>/{config,scenes,creative}.json (J2) : donnees propres
-# a un personnage, jamais melangees a une autre. Pas encore de registre (J4) —
-# character_id est pour l'instant une simple chaine passee explicitement par
-# l'appelant, "lena" partout ou ce repo ne connait qu'elle.
+# CHARACTERS/<character_id>/{character,config,scenes,creative}.json : donnees
+# propres a un personnage, jamais melangees a une autre. Git-ignore (ADR-0005).
+# character.json est le registre personnage (J4, CLAUDE.md §7) : univers associe,
+# types de contenu actifs, interrupteur NSFW. L'univers lui-meme vit dans
+# AUTOMATION/universe.py (axe distinct, versionne).
 def character_dir(character_id):
     return OFM / "CHARACTERS" / character_id
+
+
+def character_json_path(character_id):
+    return character_dir(character_id) / "character.json"
 
 
 def config_path(character_id):
@@ -26,6 +31,30 @@ def config_path(character_id):
 
 def scenes_path(character_id):
     return character_dir(character_id) / "scenes.json"
+
+
+def load_character(character_id):
+    """Entree du registre personnage. Erreur explicite si elle manque —
+    un dossier CHARACTERS/<id>/ sans character.json est invalide, pas un cas
+    a rattraper en silence."""
+    path = character_json_path(character_id)
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"registre personnage absent : {path.relative_to(OFM)} — chaque "
+            f"personnage doit declarer son univers et ses types de contenu (J4)")
+    return load_json(path)
+
+
+def character_universe(character_id):
+    """Id de l'univers du personnage (fixe a sa creation, CLAUDE.md §3-§4)."""
+    return load_character(character_id).get("universe")
+
+
+def content_type_active(character_id, kind):
+    """Un type de contenu (image / video / voice / staging) est-il actif pour ce
+    personnage. Axe independant de l'univers (ADR-0004) : en V1 seul `image`
+    l'est, partout."""
+    return bool(load_character(character_id).get("content_types", {}).get(kind))
 
 
 def load_config(character_id):

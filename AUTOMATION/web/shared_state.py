@@ -23,6 +23,7 @@ OFM = AUTOMATION.parent
 sys.path.insert(0, str(AUTOMATION))
 
 import runner as lb  # noqa: E402
+import universe  # noqa: E402
 
 BUCKETS = ("OK", "A_REVOIR", "REJET", "SANS_VISAGE", "ARCHIVE")
 SAFE_NAME = re.compile(r"^[A-Za-z0-9_.\-]+\.(png|jpg|jpeg)$")
@@ -178,24 +179,33 @@ def push_log(msg):
 # defaut "lena" reste la seule valeur en dur, aux frontieres — pas un
 # `if character == "lena"` (CLAUDE.md §8.7).
 #
-# Hors perimetre V1 (J4) : la disposition disque par personnage (PROD/<X>/,
-# journal, vignettes, export), l'axe SFW/NSFW `space` (dont la valeur SFW se
-# trouve aussi nommee "lena", axe different), UNDO non scope.
+# J4 : `character(request)` valide aussi que le personnage a un character.json
+# (registre) pointant vers un univers existant. Toujours hors perimetre : la
+# disposition disque par personnage (PROD/<X>/, journal, vignettes, export),
+# l'axe SFW/NSFW `space` (dont la valeur SFW se trouve aussi nommee "lena", axe
+# different), UNDO non scope.
 _CHARACTER_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 
 
 def character(request):
     """character_id de la requete, valide AVANT de toucher au disque.
 
-    Rejette en 400 JSON (jamais un 500, jamais un chemin) : un id qui n'est pas
-    un slug simple (`?character=../x`), ou dont le dossier CHARACTERS/<id>/
-    n'existe pas.
+    Rejette en 400 JSON (jamais un 500, jamais un chemin) :
+      - un id qui n'est pas un slug simple (`?character=../x`) ;
+      - un dossier CHARACTERS/<id>/ absent ;
+      - un dossier sans character.json (registre personnage manquant, J4) ;
+      - un character.json dont l'univers declare n'existe pas dans UNIVERS/.
     """
     cid = request.query.get("character", "lena")
     if not _CHARACTER_RE.match(cid):
         bad_request(f"character_id invalide : {cid!r}")
     if not lb.character_dir(cid).is_dir():
         bad_request(f"personnage inconnu : {cid!r}")
+    if not lb.character_json_path(cid).is_file():
+        bad_request(f"personnage {cid!r} sans character.json (registre J4)")
+    uid = lb.load_character(cid).get("universe")
+    if not universe.exists(uid):
+        bad_request(f"personnage {cid!r} : univers inconnu {uid!r}")
     return cid
 
 
