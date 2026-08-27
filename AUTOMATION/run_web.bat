@@ -12,6 +12,10 @@ REM ComfyUI s'ouvre dans SA PROPRE FENETRE : c'est la que sortent ses logs.
 REM Il n'est pas arrete en quittant le dashboard (un batch peut etre en file) ;
 REM fermer sa fenetre a la main pour liberer la VRAM.
 setlocal
-set ROOT=%~dp0..\..\..\..
-"%ROOT%\python_embeded\python.exe" "%~dp0web\app.py" %*
+call "%~dp0find_python.bat"
+if errorlevel 1 (
+    pause
+    exit /b 1
+)
+"%COMFYUI_PYTHON%" "%~dp0web\app.py" %*
 pause

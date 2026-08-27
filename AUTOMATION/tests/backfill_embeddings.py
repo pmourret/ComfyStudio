@@ -6,8 +6,8 @@ Une passe InsightFace coute ~190 ms par image. Une fois l'embedding en base, tou
 le reste se refait sans jamais relire un PNG : changer de seuil ou de reference
 devient une requete.
 
-Le jeu de reference obeit aux garde-fous de DOCS/lena-parcours-creatif.md 8.3 —
-c'est `base.construire_jeu` qui les applique, ce script ne fait que l'appeler et
+Le jeu de reference obeit aux garde-fous deja poses (voir la docstring de
+`base.construire_jeu`, qui les applique) — ce script ne fait que l'appeler et
 montrer le bilan.
 """
 import sys
@@ -15,12 +15,14 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 AUTOMATION = HERE.parent
-OFM = AUTOMATION.parent
-COMFY = OFM.parents[1]
 sys.path.insert(0, str(AUTOMATION))
 
 import base          # noqa: E402
+import env_config    # noqa: E402
 import lena_batch as lb  # noqa: E402
+
+OFM = AUTOMATION.parent
+COMFY = env_config.comfyui_root()
 
 
 def fichiers_sur_disque():

@@ -24,7 +24,7 @@ serie, c'est que la deformation abime le visage, et ca se verra dans la revue.
 
 POURQUOI CE MOYEN
 
-Trois voies ont ete mesurees (DOCS/lena-parcours-creatif.md 16) :
+Trois voies ont ete mesurees :
 
   - le PROMPT : aucune prise. 3 seeds x 4 formulations, l'ecart de largeur de
     bouche reste sous le plancher de la methode. PuLID verrouille l'expression en
@@ -46,11 +46,14 @@ import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-OFM = HERE.parent
-COMFY = OFM.parents[1]
-COMFY_INPUT = COMFY / "input"
-COMFY_OUTPUT = COMFY / "output"
 sys.path.insert(0, str(HERE))
+
+import env_config  # noqa: E402
+
+OFM = HERE.parent
+COMFY = env_config.comfyui_root()
+COMFY_INPUT = env_config.comfyui_input()
+COMFY_OUTPUT = env_config.comfyui_output()
 
 PREFIXE = "_LENA_EXPR_"          # copie temporaire dans ComfyUI/input
 
@@ -116,7 +119,7 @@ def appliquer(path, params, comfy_url, timeout=300):
     sortie = None
     try:
         shutil.copy(path, tmp)
-        graphe = _graphe(tmp.name, params, "OFM/PROD/_EXPR/e")
+        graphe = _graphe(tmp.name, params, "_LENA_EXPR/e")
         req = urllib.request.Request(
             comfy_url.rstrip("/") + "/prompt",
             data=json.dumps({"prompt": graphe, "client_id": "lena_expr"}).encode(),
@@ -135,7 +138,10 @@ def appliquer(path, params, comfy_url, timeout=300):
         tmp.unlink(missing_ok=True)
         if sortie is not None:
             Path(sortie).unlink(missing_ok=True)
-        d = COMFY_OUTPUT / "OFM" / "PROD" / "_EXPR"
+        # Namespace de scratch dans ComfyUI/output, sans rapport avec l'emplacement
+        # du repo (avant J1 "OFM" designait le repo lui-meme, colocalise ici ; ce
+        # n'est plus le cas depuis le fork, d'ou PREFIXE plutot que ce nom).
+        d = COMFY_OUTPUT / "_LENA_EXPR"
         if d.exists() and not any(d.iterdir()):
             d.rmdir()
 

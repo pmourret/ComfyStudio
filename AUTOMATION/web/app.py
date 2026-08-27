@@ -30,16 +30,18 @@ from aiohttp import web
 
 HERE = Path(__file__).resolve().parent
 AUTOMATION = HERE.parent
-OFM = AUTOMATION.parent
-COMFY = OFM.parents[1]
 sys.path.insert(0, str(AUTOMATION))
 
+import env_config  # noqa: E402
 import lena_batch as lb  # noqa: E402
 import mesures as mes  # noqa: E402
 import compose as composer  # noqa: E402
 import nsfw_batch  # noqa: E402
 import comfy_server  # noqa: E402
 import pose_tools  # noqa: E402
+
+OFM = AUTOMATION.parent
+COMFY = env_config.comfyui_root()
 
 BUCKETS = ("OK", "A_REVOIR", "REJET", "SANS_VISAGE", "ARCHIVE")
 SAFE_NAME = re.compile(r"^[A-Za-z0-9_.\-]+\.(png|jpg|jpeg)$")

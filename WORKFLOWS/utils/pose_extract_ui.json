@@ -165,12 +165,12 @@
         }
       ],
       "outputs": [],
-      "title": "Squelette -> OFM/INPUTS/POSE/",
+      "title": "Squelette (scratch ComfyUI, deplace ensuite vers INPUTS/POSE/)",
       "properties": {
         "Node name for S&R": "SaveImage"
       },
       "widgets_values": [
-        "OFM/INPUTS/POSE/pose_"
+        "_LENA_POSE/pose_"
       ]
     }
   ],

@@ -23,13 +23,15 @@ from pathlib import Path
 from types import SimpleNamespace
 
 HERE = Path(__file__).resolve().parent
-OFM = HERE.parent                       # .../ComfyUI/output/OFM
-COMFY = OFM.parents[1]                  # .../ComfyUI
-COMFY_OUTPUT = COMFY / "output"
-COMFY_INPUT = COMFY / "input"            # LoadImage ne lit que d'ici
 sys.path.insert(0, str(HERE))
 
+import env_config  # noqa: E402
 import ui_to_api  # noqa: E402
+
+OFM = HERE.parent
+COMFY = env_config.comfyui_root()
+COMFY_OUTPUT = env_config.comfyui_output()
+COMFY_INPUT = env_config.comfyui_input()  # LoadImage ne lit que d'ici
 
 
 # --------------------------------------------------------------------------- io
@@ -176,7 +178,7 @@ def tone_affinity(scene, tone):
 
 # ------------------------------------------------------------------- plan batch
 def build_jobs(scenes_file, args, creative=None):
-    """Construit la liste des jobs. Assemblage : DOCS/lena-parcours-creatif.md 5.3.
+    """Construit la liste des jobs.
 
     `args.intensity` absent vaut niveau 0 (SFW strict). Sur une banque non migree —
     scenes sans `wardrobe`, tenue encore en dur dans le prompt — et sans ton ni
@@ -497,8 +499,8 @@ class WorkflowRunner:
         if gr is not None:
             # `ImageAddNoise` ajoute du bruit RGB : autant de chrominance que de
             # luminance, et a plat sur toute la plage tonale. Un capteur ne fait ni
-            # l'un ni l'autre (mesure : DOCS/lena-parcours-creatif.md 11). On le
-            # met a zero et c'est AUTOMATION/grain.py qui pose le grain.
+            # l'un ni l'autre (mesure). On le met a zero et c'est
+            # AUTOMATION/grain.py qui pose le grain.
             gr["inputs"]["strength"] = float(p.get("grain_strength", 0.0))
             gr["inputs"]["seed"] = job["seed"] + 5
         sh = node("sharpen")

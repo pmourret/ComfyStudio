@@ -120,7 +120,16 @@ fichiers **avant** d'écrire, plutôt que de se fier à ce document.
 | Comment le chargeur trouve un nœud | `ComfyUI/nodes.py`, branche `comfy_entrypoint` |
 | Exemples V3 courts et lisibles | `ComfyUI/comfy_extras/nodes_morphology.py` |
 
-Le chemin de l'installation ComfyUI est aujourd'hui
-`H:/ComfyUI/ComfyUI_windows_portable/ComfyUI/`. Il est codé en dur ici comme
-il l'est encore dans plusieurs modules — c'est la dette de chemin identifiée
-à `J1` et traitée à `J2` (`ROADMAP.md`), pas un choix.
+Le chemin de l'installation ComfyUI est une configuration machine, pas une
+valeur figée dans le code (ADR-0008) : il vit dans `.env` (racine du repo,
+jamais commité — voir `.env.example`) et se lit avec
+`AUTOMATION/env_config.py` (`comfyui_root()`). Pour le retrouver en ligne de
+commande sans écrire de script :
+
+```bash
+"<COMFYUI_PYTHON>" -c "import sys; sys.path.insert(0, 'AUTOMATION'); import env_config; print(env_config.comfyui_root())"
+```
+
+où `<COMFYUI_PYTHON>` est lui-même résolu par `env_config.comfyui_python()`
+— voir ce module pour l'ordre de priorité (variable d'environnement, puis
+`.env`).

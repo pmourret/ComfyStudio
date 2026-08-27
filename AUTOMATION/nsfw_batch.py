@@ -20,14 +20,16 @@ from datetime import datetime
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-OFM = HERE.parent
-COMFY = OFM.parents[1]
-COMFY_INPUT = COMFY / "input"
-COMFY_OUTPUT = COMFY / "output"
 sys.path.insert(0, str(HERE))
 
+import env_config                # noqa: E402
 import lena_batch as lb          # noqa: E402
 import ui_to_api                 # noqa: E402
+
+OFM = HERE.parent
+COMFY = env_config.comfyui_root()
+COMFY_INPUT = env_config.comfyui_input()
+COMFY_OUTPUT = env_config.comfyui_output()
 
 WORKFLOW = "WORKFLOWS/nsfw/lena_nsfw_branch_ui.json"
 GROUPS = ("N1 - ENTREES", "N2 - MODELE NSFW LOCAL", "N3 - EDITION GUIDEE",

@@ -26,6 +26,10 @@ AUTOMATION/creative*
 *.db-wal
 *.db-shm
 
+# Configuration machine (chemin d'installation ComfyUI) — propre à ce poste,
+# jamais commitée (ADR-0008). Le modèle documenté reste .env.example.
+/.env
+
 # ---------------------------------------------------------------------------
 # Artefacts d'exécution et fichiers de travail
 # ---------------------------------------------------------------------------

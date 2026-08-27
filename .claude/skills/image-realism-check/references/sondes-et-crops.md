@@ -5,10 +5,18 @@ l'étape zoom. Rien ici n'introduit de dépendance nouvelle : tout réutilise
 ce que le projet installe déjà.
 
 Le binaire Python à utiliser est celui de ComfyUI, seul à voir `cv2`,
-`insightface` et `torch` :
-`H:/ComfyUI/ComfyUI_windows_portable/python_embeded/python.exe`. Ce chemin
-est codé en dur comme il l'est encore dans plusieurs modules — dette de
-chemin identifiée à `J1`, traitée à `J2` (`ROADMAP.md`).
+`insightface` et `torch`. Ce chemin est une configuration machine, pas une
+valeur figée (ADR-0008) : le résoudre une fois en début de session avec
+`AUTOMATION/env_config.py`, puis réutiliser la variable dans les commandes
+qui suivent plutôt que d'écrire un chemin en dur :
+
+```bash
+COMFYUI_PYTHON=$(python AUTOMATION/env_config.py --print-python)
+```
+
+(n'importe quel interpréteur système suffit pour cette seule ligne — elle ne
+fait que lire `.env` ; c'est `$COMFYUI_PYTHON` qui doit ensuite exécuter tout
+le reste, seul à avoir `cv2`/`insightface`/`torch`.)
 
 ## 1. D'abord la base, jamais la mesure
 
@@ -17,7 +25,7 @@ image, les scores et le jugement. Interroger la base **coûte zéro seconde et
 ne relit aucun PNG** — commencer par là systématiquement :
 
 ```bash
-"H:/ComfyUI/ComfyUI_windows_portable/python_embeded/python.exe" -c "
+"$COMFYUI_PYTHON" -c "
 import sys; sys.path.insert(0, 'AUTOMATION')
 import base
 cible = '<fragment du nom de fichier>'
@@ -105,7 +113,7 @@ for p in sys.argv[1:]:
     print("%-52s sharpness %7.1f  grain %5.2f  %dx%d"
           % (p.split('/')[-1], net, float(np.std(hp)), img.shape[1], img.shape[0]))
 EOF
-"H:/ComfyUI/ComfyUI_windows_portable/python_embeded/python.exe" "$SCRATCH/probe.py" <image> <image_de_reference>
+"$COMFYUI_PYTHON" "$SCRATCH/probe.py" <image> <image_de_reference>
 ```
 
 Repères relevés avec **cette sonde**, à 1080 px, sur l'univers
@@ -130,8 +138,10 @@ nouvelle, et la même vision du visage que le verrou d'identité.
 ```bash
 cat > "$SCRATCH/zoom.py" <<'EOF'
 import sys, os, cv2
+sys.path.insert(0, "AUTOMATION")
+import env_config
 from insightface.app import FaceAnalysis
-ROOT = r"H:\ComfyUI\ComfyUI_windows_portable\ComfyUI\models\insightface"
+ROOT = str(env_config.insightface_root())
 src, out = sys.argv[1], sys.argv[2]
 os.makedirs(out, exist_ok=True)
 img = cv2.imread(src); H, W = img.shape[:2]
@@ -156,7 +166,7 @@ for name, (b, d) in {"TOP": (0, .34), "MID": (.33, .67), "BOTTOM": (.66, 1)}.ite
     cv2.imwrite(os.path.join(out, base + "_" + name + ".png"), img[int(b * H):int(d * H)])
     print(name, "OK")
 EOF
-"H:/ComfyUI/ComfyUI_windows_portable/python_embeded/python.exe" "$SCRATCH/zoom.py" <image> "$SCRATCH/crops"
+"$COMFYUI_PYTHON" "$SCRATCH/zoom.py" <image> "$SCRATCH/crops"
 ```
 
 Écrire les crops dans le répertoire de travail temporaire de la session, pas

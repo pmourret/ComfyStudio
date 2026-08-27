@@ -22,10 +22,15 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+
+import env_config  # noqa: E402
+
 OFM = HERE.parent
-PORTABLE = OFM.parents[2]                     # ...\ComfyUI_windows_portable
-PYTHON = PORTABLE / "python_embeded" / "python.exe"
-MAIN = PORTABLE / "ComfyUI" / "main.py"
+COMFY = env_config.comfyui_root()
+PORTABLE = COMFY.parent                       # ...\ComfyUI_windows_portable
+PYTHON = env_config.comfyui_python()
+MAIN = COMFY / "main.py"
 
 DEFAULT_URL = "http://127.0.0.1:8188"
 

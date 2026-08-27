@@ -39,14 +39,16 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 AUTOMATION = HERE.parent
-OFM = AUTOMATION.parent
-COMFY = OFM.parents[1]
-COMFY_INPUT = COMFY / "input"
-COMFY_OUTPUT = COMFY / "output"
 sys.path.insert(0, str(AUTOMATION))
 
+import env_config                # noqa: E402
 import lena_batch as lb          # noqa: E402
 import ui_to_api                 # noqa: E402
+
+OFM = AUTOMATION.parent
+COMFY = env_config.comfyui_root()
+COMFY_INPUT = env_config.comfyui_input()
+COMFY_OUTPUT = env_config.comfyui_output()
 
 BANC = OFM / "WORKFLOWS/experiments/lena_pose_cn_test_ui.json"
 EXTRACT = OFM / "WORKFLOWS/utils/pose_extract_ui.json"

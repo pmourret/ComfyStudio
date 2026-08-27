@@ -12,6 +12,19 @@
 
 set -e
 
+# Resolve the ComfyUI python once (ADR-0008): wf_check.py itself only needs
+# the standard library, but a bare `python` on PATH is whichever interpreter
+# happens to come first (this machine has four) — using the same interpreter
+# as every other module keeps validation deterministic instead of "worked by
+# accident". env_config.py has no dependency of its own, so any system
+# python can run this one bootstrap call.
+COMFYUI_PYTHON=$(python AUTOMATION/env_config.py --print-python 2>/dev/null || true)
+if [ -z "$COMFYUI_PYTHON" ] || [ ! -f "$COMFYUI_PYTHON" ]; then
+  echo "COMMIT BLOCKED — could not resolve COMFYUI_PYTHON."
+  echo "Copy .env.example to .env at the repo root and set COMFYUI_ROOT."
+  exit 1
+fi
+
 staged_files=$(git diff --cached --name-only --diff-filter=ACM)
 
 # 1. Block personal character data from ever being committed.
@@ -69,7 +82,7 @@ if [ -n "$workflow_files" ]; then
     fi
 
     echo "Validating workflow: $f"
-    if ! python AUTOMATION/wf_check.py "${extra[@]}" "$f"; then
+    if ! "$COMFYUI_PYTHON" AUTOMATION/wf_check.py "${extra[@]}" "$f"; then
       echo "COMMIT BLOCKED — wf_check.py failed on $f"
       echo "Fix the workflow, or run 'wf_check.py --essai $f' for the ComfyUI-side error."
       exit 1

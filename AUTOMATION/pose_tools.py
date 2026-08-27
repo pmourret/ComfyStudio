@@ -8,21 +8,25 @@ photo source ne persiste JAMAIS — pas dans INPUTS/, pas ailleurs dans le repo.
 Elle transite par ComfyUI/input/ le temps de l'extraction et en repart quoi
 qu'il arrive (succes ou echec).
 """
+import shutil
 import sys
 import time
 import uuid
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-OFM = HERE.parent
-COMFY = OFM.parents[1]
-COMFY_INPUT = COMFY / "input"
-POSE_DIR = OFM / "INPUTS" / "POSE"
-EXTRACT_WF = OFM / "WORKFLOWS" / "utils" / "pose_extract_ui.json"
-
 sys.path.insert(0, str(HERE))
+
+import env_config                # noqa: E402
 import lena_batch as lb          # noqa: E402
 import ui_to_api                 # noqa: E402
+
+OFM = HERE.parent
+COMFY = env_config.comfyui_root()
+COMFY_INPUT = env_config.comfyui_input()
+COMFY_OUTPUT = env_config.comfyui_output()
+POSE_DIR = OFM / "INPUTS" / "POSE"
+EXTRACT_WF = OFM / "WORKFLOWS" / "utils" / "pose_extract_ui.json"
 
 FORMATS_ACCEPTES = (".png", ".jpg", ".jpeg", ".webp")
 
@@ -94,16 +98,19 @@ def extraire(photo_bytes, nom_fichier_original, comfy_url, timeout=180):
             raise ExtractionError("aucun squelette produit — la photo ne "
                                   "montre peut-être personne de détectable")
 
-        # Le SaveImage du graphe ecrit DEJA dans INPUTS/POSE/ : son prefixe
-        # "OFM/INPUTS/POSE/pose_" est resolu par ComfyUI relativement a son
-        # propre dossier output, qui CONTIENT OFM/ (toute l'arborescence du
-        # projet vit sous ComfyUI/output/OFM). Rien a deplacer.
-        nom = images[-1]["filename"]
-        produit = POSE_DIR / nom
-        if not produit.exists():
+        # Le SaveImage du graphe ecrit dans un namespace de scratch a l'interieur
+        # de ComfyUI/output (prefixe "_LENA_POSE/pose_") — sans rapport avec
+        # l'emplacement du repo (avant J1 ce prefixe etait "OFM/INPUTS/POSE/" et
+        # ComfyUI/output CONTENAIT reellement OFM/ ; ce n'est plus le cas depuis
+        # le fork). Il faut donc deplacer le fichier vers la vraie POSE_DIR.
+        im = images[-1]
+        source = COMFY_OUTPUT / im.get("subfolder", "") / im["filename"]
+        if not source.exists():
             raise ExtractionError(
-                f"ComfyUI dit avoir produit {nom} mais il n'est pas dans "
-                f"INPUTS/POSE/ — verifier le prefixe de sortie du graphe")
+                f"ComfyUI dit avoir produit {im['filename']} mais il est "
+                f"introuvable a {source} — verifier le prefixe de sortie du graphe")
+        nom = im["filename"]
+        shutil.move(str(source), str(POSE_DIR / nom))
         return nom
     finally:
         # La photo source ne doit JAMAIS survivre a cet appel, succes ou
