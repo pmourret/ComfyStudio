@@ -252,7 +252,7 @@ def execute_jobs(jobs, cfg, checker, batch_id, character_id="lena", runner=None,
     un crochet, rien de plus. Une exception dans le crochet ne fait jamais echouer
     le batch : l'image SFW est deja produite et rangee.
     """
-    runner = runner or WorkflowRunner(cfg)
+    runner = runner or WorkflowRunner(cfg, character_id)
     on_event = on_event or (lambda kind, **kw: None)
     rows, stats = [], {"OK": 0, "A_REVOIR": 0, "REJET": 0,
                        "SANS_VISAGE": 0, "ERREUR": 0}

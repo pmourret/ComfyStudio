@@ -8,9 +8,11 @@ import time
 import urllib.error
 import urllib.request
 
+import identity
 import ui_to_api
 
 from . import OFM, COMFY_INPUT, load_json
+from .prompt import character_universe
 
 
 # ----------------------------------------------------- dialogue avec ComfyUI
@@ -52,8 +54,14 @@ def wait_prompt(url, prompt_id, timeout=900):
 
 # ---------------------------------------------------------------- graphe ComfyUI
 class WorkflowRunner:
-    def __init__(self, cfg):
+    def __init__(self, cfg, character_id="lena"):
         self.cfg = cfg
+        self.character_id = character_id
+        # Le verrou d'identite est choisi par l'UNIVERS du personnage (CLAUDE.md
+        # §4), pas par le personnage : tous les personnages d'un univers
+        # partagent la meme implementation, seuls config.json/`identity` et
+        # `base_gelee` changent. J5.
+        self.identity = identity.for_universe(character_universe(character_id))
         self.url = cfg["comfy_url"].rstrip("/")
         self.ui = load_json(OFM / cfg["workflow"])
         self.obj = ui_to_api.fetch_object_info(self.url)
@@ -87,6 +95,10 @@ class WorkflowRunner:
             "export_scale": ("ImageScale", "Taille de publication"),
             "grain_node": ("ImageAddNoise", None),
             "sharpen": ("ImageCASharpening+", None),
+            # roles du verrou d'identite de l'univers (J5). Resolus ici de
+            # facon tolerante ; c'est identity.apply() qui refuse si un role
+            # obligatoire manque dans le graphe de ce personnage.
+            **self.identity.REQUIRED_ROLES,
             # groupe 13 - POSE CONTROLNET, bypasse par defaut dans le graphe.
             # A/B mesure : DOCS/lena-pose-controlnet.md. Absent d'un workflow
             # plus ancien -> le runner s'adapte, comme les autres roles
@@ -189,6 +201,11 @@ class WorkflowRunner:
             ap["strength"] = float(p.get("pose_strength", 0.9))
             ap["start_percent"] = 0.0
             ap["end_percent"] = float(p.get("pose_end", 0.65))
+
+        # Verrou d'identite de l'univers : poids + asset de reference du
+        # personnage, injectes dans le graphe converti (J5). En dernier, une
+        # fois tout le reste du graphe pose.
+        self.identity.apply(api, self.roles, cfg, job)
         return api
 
     def queue(self, api):

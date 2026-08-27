@@ -51,7 +51,7 @@ def main():
             print(f"       {j['prompt'][:150]}...")
         return 0
 
-    runner = WorkflowRunner(cfg)
+    runner = WorkflowRunner(cfg, character_id)
     p = cfg["preset"]
     log(f"prereglage : guidance {p['guidance']} | refiner "
         f"{'ON ' + str(p['refiner_denoise']) if p['refiner'] else 'OFF'} | "
