@@ -147,12 +147,14 @@ prouvent la généralisation — pas juste Léna renommée.
   (`PROD/<X>/`, journal, vignettes, export, `/img`), axe SFW/NSFW `space`,
   `UNDO` non scopé, branding de l'en-tête.
 
-**J4 — Registre univers + registre personnage**
+**J4 — Registre univers + registre personnage** ✅ *(terminé 2026-08-27)*
 - Registre univers : id, famille de modèle / mécanisme d'identité, panel
   d'outils
 - Univers `instagram-influenceur` (Flux + PuLID) ← Léna, portée telle quelle
-- Univers `rpg-personnage` (SDXL/Pony + LoRA/IPAdapter) ← Abyssiaelle,
-  première implémentation réelle
+- Univers `rpg-personnage` (SDXL/Pony + LoRA/IPAdapter) ← entrée de registre
+  seule en J4 (prouve que le registre généralise — famille de modèle
+  distincte) ; l'implémentation d'identité est J5, l'onboarding d'Abyssiaelle
+  est J6
 - Registre personnage : univers associé, type(s) de contenu actifs
   (registre de création), NSFW on/off (off par défaut)
 - Le registre de création liste les types de contenu (image, vidéo, voix,
@@ -161,6 +163,23 @@ prouvent la généralisation — pas juste Léna renommée.
   `vidéo` et `voix` existent comme types déclarés mais inactifs, pour les
   deux univers (influenceur et RPG-personnage), afin de ne pas avoir à
   retoucher ce registre quand ils s'activeront en V2
+- Résultat : 5 commits thématiques. `UNIVERS/<id>/{universe,tools}.json`
+  versionnés + `AUTOMATION/universe.py` (scan) ; `CHARACTERS/<id>/
+  character.json` git-ignoré + `runner/prompt.py` (`load_character`,
+  `character_universe`, `content_type_active`) ; `shared_state.character()`
+  refuse en 400 un personnage sans registre ou pointant vers un univers
+  inconnu. Interrupteur NSFW déplacé de `config.json` vers `character.json`
+  (`is_armed(character_id)`, enfilé dans `NsfwRunner`/`editer`/`run`).
+  `/api/character` + `/api/universe/tools` ; en-tête = nom lisible + tag
+  univers (clôt J3 F2). ADR-0010. `test_universe_registry.py` +
+  `test_character_registry.py` (§11 : isolation univers prouvée). Suites
+  Python (10) et JS (5) vertes. Détail : `DOCS/handoffs/2026-08-27-j4-
+  registres.md`.
+- Hors périmètre, assumé pour J5/J6 : `AUTOMATION/identity/` (câblage des
+  chaînes `model_family`/`identity`/`posing` à du code), onboarding
+  d'Abyssiaelle (`CHARACTERS/abyssiaelle/`, `build_jobs`, test byte-exact),
+  panel d'outils rendu à l'écran (aucun outil dédié à peupler), MCP
+  conscient du registre (`mcp_server.py` reste `"lena"` en dur — V3).
 
 **J5 — Style figé + verrou d'identité par univers**
 - Style de sortie choisi et figé à la création du personnage, non
