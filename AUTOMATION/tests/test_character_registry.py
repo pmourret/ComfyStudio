@@ -26,6 +26,7 @@ sys.path.insert(0, str(AUTOMATION))
 
 import runner as lb          # noqa: E402
 import shared_state as ss    # noqa: E402
+import nsfw_batch            # noqa: E402
 from aiohttp import web      # noqa: E402
 
 PROBE = OFM / "CHARACTERS" / "probe"
@@ -126,6 +127,33 @@ try:
     for mauvais in ("../lena", "Lena", "does-not-exist", "a b"):
         verifie(char_refuse(mauvais) is not None,
                 f"id invalide/inconnu {mauvais!r} -> refuse")
+
+    # ------------------------------------------ [4] interrupteur NSFW = registre
+    print("\n[4] l'armement NSFW se lit dans character.json, plus dans config.json")
+    lena_cfg = json.loads((OFM / "CHARACTERS" / "lena" / "config.json")
+                          .read_text(encoding="utf-8"))
+    verifie("enabled" not in lena_cfg.get("nsfw", {}),
+            "config.json ne porte plus nsfw.enabled")
+    verifie(nsfw_batch.is_armed("lena") is bool(
+        lb.load_character("lena").get("nsfw")),
+        "is_armed('lena') suit character.json")
+
+    # probe est desarme (nsfw:false) pendant que lena reste arme -> pas de melange
+    verifie(nsfw_batch.is_armed("probe") is False,
+            "is_armed('probe') False (nsfw:false dans son registre)")
+    try:
+        nsfw_batch.check_armed("probe")
+        verifie(False, "check_armed('probe') aurait du lever Disarmed")
+    except nsfw_batch.Disarmed:
+        verifie(True, "check_armed('probe') leve Disarmed")
+
+    # armer probe en basculant SON registre ne touche pas lena
+    pj = PROBE / "character.json"
+    data = json.loads(pj.read_text(encoding="utf-8"))
+    data["nsfw"] = True
+    pj.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    verifie(nsfw_batch.is_armed("probe") is True,
+            "is_armed('probe') True apres bascule de son propre character.json")
 
     print("\n" + "=" * 70)
     print("tout est vert" if not KO else f"{KO} ECHEC(S)")

@@ -248,7 +248,7 @@ async def api_creative(request):
     creative = lb.load_creative(cid)
     data = ss.scenes_data(cid)
     configuration = ss.cfg(cid)
-    armed = nsfw_batch.is_armed(configuration)
+    armed = nsfw_batch.is_armed(cid)
     # compte une seule fois : la sonde disque est la meme pour tous les paliers
     n_sources = len(nsfw_batch.sources_disponibles(configuration)) if armed else 0
     paliers = []

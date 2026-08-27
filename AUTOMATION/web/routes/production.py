@@ -86,7 +86,7 @@ def guard_intensity(body, character="lena"):
     exige = palier.get("requires")
     if exige == "confirm" and not body.get("confirm_intensity"):
         return f"le niveau « {palier['label']} » demande une confirmation"
-    if exige == "armed" and not nsfw_batch.is_armed(ss.cfg(character)):
+    if exige == "armed" and not nsfw_batch.is_armed(character):
         return f"le niveau « {palier['label']} » demande la branche NSFW armee"
     if palier.get("pipeline") == "flux+edit" and not (
             body.get("edit_instruction") or "").strip():
@@ -104,8 +104,9 @@ def guard_intensity(body, character="lena"):
 
 
 # Reglages d'edition NSFW que le panneau a le droit de surcharger. Liste BLANCHE :
-# `enabled` en est volontairement absent, l'armement de la branche est un rituel
-# d'interface et ne doit pas pouvoir arriver par un corps de requete.
+# l'armement de la branche n'y figure pas (il vit dans character.json depuis J4,
+# et reste un rituel d'interface qui ne doit pas pouvoir arriver par un corps de
+# requete de reglages).
 # Bornes cote serveur, en plus de la liste blanche. `max_pixels` sans plafond
 # partait directement dans la surface de travail de Qwen.
 NSFW_SURCHARGEABLES = {"steps": (1, 40), "cfg": (0.5, 8.0),
@@ -330,10 +331,10 @@ def chainage_nsfw(configuration, use_qc, batch_id, character="lena"):
             ss.push_log(f"{dest.name} : passe SFW {verdict}, édition non enchaînée")
             return
         if etat["runner"] is None:               # construit une seule fois
-            etat["runner"] = nsfw_batch.NsfwRunner(configuration)
+            etat["runner"] = nsfw_batch.NsfwRunner(configuration, character)
         result, ligne = nsfw_batch.editer(
             dest, instruction, configuration, ss.CHECKER if use_qc else None,
-            runner=etat["runner"], batch_id=batch_id)
+            runner=etat["runner"], batch_id=batch_id, character_id=character)
         if ligne:
             etat["rows"].append(ligne)
             nsfw_batch.journal([ligne])
@@ -404,7 +405,7 @@ def _lancer(travail):
     asyncio.create_task(runner())
 
 
-def edition_blocking(sources, instruction, configuration, use_qc):
+def edition_blocking(sources, instruction, configuration, use_qc, character="lena"):
     """Edition d'images deja validees, sur le meme STATE que la production."""
     if use_qc:
         ss.checker_partage(configuration)
@@ -429,7 +430,8 @@ def edition_blocking(sources, instruction, configuration, use_qc):
 
     return nsfw_batch.run(sources, instruction, configuration,
                           ss.CHECKER if use_qc else None, on_event,
-                          should_stop=lambda: ss.STATE["stop"])[1]
+                          should_stop=lambda: ss.STATE["stop"],
+                          character_id=character)[1]
 
 
 def demarrer_edition(sources, instruction, configuration, use_qc, niveau,
@@ -445,7 +447,8 @@ def demarrer_edition(sources, instruction, configuration, use_qc, niveau,
     ss.push_log(f"instruction : {instruction[:100]}")
     for a in nsfw_batch.alertes_instruction(instruction):
         ss.push_log(f"  ! {a}")
-    _lancer(lambda: edition_blocking(sources, instruction, configuration, use_qc))
+    _lancer(lambda: edition_blocking(sources, instruction, configuration, use_qc,
+                                     character))
     return batch_id
 
 
@@ -561,7 +564,7 @@ async def api_decline(request):
         # curseur principal : confirmation a montrer, armement a proposer
         # plutot que de laisser cliquer puis echouer sur un toast generique
         configuration = ss.cfg(cid)
-        arme = nsfw_batch.is_armed(configuration)
+        arme = nsfw_batch.is_armed(cid)
         verrouille = (suivant is not None and suivant.get("requires") == "armed"
                       and not arme)
         # L'edition ne monte pas d'un cran : elle part de l'image affichee, quel
@@ -749,21 +752,26 @@ async def api_nsfw_instructions(request):
 
 @routes.post("/api/nsfw/arm")
 async def api_nsfw_arm(request):
-    """Armement explicite : il faut recopier le mot exact, pas un simple clic."""
+    """Armement explicite : il faut recopier le mot exact, pas un simple clic.
+
+    Ecrit l'interrupteur dans le registre personnage (character.json, cle
+    `nsfw`) depuis J4 (ADR-0010) — plus dans config.json, qui ne garde que les
+    reglages de workflow NSFW.
+    """
     body = await request.json()
     cid = ss.character(request)
-    target = lb.config_path(cid)
-    configuration = ss.cfg(cid)
+    target = lb.character_json_path(cid)
+    registre = lb.load_character(cid)
     if body.get("arm"):
         if (body.get("confirm") or "").strip().upper() != "ARMER":
             return web.json_response(
                 {"ok": False, "erreur": "confirmation manquante"}, status=400)
-        configuration.setdefault("nsfw", {})["enabled"] = True
+        registre["nsfw"] = True
         ss.push_log("branche NSFW ARMEE")
     else:
-        configuration.setdefault("nsfw", {})["enabled"] = False
+        registre["nsfw"] = False
         ss.push_log("branche NSFW desarmee")
     shutil.copy(target, target.with_suffix(".json.bak"))
-    target.write_text(json.dumps(configuration, ensure_ascii=False, indent=2),
+    target.write_text(json.dumps(registre, ensure_ascii=False, indent=2),
                       encoding="utf-8")
-    return web.json_response({"ok": True, "armed": configuration["nsfw"]["enabled"]})
+    return web.json_response({"ok": True, "armed": registre["nsfw"]})

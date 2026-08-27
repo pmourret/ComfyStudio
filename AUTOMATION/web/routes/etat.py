@@ -122,8 +122,9 @@ async def api_journal(request):
 
 @routes.get("/api/nsfw/state")
 async def api_nsfw_state(request):
-    configuration = ss.cfg(ss.character(request))
-    armed = nsfw_batch.is_armed(configuration)
+    cid = ss.character(request)
+    configuration = ss.cfg(cid)
+    armed = nsfw_batch.is_armed(cid)
     counts = {}
     for b in ("OK", "A_REVOIR", "REJET"):
         d = ss.bucket_dir(b, "nsfw")

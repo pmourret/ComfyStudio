@@ -6,10 +6,11 @@ conformes — on applique une instruction d'edition avec le modele local
 Qwen-Rapid-AIO-NSFW, puis PuLID + FaceDetailer re-rendent le visage depuis la
 base gelee (voir le commentaire de GROUPS plus bas : ReActor a ete retire).
 
-GARDE-FOU D'ARMEMENT. Tant que config.json ne porte pas nsfw.enabled = true,
-toute tentative d'execution leve Disarmed. L'armement est une decision explicite
-de l'utilisateur, prise dans l'interface ; elle a ete prise le 23/08/2026 et se
-revoque d'un clic.
+GARDE-FOU D'ARMEMENT. Tant que le registre personnage
+(CHARACTERS/<id>/character.json, cle `nsfw`) ne vaut pas true, toute tentative
+d'execution leve Disarmed. L'armement est une decision explicite de
+l'utilisateur, prise dans l'interface ; elle a ete prise le 23/08/2026 et se
+revoque d'un clic. Deplace de config.json vers le registre en J4 (ADR-0010).
 """
 import random
 import re
@@ -110,12 +111,13 @@ class Disarmed(RuntimeError):
     """Levee quand la branche n'est pas armee."""
 
 
-def is_armed(cfg):
-    return bool(cfg.get("nsfw", {}).get("enabled"))
+def is_armed(character_id="lena"):
+    """Etat de l'interrupteur NSFW du personnage, lu dans le registre (J4)."""
+    return bool(lb.load_character(character_id).get("nsfw"))
 
 
-def check_armed(cfg):
-    if not is_armed(cfg):
+def check_armed(character_id="lena"):
+    if not is_armed(character_id):
         raise Disarmed("branche NSFW desarmee : elle doit etre armee explicitement "
                        "dans l'interface avant toute execution")
 
@@ -166,8 +168,9 @@ def resoudre_source(nom, cfg=None):
 
 
 class NsfwRunner:
-    def __init__(self, cfg):
-        check_armed(cfg)
+    def __init__(self, cfg, character_id="lena"):
+        check_armed(character_id)
+        self.character_id = character_id
         self.cfg = cfg
         self.url = cfg["comfy_url"].rstrip("/")
         self.ui = lb.load_json(OFM / cfg.get("nsfw", {}).get("workflow", WORKFLOW))
@@ -262,7 +265,7 @@ def _size_for(path, cfg, fmt=None):
 
 
 def editer(src, instruction, cfg, checker=None, runner=None, batch_id=None,
-           seed=None):
+           seed=None, character_id="lena"):
     """Edite UNE image et range la sortie. Retourne (result, ligne_de_journal).
 
     `src` est un chemin quelconque : c'est ce qui permet a la generation de niveau
@@ -272,7 +275,7 @@ def editer(src, instruction, cfg, checker=None, runner=None, batch_id=None,
     Une seule implementation de l'edition : l'onglet Avance (run) et
     l'enchainement automatique du curseur passent tous les deux par ici.
     """
-    check_armed(cfg)
+    check_armed(character_id)
     if not instruction.strip():
         raise ValueError("instruction d'edition vide")
     # signale, ne bloque pas : voir alertes_instruction. Ici plutot que chez
@@ -281,7 +284,7 @@ def editer(src, instruction, cfg, checker=None, runner=None, batch_id=None,
     for a in alertes_instruction(instruction):
         lb.log(f"   instruction : {a}")
     src = Path(src)
-    runner = runner or NsfwRunner(cfg)
+    runner = runner or NsfwRunner(cfg, character_id)
     batch_id = batch_id or datetime.now().strftime("%Y%m%d_%H%M%S")
     seed = random.randint(1, 2 ** 48) if seed is None else seed
     result = {"verdict": "ERREUR", "score": None, "fichier": "", "duree": 0.0,
@@ -327,13 +330,14 @@ def editer(src, instruction, cfg, checker=None, runner=None, batch_id=None,
     return result, ligne
 
 
-def run(sources, instruction, cfg, checker=None, on_event=None, should_stop=None):
+def run(sources, instruction, cfg, checker=None, on_event=None, should_stop=None,
+        character_id="lena"):
     """sources : noms de fichiers editables (voir `resoudre_source`)."""
-    check_armed(cfg)
+    check_armed(character_id)
     if not instruction.strip():
         raise ValueError("instruction d'edition vide")
     on_event = on_event or (lambda kind, **kw: None)
-    runner = NsfwRunner(cfg)
+    runner = NsfwRunner(cfg, character_id)
     batch_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     rows, stats = [], {"OK": 0, "A_REVOIR": 0, "REJET": 0, "SANS_VISAGE": 0, "ERREUR": 0}
 
@@ -345,7 +349,8 @@ def run(sources, instruction, cfg, checker=None, on_event=None, should_stop=None
             stats["ERREUR"] += 1
             continue
         on_event("start", index=i, total=len(sources), source=name)
-        result, ligne = editer(src, instruction, cfg, checker, runner, batch_id)
+        result, ligne = editer(src, instruction, cfg, checker, runner, batch_id,
+                               character_id=character_id)
         if ligne:
             rows.append(ligne)
             stats[result["verdict"]] = stats.get(result["verdict"], 0) + 1
