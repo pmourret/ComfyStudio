@@ -1,18 +1,26 @@
 ---
 name: nouvel-univers
-description: A utiliser pour creer un nouvel univers sur la plateforme (famille de modele, mecanisme d'identite, panel d'outils initial) - chantier plus lourd et plus rare que l'onboarding d'un personnage, a ne lancer que si ROADMAP.md le prevoit.
+description: A utiliser pour creer un nouveau pack (ex-« univers ») - famille de modele, mecanisme d'identite, graphe de production, entree de resolution.json, character_defaults.json, panel d'outils. Chantier plus lourd et plus rare que l'onboarding d'un personnage, a ne lancer que si ROADMAP.md le prevoit.
 ---
 
-# Créer un nouvel univers
+# Créer un nouveau pack (« univers »)
+
+Depuis ADR-0012, ce qu'on appelait **univers** est un **pack** : famille de
+modèle + mécanisme d'identité + graphe de production + panel d'outils,
+servant un ou plusieurs **types de personnage**. Le dossier reste `UNIVERS/`
+(renommage `UNIVERS/`→`PACKS/` hors périmètre). Le personnage ne choisit
+jamais son pack — il se **déduit** de `(type, style)` par
+`universe.resolve()` / `UNIVERS/resolution.json`.
 
 ## Avant de commencer
 
-Créer un univers est un chantier plus lourd que d'onboarder un personnage
+Créer un pack est un chantier plus lourd que d'onboarder un personnage
 (skill `nouveau-personnage`) : ça engage une famille de modèle et un
 mécanisme d'identité pour tous les personnages qui en dépendront ensuite.
-Vérifier dans `ROADMAP.md` que ce nouvel univers y est bien prévu avant de
-le lancer — ne pas en créer un pour un besoin ponctuel qui pourrait plutôt
-être un outil (skill `nouvel-outil`) à l'intérieur d'un univers existant.
+Vérifier dans `ROADMAP.md` que ce pack y est bien prévu — ne pas en créer un
+pour un besoin ponctuel qui serait plutôt un outil (skill `nouvel-outil`)
+dans un pack existant, ou juste un **monde** de plus (`WORLDS/<id>.json`) sur
+un pack existant.
 
 ## Étape 1 — Choisir la famille de modèle
 
@@ -74,27 +82,55 @@ univers plutôt que de supposer que celui d'un autre univers fonctionne.
 ## Étape 5 — Structure et enregistrement
 
 ```
-UNIVERS/<nom>/
-  universe.json    # id, label, model_family, identity, posing, output_styles
-  tools.json       # panel d'outils (étape 4)
+UNIVERS/<pack>/
+  universe.json            # id, label, model_family, identity, posing,
+                            #   output_styles, types, workflow
+  character_defaults.json  # gabarit stampé par le wizard dans un nouveau
+                            #   CHARACTERS/<id>/ (config aux défauts du pack)
+  tools.json               # panel d'outils (étape 4)
+UNIVERS/resolution.json    # règles (type, style) -> pack + un default par type
 ```
 
 `universe.json` (versionné — aucune donnée personnelle, cf. ADR-0010) :
 - `identity` : nom de l'implémentation `AUTOMATION/identity/` (étape 2).
 - `posing` : identifiant du modèle ControlNet compatible (étape 3), ou `null`.
-- `output_styles` : **map** `{ style: { "prompt_add": str, "checkpoint": str|null } }` —
-  les styles que l'univers peut produire et leur effet sur le pipeline. Le
-  style d'un personnage est choisi dans cette map et **figé à sa création**
-  (`CLAUDE.md` §3, ADR-0011). Un univers mono-style met `prompt_add: ""` et
+- `output_styles` : **map** `{ style: { "prompt_add": str, "checkpoint": str|null } }`.
+  Le style d'un personnage y est choisi et **figé à sa création** (`CLAUDE.md`
+  §3, ADR-0011/0012). Un pack mono-style met `prompt_add: ""` /
   `checkpoint: null` (effet nul).
+- `types` : **liste** des types de personnage que ce pack sert (ADR-0012).
+  1-1 en V1, mais une liste dès le premier jour.
+- `workflow` : chemin du graphe de **production** du pack. Le wizard y
+  **attache** un nouveau personnage (`config.json` / `workflow`) — jamais un
+  fichier de graphe par personnage (`CLAUDE.md` §8.11).
 
-Le scan de `UNIVERS/` découvre l'univers — pas de fichier registre central.
+`UNIVERS/resolution.json` : ajouter une règle `{ type, style, pack }` par
+couple exercé, **plus un `default` par type**. Sans règle applicable,
+`universe.resolve()` lève `UnresolvedPackError` — jamais de repli silencieux
+(ADR-0012).
 
-## Étape 6 — Premier personnage comme validation
+`character_defaults.json` : `comfy_url`, `identity` (les `DEFAULTS` de
+l'impl), `preset` / `formats` / `export_sizes` / `qc`, `scenes_seed`,
+`creative_seed`. `identity` et `qc` portent `measured: false` : le wizard les
+stampe, la mesure par personnage (skill `nouveau-personnage`, étapes 2 et 4)
+les remplace.
 
-Un univers nouvellement créé n'est considéré opérationnel qu'une fois son
-premier personnage onboardé avec succès (skill `nouveau-personnage`) et sa
-première production validée. Si l'onboarding demande de modifier autre
-chose que la config et les assets de ce personnage, l'univers n'est pas
-encore généralisé correctement — corriger avant de considérer le chantier
-terminé.
+Le scan de `UNIVERS/` découvre le pack — pas de fichier registre central.
+
+## Étape 6 — Un monde compatible
+
+Le wizard exige **au moins un monde** dont `compatible_families` inclut la
+famille de ce pack (`WORLDS/<id>.json` : `id`, `label`, `compatible_families`,
+`suggested_styles`, `assets`, `tone`, `ui_skin_token`, `starter_scenes`). Un
+monde n'invente ni la famille ni le mécanisme d'identité — il apporte des
+assets qui entrent dans le rendu, à **mesurer** comme le reste (un monde
+livré avec des `assets` placeholder est une dette déclarée, pas un monde
+prêt).
+
+## Étape 7 — Premier personnage comme validation
+
+Un pack n'est opérationnel qu'une fois son premier personnage onboardé
+(skill `nouveau-personnage`) et sa première production validée. Si
+l'onboarding demande de modifier autre chose que la config et les assets de
+ce personnage — ou que la fiche du wizard —, le pack n'est pas encore
+généralisé : corriger avant de conclure.

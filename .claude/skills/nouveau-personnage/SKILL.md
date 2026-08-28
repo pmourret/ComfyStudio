@@ -1,34 +1,57 @@
 ---
 name: nouveau-personnage
-description: A utiliser pour onboarder un nouveau personnage dans un univers deja existant de la plateforme - creation de son identite, de sa structure de dossiers, de sa config mesuree et de son enregistrement dans le registre personnage.
+description: A utiliser pour onboarder un nouveau personnage sur un pack (ex-univers) deja existant - mesure du verrou d'identite, assembleur de prompt et son test a l'octet pres, curation de la banque : tout ce que le wizard « nouveau personnage » ne fait pas.
 ---
 
 # Onboarder un nouveau personnage
 
+Depuis J7bis, le **wizard « nouveau personnage »** (écran `#wizard`,
+`create_character`) fait le scaffolding : parcours `type → style → monde →
+base d'identité → écriture de la fiche`, `config.json` aux **défauts du
+pack** (`UNIVERS/<pack>/character_defaults.json`). Ce skill reste la
+référence pour tout ce que le wizard **ne fait pas** : mesurer le verrou
+d'identité pour ce visage, écrire l'assembleur de prompt et son test à
+l'octet près, curer la banque de scènes. Un personnage sorti du wizard est
+**lançable mais non calibré** (`identity` et `qc` portent `measured: false`).
+
+## Les quatre axes (ADR-0012)
+
+Trois choix humains, figés à la création : **type de personnage**, **style
+de sortie**, **monde**. Le **pack** (famille de modèle + mécanisme
+d'identité + graphe de production — ex-« univers ») n'est **pas choisi** :
+il se déduit de `(type, style)` par `universe.resolve()` /
+`UNIVERS/resolution.json`. En changer l'un des trois = créer un autre
+personnage.
+
 ## Prérequis
 
-L'univers du personnage doit déjà exister (registre univers, implémentation
-`identity/` correspondante, panel d'outils). Si ce n'est pas le cas, c'est
-le skill `nouvel-univers` qu'il faut suivre d'abord — ce skill-ci ne crée
-jamais de nouvel univers en cours de route.
+Le pack visé doit déjà exister (`universe.json` avec `identity` / `workflow`
+/ `types`, implémentation `AUTOMATION/identity/` correspondante,
+`character_defaults.json`, panel d'outils) **et au moins un monde
+compatible** (`WORLDS/<id>.json` dont `compatible_families` inclut la
+famille du pack). Sinon, suivre `nouvel-univers` d'abord — ce skill-ci ne
+crée jamais de pack ni de monde en cours de route.
 
 ## Étape 1 — Base personnage (identité de référence)
 
-Portrait de référence, composition centrée, généré depuis la famille de
-modèle de l'univers. Le principe fondateur de la plateforme s'applique sans
+Portrait de référence, composition centrée. Deux voies, toutes deux dans le
+wizard : **fournie** (upload d'une image) ou **générée** — un portrait
+produit par le graphe du pack, **verrou d'identité bypassé** puisqu'aucune
+référence n'existe encore (`base_portrait=True`,
+`AUTOMATION/base_portrait.py`). Le principe fondateur s'applique sans
 exception : **personnage fictif entièrement généré — jamais basé sur une
-personne réelle, aucune photo de tiers en entrée de cette étape.**
+personne réelle, aucune photo de tiers**, y compris à l'upload.
 
-Une fois validée : geler la sortie en fichier et la recharger comme
-référence pour tout le reste. Ne jamais régénérer la base personnage à
+Le candidat retenu est gelé dans `ComfyUI/input/` sous `<CID>_BASE.<ext>` et
+inscrit dans `config.json` / `base_gelee`. Ne jamais régénérer la base à
 chaque contenu produit — c'est la cause n°1 de dérive de personnage.
 
 ## Étape 2 — Mesurer le verrou d'identité pour CE personnage
 
-L'implémentation du verrou d'identité vient de l'univers (voir
+L'implémentation du verrou d'identité vient du **pack** (voir
 `workflow-comfyui/references/modeles-par-univers.md`), mais ses **réglages
 sont propres à ce personnage** — ne jamais copier les seuils/poids d'un
-autre personnage du même univers, même famille de modèle.
+autre personnage du même pack, même famille de modèle.
 
 À mesurer et documenter avant la première production :
 - La bande de score d'identité (scoring contre la base gelée) qui définit
@@ -42,11 +65,15 @@ autre personnage du même univers, même famille de modèle.
 
 ## Étape 3 — Structure de dossiers
 
+Créée par le wizard (`create_character`). Ne pas la monter à la main.
+
 ```
 CHARACTERS/<nom>/
-  character.json    # registre : universe, output_style, content_types, nsfw
-  config.json       # measured settings (step 2 + step 4), dont `identity`
-  scenes.json        # this character's scene bank
+  character.json    # registre : type, world, universe (= pack résolu),
+                     #            output_style, content_types, nsfw
+  config.json       # défauts du pack (wizard) + valeurs mesurées (étapes 2 et 4),
+                     #            dont `identity` et `base_gelee`
+  scenes.json        # this character's scene bank (amorcée depuis le monde)
   creative.json        # this character's tone/intention taxonomy
   INPUTS/
     CHARACTER/          # frozen base(s) and reference views
@@ -62,9 +89,10 @@ CHARACTERS/<nom>/
 `config.json` (guidance, denoise refiner, denoise FaceDetailer, seuils
 QC `threshold_ok`/`threshold_watch`/`threshold_high`, grain) se mesure pour
 ce personnage — ce sont des observations empiriques sur son visage et son
-esthétique, pas des constantes de la plateforme. Repartir des réglages d'un
-personnage existant du même univers comme point de départ raisonnable, mais
-les valider par la mesure avant de les considérer acquis.
+esthétique, pas des constantes de la plateforme. Le wizard part des
+**défauts du pack** (`UNIVERS/<pack>/character_defaults.json`, `identity` et
+`qc` marqués `measured: false`) : les valider par la mesure et **retirer le
+marqueur** avant de les considérer acquis.
 
 ## Étape 5 — `build_jobs` et assembleur de prompt
 
@@ -82,12 +110,15 @@ directement comme référence visuelle dans un workflow.
 
 ## Étape 7 — Enregistrement dans le registre personnage
 
-`CHARACTERS/<nom>/character.json` (git-ignoré, ADR-0010). Champs
-(`CLAUDE.md` §7, ADR-0010/0011) :
-- `universe` : univers associé, **fixé à la création, non modifiable ensuite**
-- `output_style` : style de sortie, choisi dans la map `output_styles` de
-  l'univers, **figé à la création** (changer de style = créer un nouveau
-  personnage). Un univers mono-style n'a qu'un choix.
+`CHARACTERS/<nom>/character.json` (git-ignoré, ADR-0010). Écrit par le
+wizard ; champs (`CLAUDE.md` §7, ADR-0010/0011/0012) :
+- `type` : type de personnage, **figé à la création**
+- `output_style` : style de sortie, choisi dans `output_styles` du pack,
+  **figé à la création**. Un pack mono-style n'a qu'un choix.
+- `world` : monde, choisi parmi les `WORLDS/` compatibles avec la famille du
+  pack, **figé à la création**
+- `universe` : le **pack résolu** de `(type, style)` — écrit par le wizard,
+  jamais choisi à la main, jamais modifié ensuite
 - `content_types` : types de contenu actifs — `image` seul en V1,
   `video`/`voice`/`staging` déclarés inactifs (voir `ROADMAP.md`)
 - `nsfw` : **off par défaut**, armé explicitement dans le paramétrage si
@@ -101,10 +132,10 @@ batch réel, pas après.
 
 ## Checklist finale
 
-- [ ] Base personnage gelée, aucune photo de tiers utilisée
+- [ ] Base personnage gelée (fournie ou générée), aucune photo de tiers
 - [ ] Bande d'identité mesurée et documentée pour ce personnage
-- [ ] Structure de dossiers créée
-- [ ] `config.json` mesuré (pas copié tel quel), dont `identity` (poids du verrou)
+- [ ] `config.json` : `identity` et `qc` mesurés, marqueur `measured: false` retiré
 - [ ] `build_jobs` + test byte-exact en place
-- [ ] `character.json` renseigné (univers, output_style figé, content_types, NSFW off)
-- [ ] `wf_check.py --roles` et `--essai` passés sur les workflows touchés
+- [ ] `character.json` : `type` / `output_style` / `world` figés, `universe` =
+      pack résolu, `content_types`, NSFW off
+- [ ] `wf_check.py --roles` et `--essai` passés sur le graphe du pack s'il est touché

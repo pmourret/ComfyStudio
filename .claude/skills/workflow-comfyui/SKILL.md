@@ -14,6 +14,12 @@ maintenance d'une copie API à part. Ne jamais faire l'inverse (générer/écrir
 un JSON de workflow depuis du code Python) : ça casse cette propriété pour
 tout le monde, pas seulement pour le workflow touché.
 
+**Un seul graphe de production par pack, jamais par personnage.** Il est
+nommé dans `universe.json` / `workflow` ; le wizard « nouveau personnage »
+y **attache** la fiche (`config.json` / `workflow`), il n'en génère ni n'en
+copie aucun (`CLAUDE.md` §8.11, ADR-0012). Le libellé « attribuer un
+workflow au personnage » est banni — le verbe est **attacher au pack**.
+
 ## Format : deux formats JSON coexistent
 
 - **Format UI** (`Save`) : `nodes`, `links`, positions, widgets. Éditable
@@ -105,6 +111,13 @@ un mécanisme de `node_modes` appliqué à la conversion UI→API. Un seul
 fichier de workflow porte alors plusieurs comportements possibles, pilotés
 depuis la config/les données du job plutôt que par un choix de fichier.
 
+Trois usages réels de ce `node_modes` : la **pose ControlNet par job** (une
+scène l'impose ou non), le **LoRA de personnage** (activé si `config.json` /
+`identity` / `lora` est renseigné), et le **portrait de base** du wizard
+(`base_portrait=True`) qui bypasse tout le groupe du verrou d'identité pour
+produire un premier visage — il n'y a alors aucune référence à verrouiller
+(`WorkflowRunner`, `AUTOMATION/base_portrait.py`).
+
 ## Données sensibles qui transitent par un workflow
 
 Si un workflow reçoit en entrée une vraie photo d'un tiers (ex. extraction
@@ -131,7 +144,7 @@ comme définitivement acquis.
   à consulter avant de toucher à PuLID, IPAdapter, ControlNet aux, ou
   `comfyui_essentials`
 - `references/modeles-par-univers.md` — quelle famille de modèle et quels
-  nœuds appartiennent à quel univers (voir `CLAUDE.md` §4)
+  nœuds appartiennent à quel pack / « univers » (voir `CLAUDE.md` §4)
 - `references/format-ui-mecanique.md` — mécanique interne du format UI
   (triplication des liens, compteurs d'ID, modes de nœud, `widgets_values`
   positionnel, appartenance géométrique aux groupes, ambiguïté de
