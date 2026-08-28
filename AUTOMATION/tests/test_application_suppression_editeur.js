@@ -14,13 +14,42 @@
    PREREQUIS (hors du repo, qui n'a aucune dependance) :
      1. python web/app.py --no-comfy --no-browser
      2. npm i playwright && npx playwright install chromium
-     3. creer PROD/LENA/A_REVOIR/_TEST_EDITEUR_temp.png (n'importe quel PNG)
-     4. node tests/test_application_suppression_editeur.js */
+     3. node tests/test_application_suppression_editeur.js
+
+   Le test s'amorce lui-meme : il copie une vraie sortie de PROD/LENA/OK/ vers
+   PROD/LENA/A_REVOIR/_TEST_EDITEUR_temp.png (l'editeur a besoin d'une image
+   4:5 valide), et supprime tout artefact en `finally` — au cas ou [7] (qui
+   supprime via l'UI, ce qu'il teste) n'irait pas au bout. */
 let chromium;
 try { ({ chromium } = require('playwright')); }
 catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'); process.exit(0); }
+const fs = require('fs');
+const path = require('path');
 const B = process.env.DASHBOARD_URL || 'http://127.0.0.1:8189';
 const TEST_IMG = '_TEST_EDITEUR_temp.png';
+
+const A_REVOIR = path.resolve(__dirname, '../../PROD/LENA/A_REVOIR');
+const OK_DIR = path.resolve(__dirname, '../../PROD/LENA/OK');
+const nettoyer = () => {
+  try {
+    for (const n of fs.readdirSync(A_REVOIR))
+      if (n.includes('_TEST_EDITEUR_temp')) fs.rmSync(path.join(A_REVOIR, n), { force: true });
+  } catch { /* dossier absent : rien a nettoyer */ }
+};
+
+// amorce : une vraie image 4:5 (l'editeur canvas + les checks de ratio en ont besoin)
+const sources = (() => { try { return fs.readdirSync(OK_DIR).filter(n => n.endsWith('.png')); }
+                         catch { return []; } })();
+if (!sources.length) {
+  console.log('  IGNORE — aucune image dans PROD/LENA/OK/ pour amorcer le test');
+  process.exit(0);
+}
+nettoyer();
+fs.mkdirSync(A_REVOIR, { recursive: true });
+fs.copyFileSync(path.join(OK_DIR, sources[0]), path.join(A_REVOIR, TEST_IMG));
+// filet de securite : [7] supprime via l'UI (ce qu'il teste) ; ceci rattrape
+// un artefact laisse par un echec en cours de route, quoi qu'il arrive.
+process.on('exit', nettoyer);
 
 (async () => {
   const nav = await chromium.launch();
@@ -28,7 +57,7 @@ const TEST_IMG = '_TEST_EDITEUR_temp.png';
   const err = []; page.on('pageerror', e => err.push(e.message));
   let ko = 0; const dire = (ok, t) => { console.log(`  ${ok?'ok  ':'KO  '}${t}`); if(!ok) ko++; };
 
-  await page.goto(B, { waitUntil: 'networkidle' });
+  await page.goto(B + '/?character=lena', { waitUntil: 'networkidle' });
   await page.waitForTimeout(1200);
 
   // ============================================================== POSES

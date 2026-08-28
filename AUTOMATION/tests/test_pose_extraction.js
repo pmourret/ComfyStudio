@@ -21,13 +21,14 @@ const SOURCE = path.resolve('h:/ComfyUI/ComfyUI_windows_portable/ComfyUI/output/
   const err = []; page.on('pageerror', e => err.push(e.message));
   let ko = 0; const dire = (ok, t) => { console.log(`  ${ok?'ok  ':'KO  '}${t}`); if(!ok) ko++; };
 
-  await page.goto(B, { waitUntil: 'networkidle' });
+  await page.goto(B + '/?character=lena', { waitUntil: 'networkidle' });
   await page.waitForTimeout(1000);
   await page.click('#btnAdv');
   await page.click('.advmenu button[data-s="scenes"]');
   await page.waitForTimeout(600);
 
-  const avant = await page.evaluate(() => fetch('/api/scenes').then(r=>r.json()).then(d=>d.poses.length));
+  const avantList = await page.evaluate(() => fetch('/api/scenes').then(r=>r.json()).then(d=>d.poses));
+  const avant = avantList.length;
   console.log(`  squelettes avant : ${avant}`);
 
   await page.setInputFiles('#poseFile', SOURCE);
@@ -43,7 +44,9 @@ const SOURCE = path.resolve('h:/ComfyUI/ComfyUI_windows_portable/ComfyUI/output/
 
   const apres = await page.evaluate(() => fetch('/api/scenes').then(r=>r.json()).then(d=>d.poses));
   dire(apres.length === avant + 1, `un squelette de plus dans la banque (${avant} -> ${apres.length})`);
-  const nouveau = apres.find(n => !['pose__00001_.png','pose__00002_.png'].includes(n));
+  // le nouveau = ce qui est dans `apres` mais pas dans `avantList` (pas une
+  // liste de noms en dur : l'extraction renumerote dans INPUTS/POSE/)
+  const nouveau = apres.find(n => !avantList.includes(n));
   dire(!!nouveau, `nouveau fichier identifié : ${nouveau || 'AUCUN'}`);
   dire((await page.$$eval('#poseGrid .posecard', e => e.length)) === apres.length,
        'la grille affiche le nouveau squelette sans recharger la page');

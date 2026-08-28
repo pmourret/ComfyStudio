@@ -109,7 +109,17 @@ def extraire(photo_bytes, nom_fichier_original, comfy_url, timeout=180):
             raise ExtractionError(
                 f"ComfyUI dit avoir produit {im['filename']} mais il est "
                 f"introuvable a {source} — verifier le prefixe de sortie du graphe")
-        nom = im["filename"]
+        # On IGNORE le nom rendu par ComfyUI : son SaveImage renumerote en
+        # scannant output/<prefixe>/, qu'on vide a chaque extraction (le fichier
+        # part vers POSE_DIR) — il reproduit donc pose__00001_ / pose__00002_ en
+        # boucle. S'y fier ecrasait silencieusement un squelette existant et la
+        # banque ne grandissait jamais. On prend le prochain index libre DANS
+        # POSE_DIR.
+        pris = {f.name for f in POSE_DIR.glob("*.png")}
+        n = 1
+        while f"pose__{n:05d}_.png" in pris:
+            n += 1
+        nom = f"pose__{n:05d}_.png"
         shutil.move(str(source), str(POSE_DIR / nom))
         return nom
     finally:
