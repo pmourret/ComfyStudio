@@ -4,6 +4,7 @@
   "model_family": "flux",
   "identity": "pulid_flux",
   "posing": "flux-controlnet-union-pro-2.0",
+  "types": ["instagram-influenceur"],
   "output_styles": {
     "realiste": { "prompt_add": "", "checkpoint": null }
   },
@@ -11,6 +12,9 @@
     "model_family / identity / posing : chaines declaratives en J4, cablees en J5",
     "(identity -> AUTOMATION/identity/pulid_flux.py). Source de verite des valeurs :",
     ".claude/skills/workflow-comfyui/references/modeles-par-univers.md.",
+    "types : types de personnage que ce pack sert (ADR-0012, J7bis). Liste des le",
+    "premier jour meme si la relation reste 1-1 en V1. UNIVERS/resolution.json",
+    "aiguille (type, style) -> pack ; ce champ est le lien inverse.",
     "output_styles : map style -> effet sur le pipeline (prompt_add ajoute au prompt",
     "positif ; checkpoint swap si non-null). Le style d'un personnage est choisi et",
     "fige a sa creation, non modifiable ensuite (CLAUDE.md §3). Cet univers ne",

@@ -1,0 +1,37 @@
+{
+  "rules": [
+    { "type": "instagram-influenceur", "style": "realiste",    "pack": "instagram-influenceur" },
+    { "type": "rpg-personnage",         "style": "realiste",    "pack": "rpg-personnage" },
+    { "type": "rpg-personnage",         "style": "fantastique", "pack": "rpg-personnage" },
+    { "type": "rpg-personnage",         "style": "cartoon",     "pack": "rpg-personnage" },
+    { "type": "rpg-personnage",         "style": "manga",       "pack": "rpg-personnage" }
+  ],
+  "defaults": {
+    "instagram-influenceur": "instagram-influenceur",
+    "rpg-personnage": "rpg-personnage"
+  },
+  "_notes": [
+    "Table de resolution (type de personnage, style de sortie) -> pack / famille",
+    "technique (ADR-0012, CLAUDE.md §3-§4). Lue par AUTOMATION/universe.py :",
+    "resolve(character_type, output_style) -> pack_id.",
+    "",
+    "VERSIONNEE, comme UNIVERS/<id>/ : aucun choix personnel, seulement",
+    "l'aiguillage d'architecture. Ajouter un troisieme pack est un diff ici, jamais",
+    "un if ni un dictionnaire en dur dans le code.",
+    "",
+    "rules : aiguillage exact (type, style) -> pack, une entree par couple",
+    "reellement exerce en V1. La relation reste 1-1 (un type -> un pack quel que",
+    "soit le style) tant qu'aucun style ne reclame une autre famille de modele.",
+    "defaults : pack retenu pour un type quand aucune regle (type, style) ne matche",
+    "— couvre les styles a venir d'un type deja connu.",
+    "",
+    "Aucune correspondance (ni regle, ni default) -> UnresolvedPackError. JAMAIS de",
+    "repli silencieux sur un pack par defaut global : un personnage rattache en",
+    "silence a la mauvaise famille de modele est une panne invisible jusqu'a la",
+    "premiere generation ratee.",
+    "",
+    "Les deux couples reels de V1 : (instagram-influenceur, realiste) = Lena,",
+    "(rpg-personnage, realiste) = Abyssiaelle. Ils doivent resoudre exactement sur",
+    "leur pack actuel (test de non-regression de l'ADR-0012)."
+  ]
+}

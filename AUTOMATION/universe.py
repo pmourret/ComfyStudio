@@ -1,20 +1,27 @@
-"""Registre des univers de la plateforme (CLAUDE.md §3-§5, §7, J4).
+"""Registre des univers de la plateforme (CLAUDE.md §3-§5, §7, J4 ; J7bis).
 
-Un univers porte la famille de modele, le mecanisme de verrou d'identite et le
-panel d'outils partages par tous les personnages qui en dependent. C'est un axe
-distinct du personnage (donnees mesurees + assets, dans CHARACTERS/<id>/) et du
-registre de creation (types de contenu actifs, dans character.json).
+Un univers — dit « pack » depuis l'ADR-0012 — porte la famille de modele, le
+mecanisme de verrou d'identite et le panel d'outils partages par tous les
+personnages qui en dependent. C'est un axe distinct du personnage (donnees
+mesurees + assets, dans CHARACTERS/<id>/) et du registre de creation (types de
+contenu actifs, dans character.json).
 
 Contrairement a CHARACTERS/, ce registre est VERSIONNE : il ne contient aucune
 donnee personnelle, seulement des choix d'architecture (quel checkpoint, quel
 verrou d'identite, quels outils). Un fichier par univers, decouverte par scan de
 UNIVERS/<id>/ — pas de fichier central a merger.
 
-    UNIVERS/<id>/universe.json   famille de modele, identite, posing, styles
+    UNIVERS/<id>/universe.json   famille de modele, identite, posing, styles, types
     UNIVERS/<id>/tools.json      panel d'outils du Dashboard pour cet univers
+    UNIVERS/resolution.json      table (type de personnage, style) -> pack (ADR-0012)
 
 En J4, les champs `model_family` / `identity` / `posing` sont des chaines
 declaratives : elles seront cablees a du code en J5 (AUTOMATION/identity/).
+
+J7bis (ADR-0012) : le pack n'est plus choisi a la main. `resolve(type, style)`
+le DEDUIT depuis resolution.json ; `universe.json` gagne un champ `types` (les
+types de personnage qu'il sert, liste des le premier jour meme si la relation
+reste 1-1 en V1).
 """
 import json
 import sys
@@ -29,8 +36,21 @@ class UnknownUniverseError(ValueError):
     """Un id d'univers demande n'a pas de dossier UNIVERS/<id>/universe.json."""
 
 
+class UnresolvedPackError(ValueError):
+    """Aucun pack ne correspond au couple (type de personnage, style de sortie).
+
+    Jamais de repli silencieux sur un pack par defaut global (ADR-0012) : un
+    personnage rattache en silence a la mauvaise famille de modele est une panne
+    invisible jusqu'a la premiere generation ratee.
+    """
+
+
 def universe_dir(uid):
     return UNIVERS_DIR / uid
+
+
+def resolution_path():
+    return UNIVERS_DIR / "resolution.json"
 
 
 def _short(path):
@@ -91,6 +111,16 @@ def model_family(uid):
     return load_universe(uid).get("model_family")
 
 
+def types(uid):
+    """Types de personnage que ce pack sert (`universe.json` / `types`, ADR-0012).
+
+    Liste des le premier jour meme si la relation reste 1-1 en V1 — pour que le
+    1-1 ne se petrifie pas en loi cote code. `resolve()` (ci-dessous) aiguille
+    (type, style) -> pack ; ce champ est le lien inverse, verifie coherent avec
+    la table par le diagnostic et les tests."""
+    return list(load_universe(uid).get("types", []))
+
+
 class UnknownStyleError(ValueError):
     """Un style de sortie demande n'est pas declare par l'univers."""
 
@@ -124,6 +154,55 @@ def style_effect(uid, name):
             "checkpoint": eff.get("checkpoint")}
 
 
+# --------------------------------------------------------- resolution du pack
+# L'utilisateur choisit type, style et monde ; le pack, lui, se DEDUIT
+# (CLAUDE.md §3-§4, ADR-0012). La table est une donnee versionnee, pas du
+# code : un troisieme pack est un diff de resolution.json, jamais un if ici.
+def _load_resolution():
+    """(rules, defaults) de UNIVERS/resolution.json.
+
+    Fichier absent -> UnresolvedPackError : sans table, aucun couple ne se
+    resout, et le dire tout de suite vaut mieux qu'un pack devine.
+    """
+    path = resolution_path()
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        raise UnresolvedPackError(
+            f"table de resolution absente ({_short(path)}) — aucun couple "
+            f"(type, style) ne peut etre resolu")
+    except json.JSONDecodeError as e:
+        raise ValueError(f"{_short(path)} : JSON invalide — {e}")
+    return data.get("rules") or [], data.get("defaults") or {}
+
+
+def resolve(character_type, output_style):
+    """Pack / famille technique pour un couple (type de personnage, style).
+
+    Cherche d'abord une regle exacte (type, style) dans resolution.json, sinon
+    le `default` du type. Aucune correspondance -> UnresolvedPackError (jamais
+    un repli silencieux). Le pack rendu est garanti exister (UNIVERS/<pack>/).
+    """
+    rules, defaults = _load_resolution()
+    pack = next((r.get("pack") for r in rules
+                 if r.get("type") == character_type
+                 and r.get("style") == output_style), None)
+    if pack is None:
+        pack = defaults.get(character_type)
+    if pack is None:
+        connus = sorted({r.get("type") for r in rules} | set(defaults))
+        raise UnresolvedPackError(
+            f"aucun pack pour (type={character_type!r}, style={output_style!r}) "
+            f"— types declares dans la table : {', '.join(connus) or '(aucun)'}")
+    if not exists(pack):
+        raise UnresolvedPackError(
+            f"la table de resolution renvoie le pack {pack!r} pour "
+            f"(type={character_type!r}, style={output_style!r}), mais "
+            f"UNIVERS/{pack}/universe.json est absent")
+    return pack
+
+
 def _diagnostic():
     print("=" * 72)
     print("universe - registre des univers")
@@ -138,8 +217,29 @@ def _diagnostic():
         print(f"  {uid}")
         print(f"    modele   : {u.get('model_family')}  |  identite : {u.get('identity')}")
         print(f"    styles   : {', '.join(style_names(uid))}")
+        print(f"    types    : {', '.join(types(uid)) or '(aucun)'}")
         print(f"    outils   : {', '.join(o['id'] for o in outils) or '(aucun)'}")
-    return 0
+
+    try:
+        rules, defaults = _load_resolution()
+    except UnresolvedPackError as e:
+        print(f"\n  resolution : {e}")
+        return 1
+    print(f"\n  resolution ({len(rules)} regles, {len(defaults)} defaults)")
+    drift = 0
+    for t in sorted({r.get("type") for r in rules} | set(defaults)):
+        style = next((r.get("style") for r in rules if r.get("type") == t), None)
+        try:
+            pack = resolve(t, style)
+        except UnresolvedPackError as e:
+            print(f"    {t:24} -> ECHEC : {e}")
+            drift += 1
+            continue
+        served = t in types(pack)
+        flag = "" if served else "  <- pack ne declare pas ce type dans `types`"
+        drift += not served
+        print(f"    {t:24} -> {pack}{flag}")
+    return 1 if drift else 0
 
 
 if __name__ == "__main__":
