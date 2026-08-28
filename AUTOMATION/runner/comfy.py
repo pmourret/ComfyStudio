@@ -69,14 +69,22 @@ def wait_prompt(url, prompt_id, timeout=900):
 
 # ---------------------------------------------------------------- graphe ComfyUI
 class WorkflowRunner:
-    def __init__(self, cfg, character_id="lena"):
+    def __init__(self, cfg, character_id="lena", *, universe_id=None,
+                 style_name=None, base_portrait=False):
         self.cfg = cfg
         self.character_id = character_id
+        # base_portrait (J7bis 5b-ii) : produire un portrait d'identite AVANT
+        # qu'un personnage n'existe. Le verrou est alors bypasse (aucune
+        # reference) et identity.apply() saute ; l'univers, le style et la
+        # famille sont passes en clair puisque character_universe/character_style
+        # ne peuvent pas encore lire une fiche. Sans ce mode : chemin de
+        # production inchange, tout se resout depuis character_id.
+        self.base_portrait = base_portrait
         # Le verrou d'identite est choisi par l'UNIVERS du personnage (CLAUDE.md
         # §4), pas par le personnage : tous les personnages d'un univers
         # partagent la meme implementation, seuls config.json/`identity` et
         # `base_gelee` changent. J5.
-        uid = character_universe(character_id)
+        uid = universe_id or character_universe(character_id)
         self.identity = identity.for_universe(uid)
         # Famille de modele de l'univers (J6) : decide la table de roles
         # guidance/latent resolue par _roles(), et comment api_for() pilote le
@@ -86,7 +94,8 @@ class WorkflowRunner:
         # Style de sortie fige a la creation du personnage (CLAUDE.md §3), effet
         # declare par l'univers. Pour instagram-influenceur / realiste :
         # prompt_add vide, pas de swap -> graphe inchange. J5.
-        self.style = universe.style_effect(uid, character_style(character_id))
+        self.style = universe.style_effect(
+            uid, style_name or character_style(character_id))
         self.url = cfg["comfy_url"].rstrip("/")
         self.ui = load_json(OFM / cfg["workflow"])
         self.obj = ui_to_api.fetch_object_info(self.url)
@@ -162,6 +171,21 @@ class WorkflowRunner:
         # tant qu'on ne force pas le mode de ses noeuds a 0 (actif). Meme
         # mecanisme que le desarmement du LoRA cote NSFW (node_modes).
         node_modes = {}
+
+        # base_portrait : bypasser le groupe du verrou d'identite. Le noeud
+        # d'application (ApplyPulidFlux / IPAdapterFaceID) est un passthrough
+        # model->model ; ses loaders et son LoadImage deviennent inatteignables
+        # et convert() les elague. On vise le groupe par titre (comme
+        # active_groups) ET les roles _apply/_ref, au cas ou le groupe serait
+        # renomme. identity.apply() est saute en fin de methode.
+        if self.base_portrait:
+            for nid in ui_to_api.nodes_in_group(self.ui, "IDENTITE"):
+                node_modes[nid] = ui_to_api.MODE_BYPASS
+            for key, role in self.roles.items():
+                if role and key in self.identity.REQUIRED_ROLES \
+                        and (key.endswith("_apply") or key.endswith("_ref")):
+                    node_modes[role["id"]] = ui_to_api.MODE_BYPASS
+
         pose = job.get("pose")
         if pose:
             manquants = [k for k in ("pose_squelette", "pose_loader", "pose_apply")
@@ -212,7 +236,9 @@ class WorkflowRunner:
             # guidance`) pour garder un seul vocabulaire cross-univers.
             node("sampler")["inputs"]["cfg"] = p["guidance"]
         node("save")["inputs"]["filename_prefix"] = (
-            f"OFM/PROD/_BATCH/{batch_id}/{job['scene']}")
+            f"OFM/PROD/_BASE/{self.character_id}/{job['seed']}"
+            if self.base_portrait
+            else f"OFM/PROD/_BATCH/{batch_id}/{job['scene']}")
 
         sw = node("switch")
         if sw:
@@ -264,8 +290,10 @@ class WorkflowRunner:
 
         # Verrou d'identite de l'univers : poids + asset de reference du
         # personnage, injectes dans le graphe converti (J5). En dernier, une
-        # fois tout le reste du graphe pose.
-        self.identity.apply(api, self.roles, cfg, job)
+        # fois tout le reste du graphe pose. Saute pour un portrait de base :
+        # il n'y a encore aucune reference a verrouiller (5b-ii).
+        if not self.base_portrait:
+            self.identity.apply(api, self.roles, cfg, job)
         return api
 
     def queue(self, api):

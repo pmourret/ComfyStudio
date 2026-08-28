@@ -150,6 +150,60 @@ async def api_characters_base_upload(request):
     return web.json_response({"ok": True, "base_gelee": name})
 
 
+@routes.post("/api/characters/base/generate")
+async def api_characters_base_generate(request):
+    """Wizard (J7bis) — base d'identite GENEREE : met N portraits en file
+    (verrou bypasse, aucune reference n'existe encore). Repond tout de suite ;
+    le front suit via /api/characters/base/candidates. GPU requis."""
+    body = await request.json()
+    try:
+        out = base_portrait.generate(
+            (body.get("cid") or "").strip(), body.get("type"), body.get("style"),
+            body.get("world"), n=body.get("n") or 4, seed=body.get("seed"))
+    except base_portrait.BaseImageError as e:
+        ss.bad_request(str(e))
+    ss.push_log(f"portraits de base : {len(out['candidates'])} en file "
+                f"pour {body.get('cid')!r} ({out['pack']})")
+    return web.json_response({"ok": True, **out})
+
+
+@routes.post("/api/characters/base/candidates")
+async def api_characters_base_candidates(request):
+    """Etat des portraits de base en cours (pending / ready+file / error)."""
+    body = await request.json()
+    try:
+        res = base_portrait.candidates(body.get("pack"), body.get("items") or [])
+    except base_portrait.BaseImageError as e:
+        ss.bad_request(str(e))
+    return web.json_response({"ok": True, "results": res})
+
+
+@routes.get("/api/characters/base/image")
+async def api_characters_base_image(request):
+    """Apercu d'un candidat (fichier sous ComfyUI/output/, chemin borne)."""
+    try:
+        data = base_portrait.candidate_bytes(request.query.get("file", ""))
+    except base_portrait.BaseImageError as e:
+        ss.bad_request(str(e))
+    return web.Response(body=data, content_type="image/png")
+
+
+@routes.post("/api/characters/base/freeze")
+async def api_characters_base_freeze(request):
+    """Gele le candidat choisi -> ComfyUI/input/<CID>_BASE.<ext>. Rend le nom
+    a ecrire dans config.json/base_gelee."""
+    body = await request.json()
+    cid = (body.get("cid") or "").strip()
+    if lb.character_dir(cid).is_dir():
+        ss.bad_request(f"le personnage {cid!r} existe deja")
+    try:
+        name = base_portrait.freeze(cid, body.get("file"))
+    except base_portrait.BaseImageError as e:
+        ss.bad_request(str(e))
+    ss.push_log(f"base d'identite generee gelee pour {cid!r} -> {name}")
+    return web.json_response({"ok": True, "base_gelee": name})
+
+
 @routes.get("/api/universe/tools")
 async def api_universe_tools(request):
     """Panel d'outils declare pour l'univers du personnage (tools.json, §5).
