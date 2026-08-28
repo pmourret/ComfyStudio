@@ -94,6 +94,20 @@ try:
     verifie(lb.content_type_active("probe", "voice") is False,
             "probe : un type absent du fichier compte comme inactif")
 
+    # ------------------------------------------- [1b] abyssiaelle (vrai personnage, J6)
+    print("\n[1b] abyssiaelle (registre reel, pas une sonde jetable)")
+    verifie(lb.character_universe("abyssiaelle") == "rpg-personnage",
+            "abyssiaelle -> rpg-personnage (premier personnage de cet univers)")
+    verifie(lb.character_style("abyssiaelle") == "realiste",
+            "abyssiaelle : output_style fige a 'realiste' (decision J6 etape 1)")
+    verifie(lb.content_type_active("abyssiaelle", "image") is True
+            and lb.content_type_active("abyssiaelle", "video") is False,
+            "abyssiaelle : image actif, video inactif (meme registre de creation que lena)")
+    verifie(nsfw_batch.is_armed("abyssiaelle") is False,
+            "abyssiaelle : nsfw off par defaut (§6-§7), pas arme a l'onboarding")
+    verifie(char_ok("abyssiaelle") == "abyssiaelle",
+            "?character=abyssiaelle accepte (character.json valide, univers reel)")
+
     # --------------------------------------------------- [2] pas de contamination
     print("\n[2] resoudre probe ne change rien pour lena")
     verifie(lb.character_universe("lena") == "instagram-influenceur",
