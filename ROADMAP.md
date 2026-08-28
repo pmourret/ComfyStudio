@@ -259,7 +259,7 @@ prouvent la généralisation — pas juste Léna renommée.
   (`test_identity_pulid_flux.py`, `test_style_fige.py`, `test_serveur_http.py`).
 - **J6 terminé.**
 
-**J7bis — Modèle à quatre axes + shell studio + wizard**
+**J7bis — Modèle à quatre axes + shell studio + wizard** ✅ *(terminé 2026-08-29)*
 - Table de résolution `UNIVERS/resolution.json` + `universe.resolve()` ;
   champ `types` dans `universe.json` (ADR-0012)
 - Registre `WORLDS/` versionné ; `type` / `world` dans `character.json`,
@@ -278,6 +278,38 @@ prouvent la généralisation — pas juste Léna renommée.
 - Hors périmètre : renommage `UNIVERS/`→`PACKS/`, mode Éditeur, look et
   peaux de monde, câblage des assets de monde dans le runner, mesure du
   verrou dans le wizard
+- **Résultat** : 12 commits.
+  - Ét. 1 (`eefe0aa`) : `resolve(type, style) -> pack`, `UnresolvedPackError`,
+    jamais de repli silencieux ; `types` + `universe.types()`.
+  - Ét. 2 (`92fa71b`) : `AUTOMATION/worlds.py` (miroir de `universe.py`) +
+    `WORLDS/slow-life.json`, `WORLDS/terres-sauvages.json` (assets placeholder
+    = dette déclarée) ; étanchéité par famille testée (§11).
+  - Ét. 3 (`246fa8c`) : `character_type()` / `character_world()` ;
+    `character()` valide `resolve(type,style) == universe` + `world`
+    compatible ; migration idempotente (Léna→`slow-life`,
+    Abyssiaelle→`terres-sauvages`) ; `wf_check.py` sans repli `lena` (nouveau
+    `--character`).
+  - Ét. 4 (`8decf5a`) : audit `audit-ux-ui` → 5 findings traités. `#registre`
+    + `/api/characters` ; l'app s'ouvre dessus sans `?character=`. `/api/state`
+    gagne `last_error` ; le chrome montre id + type + monde + file + dernière
+    erreur sur tous les écrans.
+  - `dde3eb5` (hors J7bis, réparé en passant) : `app.py` `reclaim_port()` —
+    un tableau de bord fantôme sur le port est arrêté au démarrage ; jamais
+    ComfyUI ni un process tiers.
+  - Ét. 5 (`2780292`, `3b5d015`, `23384b4`, `3a39665`, `12f6740`) : wizard.
+    `create_character()` (rollback si échec) + `universe.json/workflow` +
+    `character_defaults.json` ; base **fournie** (upload → `input/`) ou
+    **générée** (`base_portrait=True` bypasse le verrou → candidats → gel) ;
+    `/api/wizard/options` + `POST /api/characters` ; écran `#wizard`.
+    Vérifié bout-en-bout contre ComfyUI réel (portrait Flux + flux complet
+    SDXL). Chemin de production `api_for` inchangé (tests `identity`/`style`
+    verts).
+  - Ét. 6 (`2fa1718`, `a262a44`) : `CLAUDE.md` §3–§4 alignés ; skills
+    `nouveau-personnage` / `nouvel-univers` / `workflow-comfyui` réécrits
+    (pack, type, monde, « attacher au pack »).
+- Non fait, à la main : fumigation navigateur du wizard (Playwright hors
+  machine, comme J3/J4).
+- **J7bis terminé.**
 
 **J7 — NSFW généralisé comme outil, pas comme branche**
 - Flux confirmé : génération de personnage → sélection manuelle de l'image
