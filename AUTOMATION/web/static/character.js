@@ -37,12 +37,15 @@ function paintNeutral(){
 function paint(d){
   const brand = document.querySelector('.brand');
   if (brand){
-    const tags = [];
-    if (d.type) tags.push(`<span class="brand-tag">${esc(d.type)}</span>`);
+    const parts = [`<i>${esc(d.name || d.id)}</i>`,
+                   `<code class="brand-id">${esc(d.id)}</code>`];
+    if (d.type) parts.push(`<span class="brand-tag">${esc(d.type)}</span>`);
     if (d.world && d.world.label)
-      tags.push(`<span class="brand-tag">${esc(d.world.label)}</span>`);
-    brand.innerHTML = `<i>${esc(d.name || d.id)}</i>`
-      + `<code class="brand-id">${esc(d.id)}</code>` + tags.join('');
+      parts.push(`<span class="brand-tag">${esc(d.world.label)}</span>`);
+    // jointes par une espace : l'espacement visuel vient du `gap` flex, mais
+    // sans separateur textuel le nom et les tags se collent pour un lecteur
+    // d'ecran (« Lénalenainstagram-influenceur »).
+    brand.innerHTML = parts.join(' ');
   }
   document.title = `${d.name || d.id} — production`;
 }

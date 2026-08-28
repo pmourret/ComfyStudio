@@ -20,7 +20,10 @@
 let chromium;
 try { ({ chromium } = require('playwright')); }
 catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'); process.exit(0); }
-const B = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
+// Depuis J7bis, l'app s'ouvre sur le registre quand l'URL n'a pas de
+// ?character= : ce test porte sur l'ecran Creer d'un personnage precis, il
+// nomme donc lena explicitement (comme le ferait un lien du registre).
+const B = (process.env.DASHBOARD_URL || 'http://127.0.0.1:8199') + '/?character=lena';
 
 (async () => {
   const nav = await chromium.launch();
@@ -44,12 +47,14 @@ const B = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   const crans = await page.$$eval('#intSel button', bs => bs.map(b => b.textContent.trim()));
   dire(crans.length === 4, `4 crans : ${crans.join(' | ')}`);
 
-  console.log('\n[1b] en-tete reflete le registre personnage (J4)');
+  console.log('\n[1b] en-tete reflete le registre personnage (J4 + chrome J7bis)');
   const brand = (await page.textContent('.brand')).replace(/\s+/g, ' ').trim();
   dire(/Léna/.test(brand), `.brand porte le nom lisible du registre : « ${brand} »`);
-  dire(await vu('.brand-uni'), 'le tag univers est peint dans l\'en-tete');
-  const uni = ((await page.textContent('.brand-uni')) || '').trim();
-  dire(/Instagram/i.test(uni), `tag univers = « ${uni} »`);
+  const bid = ((await page.textContent('.brand .brand-id')) || '').trim();
+  dire(bid === 'lena', `l'identifiant reel est affiche a cote du nom : « ${bid} »`);
+  const tags = await page.$$eval('.brand .brand-tag', e => e.map(x => x.textContent.trim()));
+  dire(tags.some(t => /instagram/i.test(t)), `tag type peint : ${tags.join(' | ')}`);
+  dire(tags.some(t => /slow life/i.test(t)), 'tag monde peint');
   const titre = await page.title();
   dire(/Léna — production/.test(titre), `titre d'onglet = « ${titre} »`);
 
