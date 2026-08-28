@@ -46,47 +46,86 @@ même mouvement, pas découpés une fois puis généralisés une seconde fois.
   qui touche à ces dossiers : ne jamais faire dépendre une route ou un test
   d'un chemin qui suppose ces données présentes dans le repo public
 
-## 3 · Trois axes indépendants : Univers, Personnage, Registre de création
+## 3 · Quatre axes de création + le registre de création
 
-Ces trois notions ne se confondent pas, et le code ne doit pas les confondre
-non plus :
+La création d'un personnage se décrit par **quatre axes**, plus un axe
+**transversal** — le registre de création. Le code ne doit jamais les
+confondre, ni dériver l'un de l'autre autrement que par la table de
+résolution (§4, ADR-0012).
 
-- **Univers** : détermine la famille de modèle et le mécanisme d'identité
-  (§4) ainsi que le panel d'outils disponible dans le Dashboard (§5)
-- **Personnage** : appartient à un univers, porte ses propres réglages
-  mesurés (seuils d'identité, config) et ses propres assets de référence
-  (LoRA/PuLID). L'univers et le style de sortie qui en découle
-  (réaliste/fantastique/cartoon/manga) sont **fixés à la création, non
-  modifiables ensuite** — créer un nouveau personnage est le seul moyen d'en
-  changer
+| Axe | Ce qu'il décide | Qui le choisit | Mutabilité |
+|---|---|---|---|
+| **Type de personnage** | métier, panel d'outils (§5), empty states, taxonomie de scènes | l'humain | figé à la création |
+| **Style de sortie** | rendu (réaliste / fantastique / cartoon / manga…), `prompt_add`, checkpoint à l'intérieur de la famille | l'humain | figé à la création (ADR-0006) |
+| **Monde / cadre** | LoRA de monde, `prompt_add`, banque de scènes de départ, ton, peau UI | l'humain | figé à la création (§4) |
+| **Pack / famille technique** | graphes de rôle, verrou d'identité, ControlNet de posing, `tools.json`, famille de modèle | **le système** | dérivé, jamais choisi à la main |
+
+- **Type**, **style** et **monde** sont trois choix humains, figés à la
+  création : en changer, c'est créer un autre personnage (§8.8).
+- Le **pack** n'est pas un choix. Il se résout depuis `(type, style)` par
+  `universe.resolve()`, lu dans `UNIVERS/resolution.json` (table de
+  données, ni `if` ni dictionnaire en dur). Aucune règle applicable →
+  erreur explicite, **jamais de repli silencieux sur un pack par défaut**
+  (ADR-0012).
+- Le monde ne choisit **ni** la famille de modèle **ni** le mécanisme
+  d'identité ; ses assets doivent être compatibles avec le pack déjà
+  résolu par `(type, style)`. C'est pourquoi le monde est le troisième
+  choix, pas le premier.
+- Le mot « univers » portait ces notions ensemble. La clé
+  `character.json` / `universe` **reste** et désigne désormais le pack
+  résolu ; `universe.json` gagne un champ `types` — une **liste dès le
+  premier jour**, même si la relation reste 1-1 en V1.
 - **Registre de création** : types de contenu actifs pour un personnage
-  (image / vidéo / voix / mise en scène à plusieurs). Axe **indépendant**
-  de l'univers et **commun** à tous les univers — pas une caractéristique
-  propre à un univers en particulier. En V1, seul `image` est actif partout ;
-  `vidéo` et `voix` existent comme types déclarés mais inactifs, pour
-  l'influenceur comme pour le RPG-personnage, afin que les activer plus
-  tard (V2, voir `ROADMAP.md`) soit un changement de valeur, pas une
-  modification de schéma
+  (image / vidéo / voix / mise en scène à plusieurs). Axe **transversal**,
+  orthogonal aux quatre autres et **commun** à tous les packs — pas une
+  caractéristique propre à un pack en particulier (ADR-0004, inchangé). En
+  V1, seul `image` est actif partout ; `vidéo` et `voix` existent comme
+  types déclarés mais inactifs, pour tous les types de personnage, afin que
+  les activer plus tard (V2, voir `ROADMAP.md`) soit un changement de
+  valeur, pas une modification de schéma
 
-## 4 · Le verrou d'identité appartient à l'univers, pas au personnage
+## 4 · Le verrou d'identité appartient au pack, pas au personnage
 
-Léna et Abyssiaelle ne sont pas seulement deux personnages différents, ce
-sont deux univers différents avec des familles de modèle différentes (Flux
-+ PuLID pour `instagram-influenceur`, SDXL/Pony + LoRA pour
-`rpg-personnage`) — c'est l'univers qui porte ce choix, pas chaque
-personnage. Détail des modèles/nœuds par univers :
-`workflow-comfyui/references/modeles-par-univers.md`.
+Léna et Abyssiaelle relèvent de deux packs différents, aux familles de
+modèle différentes (Flux + PuLID pour le pack servant
+`instagram-influenceur`, SDXL/Pony + LoRA pour celui servant
+`rpg-personnage`) — c'est le **pack** qui porte ce choix, résolu depuis
+`(type, style)` (§3), pas chaque personnage. Détail des modèles/nœuds par
+pack : `workflow-comfyui/references/modeles-par-univers.md`.
 
-Conséquence : le « verrou d'identité » est une **interface choisie par
-l'univers** (`AUTOMATION/identity/`), pas une fonction par personnage. Tous
-les personnages d'un même univers partagent la même implémentation ; seuls
-les réglages mesurés et les assets de référence changent par personnage.
-Commun malgré tout : la couche de *mesure* (scoring InsightFace),
-indépendante de la méthode qui a généré le visage.
+Conséquence : le « verrou d'identité » est une **interface choisie par le
+pack** (`AUTOMATION/identity/`), pas une fonction par personnage. Tous les
+personnages d'un même pack partagent la même implémentation
+(`pulid_flux.py`, `lora_sdxl.py`…) ; `identity.apply()` injecte des valeurs
+dans le graphe au lancement, il ne réécrit jamais de JSON (§8.1). Même
+logique pour le posing : outil global (§5), mais modèle ControlNet
+dépendant de la famille technique du pack.
 
-Même logique pour le posing (outil global, §5, mais modèle ControlNet
-dépendant de l'univers) et pour le style de sortie (figé à la création du
-personnage, §3 — changer de style reviendrait à changer d'univers).
+### Trois étages de spécialisation — un seul graphe de rôle
+
+Un même graphe de rôle sert les trois personnages d'un pack, quels que
+soient leur style, leur monde et leurs mesures. Ce qui varie, et où :
+
+| Ce qui varie | Porté par | Édité depuis |
+|---|---|---|
+| **Topologie** — nœuds, chaîne, verrou, ControlNet, ordre des étages | le pack | l'auteur du pack |
+| **Assets de style et de monde** — LoRA, `prompt_add`, checkpoint compatible | l'entrée `output_styles` du pack, l'entrée `WORLDS/<id>` | Réglages d'univers |
+| **Valeurs mesurées du personnage** — base gelée, LoRA perso + mot déclencheur, poids du verrou, seuils | `character.json` / `config.json` | le studio (création, puis Réglages) |
+
+Il n'existe jamais un fichier de graphe par personnage (§8.11) : un
+personnage qui rend mal se règle par la mesure, pas par un graphe
+parallèle.
+
+### La mesure reste par personnage (leçon J6)
+
+Le pack donne une topologie et une implémentation d'identité ; il ne donne
+pas de poids. Abyssiaelle l'a prouvé : le mécanisme d'identité de son pack
+(IPAdapter FaceID) **dégradait** son identité — le poids a été mesuré à 0.0
+et c'est son LoRA de personnage qui la porte. Ce n'est pas une règle de
+pack, c'est une mesure par personnage ; un autre personnage du même pack
+peut très bien mesurer un poids non nul. Reste commune la couche de
+*mesure* (scoring InsightFace, `qc_identity.py`), indépendante de la
+méthode qui a généré le visage.
 
 ## 5 · Univers : le panel d'outils dépend du monde du personnage
 
@@ -159,13 +198,18 @@ dans un ordre précis.
    d'identité l'exige
 7. Le panel d'outils du Dashboard vient du registre univers (§5) — jamais un
    `if character == "lena"` en dur dans le frontend ou le backend
-8. Univers, style de sortie et implémentation d'identité sont fixés à la
-   création du personnage et ne changent jamais ensuite (§3-4)
+8. Type de personnage, style de sortie et monde sont fixés à la création du
+   personnage et ne changent jamais ensuite ; le pack — donc la famille de
+   modèle et l'implémentation d'identité — en est dérivé et suit le même
+   gel (§3-4)
 9. Le NSFW ne construit jamais de sous-système propre — il recompose les
    outils existants (§6)
 10. Toute exposition MCP (existante ou future) reste **lecture et
     validation seulement** — jamais de génération, jamais d'écriture,
     jamais un raccourci qui court-circuite QC, tri ou garde-fous (§10)
+11. Il n'existe jamais un fichier de graphe par personnage. Le wizard
+    attache un personnage au pack de sa famille, il ne génère aucun graphe
+    à la création (§4, ADR-0012)
 
 ## 9 · Frontend
 
@@ -189,6 +233,10 @@ dans un ordre précis.
   aucune génération, rien de la branche NSFW exposé, jamais d'écriture**.
   Ce n'est pas un chantier à démarrer de zéro en V3 — c'est un principe déjà
   posé (§8.10) à généraliser au reste de la plateforme, pas à réinventer
+- **L'éditeur de graphe d'univers est une surface séparée** (`web/graph/`),
+  jamais un module du cockpit. `wf_check` reste la porte unique de toute
+  écriture d'un graphe, humaine ou agentique. Lever ADR-0007 (MCP lecture
+  seule) exige une ADR dédiée
 - Un 3ᵉ personnage — le chantier se valide avec deux
 
 ## 11 · Méthode attendue
