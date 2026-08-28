@@ -11,11 +11,36 @@
 let chromium;
 try { ({ chromium } = require('playwright')); }
 catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'); process.exit(0); }
+const fs = require('fs');
 const path = require('path');
+const http = require('http');
 const B = process.env.DASHBOARD_URL || 'http://127.0.0.1:8189';
-const SOURCE = path.resolve('h:/ComfyUI/ComfyUI_windows_portable/ComfyUI/output/OFM/PROD/LENA/OK/lifestyle_cuisine_matin_20260824_01.png');
+
+// source de la photo a extraire : n'importe quelle sortie de production reelle
+// (le nom d'un fichier precis finit par disparaitre). Skip propre si le dossier
+// est vide.
+const OUT_OK = 'h:/ComfyUI/ComfyUI_windows_portable/ComfyUI/output/OFM/PROD/LENA/OK';
+const pngs = (() => { try { return fs.readdirSync(OUT_OK).filter(n => n.endsWith('.png')); }
+                      catch { return []; } })();
+if (!pngs.length) {
+  console.log(`  IGNORE — aucune image dans ${OUT_OK} pour servir de source`);
+  process.exit(0);
+}
+const SOURCE = path.resolve(OUT_OK, pngs[0]);
+
+// ComfyUI requis (un vrai job GPU part) : skip propre s'il ne repond pas,
+// comme les tests d'identite cote Python.
+const comfyUp = () => new Promise(r => {
+  const req = http.get('http://127.0.0.1:8188/system_stats',
+                       res => { res.resume(); r(res.statusCode === 200); });
+  req.on('error', () => r(false)); req.setTimeout(3000, () => { req.destroy(); r(false); });
+});
 
 (async () => {
+  if (!(await comfyUp())) {
+    console.log('  IGNORE — ComfyUI injoignable sur 8188 (extraction = vrai job GPU)');
+    process.exit(0);
+  }
   const nav = await chromium.launch();
   const page = await nav.newPage();
   const err = []; page.on('pageerror', e => err.push(e.message));
