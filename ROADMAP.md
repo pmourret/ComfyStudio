@@ -259,6 +259,26 @@ prouvent la généralisation — pas juste Léna renommée.
   (`test_identity_pulid_flux.py`, `test_style_fige.py`, `test_serveur_http.py`).
 - **J6 terminé.**
 
+**J7bis — Modèle à quatre axes + shell studio + wizard**
+- Table de résolution `UNIVERS/resolution.json` + `universe.resolve()` ;
+  champ `types` dans `universe.json` (ADR-0012)
+- Registre `WORLDS/` versionné ; `type` / `world` dans `character.json`,
+  renseignés pour Léna et Abyssiaelle via script de migration
+- Chrome honnête : `character_id` réel, type + monde, sonde Comfy, file,
+  dernière erreur actionnable
+- Sas d'entrée : l'app s'ouvre sur le registre, pas sur la production d'un
+  personnage par défaut
+- Wizard « nouveau personnage » : type → style → monde → base fournie ou
+  générée → gel → écriture de la fiche. V1 honnête : seuils par défaut du
+  pack, recalibrage plus tard dans Réglages
+- `CLAUDE.md` §3–§4 mis en cohérence ; `wf_check.py` privé de son repli
+  `CHARACTERS/lena/`
+- Skills à réaligner en fin de jalon, quand le code aura figé le
+  vocabulaire : `nouveau-personnage`, `nouvel-univers`, `workflow-comfyui`
+- Hors périmètre : renommage `UNIVERS/`→`PACKS/`, mode Éditeur, look et
+  peaux de monde, câblage des assets de monde dans le runner, mesure du
+  verrou dans le wizard
+
 **J7 — NSFW généralisé comme outil, pas comme branche**
 - Flux confirmé : génération de personnage → sélection manuelle de l'image
   → reprise en NSFW → édition par IA → retouche
