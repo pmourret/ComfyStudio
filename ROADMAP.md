@@ -351,3 +351,9 @@ Qualité et repérabilité des bugs (backend et frontend) :
   silence
 - Health-check étendu au niveau plateforme (pas seulement Léna), une fois
   la base = source de vérité en place (J0)
+- Fumigations navigateur (Playwright, installé hors du repo — le repo n'a
+  aucune dépendance) : `AUTOMATION/tests/run_browser_tests.py`, un tableau
+  de bord neuf par test. Couvre registre, wizard, écran Créer, aperçu de
+  prompt, banque de poses, éditeur photo (7 tests). Mis en place pendant la
+  passe frontend post-J7bis, avec un bug réel corrigé au passage
+  (`pose_tools.extraire` écrasait un squelette au lieu d'en ajouter un)
