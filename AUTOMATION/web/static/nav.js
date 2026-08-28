@@ -11,6 +11,7 @@ import {loadItems, syncTriageUi, setTriageEntry} from './review.js';
 import {loadJournal} from './advanced.js';
 import {majEtatComfy} from './appli.js';
 import {estEdition, nsfwTick} from './create.js';
+import {loadRegistre} from './registre.js';
 
 $$('.tabs button').forEach(b => b.onclick = () => go(b.dataset.s));
 
@@ -27,10 +28,12 @@ export function go(name, skipHash){
   // les ecrans ouverts depuis le menu Avance n'ont pas d'onglet dans la barre
   // principale : sans ca, Créer/Revue restaient tous deux eteints et rien
   // n'indiquait plus quel ecran est actif
-  $('#btnAdv').classList.toggle('on', ['scenes', 'journal', 'appli'].includes(name));
+  $('#btnAdv').classList.toggle('on',
+    ['registre', 'scenes', 'journal', 'appli'].includes(name));
   $$('.screen').forEach(x => x.classList.toggle('on', x.id === (route ? route.screen : name)));
   if (!skipHash) location.hash = name;          // onglet partageable / bouton retour
   if (route) loadItems();
+  if (name === 'registre') loadRegistre();
   if (name === 'journal') loadJournal();
   if (name === 'appli') majEtatComfy();
   // revenir sur Creer au cran NSFW : la grille de sources a pu vieillir

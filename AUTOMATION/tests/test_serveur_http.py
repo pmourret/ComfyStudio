@@ -152,6 +152,24 @@ try:
     verifie(code == 200 and total is not None and total <= 24,
             f"count=9999 plafonne ({total} images planifiees)")
 
+    # ============================================================== J7bis
+    print("\n[J7bis] sas d'entree : /api/characters + type/monde dans /api/character")
+    code, corps = appel("/api/characters")
+    chars = json.loads(corps).get("characters", [])
+    ids = {c["id"] for c in chars}
+    verifie(code == 200 and {"lena", "abyssiaelle"} <= ids,
+            f"/api/characters liste le registre ({sorted(ids)})")
+    lena_row = next((c for c in chars if c["id"] == "lena"), {})
+    verifie(lena_row.get("type") == "instagram-influenceur"
+            and (lena_row.get("world") or {}).get("id") == "slow-life",
+            f"lena : type + monde dans la liste ({lena_row.get('type')}, "
+            f"{lena_row.get('world')})")
+    code, corps = appel("/api/character?character=abyssiaelle")
+    d = json.loads(corps)
+    verifie(code == 200 and d.get("type") == "rpg-personnage"
+            and (d.get("world") or {}).get("label") == "Terres sauvages",
+            f"/api/character rend type + monde ({d.get('type')}, {d.get('world')})")
+
     # ============================================================== M8
     # Cette route ECRIT config.json. On photographie le fichier avant, et on
     # exige qu'il soit intact apres : la premiere version de ce test a fait

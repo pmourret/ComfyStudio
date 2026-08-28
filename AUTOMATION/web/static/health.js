@@ -20,9 +20,15 @@ export function signalerPanne(quoi, detail){
   const liste = Object.entries(PANNES);
   b.hidden = !liste.length;
   const t = $('#panneTxt');
-  if (t) t.textContent = liste.length
-    ? liste.map(([k, v]) => `${k} : ${v}`).join(' · ') +
-      ' — si le serveur tourne depuis avant une modification du projet, relance run_web.bat'
+  if (!t) return;
+  // le conseil « relance run_web.bat » ne vaut que pour une sonde /api/* qui
+  // renvoie du malforme (serveur en retard sur les donnees) — pas pour une
+  // erreur de production ou une liste illisible, ou il induirait en erreur.
+  const stale = liste.some(([k]) => k === 'sonde');
+  t.textContent = liste.length
+    ? liste.map(([k, v]) => `${k} : ${v}`).join(' · ')
+      + (stale ? ' — si le serveur tourne depuis avant une modification du projet,'
+               + ' relance run_web.bat' : '')
     : '';
 }
 

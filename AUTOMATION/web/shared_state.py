@@ -144,6 +144,10 @@ STATE = {
     "eta": None,
     "intensity": 0,        # niveau DEMANDE : sert a estimer la duree par image
     "character": "lena",   # personnage du batch en cours (pose par demarrer*)
+    # derniere erreur de batch, {at, msg} ou None. Pose au niveau du batch (pas
+    # par job) et efface au demarrage du suivant : le chrome la montre meme
+    # quand on a quitte l'ecran Creer (J7bis, chrome honnete).
+    "last_error": None,
 }
 UNDO = []                  # dernieres actions de tri, pour le bouton annuler
 # Il n'y a qu'UN etat d'execution. La branche NSFW avait le sien (NSTATE), avec

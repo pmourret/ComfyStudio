@@ -70,6 +70,16 @@ def character_world(character_id):
     return load_character(character_id).get("world")
 
 
+def list_characters():
+    """Ids des personnages du registre : dossiers CHARACTERS/<id>/ portant un
+    character.json, ordre alphabetique. [] si CHARACTERS/ absent — l'UI ne
+    suppose jamais ce dossier present (ADR-0005). Sert au sas d'entree (J7bis)."""
+    root = OFM / "CHARACTERS"
+    if not root.is_dir():
+        return []
+    return sorted(p.parent.name for p in root.glob("*/character.json"))
+
+
 def content_type_active(character_id, kind):
     """Un type de contenu (image / video / voice / staging) est-il actif pour ce
     personnage. Axe independant de l'univers (ADR-0004) : en V1 seul `image`

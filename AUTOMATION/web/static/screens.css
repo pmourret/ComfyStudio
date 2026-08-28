@@ -211,6 +211,25 @@ details.preamb{margin-top:0;border-top:0;padding-top:0;margin-bottom:12px}
 /* ------------------------------------------------------------- Application */
 .appliActs{display:flex;gap:12px;margin:14px 0 6px}
 
+/* ------------------------------------------------ registre (sas d'entree) */
+.charGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:14px}
+.char-card{display:block;padding:14px 15px;background:var(--panel);
+  border:2px solid var(--line);border-radius:var(--r);text-decoration:none;
+  color:var(--txt)}
+.char-card:hover{border-color:var(--line2)}
+.char-card:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.char-card--current{border-color:var(--acc)}
+.char-card b{display:block;font-size:15px;font-weight:600}
+.char-card code{font:12px var(--font-mono);color:var(--dim2)}
+.char-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.char-tag{font-size:11px;color:var(--dim);padding:2px 8px;
+  border:1px solid var(--line2);border-radius:20px;white-space:nowrap}
+.char-tag--nsfw{color:var(--warn-txt);border-color:var(--warn-line);
+  background:var(--warn-bg)}
+.char-tag--warn{color:var(--danger-txt);border-color:var(--danger-line);
+  background:var(--danger-bg)}
+
 /* ---------------------------------------------------------------- editeur */
 #editorBox{position:fixed;inset:0;background:#000d;display:none;
   align-items:center;justify-content:center;z-index:40;padding:20px}

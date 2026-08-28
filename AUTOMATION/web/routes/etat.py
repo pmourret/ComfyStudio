@@ -17,6 +17,7 @@ import comfy_server
 import nsfw_batch
 import runner as lb
 import universe
+import worlds
 
 routes = web.RouteTableDef()
 
@@ -65,12 +66,21 @@ async def api_config(request):
     return web.json_response(ss.cfg(ss.character(request)))
 
 
+def _world_brief(wid):
+    """{id, label} d'un monde, ou None. Tolerant : un world absent ou inconnu
+    ne casse pas l'en-tete (character(request) l'a deja valide s'il etait la)."""
+    if wid and worlds.exists(wid):
+        return {"id": wid, "label": worlds.label(wid)}
+    return None
+
+
 @routes.get("/api/character")
 async def api_character(request):
-    """Personnage courant + son univers, pour l'en-tete (registre J4).
+    """Personnage courant, pour l'en-tete (registre J4 ; type + monde J7bis).
 
     `character(request)` a deja garanti que le personnage a un character.json
-    pointant vers un univers existant — pas de gestion d'erreur en plus ici.
+    coherent (univers reel, (type, style) qui resout le pack, world compatible)
+    — pas de gestion d'erreur en plus ici.
     """
     cid = ss.character(request)
     reg = lb.load_character(cid)
@@ -79,13 +89,43 @@ async def api_character(request):
     return web.json_response({
         "id": cid,
         "name": reg.get("name", cid),
+        "type": reg.get("type") or uid,
+        "world": _world_brief(reg.get("world")),
         "output_style": reg.get("output_style") or "realiste",
+        # `universe` = le pack resolu : info machine, secondaire dans le chrome
+        # depuis l'ADR-0012 (« machine : Flux · verrou visage »).
         "universe": {"id": uid, "label": u.get("label", uid),
                      "model_family": u.get("model_family"),
                      "output_styles": universe.style_names(uid)},
         "content_types": reg.get("content_types", {}),
         "nsfw": bool(reg.get("nsfw")),
     })
+
+
+@routes.get("/api/characters")
+async def api_characters(request):
+    """Registre des personnages, pour le sas d'entree (J7bis).
+
+    Liste seulement : la validation stricte reste dans character(request), au
+    moment ou un personnage est reellement selectionne. Une fiche illisible est
+    ignoree plutot que de faire echouer toute la liste."""
+    out = []
+    for cid in lb.list_characters():
+        try:
+            reg = lb.load_character(cid)
+        except (OSError, ValueError):
+            continue
+        uid = reg.get("universe")
+        out.append({
+            "id": cid,
+            "name": reg.get("name", cid),
+            "type": reg.get("type") or uid,
+            "world": _world_brief(reg.get("world")),
+            "nsfw": bool(reg.get("nsfw")),
+            "content_types": [k for k, v in (reg.get("content_types") or {}).items() if v],
+            "known_universe": universe.exists(uid),
+        })
+    return web.json_response({"characters": out})
 
 
 @routes.get("/api/universe/tools")

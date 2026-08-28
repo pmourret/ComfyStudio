@@ -12,7 +12,7 @@ import './nav.js';
 import './advanced.js';
 import './appli.js';
 import './editor.js';
-import {reflectCharacter} from './character.js';
+import {reflectCharacter, characterIsExplicit} from './character.js';
 import {go} from './nav.js';
 import {loadConfig} from './config.js';
 import {loadCreative} from './taxonomy.js';
@@ -27,7 +27,10 @@ reflectCharacter();
 // config (bandes de score, valeurs mesurees) et taxonomie d'abord : elles
 // conditionnent les deux ecrans ; leurs `*:loaded` declenchent les repeints
 Promise.all([loadConfig(), loadCreative()]).then(() => {
-  go(location.hash.slice(1) || 'creer', true);
+  // sas d'entree (J7bis) : sans ?character= explicite dans l'URL, on ouvre le
+  // registre, pas la production d'un personnage par defaut. Un lien
+  // ?character=<id> (ou #hash) reste honore.
+  go(characterIsExplicit() ? (location.hash.slice(1) || 'creer') : 'registre', true);
   loadScenes(); tick(); nsfwTick();
 });
 setInterval(tick, 1500);

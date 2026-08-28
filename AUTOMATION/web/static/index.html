@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Léna — production</title>
+<title>Studio — production</title>
 <link rel="stylesheet" href="/static/tokens.css">
 <link rel="stylesheet" href="/static/base.css">
 <link rel="stylesheet" href="/static/components.css">
@@ -12,7 +12,7 @@
 <body>
 <div class="app">
 <header>
-  <div class="brand">Production <i>Léna</i></div>
+  <div class="brand" id="brand">Studio</div>
   <div class="tabs">
     <button class="on" data-s="creer">Créer</button>
     <button data-s="galerie">Galerie <span class="n" id="nGal">0</span></button>
@@ -25,6 +25,7 @@
          desormais le cran NSFW du curseur. Deux entrees pour la meme operation
          donnaient deux champs d'instruction qui s'ignoraient. -->
     <div class="advmenu" id="advMenu">
+      <button data-s="registre">Registre des personnages</button>
       <button data-s="scenes">Banque de scènes</button>
       <button data-s="journal">Journal</button>
       <button data-s="appli">Application</button>
@@ -52,6 +53,19 @@
 </div>
 
 <main>
+<!-- ============================================================== REGISTRE
+     Sas d'entree (J7bis) : l'app s'ouvre ici quand aucun ?character= n'est
+     donne dans l'URL. Choisir un personnage = recharger en ?character=<id>
+     (rechargement simple, V1). Pas une landing : une liste dense. -->
+<div class="screen" id="registre">
+  <div class="wrap">
+    <h2>Registre des personnages</h2>
+    <p class="tiny" style="margin:6px 0 18px">Ouvrir un personnage recharge le
+      studio sur sa production. Son type et son monde sont figés à sa création.</p>
+    <div class="charGrid" id="charGrid"></div>
+  </div>
+</div>
+
 <!-- ================================================================= CREER -->
 <div class="screen on" id="creer">
   <div class="wrap">

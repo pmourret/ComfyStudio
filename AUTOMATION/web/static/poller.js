@@ -3,7 +3,7 @@
    declenche le rechargement des ecrans quand un batch se termine.
    Extrait de boot.js en J3 (bascule en modules ES) ; possede son propre etat
    d'execution depuis J3 etape 2. */
-import {$} from './dom.js';
+import {$, mmss} from './dom.js';
 import {api, erreurDe} from './api.js';
 import {signalerPanne} from './health.js';
 import {renderRun, nbSelection, planOk, nsfwTick, estEdition} from './create.js';
@@ -32,9 +32,16 @@ export async function tick(){
     $('#stTxt').textContent = 'état indisponible';
     return;
   }
+  // derniere erreur de batch : visible sur tous les ecrans via le bandeau
+  // #panneBar, pas seulement dans le journal de l'ecran Creer (J7bis).
+  signalerPanne('production', s.last_error
+    ? `dernière production : ${s.last_error.msg} (${s.last_error.at})` : null);
   $('#dot').classList.toggle('on', s.comfy);
-  $('#stTxt').textContent = s.comfy ? (s.running ? 'production en cours' : 'prêt')
-                                    : 'ComfyUI hors ligne';
+  // le compteur de file suit la production meme quand on a quitte l'ecran Creer
+  const running = s.running
+    ? `production ${s.index}/${s.total}` + (s.eta ? ` · ~${mmss(s.eta)}` : '')
+    : 'prêt';
+  $('#stTxt').textContent = s.comfy ? running : 'ComfyUI hors ligne';
   // les compteurs du selecteur de bucket suivent l'espace actif de l'ecran
   // #trier ; les badges d'onglet Galerie/Revue, eux, restent toujours sur
   // l'espace SFW puisque c'est ce sur quoi ils atterrissent

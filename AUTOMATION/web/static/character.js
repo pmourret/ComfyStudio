@@ -1,35 +1,48 @@
 /* Personnage courant, choisi par ?character= dans l'URL (J3 etape 4).
 
    V1 : simple rechargement — changer de personnage = recharger avec un autre
-   ?character=. api.js ajoute cet id a chaque appel /api/*. Le registre J4
-   donne un nom lisible et un univers ; l'en-tete les reflete (reflectCharacter). */
+   ?character=. api.js ajoute cet id a chaque appel /api/*. Le registre donne un
+   nom lisible, un type et un monde (figes a la creation, ADR-0012) ; l'en-tete
+   les reflete (reflectCharacter). Sans ?character= dans l'URL, aucun personnage
+   n'est revendique : c'est le sas d'entree (main.js ouvre alors le registre). */
 import {esc} from './dom.js';
 
-const CURRENT = new URLSearchParams(location.search).get('character') || 'lena';
+const PARAMS = new URLSearchParams(location.search);
+const CURRENT = PARAMS.get('character') || 'lena';
 
 export const currentCharacter = () => CURRENT;
+export const characterIsExplicit = () => PARAMS.has('character');
 
 /* Reflete le personnage courant dans le chrome (en-tete + titre d'onglet). Un
    rechargement en ?character=<x> doit se voir a l'oeil, pas seulement dans la
-   trace reseau. Repli immediat sur l'id brut ; on l'enrichit avec le nom lisible
-   et l'univers des que /api/character repond. Ne jette jamais : si l'appel
-   echoue, le repli reste (regle frontend : jamais un echec silencieux, mais pas
-   d'ecran casse non plus). fetch direct plutot que api() pour ne pas creer de
-   cycle d'import avec api.js. */
+   trace reseau. Repli immediat sur l'id brut ; on l'enrichit (nom, type, monde)
+   des que /api/character repond. Ne jette jamais : si l'appel echoue, le repli
+   reste (regle frontend : jamais un echec silencieux, mais pas d'ecran casse).
+   fetch direct plutot que api() pour ne pas creer de cycle d'import avec api.js. */
 export function reflectCharacter(){
-  peindre(CURRENT, null);
+  if (!characterIsExplicit()){ paintNeutral(); return; }
+  paint({id: CURRENT});
   fetch(`/api/character?character=${encodeURIComponent(CURRENT)}`)
     .then(r => r.json())
-    .then(d => { if (d && d.ok !== false) peindre(d.name || CURRENT, d.universe); })
+    .then(d => { if (d && d.ok !== false) paint(d); })
     .catch(() => {});
 }
 
-function peindre(nom, univers){
+function paintNeutral(){
+  const brand = document.querySelector('.brand');
+  if (brand) brand.textContent = 'Studio';
+  document.title = 'Studio';
+}
+
+function paint(d){
   const brand = document.querySelector('.brand');
   if (brand){
-    const tag = univers && (univers.label || univers.id);
-    brand.innerHTML = `Production <i>${esc(nom)}</i>`
-      + (tag ? ` <span class="brand-uni">${esc(tag)}</span>` : '');
+    const tags = [];
+    if (d.type) tags.push(`<span class="brand-tag">${esc(d.type)}</span>`);
+    if (d.world && d.world.label)
+      tags.push(`<span class="brand-tag">${esc(d.world.label)}</span>`);
+    brand.innerHTML = `<i>${esc(d.name || d.id)}</i>`
+      + `<code class="brand-id">${esc(d.id)}</code>` + tags.join('');
   }
-  document.title = `${nom} — production`;
+  document.title = `${d.name || d.id} — production`;
 }

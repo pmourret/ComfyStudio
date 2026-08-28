@@ -118,6 +118,9 @@ try:
             "abyssiaelle : type rpg-personnage, world terres-sauvages")
     verifie(lb.character_world("probe") is None,
             "probe : world absent du registre -> None (toujours accepte)")
+    reg_ids = set(lb.list_characters())
+    verifie({"lena", "abyssiaelle", "probe"} <= reg_ids,
+            f"list_characters() enumere le registre, sondes comprises ({sorted(reg_ids)})")
 
     # --------------------------------------------------- [2] pas de contamination
     print("\n[2] resoudre probe ne change rien pour lena")
