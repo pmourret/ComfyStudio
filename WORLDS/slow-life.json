@@ -1,0 +1,45 @@
+{
+  "id": "slow-life",
+  "label": "Slow life",
+  "compatible_families": ["flux"],
+  "suggested_styles": ["realiste"],
+  "assets": {
+    "lora": null,
+    "lora_strength": null,
+    "prompt_add": ""
+  },
+  "tone": "calm and unhurried: natural light, lived-in interiors, quiet outdoor moments",
+  "ui_skin_token": "world-slow-life",
+  "starter_scenes": [
+    {
+      "id": "cafe_terrasse",
+      "label": "Terrasse de cafe",
+      "intention": "lifestyle",
+      "prompt": "sitting at a small cafe table outdoors in the morning, soft natural light"
+    },
+    {
+      "id": "interieur_lumiere",
+      "label": "Interieur clair",
+      "intention": "lifestyle",
+      "prompt": "at home near a large window, warm diffuse daylight, plants and books around"
+    }
+  ],
+  "_notes": [
+    "Monde de Lena (pack instagram-influenceur / famille flux). ADR-0012, J7bis.",
+    "VERSIONNE : aucun asset personnel, seulement le cadre et ses references.",
+    "FIGE a la creation du personnage, au meme titre que le style et pour la meme",
+    "raison : ses assets entrent dans le rendu et la mesure du verrou d'identite",
+    "les a valides pour ce visage. Changer de monde = creer un autre personnage",
+    "(CLAUDE.md §3-§4).",
+    "compatible_families : le monde ne CHOISIT pas la famille -- il doit etre",
+    "compatible avec celle deja resolue par (type, style). Sert a filtrer les",
+    "mondes proposables dans le wizard, il n'en resout aucun.",
+    "assets : slow-life est un cadre contemporain sans LoRA de monde ni prompt_add",
+    "-- rien a mesurer ici, contrairement a un monde porteur de LoRA.",
+    "starter_scenes : amorce de banque pour un nouveau personnage de ce monde,",
+    "consommee par le wizard (J7bis etape 5). Rien ne la lit avant. La banque",
+    "reelle grandit ensuite a la main depuis le Dashboard (ROADMAP J6).",
+    "ui_skin_token : jeton de peau UI, declaratif en J7bis -- le look de monde est",
+    "hors perimetre (ROADMAP)."
+  ]
+}

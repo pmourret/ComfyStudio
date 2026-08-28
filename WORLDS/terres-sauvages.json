@@ -1,0 +1,42 @@
+{
+  "id": "terres-sauvages",
+  "label": "Terres sauvages",
+  "compatible_families": ["sdxl"],
+  "suggested_styles": ["realiste", "fantastique"],
+  "assets": {
+    "lora": null,
+    "lora_strength": null,
+    "prompt_add": ""
+  },
+  "tone": "wilderness travel: forests and dusk, campfires, worn traveller's gear, low muted light",
+  "ui_skin_token": "world-terres-sauvages",
+  "starter_scenes": [
+    {
+      "id": "lisiere_foret",
+      "label": "Lisiere de foret",
+      "intention": "exploration",
+      "prompt": "at the edge of a forest at dusk, half body, three-quarter angle, cool blue light"
+    },
+    {
+      "id": "feu_de_camp",
+      "label": "Feu de camp",
+      "intention": "exploration",
+      "prompt": "sitting by a small campfire, warm firelight against cool night, half body"
+    }
+  ],
+  "_notes": [
+    "Monde d'Abyssiaelle (pack rpg-personnage / famille sdxl). ADR-0012, J7bis.",
+    "assets : PLACEHOLDER. Ce monde appellera un LoRA de monde (foret / voyage) et",
+    "sans doute un prompt_add -- ni l'un ni l'autre n'est mesure. Un monde livre",
+    "non mesure est une DETTE DECLAREE, pas un monde pret (ADR-0012, Consequences).",
+    "Meme statut que les prompt_add / checkpoint des styles non-realistes de",
+    "rpg-personnage, deja signales en placeholders dans son universe.json.",
+    "Le cablage de ces assets dans le runner est HORS PERIMETRE de J7bis (ROADMAP).",
+    "compatible_families : sdxl seulement -- le monde ne resout pas la famille, il",
+    "doit etre compatible avec celle que (type, style) a deja resolue.",
+    "FIGE a la creation du personnage (CLAUDE.md §3-§4) : ses assets entrent dans",
+    "le rendu et la mesure du verrou les valide pour ce visage.",
+    "starter_scenes : amorce de banque, consommee par le wizard (J7bis etape 5).",
+    "Les scenes reelles d'Abyssiaelle vivent dans CHARACTERS/abyssiaelle/scenes.json."
+  ]
+}
