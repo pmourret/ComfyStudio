@@ -15,6 +15,20 @@ import universe
 from . import OFM, COMFY_INPUT, load_json
 from .prompt import character_style, character_universe
 
+# Roles "latent"/"guidance" par famille de modele (universe.json / model_family,
+# CLAUDE.md §4 : choix d'univers, jamais de personnage). Flux pilote la guidance
+# via un noeud dedie (FluxGuidance) et un latent SD3 ; SDXL n'a pas de noeud de
+# guidance separe (le cfg est un widget du KSampler, voir api_for) et un latent
+# ordinaire. Ajoute en J6 avec le premier workflow SDXL (Abyssiaelle) — avant
+# ca, tout etait Flux en dur ici comme dans wf_check.ROLES_PROD.
+ROLES_LATENT_PAR_FAMILLE = {
+    "flux": ("EmptySD3LatentImage", "Format -"),
+    "sdxl": ("EmptyLatentImage", "Format -"),
+}
+ROLES_GUIDANCE_PAR_FAMILLE = {
+    "flux": ("FluxGuidance", None),
+}
+
 
 # ----------------------------------------------------- dialogue avec ComfyUI
 def queue_prompt(url, api, client_id="runner"):
@@ -64,6 +78,11 @@ class WorkflowRunner:
         # `base_gelee` changent. J5.
         uid = character_universe(character_id)
         self.identity = identity.for_universe(uid)
+        # Famille de modele de l'univers (J6) : decide la table de roles
+        # guidance/latent resolue par _roles(), et comment api_for() pilote le
+        # cfg. Flux et SDXL n'ont ni le meme noeud de guidance, ni le meme
+        # noeud de latent vide.
+        self.model_family = universe.model_family(uid)
         # Style de sortie fige a la creation du personnage (CLAUDE.md §3), effet
         # declare par l'univers. Pour instagram-influenceur / realiste :
         # prompt_add vide, pas de swap -> graphe inchange. J5.
@@ -88,13 +107,19 @@ class WorkflowRunner:
 
     def _roles(self):
         f = ui_to_api.find_node
+        latent_typ, latent_titre = ROLES_LATENT_PAR_FAMILLE.get(
+            self.model_family, ROLES_LATENT_PAR_FAMILLE["flux"])
         r = {
             "positive": f(self.ui, "CLIPTextEncode", "POSITIF - scene"),
-            "guidance": f(self.ui, "FluxGuidance"),
-            "latent": f(self.ui, "EmptySD3LatentImage", "Format -"),
+            "latent": f(self.ui, latent_typ, latent_titre),
             "sampler": f(self.ui, "KSampler", "passe 1"),
             "save": f(self.ui, "SaveImage", "SORTIE production"),
         }
+        guidance = ROLES_GUIDANCE_PAR_FAMILLE.get(self.model_family)
+        # role obligatoire seulement pour les familles qui pilotent la
+        # guidance par un noeud dedie (flux) ; les autres (sdxl) la pilotent
+        # en widget KSampler (api_for) et n'ont donc pas ce role.
+        r["guidance"] = f(self.ui, *guidance) if guidance else None
         for key, (typ, title) in {
             "switch": ("Switch any [Crystools]", None),
             "refiner": ("KSampler", "img2img denoise"),
@@ -167,9 +192,15 @@ class WorkflowRunner:
         ckpt = self.style.get("checkpoint")
         if ckpt and self.roles.get("checkpoint"):
             api[str(self.roles["checkpoint"]["id"])]["inputs"]["ckpt_name"] = ckpt
-        node("guidance")["inputs"]["guidance"] = p["guidance"]
+        if self.model_family == "flux":
+            node("guidance")["inputs"]["guidance"] = p["guidance"]
         node("latent")["inputs"].update(width=w, height=h, batch_size=1)
         node("sampler")["inputs"].update(seed=job["seed"], steps=p["steps"])
+        if self.model_family != "flux":
+            # Pas de noeud de guidance dedie (SDXL) : le cfg est un widget
+            # direct du KSampler, meme cle de config que Flux (`preset.
+            # guidance`) pour garder un seul vocabulaire cross-univers.
+            node("sampler")["inputs"]["cfg"] = p["guidance"]
         node("save")["inputs"]["filename_prefix"] = (
             f"OFM/PROD/_BATCH/{batch_id}/{job['scene']}")
 

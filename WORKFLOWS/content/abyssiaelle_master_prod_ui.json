@@ -1,0 +1,717 @@
+{
+  "last_node_id": 13,
+  "last_link_id": 15,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "Note",
+      "pos": [
+        -1400,
+        -320
+      ],
+      "size": [
+        760,
+        560
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "Note"
+      },
+      "widgets_values": [
+        "WORKFLOW DE PRODUCTION SDXL/Pony -- Abyssiaelle (univers rpg-personnage)\n\nBROUILLON J6 etape 3 : assemble hors interface ComfyUI. A OUVRIR PUIS RE-SAUVEGARDER UNE FOIS DANS COMFYUI avant la premiere vraie production -- verifie/reconstruit les 3 copies de liens et les compteurs d'ID que l'interface maintient normalement seule (voir workflow-comfyui/references/format-ui-mecanique.md).\n\n01 IDENTITE ABYSSIAELLE (IPAdapter FaceID) : LoadImage BASE GELEE + loader unifie + InsightFace + noeud d'application. Poids (weight/weight_faceidv2/start_at/end_at) et image de reference NE SONT PAS ceux des widgets ci-dessous une fois en production -- AUTOMATION/identity/lora_sdxl.py les ecrase depuis CHARACTERS/abyssiaelle/config.json a chaque lancement (CLAUDE.md §8.4). Les widgets ici ne comptent que si le graphe est mis en file DIRECTEMENT depuis l'interface, hors runner.\n\n02 LORA PERSONNAGE (bypass) : abyss1a_v1.safetensors deja entraine (trouve sur ce poste, hors depot) -- cable mais BYPASS par defaut, decision actee avec l'utilisateur (J6) : IPAdapter FaceID reste le verrou primaire, ce LoRA est un complement optionnel active via config.json / identity / lora, jamais par ce widget.\n\n03 CHECKPOINT : place a confirmer par la mesure reelle (juggernautXL_ragnarok choisi comme point de depart raisonnable, pas encore mesure).\n\n04 NEGATIF : SDXL a besoin d'un vrai negatif (contrairement a Flux) -- boilerplate de depart, a affiner a la mesure.\n\nRoles attendus par le runner (AUTOMATION/runner/comfy.py, generalisation SDXL en cours J6 etape 3/4) : POSITIF - scene, NEGATIF, Format -, passe 1, SORTIE production, IPAdapter FaceID - verrou identite, BASE GELEE - reference d'identite, LoRA personnage (bypass)."
+      ]
+    },
+    {
+      "id": 2,
+      "type": "CheckpointLoaderSimple",
+      "pos": [
+        -1400,
+        260
+      ],
+      "size": [
+        360,
+        98
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            1
+          ]
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            3,
+            4
+          ]
+        },
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            5
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CheckpointLoaderSimple"
+      },
+      "widgets_values": [
+        "juggernautXL_ragnarok.safetensors"
+      ],
+      "title": "CHECKPOINT SDXL - Abyssiaelle"
+    },
+    {
+      "id": 3,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -980,
+        -60
+      ],
+      "size": [
+        420,
+        200
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            11
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "title": "POSITIF - scene",
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 4,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -980,
+        180
+      ],
+      "size": [
+        420,
+        140
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            12
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        "lowres, bad anatomy, bad hands, extra digits, fewer digits, cropped, worst quality, low quality, blurry, watermark, text, signature, deformed, disfigured, mutated, ugly"
+      ],
+      "title": "NEGATIF - realiste",
+      "color": "#322",
+      "bgcolor": "#533"
+    },
+    {
+      "id": 5,
+      "type": "EmptyLatentImage",
+      "pos": [
+        -980,
+        360
+      ],
+      "size": [
+        260,
+        106
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            13
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "EmptyLatentImage"
+      },
+      "widgets_values": [
+        1024,
+        1024,
+        1
+      ],
+      "title": "Format -"
+    },
+    {
+      "id": 6,
+      "type": "LoraLoaderModelOnly",
+      "pos": [
+        -560,
+        600
+      ],
+      "size": [
+        340,
+        110
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoraLoaderModelOnly"
+      },
+      "widgets_values": [
+        "abyss1a_v1.safetensors",
+        0.8
+      ],
+      "title": "LoRA personnage (bypass) / abyss1a"
+    },
+    {
+      "id": 7,
+      "type": "IPAdapterUnifiedLoaderFaceID",
+      "pos": [
+        -100,
+        60
+      ],
+      "size": [
+        340,
+        130
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            6
+          ]
+        },
+        {
+          "name": "ipadapter",
+          "type": "IPADAPTER",
+          "links": [
+            7
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "IPAdapterUnifiedLoaderFaceID"
+      },
+      "widgets_values": [
+        "FACEID PLUS V2",
+        0.6,
+        "CUDA"
+      ],
+      "title": "IPAdapter FaceID - loader unifie"
+    },
+    {
+      "id": 8,
+      "type": "IPAdapterInsightFaceLoader",
+      "pos": [
+        -100,
+        260
+      ],
+      "size": [
+        300,
+        78
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INSIGHTFACE",
+          "type": "INSIGHTFACE",
+          "links": [
+            8
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "IPAdapterInsightFaceLoader"
+      },
+      "widgets_values": [
+        "CUDA",
+        "antelopev2"
+      ],
+      "title": "IPAdapter FaceID - InsightFace"
+    },
+    {
+      "id": 9,
+      "type": "LoadImage",
+      "pos": [
+        -100,
+        420
+      ],
+      "size": [
+        300,
+        340
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            9
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "ABY_MAIN_REF.jpg"
+      ],
+      "title": "BASE GELEE - reference d'identite",
+      "color": "#322",
+      "bgcolor": "#533"
+    },
+    {
+      "id": 10,
+      "type": "IPAdapterFaceID",
+      "pos": [
+        320,
+        60
+      ],
+      "size": [
+        360,
+        320
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 6
+        },
+        {
+          "name": "ipadapter",
+          "type": "IPADAPTER",
+          "link": 7
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 9
+        },
+        {
+          "name": "image_negative",
+          "type": "IMAGE",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "attn_mask",
+          "type": "MASK",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "clip_vision",
+          "type": "CLIP_VISION",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "insightface",
+          "type": "INSIGHTFACE",
+          "link": 8
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            10
+          ]
+        },
+        {
+          "name": "face_image",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "IPAdapterFaceID"
+      },
+      "widgets_values": [
+        0.7,
+        1.0,
+        "linear",
+        "concat",
+        0.0,
+        1.0,
+        "V only"
+      ],
+      "title": "IPAdapter FaceID - verrou identite",
+      "color": "#322",
+      "bgcolor": "#533"
+    },
+    {
+      "id": 11,
+      "type": "KSampler",
+      "pos": [
+        740,
+        60
+      ],
+      "size": [
+        300,
+        262
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 10
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 11
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 12
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 13
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            14
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        0,
+        "randomize",
+        30,
+        6.0,
+        "dpmpp_2m",
+        "karras",
+        1.0
+      ],
+      "title": "passe 1"
+    },
+    {
+      "id": 12,
+      "type": "VAEDecode",
+      "pos": [
+        1080,
+        60
+      ],
+      "size": [
+        180,
+        46
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 14
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            15
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      }
+    },
+    {
+      "id": 13,
+      "type": "SaveImage",
+      "pos": [
+        1300,
+        60
+      ],
+      "size": [
+        340,
+        300
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 15
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "OFM/PROD/_BATCH/abyssiaelle"
+      ],
+      "title": "SORTIE production"
+    }
+  ],
+  "links": [
+    [
+      1,
+      2,
+      0,
+      6,
+      0,
+      "MODEL"
+    ],
+    [
+      2,
+      6,
+      0,
+      7,
+      0,
+      "MODEL"
+    ],
+    [
+      3,
+      2,
+      1,
+      3,
+      0,
+      "CLIP"
+    ],
+    [
+      4,
+      2,
+      1,
+      4,
+      0,
+      "CLIP"
+    ],
+    [
+      5,
+      2,
+      2,
+      12,
+      1,
+      "VAE"
+    ],
+    [
+      6,
+      7,
+      0,
+      10,
+      0,
+      "MODEL"
+    ],
+    [
+      7,
+      7,
+      1,
+      10,
+      1,
+      "IPADAPTER"
+    ],
+    [
+      8,
+      8,
+      0,
+      10,
+      6,
+      "INSIGHTFACE"
+    ],
+    [
+      9,
+      9,
+      0,
+      10,
+      2,
+      "IMAGE"
+    ],
+    [
+      10,
+      10,
+      0,
+      11,
+      0,
+      "MODEL"
+    ],
+    [
+      11,
+      3,
+      0,
+      11,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      12,
+      4,
+      0,
+      11,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      13,
+      5,
+      0,
+      11,
+      3,
+      "LATENT"
+    ],
+    [
+      14,
+      11,
+      0,
+      12,
+      0,
+      "LATENT"
+    ],
+    [
+      15,
+      12,
+      0,
+      13,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "01 IDENTITE ABYSSIAELLE (IPAdapter FaceID)",
+      "bounding": [
+        -140,
+        20,
+        860,
+        780
+      ],
+      "color": "#3f789e",
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "02 LORA PERSONNAGE (bypass)",
+      "bounding": [
+        -580,
+        580,
+        380,
+        150
+      ],
+      "color": "#a1309b",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

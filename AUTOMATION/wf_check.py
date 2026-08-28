@@ -33,13 +33,25 @@ import ui_to_api  # noqa: E402
 
 # Roles que `runner.WorkflowRunner` cherche dans le graphe de production.
 # Les lister ici evite de decouvrir a l'execution qu'un titre a ete renomme.
-ROLES_PROD = [
+# Deux tables par famille de modele (universe.json / model_family, CLAUDE.md
+# §4) : Flux pilote la guidance par un noeud dedie et un latent SD3 ; SDXL n'a
+# pas de noeud de guidance separe (cfg = widget KSampler, voir runner/comfy.py
+# ROLES_GUIDANCE_PAR_FAMILLE) et un latent ordinaire. Choisie par --famille,
+# defaut flux pour ne rien changer aux appels existants.
+ROLES_PROD_FLUX = [
     ("CLIPTextEncode", "POSITIF - scene"),
     ("FluxGuidance", None),
     ("EmptySD3LatentImage", "Format -"),
     ("KSampler", "passe 1"),
     ("SaveImage", "SORTIE production"),
 ]
+ROLES_PROD_SDXL = [
+    ("CLIPTextEncode", "POSITIF - scene"),
+    ("EmptyLatentImage", "Format -"),
+    ("KSampler", "passe 1"),
+    ("SaveImage", "SORTIE production"),
+]
+ROLES_PROD_PAR_FAMILLE = {"flux": ROLES_PROD_FLUX, "sdxl": ROLES_PROD_SDXL}
 ROLES_OPTIONNELS = [
     ("Switch any [Crystools]", None),
     ("KSampler", "img2img denoise"),
@@ -66,6 +78,8 @@ def main():
                     help="met le graphe en file pour de vrai (produit une image)")
     ap.add_argument("--roles", action="store_true",
                     help="verifie les roles attendus par le runner de production")
+    ap.add_argument("--famille", default="flux", choices=sorted(ROLES_PROD_PAR_FAMILLE),
+                    help="famille de modele du workflow (defaut : flux)")
     args = ap.parse_args()
 
     chemin = Path(args.workflow)
@@ -138,7 +152,7 @@ def main():
     # 5 ----------------------------------------------- roles du runner
     if args.roles:
         manquants = []
-        for typ, titre in ROLES_PROD:
+        for typ, titre in ROLES_PROD_PAR_FAMILLE[args.famille]:
             try:
                 ui_to_api.find_node(ui, typ, titre)
             except LookupError:

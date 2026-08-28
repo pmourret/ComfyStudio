@@ -83,6 +83,14 @@ def load_tools(uid):
     return data.get("tools", [])
 
 
+def model_family(uid):
+    """Famille de modele de l'univers (`universe.json` / `model_family`,
+    ex. 'flux', 'sdxl') — decide quelle table de roles guidance/latent le
+    runner resout (CLAUDE.md §4 : c'est un choix d'univers, pas de personnage,
+    generalise en J6 quand rpg-personnage devient reellement SDXL)."""
+    return load_universe(uid).get("model_family")
+
+
 class UnknownStyleError(ValueError):
     """Un style de sortie demande n'est pas declare par l'univers."""
 
