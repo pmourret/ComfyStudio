@@ -11,6 +11,9 @@ REM
 REM ComfyUI s'ouvre dans SA PROPRE FENETRE : c'est la que sortent ses logs.
 REM Il n'est pas arrete en quittant le dashboard (un batch peut etre en file) ;
 REM fermer sa fenetre a la main pour liberer la VRAM.
+REM
+REM Un tableau de bord deja lance sur le meme port (fenetre precedente fermee
+REM sans Ctrl-C) est arrete automatiquement au demarrage (app.py reclaim_port).
 setlocal
 call "%~dp0find_python.bat"
 if errorlevel 1 (
