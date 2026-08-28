@@ -26,6 +26,7 @@
          donnaient deux champs d'instruction qui s'ignoraient. -->
     <div class="advmenu" id="advMenu">
       <button data-s="registre">Registre des personnages</button>
+      <button data-s="wizard">Nouveau personnage</button>
       <button data-s="scenes">Banque de scènes</button>
       <button data-s="journal">Journal</button>
       <button data-s="appli">Application</button>
@@ -63,6 +64,33 @@
     <p class="tiny" style="margin:6px 0 18px">Ouvrir un personnage recharge le
       studio sur sa production. Son type et son monde sont figés à sa création.</p>
     <div class="charGrid" id="charGrid"></div>
+  </div>
+</div>
+
+<!-- =============================================================== WIZARD
+     « Nouveau personnage » (J7bis) : type -> style -> monde -> base d'identite
+     -> creation. type / style / monde sont figes a la creation ; en changer =
+     creer un autre personnage. A la creation : rechargement en ?character=<id>. -->
+<div class="screen" id="wizard">
+  <div class="wrap">
+    <h2>Nouveau personnage</h2>
+    <div class="wiz-id">
+      <label class="f"><span>Nom affiché</span>
+        <input id="wizName" autocomplete="off" placeholder="ex : Léna"></label>
+      <label class="f"><span>Identifiant <span class="tiny" id="wizCidHint"></span></span>
+        <input id="wizCid" autocomplete="off" spellcheck="false"
+          placeholder="slug — dossiers, URL, base de données"></label>
+    </div>
+    <ol class="wiz-steps" id="wizSteps"></ol>
+    <div id="wizBody"></div>
+  </div>
+  <div class="launch">
+    <div class="inner">
+      <div class="sum"><b id="wizSumN">—</b><div id="wizSumT">choisis un type</div></div>
+      <div class="spacer"></div>
+      <button class="btn" id="wizBack">Retour</button>
+      <button class="btn primary" id="wizNext">Suivant</button>
+    </div>
   </div>
 </div>
 

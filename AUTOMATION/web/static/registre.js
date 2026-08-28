@@ -29,7 +29,7 @@ export async function loadRegistre(){
   }
 
   const here = new URLSearchParams(location.search).get('character');
-  grid.innerHTML = d.characters.map(c => {
+  const cards = d.characters.map(c => {
     const current = c.id === here ? ' char-card--current' : '';
     const world = c.world && c.world.label ? esc(c.world.label) : '—';
     const tags = [
@@ -42,5 +42,11 @@ export async function loadRegistre(){
     return `<a class="char-card${current}" href="?character=${encodeURIComponent(c.id)}">`
       + `<b>${esc(c.name || c.id)}</b><code>${esc(c.id)}</code>`
       + `<div class="char-tags">${tags}</div></a>`;
-  }).join('');
+  });
+  // <a href="#wizard"> : la navigation passe par le hashchange de nav.js, ce
+  // qui evite un cycle d'import registre <-> nav.
+  cards.push(`<a class="char-card char-card--new" href="#wizard">`
+    + `<b>+ Nouveau personnage</b>`
+    + `<span class="tiny">type, style et monde — figés à la création</span></a>`);
+  grid.innerHTML = cards.join('');
 }
