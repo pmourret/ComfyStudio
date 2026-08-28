@@ -18,6 +18,7 @@ import nsfw_batch
 import runner as lb
 import universe
 import worlds
+import base_portrait
 
 routes = web.RouteTableDef()
 
@@ -126,6 +127,27 @@ async def api_characters(request):
             "known_universe": universe.exists(uid),
         })
     return web.json_response({"characters": out})
+
+
+@routes.post("/api/characters/base/upload")
+async def api_characters_base_upload(request):
+    """Wizard « nouveau personnage » (J7bis) — base d'identite FOURNIE.
+
+    Depose l'image dans ComfyUI/input/ (seul endroit que `LoadImage` lit) et
+    rend le nom de fichier a mettre dans config.json/base_gelee. Le personnage
+    n'existe pas encore ; on refuse seulement un cid deja pris, pour ne pas
+    ecraser la base d'un personnage existant.
+    """
+    body = await request.json()
+    cid = (body.get("cid") or "").strip()
+    if lb.character_dir(cid).is_dir():
+        ss.bad_request(f"le personnage {cid!r} existe deja")
+    try:
+        name = base_portrait.save_uploaded(cid, body.get("image_base64"))
+    except base_portrait.BaseImageError as e:
+        ss.bad_request(str(e))
+    ss.push_log(f"base d'identite fournie pour {cid!r} -> {name}")
+    return web.json_response({"ok": True, "base_gelee": name})
 
 
 @routes.get("/api/universe/tools")

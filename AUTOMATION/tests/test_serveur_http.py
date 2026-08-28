@@ -170,6 +170,16 @@ try:
             and (d.get("world") or {}).get("label") == "Terres sauvages",
             f"/api/character rend type + monde ({d.get('type')}, {d.get('world')})")
 
+    # base d'identite fournie : une image invalide -> 400 lisible, pas 500
+    code, corps = appel("/api/characters/base/upload",
+                        {"cid": "wizhttp", "image_base64": "pas une image"})
+    verifie(code == 400 and est_json(corps),
+            f"upload base illisible : {code} en JSON")
+    code, corps = appel("/api/characters/base/upload",
+                        {"cid": "lena", "image_base64": "x"})
+    verifie(code == 400 and b"existe deja" in corps,
+            f"upload base pour un cid deja pris : refuse ({code})")
+
     # ============================================================== M8
     # Cette route ECRIT config.json. On photographie le fichier avant, et on
     # exige qu'il soit intact apres : la premiere version de ce test a fait
