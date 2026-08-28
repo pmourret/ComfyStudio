@@ -137,6 +137,30 @@ try:
     except (urllib.error.URLError, OSError):
         print("  IGNORE — ComfyUI injoignable (object_info requis)")
 
+    # ---------------------------- [6] meme invariant pour abyssiaelle (J6 etape 4)
+    print("\n[6] style realiste n'altere pas le prompt d'abyssiaelle non plus")
+    verifie(lb.character_style("abyssiaelle") == "realiste",
+            "abyssiaelle -> realiste (fige a l'onboarding, J6 etape 1)")
+    verifie(universe.style_effect("rpg-personnage", "realiste")
+            == {"prompt_add": "", "checkpoint": None},
+            "rpg-personnage / realiste : effet nul, comme instagram-influenceur")
+    try:
+        urllib.request.urlopen(cfg["comfy_url"].rstrip("/") + "/object_info/IPAdapterFaceID",
+                               timeout=3).close()
+        cfg_aby = dict(lb.load_config("abyssiaelle"))
+        cfg_aby["base_gelee"] = "ABY_MAIN_REF.jpg"
+        cfg_aby["preset"] = {"guidance": 6.0, "steps": 30}
+        r2 = WorkflowRunner(cfg_aby, "abyssiaelle")
+        job2 = {"scene": "s", "format": "1:1", "prompt": "a plain room, wide shot",
+               "seed": 1, "overrides": {}, "pose": None}
+        api2 = r2.api_for(job2, "t")
+        pos2 = api2[str(r2.roles["positive"]["id"])]["inputs"]["text"]
+        verifie(pos2 == job2["prompt"], f"prompt positif inchange ({pos2!r})")
+        verifie(r2.style == {"prompt_add": "", "checkpoint": None},
+                f"style resolu = effet nul ({r2.style})")
+    except (urllib.error.URLError, OSError):
+        print("  IGNORE — ComfyUI injoignable (object_info requis)")
+
     print("\n" + "=" * 70)
     print("tout est vert" if not KO else f"{KO} ECHEC(S)")
     print("=" * 70)
