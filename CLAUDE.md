@@ -75,6 +75,12 @@ résolution (§4, ADR-0012).
   `character.json` / `universe` **reste** et désigne désormais le pack
   résolu ; `universe.json` gagne un champ `types` — une **liste dès le
   premier jour**, même si la relation reste 1-1 en V1.
+- Le **wizard « nouveau personnage »** (`create_character`, écran
+  `#wizard`) est le seul à écrire une fiche : il résout le pack, stampe
+  `config.json` aux défauts du pack (`UNIVERS/<pack>/character_defaults.json`),
+  amorce la banque depuis le monde, et n'édite jamais un des trois axes
+  figés. Les valeurs mesurées du personnage remplacent ensuite les défauts
+  dans Réglages (`measured: false` tant que ce n'est pas fait).
 - **Registre de création** : types de contenu actifs pour un personnage
   (image / vidéo / voix / mise en scène à plusieurs). Axe **transversal**,
   orthogonal aux quatre autres et **commun** à tous les packs — pas une
@@ -108,13 +114,16 @@ soient leur style, leur monde et leurs mesures. Ce qui varie, et où :
 
 | Ce qui varie | Porté par | Édité depuis |
 |---|---|---|
-| **Topologie** — nœuds, chaîne, verrou, ControlNet, ordre des étages | le pack | l'auteur du pack |
+| **Topologie** — nœuds, chaîne, verrou, ControlNet, ordre des étages | le pack (`universe.json` / `workflow`) | l'auteur du pack |
 | **Assets de style et de monde** — LoRA, `prompt_add`, checkpoint compatible | l'entrée `output_styles` du pack, l'entrée `WORLDS/<id>` | Réglages d'univers |
 | **Valeurs mesurées du personnage** — base gelée, LoRA perso + mot déclencheur, poids du verrou, seuils | `character.json` / `config.json` | le studio (création, puis Réglages) |
 
-Il n'existe jamais un fichier de graphe par personnage (§8.11) : un
-personnage qui rend mal se règle par la mesure, pas par un graphe
-parallèle.
+Il n'existe jamais un fichier de graphe par personnage (§8.11) : le wizard
+attache `config.json` / `workflow` au graphe du pack, il n'en génère aucun.
+La base gelée est fournie ou générée à la création (le portrait généré passe
+par le graphe du pack, **verrou bypassé** — aucune référence n'existe
+encore), puis ne change plus. Un personnage qui rend mal se règle par la
+mesure, pas par un graphe parallèle.
 
 ### La mesure reste par personnage (leçon J6)
 
