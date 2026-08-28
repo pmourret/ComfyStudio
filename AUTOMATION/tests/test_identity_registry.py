@@ -55,23 +55,59 @@ verifie(identity.for_universe("rpg-personnage") is lora_sdxl,
 
 # --------------------------------------------------------------- [3] contrat
 print("\n[3] contrat des implementations")
-verifie(isinstance(pulid_flux.REQUIRED_ROLES, dict)
-        and all(isinstance(v, tuple) and len(v) == 2
-                for v in pulid_flux.REQUIRED_ROLES.values()),
-        f"pulid_flux.REQUIRED_ROLES bien forme ({list(pulid_flux.REQUIRED_ROLES)})")
+for impl in (pulid_flux, lora_sdxl):
+    verifie(isinstance(impl.REQUIRED_ROLES, dict)
+            and all(isinstance(v, tuple) and len(v) == 2
+                    for v in impl.REQUIRED_ROLES.values()),
+            f"{impl.__name__}.REQUIRED_ROLES bien forme ({list(impl.REQUIRED_ROLES)})")
 verifie(callable(pulid_flux.apply) and callable(lora_sdxl.apply),
         "les deux exposent apply()")
 
-# -------------------------------------------------------- [4] lora_sdxl = stub
-print("\n[4] lora_sdxl est un stub qui pointe J6")
+# --------------------------------------- [4] lora_sdxl : contrat reel (J6 etape 2)
+print("\n[4] lora_sdxl : verrou IPAdapter FaceID reel, plus un stub")
+cfg_sans_lora = {"base_gelee": "ref.png", "identity": {}}
 try:
-    lora_sdxl.apply({}, {}, {}, {})
-except NotImplementedError as e:
-    verifie("J6" in str(e), f"apply() -> NotImplementedError pointant J6 ({e})")
+    lora_sdxl.apply({"1": {"inputs": {}}},
+                    {"ipadapter_apply": None, "ipadapter_ref": None}, cfg_sans_lora, {})
+except RuntimeError as e:
+    verifie("introuvable" in str(e), f"role obligatoire manquant -> RuntimeError ({str(e)[:80]}…)")
 except Exception as e:  # noqa: BLE001
-    verifie(False, f"apply() -> type inattendu {type(e).__name__}")
+    verifie(False, f"role manquant -> type inattendu {type(e).__name__}")
 else:
-    verifie(False, "apply() -> aucune erreur (devrait etre un stub)")
+    verifie(False, "role manquant -> aucune erreur")
+
+api = {"1": {"inputs": {}}, "2": {"inputs": {}}}
+roles = {"ipadapter_apply": {"id": 1}, "ipadapter_ref": {"id": 2}, "character_lora": None}
+lora_sdxl.apply(api, roles, cfg_sans_lora, {})
+knobs = api["1"]["inputs"]
+verifie(knobs["weight"] == lora_sdxl.DEFAULTS["weight"]
+        and knobs["end_at"] == lora_sdxl.DEFAULTS["end_at"],
+        f"identity absent de config -> DEFAULTS injectes ({knobs})")
+verifie(api["2"]["inputs"]["image"] == "ref.png",
+        "base_gelee injectee sur le role ipadapter_ref")
+
+cfg_lora_sans_role = {"base_gelee": "ref.png",
+                      "identity": {"lora": {"name": "abyssiaelle_v1.safetensors"}}}
+try:
+    lora_sdxl.apply({"1": {"inputs": {}}, "2": {"inputs": {}}}, roles, cfg_lora_sans_role, {})
+except RuntimeError as e:
+    verifie("character_lora" in str(e),
+            f"lora demande mais role absent du graphe -> RuntimeError ({str(e)[:80]}…)")
+else:
+    verifie(False, "lora demande sans role dans le graphe -> aucune erreur")
+
+api2 = {"1": {"inputs": {}}, "2": {"inputs": {}}, "3": {"inputs": {}},
+       "4": {"inputs": {"text": "a plain room"}}}
+roles2 = {**roles, "character_lora": {"id": 3}, "positive": {"id": 4}}
+cfg_lora = {"base_gelee": "ref.png",
+           "identity": {"lora": {"name": "abyssiaelle_v1.safetensors", "strength": 0.8,
+                                 "trigger_word": "abyssiaelle_trigger"}}}
+lora_sdxl.apply(api2, roles2, cfg_lora, {})
+verifie(api2["3"]["inputs"] == {"lora_name": "abyssiaelle_v1.safetensors",
+                                "strength_model": 0.8},
+        f"lora active sur son role quand demande + present ({api2['3']['inputs']})")
+verifie(api2["4"]["inputs"]["text"] == "abyssiaelle_trigger, a plain room",
+        f"mot declencheur prefixe au prompt positif ({api2['4']['inputs']['text']!r})")
 
 print("\n" + "=" * 70)
 print("tout est vert" if not KO else f"{KO} ECHEC(S)")
