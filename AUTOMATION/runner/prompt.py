@@ -5,11 +5,15 @@ tests/test_build_jobs.py (CLAUDE.md §8.3) — toute modification ici doit
 laisser ce test vert sans toucher a la fixture tests/fixtures/scenes-byte-
 exact.json.
 """
+import json
 import random
 import re
 from types import SimpleNamespace
 
 from . import OFM, load_json
+
+import universe  # noqa: E402  (AUTOMATION/ sur le path via runner/__init__.py)
+import worlds    # noqa: E402
 
 # -------------------------------------------------------- donnees de personnage
 # CHARACTERS/<character_id>/{character,config,scenes,creative}.json : donnees
@@ -78,6 +82,125 @@ def list_characters():
     if not root.is_dir():
         return []
     return sorted(p.parent.name for p in root.glob("*/character.json"))
+
+
+_CID_RE = re.compile(r"[a-z][a-z0-9_-]*$")
+
+
+def _write_json(path, data):
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8")
+
+
+def create_character(cid, name, character_type, output_style, world, base_gelee):
+    """Cree CHARACTERS/<cid>/ pour le wizard « nouveau personnage » (J7bis).
+
+    Ecrit character.json + config.json (aux DEFAUTS du pack, jamais mesures ici
+    — ROADMAP J7bis : recalibrage plus tard dans Reglages) + scenes.json /
+    creative.json amorces depuis le monde + l'arborescence INPUTS/PROD/EXPORT.
+
+    Le pack se DEDUIT de (type, style) via universe.resolve — jamais choisi. Le
+    graphe est celui du pack (universe.json/workflow) : le personnage y est
+    RATTACHE, aucun fichier de graphe n'est cree (CLAUDE.md §8.11). Type, style
+    et monde sont figes ici (CLAUDE.md §3-§4).
+
+    Leve avant toute ecriture : ValueError (cid invalide, style absent du pack),
+    FileExistsError (cid deja pris), UnresolvedPackError / UnknownWorldError /
+    IncompatibleWorldError. Rend le cid.
+    """
+    if not _CID_RE.match(cid or ""):
+        raise ValueError(f"character_id invalide : {cid!r} — attendu un slug "
+                         f"minuscule (^[a-z][a-z0-9_-]*$)")
+    dest = OFM / "CHARACTERS" / cid
+    if dest.exists():
+        raise FileExistsError(f"le personnage {cid!r} existe deja : {dest}")
+
+    pack = universe.resolve(character_type, output_style)     # UnresolvedPackError
+    if output_style not in universe.style_names(pack):
+        raise ValueError(f"style {output_style!r} absent du pack {pack!r} "
+                         f"({', '.join(universe.style_names(pack))})")
+    if not worlds.exists(world):
+        raise worlds.UnknownWorldError(f"monde inconnu : {world!r}")
+    family = universe.model_family(pack)
+    worlds.assert_compatible(world, family)                   # IncompatibleWorldError
+    if not base_gelee:
+        raise ValueError("base_gelee requis : image d'identite gelee (fournie "
+                         "ou generee), c'est ce que le verrou charge")
+
+    dft = universe.load_character_defaults(pack)
+
+    character = {
+        "id": cid,
+        "name": name or cid,
+        "universe": pack,
+        "type": character_type,
+        "world": world,
+        "output_style": output_style,
+        "content_types": {"image": True, "video": False, "voice": False,
+                          "staging": False},
+        "nsfw": False,
+        "_notes": [
+            f"Cree par le wizard « nouveau personnage » (J7bis). Pack {pack!r}",
+            f"deduit de (type={character_type!r}, style={output_style!r}) ; monde",
+            f"{world!r}. type / style / world figes a la creation (CLAUDE.md §3-§4).",
+            "config.json est aux DEFAUTS du pack : identity et qc portent",
+            "`measured: false`, a recalibrer dans Reglages avant de s'y fier.",
+        ],
+    }
+
+    config = {
+        "comfy_url": dft.get("comfy_url", "http://127.0.0.1:8188"),
+        "workflow": universe.workflow(pack),
+        "base_gelee": base_gelee,
+        "identity": dict(dft.get("identity") or {}),
+        "preset": dict(dft.get("preset") or {}),
+        "formats": dict(dft.get("formats") or {}),
+        "export_sizes": dict(dft.get("export_sizes") or {}),
+        "qc": dict(dft.get("qc") or {}),
+        "export": dict(dft.get("export") or {"enabled": True, "format": "jpg",
+                                             "quality": 92}),
+    }
+
+    seed = dft.get("scenes_seed") or {}
+    fmt = next(iter(config["formats"]), "1:1")
+    scenes = {
+        "prefix": seed.get("prefix", ""),
+        "anchor": seed.get("anchor", ""),
+        "texture": seed.get("texture", ""),
+        "direction": seed.get("direction", ""),
+        "scenes": [
+            {"id": s["id"], "intention": s.get("intention", ""), "tones": [],
+             "intensity": 0, "format": fmt, "count": 1,
+             "prompt": s.get("prompt", ""), "wardrobe": {"0": ""}, "variants": []}
+            for s in worlds.starter_scenes(world) if s.get("id")
+        ],
+    }
+
+    creative = dict(dft.get("creative_seed") or {
+        "intentions": [], "tones": [],
+        "intensity": [{"level": 0, "key": "sfw", "label": "SFW strict",
+                       "pipeline": family, "prompt_add": "", "export": True,
+                       "requires": None}],
+        "assemblage": {"wardrobe_position": "apres_scene"},
+    })
+    for lvl in creative.get("intensity", []):            # destination par personnage
+        lvl.setdefault("destination", f"PROD/{cid.upper()}")
+
+    dest.mkdir(parents=True)
+    try:
+        for sub in ("INPUTS/CHARACTER", "INPUTS/SCENE", "INPUTS/REALISME",
+                    "INPUTS/POSE", "PROD/OK", "PROD/A_REVOIR", "PROD/REJET",
+                    "PROD/ARCHIVE", "EXPORT"):
+            (dest / sub).mkdir(parents=True, exist_ok=True)
+        _write_json(dest / "character.json", character)
+        _write_json(dest / "config.json", config)
+        _write_json(dest / "scenes.json", scenes)
+        _write_json(dest / "creative.json", creative)
+    except Exception:
+        import shutil
+        shutil.rmtree(dest, ignore_errors=True)          # pas de demi-personnage
+        raise
+    return cid
 
 
 def content_type_active(character_id, kind):

@@ -1,0 +1,39 @@
+{
+  "comfy_url": "http://127.0.0.1:8188",
+  "identity": {
+    "weight": 0.7, "weight_faceidv2": 1.0, "start_at": 0.0, "end_at": 1.0,
+    "measured": false
+  },
+  "preset": { "guidance": 6.0, "steps": 30 },
+  "formats": { "1:1": [1024, 1024] },
+  "export_sizes": { "1:1": [1024, 1024] },
+  "qc": { "threshold_ok": 0.5, "threshold_watch": 0.35, "threshold_high": 0.6, "measured": false },
+  "export": { "enabled": true, "format": "jpg", "quality": 92 },
+  "scenes_seed": {
+    "prefix": "raw, unedited photo of",
+    "anchor": "",
+    "texture": "sharp photographic detail, visible skin texture, natural volumetric lighting",
+    "direction": ""
+  },
+  "creative_seed": {
+    "intentions": [],
+    "tones": [],
+    "intensity": [
+      { "level": 0, "key": "sfw", "label": "SFW strict", "pipeline": "sdxl",
+        "prompt_add": "", "export": true, "requires": null }
+    ],
+    "assemblage": { "wardrobe_position": "apres_scene" }
+  },
+  "_notes": [
+    "Gabarit stampe par le wizard (J7bis). VERSIONNE, defaut de PACK.",
+    "`measured: false` sur identity / qc -> a recalibrer dans Reglages pour ce",
+    "visage (ROADMAP J7bis ; skill nouveau-personnage).",
+    "identity : DEFAULTS generiques IPAdapter FaceID de AUTOMATION/identity/",
+    "lora_sdxl.py — PAS la mesure d'Abyssiaelle, qui l'a neutralise a 0.0 (mesure",
+    "par personnage, jamais une regle de pack). preset / formats / qc : point de",
+    "depart d'Abyssiaelle repris comme defaut de pack.",
+    "Un LoRA de personnage (identity.lora : name / strength / trigger_word) ne",
+    "s'ajoute qu'apres entrainement hors plateforme (kohya_ss) — jamais pose par",
+    "le wizard. Le wizard ajoute `workflow` (graphe DU PACK) et `base_gelee`."
+  ]
+}

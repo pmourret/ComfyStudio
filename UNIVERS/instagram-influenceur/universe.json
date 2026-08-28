@@ -5,6 +5,7 @@
   "identity": "pulid_flux",
   "posing": "flux-controlnet-union-pro-2.0",
   "types": ["instagram-influenceur"],
+  "workflow": "WORKFLOWS/content/lena_master_prod_ui.json",
   "output_styles": {
     "realiste": { "prompt_add": "", "checkpoint": null }
   },
@@ -15,6 +16,10 @@
     "types : types de personnage que ce pack sert (ADR-0012, J7bis). Liste des le",
     "premier jour meme si la relation reste 1-1 en V1. UNIVERS/resolution.json",
     "aiguille (type, style) -> pack ; ce champ est le lien inverse.",
+    "workflow : graphe de PRODUCTION du pack. Le wizard « nouveau personnage » y",
+    "RATTACHE le nouveau personnage (config.json/workflow) — il ne cree jamais de",
+    "fichier de graphe (CLAUDE.md §8.11). Nomme d'apres Lena tant que",
+    "WORKFLOWS/*/lena_*.json n'est pas renomme (hors perimetre J7bis).",
     "output_styles : map style -> effet sur le pipeline (prompt_add ajoute au prompt",
     "positif ; checkpoint swap si non-null). Le style d'un personnage est choisi et",
     "fige a sa creation, non modifiable ensuite (CLAUDE.md §3). Cet univers ne",

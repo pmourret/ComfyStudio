@@ -121,6 +121,27 @@ def types(uid):
     return list(load_universe(uid).get("types", []))
 
 
+def workflow(uid):
+    """Chemin (relatif au repo) du graphe de PRODUCTION du pack (`universe.json`
+    / `workflow`). Le wizard « nouveau personnage » y RATTACHE le nouveau
+    personnage (config.json/workflow) — il ne cree jamais de fichier de graphe
+    (CLAUDE.md §8.11)."""
+    return load_universe(uid).get("workflow")
+
+
+def load_character_defaults(uid):
+    """UNIVERS/<uid>/character_defaults.json : le gabarit que le wizard stampe
+    dans un nouveau CHARACTERS/<id>/ (config aux defauts du pack, amorces de
+    banque et de taxonomie). Pack inconnu -> UnknownUniverseError ; pack sans
+    gabarit -> {}."""
+    if not exists(uid):
+        raise UnknownUniverseError(f"univers inconnu : {uid!r}")
+    path = universe_dir(uid) / "character_defaults.json"
+    if not path.is_file():
+        return {}
+    return _read_json(path, "character_defaults.json")
+
+
 class UnknownStyleError(ValueError):
     """Un style de sortie demande n'est pas declare par l'univers."""
 
@@ -215,9 +236,13 @@ def _diagnostic():
         u = load_universe(uid)
         outils = load_tools(uid)
         print(f"  {uid}")
+        wf = workflow(uid)
+        wf_ok = "" if (wf and (OFM / wf).is_file()) else "  <- INTROUVABLE" if wf else ""
         print(f"    modele   : {u.get('model_family')}  |  identite : {u.get('identity')}")
         print(f"    styles   : {', '.join(style_names(uid))}")
         print(f"    types    : {', '.join(types(uid)) or '(aucun)'}")
+        print(f"    workflow : {wf or '(aucun)'}{wf_ok}")
+        print(f"    defauts  : {'oui' if load_character_defaults(uid) else 'aucun gabarit'}")
         print(f"    outils   : {', '.join(o['id'] for o in outils) or '(aucun)'}")
 
     try:

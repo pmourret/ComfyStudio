@@ -6,6 +6,7 @@
   "identity_alt": ["ipadapter_faceid"],
   "posing": "controlnet-canny-sdxl",
   "types": ["rpg-personnage"],
+  "workflow": "WORKFLOWS/content/abyssiaelle_master_prod_ui.json",
   "output_styles": {
     "realiste": { "prompt_add": "", "checkpoint": null },
     "fantastique": { "prompt_add": "painterly fantasy illustration, dramatic lighting", "checkpoint": null },
@@ -19,6 +20,10 @@
     "types : types de personnage que ce pack sert (ADR-0012, J7bis). Liste des le",
     "premier jour meme si la relation reste 1-1 en V1. UNIVERS/resolution.json",
     "aiguille (type, style) -> pack ; ce champ est le lien inverse.",
+    "workflow : graphe de PRODUCTION du pack. Le wizard y RATTACHE le nouveau",
+    "personnage (CLAUDE.md §8.11 : jamais un graphe par personnage). Nomme",
+    "d'apres Abyssiaelle tant que WORKFLOWS/*/abyssiaelle_*.json n'est pas",
+    "renomme (hors perimetre J7bis).",
     "output_styles : map style -> effet (prompt_add ; checkpoint swap si non-null).",
     "Declaratif en J5 : aucun personnage rpg n'existe, seul `realiste` sera exerce",
     "avant J6. prompt_add / checkpoint des styles non-realistes sont a MESURER a",

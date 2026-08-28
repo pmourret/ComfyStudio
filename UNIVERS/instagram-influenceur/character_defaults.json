@@ -1,0 +1,47 @@
+{
+  "comfy_url": "http://127.0.0.1:8188",
+  "identity": { "weight": 0.85, "start_at": 0.1, "end_at": 1.0, "measured": false },
+  "preset": {
+    "guidance": 2.2, "steps": 20, "refiner": true, "refiner_denoise": 0.4,
+    "facedetailer": true, "grain_export": true, "upscale_2k": true,
+    "grain_strength": 0.0, "grain_telephone": true, "sharpen": 0.3,
+    "expression": true, "expression_budget": 0.05,
+    "pose_strength": 0.9, "pose_end": 0.65
+  },
+  "formats": {
+    "4:5": [896, 1120], "2:3": [832, 1248], "9:16": [768, 1360], "1:1": [1024, 1024]
+  },
+  "export_sizes": {
+    "4:5": [1080, 1350], "2:3": [1080, 1620], "9:16": [1080, 1920], "1:1": [1080, 1080]
+  },
+  "qc": { "threshold_ok": 0.72, "threshold_watch": 0.6, "threshold_high": 0.74, "measured": false },
+  "export": { "enabled": true, "format": "jpg", "quality": 92 },
+  "scenes_seed": {
+    "prefix": "raw candid smartphone photo of",
+    "anchor": "",
+    "texture": "natural skin texture, slight sensor noise, casual framing",
+    "direction": ""
+  },
+  "creative_seed": {
+    "intentions": [],
+    "tones": [],
+    "intensity": [
+      { "level": 0, "key": "sfw", "label": "SFW strict", "pipeline": "flux",
+        "prompt_add": "", "export": true, "requires": null }
+    ],
+    "assemblage": { "wardrobe_position": "apres_scene" }
+  },
+  "_notes": [
+    "Gabarit stampe par le wizard « nouveau personnage » (J7bis) dans un nouveau",
+    "CHARACTERS/<id>/ : config.json + amorces de scenes.json / creative.json.",
+    "VERSIONNE : defaut de PACK, aucune donnee personnelle.",
+    "`measured: false` sur identity et qc -> Reglages doit les recalibrer pour",
+    "CE visage avant de s'y fier (ROADMAP J7bis : « seuils par defaut du pack,",
+    "recalibrage plus tard dans Reglages » ; skill nouveau-personnage etapes 2 et 4).",
+    "identity : DEFAULTS de AUTOMATION/identity/pulid_flux.py. preset / formats /",
+    "export_sizes / qc : point de depart mesure de Lena, repris comme defaut de pack.",
+    "Le wizard ajoute par-dessus : `workflow` (= universe.json/workflow, le graphe",
+    "DU PACK — jamais un graphe par personnage, §8.11) et `base_gelee` (l'image",
+    "d'identite gelee, fournie ou generee)."
+  ]
+}
