@@ -147,9 +147,8 @@ try:
     try:
         urllib.request.urlopen(cfg["comfy_url"].rstrip("/") + "/object_info/IPAdapterFaceID",
                                timeout=3).close()
-        cfg_aby = dict(lb.load_config("abyssiaelle"))
-        cfg_aby["base_gelee"] = "ABY_MAIN_REF.jpg"
-        cfg_aby["preset"] = {"guidance": 6.0, "steps": 30}
+        cfg_aby = dict(lb.load_config("abyssiaelle"))  # base_gelee reel depuis J6 etape 5
+        cfg_aby["preset"] = {"guidance": 6.0, "steps": 30}  # pas encore mesure (etape 6)
         r2 = WorkflowRunner(cfg_aby, "abyssiaelle")
         job2 = {"scene": "s", "format": "1:1", "prompt": "a plain room, wide shot",
                "seed": 1, "overrides": {}, "pose": None}

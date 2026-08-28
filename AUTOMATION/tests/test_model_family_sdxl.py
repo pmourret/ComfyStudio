@@ -11,10 +11,11 @@ pour Abyssiaelle -- CLAUDE.md §1 l'interdit explicitement.
 
 Construit le vrai WorkflowRunner pour les deux univers (ComfyUI requis pour
 object_info : IGNORE proprement sinon, meme degrade que test_identity_
-pulid_flux.py). Le base_gelee d'Abyssiaelle n'est pas encore choisi (J6 etape
-5) : ce test utilise une COPIE de sa config avec une valeur temporaire, en
-memoire seulement -- ne touche jamais au vrai config.json (qui doit rester
-honnete, CLAUDE.md §8.4).
+pulid_flux.py). base_gelee d'Abyssiaelle est reel depuis J6 etape 5
+(ABY_MAIN_REF.jpg, choisi par l'utilisateur) ; `preset`/`qc` restent vides
+(etape 6, mesure) -- ce test utilise une COPIE de la config avec un preset
+temporaire, en memoire seulement, pour ne pas laisser croire que ces valeurs
+sont mesurees (CLAUDE.md §8.4).
 
 Lancer :  python_embeded\\python.exe AUTOMATION\\tests\\test_model_family_sdxl.py
 """
@@ -77,8 +78,8 @@ verifie(sampler_lena.get("cfg") == 1.0,
 # ------------------------------------------------- [3] abyssiaelle (sdxl) reel
 print("\n[3] abyssiaelle (sdxl) : roles + injection generalisee")
 cfg_aby = dict(lb.load_config("abyssiaelle"))
-verifie(cfg_aby["base_gelee"] is None,
-        "config.json reel d'abyssiaelle n'a PAS encore de base_gelee (etape 5, honnete)")
+verifie(cfg_aby["base_gelee"] == "ABY_MAIN_REF.jpg",
+        f"config.json reel d'abyssiaelle porte sa base gelee (etape 5) : {cfg_aby['base_gelee']!r}")
 
 r_aby = WorkflowRunner(cfg_aby, "abyssiaelle")
 verifie(r_aby.model_family == "sdxl", "model_family = sdxl")
@@ -87,11 +88,10 @@ verifie(r_aby.roles.get("guidance") is None,
 for role in ("positive", "latent", "sampler", "save", "ipadapter_apply", "ipadapter_ref"):
     verifie(r_aby.roles.get(role) is not None, f"role {role!r} resolu")
 
-# preset complet mais base_gelee toujours absent : isole le verrou d'identite
-# comme SEULE cause d'echec (preset.json reel est vide, §8.4 -- pas la ou ce
-# test veut viser).
-cfg_aby_preset = {**cfg_aby, "preset": {"guidance": 6.0, "steps": 30}}
-r_aby_sans_ref = WorkflowRunner(cfg_aby_preset, "abyssiaelle")
+# base_gelee explicitement retiree (copie en memoire) : isole le verrou
+# d'identite comme SEULE cause d'echec.
+cfg_aby_sans_ref = {**cfg_aby, "base_gelee": None, "preset": {"guidance": 6.0, "steps": 30}}
+r_aby_sans_ref = WorkflowRunner(cfg_aby_sans_ref, "abyssiaelle")
 try:
     r_aby_sans_ref.api_for({**job_base, "format": "1:1"}, "t")
 except RuntimeError as e:
@@ -99,8 +99,8 @@ except RuntimeError as e:
 else:
     verifie(False, "api_for() aurait du refuser sans base_gelee")
 
-# avec une base_gelee temporaire (memoire seulement) : le reste de la chaine tourne
-cfg_aby["base_gelee"] = "ABY_MAIN_REF.jpg"
+# preset temporaire (memoire seulement, pas encore mesure) : le reste de la
+# chaine tourne avec la VRAIE base_gelee (§8.4 -- rien d'invente ici).
 cfg_aby["preset"] = {"guidance": 6.0, "steps": 30}
 r_aby2 = WorkflowRunner(cfg_aby, "abyssiaelle")
 api_aby = r_aby2.api_for({**job_base, "format": "1:1"}, "t")
@@ -108,7 +108,7 @@ sampler_aby = api_aby[str(r_aby2.roles["sampler"]["id"])]["inputs"]
 verifie(sampler_aby.get("cfg") == 6.0,
         f"cfg injecte directement sur le KSampler (widget, pas de noeud guidance) ({sampler_aby.get('cfg')})")
 ref_img = api_aby[str(r_aby2.roles["ipadapter_ref"]["id"])]["inputs"]["image"]
-verifie(ref_img == "ABY_MAIN_REF.jpg", f"base_gelee injectee ({ref_img})")
+verifie(ref_img == "ABY_MAIN_REF.jpg", f"base_gelee reelle injectee ({ref_img})")
 
 print("\n" + "=" * 70)
 print("tout est vert" if not KO else f"{KO} ECHEC(S)")
