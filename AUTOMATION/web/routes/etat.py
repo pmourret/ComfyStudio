@@ -129,6 +129,47 @@ async def api_characters(request):
     return web.json_response({"characters": out})
 
 
+@routes.get("/api/wizard/options")
+async def api_wizard_options(request):
+    """Choix offerts par le wizard « nouveau personnage » (J7bis). Un type par
+    entree, avec ses styles (du pack resolu) et ses mondes (de la famille du
+    pack). Tout vient des registres — jamais un `if` en dur (§8.7)."""
+    out = []
+    for uid in universe.list_universes():
+        u = universe.load_universe(uid)
+        family = u.get("model_family")
+        for t in universe.types(uid):
+            out.append({
+                "id": t,
+                "label": u.get("label", t),
+                "family": family,
+                "styles": universe.style_names(uid),
+                "worlds": [
+                    {"id": w, "label": worlds.label(w), "tone": worlds.tone(w),
+                     "suggested_styles": worlds.suggested_styles(w)}
+                    for w in worlds.worlds_for_family(family)
+                ],
+            })
+    return web.json_response({"types": out})
+
+
+@routes.post("/api/characters")
+async def api_characters_create(request):
+    """Ecrit un nouveau personnage (wizard J7bis). `base_gelee` doit deja avoir
+    ete produit (upload ou freeze). Tout choix invalide -> 400, jamais un
+    dossier a moitie ecrit (create_character fait le rollback)."""
+    body = await request.json()
+    try:
+        cid = lb.create_character(
+            (body.get("cid") or "").strip(), (body.get("name") or "").strip(),
+            body.get("type"), body.get("style"), body.get("world"),
+            (body.get("base_gelee") or "").strip())
+    except (ValueError, FileExistsError) as e:      # inclut Unresolved/World*
+        ss.bad_request(str(e))
+    ss.push_log(f"personnage cree par le wizard : {cid!r}")
+    return web.json_response({"ok": True, "id": cid})
+
+
 @routes.post("/api/characters/base/upload")
 async def api_characters_base_upload(request):
     """Wizard « nouveau personnage » (J7bis) — base d'identite FOURNIE.

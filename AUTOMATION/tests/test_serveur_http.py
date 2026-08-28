@@ -180,6 +180,30 @@ try:
     verifie(code == 400 and b"existe deja" in corps,
             f"upload base pour un cid deja pris : refuse ({code})")
 
+    # options du wizard : un type reel, ses styles, ses mondes
+    code, corps = appel("/api/wizard/options")
+    opt = json.loads(corps).get("types", [])
+    insta = next((t for t in opt if t["id"] == "instagram-influenceur"), {})
+    verifie(code == 200 and "realiste" in insta.get("styles", [])
+            and any(w["id"] == "slow-life" for w in insta.get("worlds", [])),
+            "/api/wizard/options : type -> styles + mondes de sa famille")
+
+    # POST /api/characters : cree une fiche, refuse un style hors pack
+    code, corps = appel("/api/characters",
+                        {"cid": "wizhttp", "name": "Wiz HTTP",
+                         "type": "rpg-personnage", "style": "realiste",
+                         "world": "terres-sauvages", "base_gelee": "WIZHTTP_BASE.png"})
+    cree_ok = code == 200 and (OFM / "CHARACTERS" / "wizhttp" / "character.json").is_file()
+    verifie(cree_ok, f"/api/characters ecrit la fiche ({code})")
+    shutil.rmtree(OFM / "CHARACTERS" / "wizhttp", ignore_errors=True)
+    code, corps = appel("/api/characters",
+                        {"cid": "wizhttp2", "name": "x", "type": "instagram-influenceur",
+                         "style": "manga", "world": "slow-life",
+                         "base_gelee": "b.png"})
+    verifie(code == 400 and b"absent du pack" in corps,
+            f"/api/characters refuse un style hors pack ({code})")
+    shutil.rmtree(OFM / "CHARACTERS" / "wizhttp2", ignore_errors=True)
+
     # ============================================================== M8
     # Cette route ECRIT config.json. On photographie le fichier avant, et on
     # exige qu'il soit intact apres : la premiere version de ce test a fait
