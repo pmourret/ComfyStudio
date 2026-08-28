@@ -24,6 +24,7 @@ sys.path.insert(0, str(AUTOMATION))
 
 import runner as lb  # noqa: E402
 import universe  # noqa: E402
+import worlds  # noqa: E402
 
 BUCKETS = ("OK", "A_REVOIR", "REJET", "SANS_VISAGE", "ARCHIVE")
 SAFE_NAME = re.compile(r"^[A-Za-z0-9_.\-]+\.(png|jpg|jpeg)$")
@@ -180,10 +181,12 @@ def push_log(msg):
 # `if character == "lena"` (CLAUDE.md §8.7).
 #
 # J4 : `character(request)` valide aussi que le personnage a un character.json
-# (registre) pointant vers un univers existant. Toujours hors perimetre : la
-# disposition disque par personnage (PROD/<X>/, journal, vignettes, export),
-# l'axe SFW/NSFW `space` (dont la valeur SFW se trouve aussi nommee "lena", axe
-# different), UNDO non scope.
+# (registre) pointant vers un univers existant. J7bis (ADR-0012) : il valide en
+# plus que (type, style) resolvent bien le pack ecrit dans `universe`, et que le
+# monde, s'il est declare, existe et est compatible avec la famille du pack.
+# Toujours hors perimetre : la disposition disque par personnage (PROD/<X>/,
+# journal, vignettes, export), l'axe SFW/NSFW `space` (dont la valeur SFW se
+# trouve aussi nommee "lena", axe different), UNDO non scope.
 _CHARACTER_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 
 
@@ -195,7 +198,11 @@ def character(request):
       - un dossier CHARACTERS/<id>/ absent ;
       - un dossier sans character.json (registre personnage manquant, J4) ;
       - un character.json dont l'univers declare n'existe pas dans UNIVERS/ ;
-      - un output_style hors des styles declares par l'univers (J5).
+      - un output_style hors des styles declares par l'univers (J5) ;
+      - un couple (type, style) qui ne resout pas le pack ecrit dans `universe`
+        (ADR-0012 : le pack est deduit, pas choisi — s'il diverge, le registre
+        est casse) ;
+      - un `world` inconnu, ou incompatible avec la famille du pack (J7bis).
     """
     cid = request.query.get("character", "lena")
     if not _CHARACTER_RE.match(cid):
@@ -212,6 +219,28 @@ def character(request):
     if style not in universe.style_names(uid):
         bad_request(f"personnage {cid!r} : style {style!r} absent de l'univers "
                     f"{uid!r} ({', '.join(universe.style_names(uid))})")
+
+    # Le pack se deduit de (type, style) ; il doit retomber sur `universe`.
+    ctype = reg.get("type") or uid          # repli V1 : id du type == id du pack
+    try:
+        pack = universe.resolve(ctype, style)
+    except universe.UnresolvedPackError as e:
+        bad_request(f"personnage {cid!r} : {e}")
+    if pack != uid:
+        bad_request(f"personnage {cid!r} : type {ctype!r} + style {style!r} "
+                    f"resolvent le pack {pack!r}, mais character.json declare "
+                    f"l'univers {uid!r}")
+
+    # Le monde n'est pas encore obligatoire (un registre d'avant J7bis n'en a
+    # pas) — mais s'il est la, il doit etre reel et compatible avec la famille.
+    world = reg.get("world")
+    if world is not None:
+        if not worlds.exists(world):
+            bad_request(f"personnage {cid!r} : monde inconnu {world!r}")
+        family = universe.model_family(pack)
+        if not worlds.is_compatible(world, family):
+            bad_request(f"personnage {cid!r} : monde {world!r} incompatible avec "
+                        f"la famille {family!r} du pack {pack!r}")
     return cid
 
 

@@ -31,6 +31,25 @@ sys.path.insert(0, str(HERE))
 
 import ui_to_api  # noqa: E402
 
+DEFAULT_COMFY_URL = "http://127.0.0.1:8188"
+
+
+def _comfy_url(character):
+    """URL de ComfyUI : --url l'emporte ; sinon comfy_url du config.json du
+    personnage nomme par --character ; sinon le defaut local.
+
+    Le repli CHARACTERS/lena/ en dur a saute avec la resolution du pack
+    (ADR-0012 / ROADMAP J7bis) : wf_check ne connait aucun personnage par
+    defaut. Sans --character on tape simplement l'instance locale."""
+    if character:
+        cfg = OFM / "CHARACTERS" / character / "config.json"
+        try:
+            return json.loads(cfg.read_text(encoding="utf-8"))["comfy_url"]
+        except (OSError, ValueError, KeyError) as e:
+            print(f"  note  --character {character} : {cfg.name} illisible "
+                  f"({type(e).__name__}) — repli sur {DEFAULT_COMFY_URL}")
+    return DEFAULT_COMFY_URL
+
 # Roles que `runner.WorkflowRunner` cherche dans le graphe de production.
 # Les lister ici evite de decouvrir a l'execution qu'un titre a ete renomme.
 # Deux tables par famille de modele (universe.json / model_family, CLAUDE.md
@@ -72,7 +91,11 @@ def dire(ok, message, detail=""):
 def main():
     ap = argparse.ArgumentParser(description="Validation d'un workflow ComfyUI")
     ap.add_argument("workflow", help="chemin, relatif a la racine OFM ou absolu")
-    ap.add_argument("--url", default=None, help="ComfyUI (defaut : config.json)")
+    ap.add_argument("--url", default=None,
+                    help=f"ComfyUI (defaut : --character, sinon {DEFAULT_COMFY_URL})")
+    ap.add_argument("--character", default=None,
+                    help="lit comfy_url dans CHARACTERS/<id>/config.json "
+                         "(aucun personnage par defaut)")
     ap.add_argument("--groupes", default="", help="titres de groupes a forcer actifs")
     ap.add_argument("--essai", action="store_true",
                     help="met le graphe en file pour de vrai (produit une image)")
@@ -85,13 +108,7 @@ def main():
     chemin = Path(args.workflow)
     if not chemin.is_absolute():
         chemin = OFM / args.workflow
-    url = args.url
-    if not url:
-        try:
-            chemin_config = OFM / "CHARACTERS" / "lena" / "config.json"
-            url = json.loads(chemin_config.read_text(encoding="utf-8"))["comfy_url"]
-        except Exception:
-            url = "http://127.0.0.1:8188"
+    url = args.url or _comfy_url(args.character)
 
     echecs = 0
 

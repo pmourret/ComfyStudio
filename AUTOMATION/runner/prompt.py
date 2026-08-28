@@ -56,6 +56,20 @@ def character_style(character_id):
     return load_character(character_id).get("output_style") or "realiste"
 
 
+def character_type(character_id):
+    """Type de personnage : metier, panel d'outils, taxonomie de scenes (fige a
+    la creation, CLAUDE.md §3, ADR-0012). Repli sur l'univers tant que le
+    registre ne porte pas encore la cle — en V1 l'id du type == l'id du pack."""
+    reg = load_character(character_id)
+    return reg.get("type") or reg.get("universe")
+
+
+def character_world(character_id):
+    """Monde du personnage : cadre et assets de monde (fige a la creation,
+    CLAUDE.md §3, ADR-0012). None si le registre ne le porte pas encore."""
+    return load_character(character_id).get("world")
+
+
 def content_type_active(character_id, kind):
     """Un type de contenu (image / video / voice / staging) est-il actif pour ce
     personnage. Axe independant de l'univers (ADR-0004) : en V1 seul `image`

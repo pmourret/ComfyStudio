@@ -62,9 +62,9 @@ for style in ("fantastique", "cartoon", "manga"):
 
 # ---------------------------------------- [1b] non-regression contre character.json
 # Si les registres personnels sont presents (git-ignores, absents en checkout
-# propre / CI), on verifie que resolve(universe, output_style) rend bien la
-# valeur `universe` deja ecrite : en V1 l'id du type == l'id du pack.
-print("\n[1b] non-regression : resolve rend le `universe` deja ecrit (si registre present)")
+# propre / CI), resolve(type, output_style) doit rendre EXACTEMENT la valeur
+# `universe` deja ecrite (ADR-0012 §5 : le pack est deduit, pas renomme).
+print("\n[1b] non-regression ADR-0012 : resolve(type, style) == `universe` ecrit")
 OFM = AUTOMATION.parent
 vus = 0
 for cid in ("lena", "abyssiaelle"):
@@ -73,9 +73,14 @@ for cid in ("lena", "abyssiaelle"):
         continue
     vus += 1
     c = json.loads(p.read_text(encoding="utf-8"))
-    got = universe.resolve(c["universe"], c.get("output_style") or "realiste")
+    ctype = c.get("type") or c["universe"]        # repli si registre pas encore migre
+    style = c.get("output_style") or "realiste"
+    got = universe.resolve(ctype, style)
     verifie(got == c["universe"],
-            f"{cid} : resolve({c['universe']!r}, {c.get('output_style')!r}) == {got!r}")
+            f"{cid} : resolve(type={ctype!r}, style={style!r}) == "
+            f"universe {c['universe']!r}  (got {got!r})")
+    verifie(c.get("type") is not None,
+            f"{cid} : character.json porte la cle `type` (migration J7bis passee)")
 if not vus:
     print("  note  CHARACTERS/ absent — verifie par les valeurs litterales de [1]")
 

@@ -108,6 +108,17 @@ try:
     verifie(char_ok("abyssiaelle") == "abyssiaelle",
             "?character=abyssiaelle accepte (character.json valide, univers reel)")
 
+    # ------------------------------------------------ [1c] type / world (J7bis)
+    print("\n[1c] type / world dans le registre (ADR-0012)")
+    verifie(lb.character_type("lena") == "instagram-influenceur",
+            "lena.type == instagram-influenceur (== pack en V1)")
+    verifie(lb.character_world("lena") == "slow-life", "lena.world == slow-life")
+    verifie(lb.character_type("abyssiaelle") == "rpg-personnage"
+            and lb.character_world("abyssiaelle") == "terres-sauvages",
+            "abyssiaelle : type rpg-personnage, world terres-sauvages")
+    verifie(lb.character_world("probe") is None,
+            "probe : world absent du registre -> None (toujours accepte)")
+
     # --------------------------------------------------- [2] pas de contamination
     print("\n[2] resoudre probe ne change rien pour lena")
     verifie(lb.character_universe("lena") == "instagram-influenceur",
@@ -137,6 +148,30 @@ try:
                 f"dossier sans character.json -> 400 explicite ({msg})")
     finally:
         shutil.rmtree(sans, ignore_errors=True)
+
+    # J7bis : un `world` inconnu ou d'une autre famille -> 400 lisible, pas 500
+    badw = OFM / "CHARACTERS" / "probe-badw"
+    poser(badw, {"id": "probe-badw", "name": "BadW", "universe": "rpg-personnage",
+                 "type": "rpg-personnage", "world": "n-existe-pas",
+                 "content_types": {"image": True}, "nsfw": False})
+    try:
+        msg = char_refuse("probe-badw")
+        verifie(msg is not None and "monde inconnu" in msg,
+                f"world inconnu -> 400 « monde inconnu » ({msg})")
+    finally:
+        shutil.rmtree(badw, ignore_errors=True)
+
+    incompat = OFM / "CHARACTERS" / "probe-incompat"
+    poser(incompat, {"id": "probe-incompat", "name": "Inc",
+                     "universe": "rpg-personnage", "type": "rpg-personnage",
+                     "world": "slow-life",             # monde flux sur un pack sdxl
+                     "content_types": {"image": True}, "nsfw": False})
+    try:
+        msg = char_refuse("probe-incompat")
+        verifie(msg is not None and "incompatible" in msg,
+                f"world d'une autre famille -> 400 « incompatible » ({msg})")
+    finally:
+        shutil.rmtree(incompat, ignore_errors=True)
 
     for mauvais in ("../lena", "Lena", "does-not-exist", "a b"):
         verifie(char_refuse(mauvais) is not None,
