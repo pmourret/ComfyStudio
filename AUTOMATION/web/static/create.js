@@ -198,9 +198,9 @@ const scenesOf = key => scenes().data.scenes.filter(
    `herbier` etaient a zero scene a tous les crans — deux cartes mortes sur huit,
    a la toute premiere decision du parcours. */
 function carteIntention(i, n){
-  return `<div class="it${i.key === INTENT ? ' on' : ''}${n ? '' : ' vide'}"
+  return `<button type="button" class="it${i.key === INTENT ? ' on' : ''}${n ? '' : ' vide'}"
     data-k="${esc(i.key)}"><span class="ic">${i.icon}</span><b>${esc(i.label)}</b>
-    <span>${n ? n + ' scène' + (n > 1 ? 's' : '') : 'en composer une'}</span></div>`;
+    <span>${n ? n + ' scène' + (n > 1 ? 's' : '') : 'en composer une'}</span></button>`;
 }
 
 function renderIntentions(){
@@ -248,7 +248,7 @@ function renderTones(){
   const t = (creative().tones || []).find(x => x.key === TONE);
   $('#toneHint').textContent = t ? '— ' + t.prompt_add : '';
   $('#toneRow').innerHTML = (creative().tones || []).map(x =>
-    `<div class="chip-t${x.key === TONE ? ' on' : ''}" data-k="${x.key}">${x.label}</div>`
+    `<button type="button" class="chip-t${x.key === TONE ? ' on' : ''}" data-k="${x.key}">${x.label}</button>`
   ).join('');
   $('#toneRow').querySelectorAll('.chip-t').forEach(el => el.onclick = () => {
     TONE = el.dataset.k; renderTones(); renderScenes();
@@ -350,17 +350,21 @@ function renderSources(){
   if (sig !== NSRC_SIG){
     NSRC_SIG = sig;
     g.innerHTML = NSFW_SRC.map(s => `
-      <div class="src${NSRC.has(s.name) ? ' on' : ''}" data-n="${esc(s.name)}">
+      <button type="button" class="src${NSRC.has(s.name) ? ' on' : ''}" data-n="${esc(s.name)}"
+        aria-pressed="${NSRC.has(s.name)}">
         <img loading="lazy" src="/img?bucket=${esc(s.bucket)}&name=${
           encodeURIComponent(s.name)}&thumb=1">
         ${s.bucket === 'OK' ? '' : '<div class="aff">à revoir</div>'}
-        <div class="tick">✓</div></div>`).join('')
+        <div class="tick">✓</div></button>`).join('')
       || '<div class="empty">aucune image à éditer — produis d’abord au cran Soft, '
        + 'puis reviens ici</div>';
   } else {
     // ne pas reconstruire pour un simple clic : les vignettes se rechargeraient
-    g.querySelectorAll('.src').forEach(el =>
-      el.classList.toggle('on', NSRC.has(el.dataset.n)));
+    g.querySelectorAll('.src').forEach(el => {
+      const on = NSRC.has(el.dataset.n);
+      el.classList.toggle('on', on);
+      el.setAttribute('aria-pressed', on);
+    });
   }
   $('#srcHint').textContent = NSFW_SRC.length
     ? `— ${NSRC.size} cochée${NSRC.size > 1 ? 's' : ''} sur ${NSFW_SRC.length} éditable${
@@ -376,6 +380,7 @@ $('#srcGrid').onclick = e => {
   const n = el.dataset.n;
   NSRC.has(n) ? NSRC.delete(n) : NSRC.add(n);
   el.classList.toggle('on');
+  el.setAttribute('aria-pressed', el.classList.contains('on'));
   renderSources(); refreshPlan();
 };
 

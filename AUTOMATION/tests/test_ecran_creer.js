@@ -58,6 +58,20 @@ const B = (process.env.DASHBOARD_URL || 'http://127.0.0.1:8199') + '/?character=
   const titre = await page.title();
   dire(/Léna — production/.test(titre), `titre d'onglet = « ${titre} »`);
 
+  console.log('\n[1c] les selecteurs sont operables au clavier (grille E)');
+  const semantique = await page.$$eval(
+    '#intentGrid .it, #toneRow .chip-t',
+    els => els.map(e => e.tagName));
+  dire(semantique.length > 0 && semantique.every(t => t === 'BUTTON'),
+       `intentions + tons sont des <button> (${[...new Set(semantique)].join(', ')})`);
+  const focusable = await page.evaluate(() => {
+    const b = document.querySelector('#intentGrid .it');
+    if (!b) return false;
+    b.focus();
+    return document.activeElement === b;
+  });
+  dire(focusable, 'une carte d\'intention prend le focus');
+
   console.log('\n[2] cran SFW — parcours par scenes');
   dire(await vu('#stepIntent'), 'bloc Intention visible');
   dire(!(await vu('#stepSource')), 'bloc Image source masque');

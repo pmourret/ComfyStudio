@@ -7,6 +7,15 @@ body{margin:0;background:var(--bg);color:var(--txt);overflow:hidden;
      font:var(--font);-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
 
+/* Respecte le reglage systeme « moins d'animations » (WCAG 2.2, grille E) —
+   couvre d'un coup toutes les transitions/animations du studio (survols,
+   toasts, barres de progression, spinner de candidat du wizard). */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+
 /* ---------------------------------------------------------------- structure */
 .app{display:flex;flex-direction:column;height:100%}
 header{display:flex;align-items:center;gap:20px;padding:0 20px;height:56px;

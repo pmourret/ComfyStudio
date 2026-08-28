@@ -515,7 +515,7 @@ async function ouvrirDeclinaison(k){
         placeholder="instruction d'édition, en anglais — requise pour éditer"
         style="margin:-4px 0 10px">` : ''}
     ${(m.ton || []).length ? '<div class="lab">Autre ton</div><div class="chips">' +
-      m.ton.map(t => `<div class="chip-t" data-t="${t.key}">${t.label}</div>`).join('') +
+      m.ton.map(t => `<button type="button" class="chip-t" data-t="${t.key}">${t.label}</button>`).join('') +
       '</div>' : ''}
     <div style="margin-top:18px;display:flex;align-items:center;gap:12px">
       <button class="link" id="dclose">fermer</button>
@@ -609,6 +609,14 @@ document.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === 'arrowright') step(1);
   else if (k === 'arrowleft') step(-1);
+  // Entrée en grille = ouvrir la loupe sur la tuile visée (l'équivalent
+  // clavier du clic sur la vignette). Pas quand le focus est sur un bouton :
+  // sinon Entrée validerait/rejetterait ET ouvrirait la loupe.
+  else if (k === 'enter' && VIEW === 'grille' && !e.target.closest('button, a')){
+    VIEW = 'revue';
+    $$('#viewSel button').forEach(x => x.classList.toggle('on', x.dataset.v === 'revue'));
+    renderTriage();
+  }
   else if (k === 'v') act('valider');
   else if (k === 'r') act('revoir');
   else if (k === 'x') act('rejeter');
