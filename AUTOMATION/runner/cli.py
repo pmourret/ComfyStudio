@@ -53,10 +53,14 @@ def main():
 
     runner = WorkflowRunner(cfg, character_id)
     p = cfg["preset"]
+    # .get() partout : un personnage dont le graphe n'a pas (encore) ces
+    # groupes optionnels (refiner/facedetailer/grain, cf. WorkflowRunner.
+    # __init__ et api_for) n'a aucune raison de porter ces cles dans son
+    # preset -- Abyssiaelle (J6) n'en a aucune, contrairement a Lena.
     log(f"prereglage : guidance {p['guidance']} | refiner "
-        f"{'ON ' + str(p['refiner_denoise']) if p['refiner'] else 'OFF'} | "
-        f"facedetailer {'ON' if p['facedetailer'] else 'OFF'} | "
-        f"grain {'ON' if p['grain_export'] else 'OFF'}")
+        f"{'ON ' + str(p.get('refiner_denoise', 0.4)) if p.get('refiner') else 'OFF'} | "
+        f"facedetailer {'ON' if p.get('facedetailer') else 'OFF'} | "
+        f"grain {'ON' if p.get('grain_export') else 'OFF'}")
 
     checker = None if args.no_qc else make_checker(cfg)
 

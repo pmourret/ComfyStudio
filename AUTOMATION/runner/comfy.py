@@ -176,6 +176,16 @@ class WorkflowRunner:
                 if role:
                     node_modes[role["id"]] = 0
 
+        # LoRA de personnage (verrou d'identite, cle config.json / identity /
+        # lora) : meme mecanisme de bypass par defaut que la pose ci-dessus.
+        # identity.apply() (J6) ecrit dans api[str(role["id"])] APRES ce
+        # convert() ; sans forcer le noeud actif ici, convert() l'exclut du
+        # graphe converti et apply() leve un KeyError brut au lieu du
+        # RuntimeError explicite qu'il croit pouvoir lever sur un role absent.
+        lora_role = self.roles.get("character_lora")
+        if lora_role and (cfg.get("identity") or {}).get("lora", {}).get("name"):
+            node_modes[lora_role["id"]] = 0
+
         api = ui_to_api.convert(self.ui, self.obj, active_groups=self.active_groups,
                                 node_modes=node_modes)
 

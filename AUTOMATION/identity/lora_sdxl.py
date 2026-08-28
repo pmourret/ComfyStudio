@@ -3,7 +3,21 @@ univers rpg-personnage (famille SDXL/Pony).
 
 Mecanisme retenu a l'onboarding d'Abyssiaelle (J6, premier personnage de cet
 univers) : IPAdapter FaceID par defaut, meme logique que PuLID-Flux pour Lena
-— image de reference gelee, aucun entrainement necessaire. Noeuds confirmes
+— image de reference gelee, aucun entrainement necessaire.
+
+MESURE REELLE (J6 etape 6, Abyssiaelle) : ce plan de depart ne tient pas.
+Sweep sur weight/weight_faceidv2 (0.3 a 2.0, meme seed/prompt/LoRA) : le score
+d'identite InsightFace BAISSE quand le poids IPAdapter MONTE (0.40 a w=0.7,
+0.24 a w=2.0), et IPAdapter seul (sans LoRA, w=1.5) s'effondre a 0.09 — pire
+que deux visages differents. Le LoRA de personnage seul (w=0, lora=1.0) fait
+mieux que toute combinaison avec IPAdapter actif (0.51-0.63 sur 6 seeds, cadre
+neutre). Pour CE personnage, IPAdapter FaceID ne verrouille pas l'identite,
+il la degrade — le LoRA entraine porte seul l'identite reelle. Reglage retenu :
+weight/weight_faceidv2 a 0.0 (role garde actif dans le graphe pour ne pas
+toucher a l'univers, poids neutralise par la mesure -- CHARACTERS/abyssiaelle/
+config.json). Un futur personnage du meme univers peut mesurer autre chose :
+ce n'est pas une regle de l'univers, c'est une mesure PAR personnage (comme
+partout ailleurs dans ce fichier). Noeuds confirmes
 installes sur le ComfyUI de ce poste (object_info reel) : IPAdapterFaceID,
 IPAdapterUnifiedLoaderFaceID, IPAdapterInsightFaceLoader
 (ComfyUI_IPAdapter_plus). Seul le noeud d'application (IPAdapterFaceID) et
@@ -17,8 +31,11 @@ IPAdapter (pas a sa place) : le graphe peut porter un LoraLoaderModelOnly
 bypasse par defaut, meme convention que le « LoRA realisme (bypass) / futur
 LoRA Lena » deja present dans le workflow de Lena. Il ne s'active que si
 config.json / identity / lora est renseigne ET que le role existe dans le
-graphe — aucune chaine d'entrainement LoRA n'existe dans ce depot, donc tant
-qu'aucun LoRA n'est entraine pour un personnage donne ce role reste inerte.
+graphe — aucune chaine d'ENTRAINEMENT LoRA n'existe dans ce depot (un LoRA se
+forme hors plateforme, ici via kohya_ss) ; ce role reste inerte tant que le
+resultat n'est pas branche a la main. Abyssiaelle : `abyss1a_v1.safetensors`,
+entraine le 20/07/2026 sur 53 images (mot declencheur `abyss1a`), branche J6
+etape 6.
 
 Injecte dans le graphe converti, depuis WorkflowRunner.api_for :
   - weight / weight_faceidv2 / start_at / end_at   <- config.json, cle `identity`
@@ -37,11 +54,10 @@ REQUIRED_ROLES = {
     "character_lora": ("LoraLoaderModelOnly", None),
 }
 
-# Points de depart generiques de l'ecosysteme IPAdapter FaceID SDXL — PAS des
-# valeurs mesurees pour Abyssiaelle, contrairement aux DEFAULTS de
-# pulid_flux.py qui sont le reglage reel de Lena. A remplacer par la mesure
-# reelle contre sa base gelee (skill nouveau-personnage etape 2 ; ROADMAP J6
-# etape 6) avant toute premiere production.
+# Points de depart generiques de l'ecosysteme IPAdapter FaceID SDXL — remplaces
+# par la mesure reelle d'Abyssiaelle (J6 etape 6, CHARACTERS/abyssiaelle/
+# config.json / identity) des qu'elle existe ; ne restent DEFAULTS que pour un
+# personnage rpg-personnage pas encore mesure.
 DEFAULTS = {"weight": 0.7, "weight_faceidv2": 1.0, "start_at": 0.0, "end_at": 1.0}
 
 

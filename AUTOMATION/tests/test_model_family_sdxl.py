@@ -110,6 +110,37 @@ verifie(sampler_aby.get("cfg") == 6.0,
 ref_img = api_aby[str(r_aby2.roles["ipadapter_ref"]["id"])]["inputs"]["image"]
 verifie(ref_img == "ABY_MAIN_REF.jpg", f"base_gelee reelle injectee ({ref_img})")
 
+# --------------------------------- [4] LoRA de personnage (identity.lora)
+# Le noeud LoraLoaderModelOnly est bypasse par defaut dans le graphe (mode=4,
+# groupe "02 LORA PERSONNAGE (bypass)") : sans forcer son mode actif AVANT
+# ui_to_api.convert(), il est absent du graphe converti et identity.apply()
+# leve un KeyError brut au lieu d'ecrire dedans (bug reel trouve J6 etape 6,
+# corrige dans WorkflowRunner.api_for()).
+print("\n[4] LoRA de personnage : actif malgre le bypass par defaut du graphe")
+verifie(r_aby.roles.get("character_lora") is not None,
+        "role character_lora resolu (LoraLoaderModelOnly present)")
+cfg_aby_lora = dict(cfg_aby)
+cfg_aby_lora["identity"] = {"lora": {"name": "abyss1a_v1.safetensors",
+                                     "strength": 0.8, "trigger_word": "abyss1a"}}
+r_aby_lora = WorkflowRunner(cfg_aby_lora, "abyssiaelle")
+api_lora = r_aby_lora.api_for({**job_base, "format": "1:1"}, "t")
+lora_node = api_lora[str(r_aby_lora.roles["character_lora"]["id"])]["inputs"]
+verifie(lora_node["lora_name"] == "abyss1a_v1.safetensors", "lora_name injecte")
+verifie(lora_node["strength_model"] == 0.8, "strength_model injecte")
+texte_positif = api_lora[str(r_aby_lora.roles["positive"]["id"])]["inputs"]["text"]
+verifie(texte_positif.startswith("abyss1a, "),
+        f"mot declencheur en tete du prompt ({texte_positif[:30]!r})")
+
+# sans identity.lora (etat par defaut d'un personnage rpg-personnage qui n'a
+# pas de LoRA entraine) : le noeud reste bypasse, aucune regression. cfg_aby
+# reel porte deja identity.lora (etape 6, mesure) -- copie explicitement sans
+# cette cle plutot que de compter sur un fichier vide.
+cfg_aby_sans_lora = {**cfg_aby, "identity": {}}
+r_aby_sans_lora = WorkflowRunner(cfg_aby_sans_lora, "abyssiaelle")
+api_sans_lora = r_aby_sans_lora.api_for({**job_base, "format": "1:1"}, "t")
+verifie(str(r_aby_sans_lora.roles["character_lora"]["id"]) not in api_sans_lora,
+        "sans identity.lora : le noeud LoRA reste bypasse (absent du graphe converti)")
+
 print("\n" + "=" * 70)
 print("tout est vert" if not KO else f"{KO} ECHEC(S)")
 print("=" * 70)
