@@ -204,11 +204,60 @@ prouvent la généralisation — pas juste Léna renommée.
   styles non-`realiste` de `rpg-personnage` = placeholders à mesurer à
   l'onboarding.
 
-**J6 — Premier personnage RPG (Abyssiaelle) opérationnel**
+**J6 — Premier personnage RPG (Abyssiaelle) opérationnel** ✅ *(terminé 2026-08-28)*
 - `build_jobs` + assembleur de prompt, verrouillé par un test byte-exact
   (comme Léna)
 - Banque de scènes comme outil de son univers, création manuelle par
   l'utilisateur (pas de génération LLM déclarative — confirmé)
+- Étapes 1-5 (scaffolding registre, `lora_sdxl.py` réel, workflow SDXL de
+  production, câblage style/runner, base gelée réelle `ABY_MAIN_REF.jpg`) :
+  voir commits `4149df6`..`a25bfae`.
+- **Étape 6 (mesure) — constat qui renverse le plan de J5** : le mécanisme
+  d'identité choisi pour l'univers (IPAdapter FaceID) ne verrouille PAS
+  l'identité d'Abyssiaelle, il la DÉGRADE. Sweep réel (weight/weight_faceidv2
+  0.3→2.0, même seed/prompt/LoRA, generations ComfyUI reelles) : le score
+  InsightFace baisse quand le poids IPAdapter monte (0.40 à w=0.7 → 0.24 à
+  w=2.0) ; IPAdapter seul sans LoRA (w=1.5) s'effondre à 0.09, pire que deux
+  visages différents. C'est le LoRA de personnage déjà présent dans le graphe
+  mais bypassé (`abyss1a_v1.safetensors`, entraîné hors plateforme via
+  kohya_ss le 20/07/2026 sur 53 images, mot déclencheur `abyss1a`) qui porte
+  réellement l'identité : LoRA seul (poids IPAdapter à 0.0) bat toute
+  combinaison avec IPAdapter actif (0.51-0.63 sur 6 seeds, cadre neutre).
+  Réglage retenu : poids IPAdapter neutralisé à 0.0 (le rôle reste actif dans
+  le graphe, l'univers n'est pas remis en cause), LoRA à pleine force.
+  Documenté en détail dans `CHARACTERS/abyssiaelle/config.json` (git-ignoré)
+  et `AUTOMATION/identity/lora_sdxl.py`. Conséquence pour la suite : ce n'est
+  pas une règle d'univers, c'est une mesure PAR personnage — un futur
+  personnage rpg-personnage peut très bien mesurer un poids IPAdapter non nul.
+  **Bug réel trouvé et corrigé en même temps** : le nœud LoRA restait bypassé
+  au moment de `ui_to_api.convert()` (même mécanisme que la pose, jamais
+  câblé pour le LoRA de personnage) — `identity.apply()` aurait levé un
+  `KeyError` brut au lieu du `RuntimeError` explicite qu'il croit pouvoir
+  lever sur un rôle absent. Corrigé dans `WorkflowRunner.api_for()`
+  (`AUTOMATION/runner/comfy.py`), test de non-régression dans
+  `test_model_family_sdxl.py` (section [4]). `qc.threshold_ok/watch/high`
+  mesurés sur ~20 générations réelles (pas de journal de production encore) :
+  0.50/0.35/0.60, explicitement provisoires (même statut que le
+  `threshold_high` de Léna). Deuxième bug réel trouvé au premier batch bout
+  en bout : `runner/cli.py` et `sortie.py` accédaient `cfg["preset"]["refiner"]`
+  et `cfg["export"]["enabled"]` en dur — cassait tout personnage dont le
+  graphe n'a pas encore ces étages optionnels. `cli.py` corrigé (`.get()`) ;
+  `config.json` d'Abyssiaelle a reçu sa propre clé `export` (comme Léna).
+- **Étape 7 (build_jobs + banque)** : `scenes.json`/`creative.json` réels et
+  minimaux pour Abyssiaelle (2 scènes RPG, 2 intentions, 2 tons — pas une
+  banque exhaustive, elle grandit à la main depuis le Dashboard). Verrouillé
+  par `test_build_jobs_abyssiaelle.py` (oracle indépendant de l'assemblage
+  réel, garde-fou visage, absence du mot déclencheur dans le prompt
+  assemblé — il est injecté par `identity.apply()`, pas par `build_jobs`).
+  **Vérification réelle bout en bout** : `run_batch.py --character
+  abyssiaelle --scene portrait_etude` → image produite, verdict OK, identité
+  0.663, rangée dans `PROD/ABYSSIAELLE/OK/`, export dans
+  `PROD/EXPORT/abyssiaelle/portrait/`, ligne base confirmée par requête
+  directe (`character_id='abyssiaelle'`, scores identité/réalisme
+  enregistrés). Suite de tests (hors GPU + ceux nécessitant ComfyUI) vérifiée
+  verte après ces changements, y compris non-régression Léna
+  (`test_identity_pulid_flux.py`, `test_style_fige.py`, `test_serveur_http.py`).
+- **J6 terminé.**
 
 **J7 — NSFW généralisé comme outil, pas comme branche**
 - Flux confirmé : génération de personnage → sélection manuelle de l'image
