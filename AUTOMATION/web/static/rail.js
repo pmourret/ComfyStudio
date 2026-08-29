@@ -18,6 +18,7 @@ import {api, erreurDe} from './api.js';
 import {on} from './bus.js';
 import {go} from './nav.js';
 import {toggleGear} from './create.js';
+import {basculerRailPli, appliquerRailPli} from './studio.js';
 
 /* Les surfaces que le studio sait ouvrir aujourd'hui. `aller` : une route de
    nav.js. `inerte` : la raison, affichee en infobulle (hints.js, via
@@ -25,18 +26,42 @@ import {toggleGear} from './create.js';
    l'outil existe, il n'a simplement pas de point d'entree propre depuis le
    rail. */
 const SURFACES = {
-  'bank-poses':      {aller: 'scenes/poses'},
-  'bank-scenes':     {aller: 'scenes'},
-  'review-lightbox': {inerte: 'depuis une image de la Revue'},
+  'bank-poses':      {aller: 'scenes/poses', icone: 'pose'},
+  'bank-scenes':     {aller: 'scenes',       icone: 'scenes'},
+  'review-lightbox': {inerte: 'depuis une image de la Revue', icone: 'image'},
 };
 const INCONNUE = 'pas encore de surface dans le studio';
+
+/* ICONES — attachees a la SURFACE, jamais au libelle de l'outil (J8).
+
+   Le libelle vient du tools.json d'un pack : c'est du texte libre, qu'on ne
+   connait pas d'avance. La surface, elle, est le vocabulaire que le rail sait
+   deja interpreter — c'est donc elle qui porte l'icone, dans la meme table de
+   donnees, pour la meme raison (CLAUDE.md §8.7 : jamais un test sur le
+   personnage ou le pack).
+
+   Une surface sans icone declaree, ou inconnue, prend `defaut` : un rail
+   replie ne doit jamais montrer un bouton VIDE. Meme grille et memes attributs
+   que les icones de la navbar (20x20, trait 1.5, currentColor), pour que les
+   deux colonnes se lisent comme un seul chrome. */
+const ICONES = {
+  pose:   '<circle cx="10" cy="4.5" r="2"/><path d="M10 6.5v6M10 12.5l-3 4.5M10 12.5l3 4.5M5.5 8.5L10 7.5l4.5 1"/>',
+  scenes: '<rect x="2.5" y="4.5" width="15" height="11" rx="1.5"/><path d="M2.5 12l4-3.5 3.5 3 3-2.5 4.5 4"/><circle cx="7" cy="8" r="1"/>',
+  image:  '<rect x="3" y="3" width="14" height="14" rx="2"/><path d="M3 13l4-4 3 3 2.5-2 4.5 4.5"/>',
+  gear:   '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M15.3 4.7l-1.4 1.4M6.1 13.9l-1.4 1.4"/>',
+  defaut: '<circle cx="10" cy="10" r="6.5"/><circle cx="10" cy="10" r="1.6"/>',
+};
+
+const icone = nom => `<svg class="rail-ic" viewBox="0 0 20 20" aria-hidden="true"
+  focusable="false" fill="none" stroke="currentColor" stroke-width="1.5"
+  stroke-linecap="round" stroke-linejoin="round">${ICONES[nom] || ICONES.defaut}</svg>`;
 
 /* Raccourcis d'atelier — ils ne viennent d'aucun pack, ils sont la structure du
    studio. Un raccourci dont un OUTIL couvre deja la destination est retire : la
    pose est declaree dans les deux tools.json, elle n'apparait donc qu'une fois. */
 const RACCOURCIS = [
-  {label: 'Scènes', aller: 'scenes'},
-  {label: 'Poses',  aller: 'scenes/poses'},
+  {label: 'Scènes', aller: 'scenes',       icone: 'scenes'},
+  {label: 'Poses',  aller: 'scenes/poses', icone: 'pose'},
 ];
 
 let OUTILS = null;        // null tant que /api/universe/tools n'a pas repondu
@@ -44,9 +69,13 @@ let ROUTE = {screen: 'creer', vue: null};
 
 /* --- construction ---------------------------------------------------- */
 
-const ligne = (label, aller, inerte) => `
+/* Le libelle est dans un <span> a part, pas en texte nu : replie, il est retire
+   VISUELLEMENT (clip-path) et reste le nom accessible du bouton — meme
+   traitement que `.nav-lab` dans la navbar, meme raison. */
+const ligne = (label, aller, inerte, ic) => `
   <button class="rail-it" ${aller ? `data-go="${esc(aller)}"` : 'disabled'}
-          ${inerte ? `data-hint-text="${esc(inerte)}"` : ''}>${esc(label)}</button>`;
+          ${inerte ? `data-hint-text="${esc(inerte)}"` : ''}>${icone(ic)}<span
+          class="rail-lab-it">${esc(label)}</span></button>`;
 
 function peindre(){
   const r = $('#toolRail');
@@ -64,7 +93,8 @@ function peindre(){
   const outils = OUTILS.tools || [];
   const rendus = outils.map(o => {
     const s = SURFACES[o.surface] || {inerte: INCONNUE};
-    return {label: o.label || o.id, aller: s.aller, inerte: s.aller ? '' : s.inerte};
+    return {label: o.label || o.id, aller: s.aller, ic: s.icone,
+            inerte: s.aller ? '' : s.inerte};
   });
   // dedoublonnage par destination : un raccourci que le pack couvre deja
   const pris = new Set(rendus.map(x => x.aller).filter(Boolean));
@@ -73,21 +103,31 @@ function peindre(){
   r.innerHTML = `
     <div class="rail-grp">
       <div class="rail-lab">Outils</div>
-      ${rendus.length ? rendus.map(x => ligne(x.label, x.aller, x.inerte)).join('')
+      ${rendus.length ? rendus.map(x => ligne(x.label, x.aller, x.inerte, x.ic)).join('')
                       : '<p class="rail-msg">aucun outil déclaré pour ce pack</p>'}
     </div>
     ${courts.length ? `<div class="rail-grp">
       <div class="rail-lab">Atelier</div>
-      ${courts.map(x => ligne(x.label, x.aller, '')).join('')}
+      ${courts.map(x => ligne(x.label, x.aller, '', x.icone)).join('')}
     </div>` : ''}
     <div class="rail-foot">
-      <button class="rail-it" id="railGear">⚙ Réglages de génération</button>
+      <button class="rail-it" id="railGear">${icone('gear')}<span
+        class="rail-lab-it">Réglages de génération</span></button>
+      <button class="rail-it rail-pli" id="btnRailPli" aria-expanded="true">
+        <svg class="rail-ic rail-chev" viewBox="0 0 20 20" aria-hidden="true"
+          focusable="false" fill="none" stroke="currentColor" stroke-width="1.5"
+          stroke-linecap="round" stroke-linejoin="round"><path d="M12 5l-5 5 5 5"/></svg>
+        <span class="rail-lab-it" id="railPliLab">Réduire</span></button>
     </div>`;
 
   r.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
   // stopPropagation comme #btnGear : sans lui le handler de fermeture globale de
   // nav.js, qui suit dans la phase de bulle, refermerait le panneau aussitot
   $('#railGear').onclick = e => { e.stopPropagation(); toggleGear(); };
+  // le rail est REPEINT a chaque chargement d'outils : le bouton de repli est
+  // recree, donc rebranche ici, et l'etat retenu reapplique
+  $('#btnRailPli').onclick = basculerRailPli;
+  appliquerRailPli();
   majActif();
 }
 

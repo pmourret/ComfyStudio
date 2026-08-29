@@ -170,10 +170,23 @@ disparaît, et en mode éditeur aussi : ce sont des **outils**, la retouche a le
 siens. La navbar, elle, reste dans les deux cas — c'est la sortie. La condition est écrite en `@media(min-width:1101px)` avec
 `:not(.no-character):not(.editing):has(…)`, ce qui fait du masquage le défaut.
 
-`--rail` (0 ou 200 px) existe pour **une** raison : `.launch` est
+`--rail` (0, 58 ou 200 px) existe pour **une** raison : `.launch` est
 `position:fixed`, donc aveugle à la grille — sans `left:var(--rail)` la barre de
 lancement passerait sous le rail. La variable porte exactement la même condition
 que l'affichage : une condition écrite deux fois, jamais deux conditions.
+
+**Il se replie** *(30/08/2026)* — `#btnRailPli` au pied de la colonne,
+`body.rail-mince`, retenu en `localStorage` : même geste, même place et même
+mécanique que `#btnNavPli` pour la navbar. Replié il passe en **icônes seules**,
+il ne disparaît pas : ses entrées restent à un clic. C'est la différence avec le
+masquage sous 1100 px, où il s'efface faute de place — ici c'est un choix de
+confort, et masquer des outils qu'on a demandé à garder serait un autre geste.
+
+Les icônes sont attachées à la **surface**, dans la table `SURFACES` de
+`rail.js`, jamais au libellé : le libellé vient du `tools.json` d'un pack, c'est
+du texte libre qu'on ne connaît pas d'avance, alors que la surface est le
+vocabulaire que le rail interprète déjà. Une surface sans icône, ou inconnue,
+prend celle par défaut — un rail replié ne montre jamais un bouton vide.
 
 ## La banque a deux sous-vues
 

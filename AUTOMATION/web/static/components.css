@@ -228,6 +228,14 @@ body{--rail:0px}
   body:not(.no-character):not(.editing):has(#scenes.on){--rail:200px}
   body:not(.no-character):not(.editing):has(#creer.on) .rail,
   body:not(.no-character):not(.editing):has(#scenes.on) .rail{display:flex}
+  /* Replie : la LARGEUR suit, sans quoi `.launch` (position:fixed, cale sur
+     left:var(--rail)) garderait sa gouttiere de 200 px et laisserait un vide
+     de 142 px sous un rail qui n'en fait plus que 58. La variable et
+     l'affichage portent la meme condition — une condition ecrite deux fois,
+     jamais deux conditions. */
+  body.rail-mince:not(.no-character):not(.editing):has(#creer.on),
+  body.rail-mince:not(.no-character):not(.editing):has(#scenes.on){--rail:58px}
+  body.rail-mince .rail{width:58px;padding:16px 6px}
 }
 .rail-grp{display:flex;flex-direction:column;gap:3px}
 .rail-lab{font-size:11px;text-transform:uppercase;letter-spacing:.9px;
@@ -235,9 +243,26 @@ body{--rail:0px}
 /* `margin-top:auto` : l'engrenage tombe en bas du rail quel que soit le nombre
    d'outils — sans lui il collerait au dernier raccourci. */
 .rail-foot{margin-top:auto;display:flex;flex-direction:column;gap:3px}
-.rail-it{display:block;width:100%;text-align:left;background:none;border:0;
-         color:var(--dim);padding:8px 10px;border-radius:8px;cursor:pointer;
-         font-size:13.5px;line-height:1.3}
+.rail-it{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+         background:none;border:0;color:var(--dim);padding:8px 10px;
+         border-radius:8px;cursor:pointer;font-size:13.5px;line-height:1.3}
+.rail-ic{width:18px;height:18px;flex:none}
+.rail-lab-it{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Le repli vit au pied du rail, comme celui de la navbar au pied de la navbar :
+   meme geste, meme place, deux colonnes qui se lisent pareil. */
+.rail-pli{color:var(--dim2)}
+.rail-pli .rail-chev{transition:transform .15s}
+
+/* MODE ICONES DU RAIL. Le libelle est retire VISUELLEMENT (clip-path), jamais
+   par display:none : il reste le nom accessible du bouton, et studio.js y pose
+   alors l'infobulle qui le porte. Meme traitement que `.nav-lab`. */
+body.rail-mince .rail-it{justify-content:center;padding:9px 0;gap:0}
+body.rail-mince .rail-lab-it{position:absolute;width:1px;height:1px;overflow:hidden;
+  clip-path:inset(50%);white-space:nowrap}
+body.rail-mince .rail-lab{position:absolute;width:1px;height:1px;overflow:hidden;
+  clip-path:inset(50%);white-space:nowrap}
+body.rail-mince .rail-msg{display:none}
+body.rail-mince .rail-pli .rail-chev{transform:rotate(180deg)}
 .rail-it:hover:not(:disabled){color:var(--txt);background:var(--panel2)}
 .rail-it:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .rail-it.on{color:var(--txt);background:var(--panel2);font-weight:600}

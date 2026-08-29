@@ -19,6 +19,7 @@
 import {$} from './dom.js';
 
 const CLE = 'studio.nav-mince';
+const CLE_RAIL = 'studio.rail-mince';
 
 /* localStorage leve dans plusieurs contextes reels (fenetre privee, cookies
    tiers bloques, capture de vignette) : jamais un reglage de confort ne doit
@@ -28,6 +29,12 @@ const ecrire = v => { try { localStorage.setItem(CLE, v ? '1' : '0'); } catch { 
 
 let MINCE = lire();
 let FOCUS = false;
+/* Meme famille que MINCE : une preference DURABLE de chrome, prise au pied de
+   la colonne, retenue par navigateur. Le rail est repeint a chaque chargement
+   d'outils (rail.js), c'est donc lui qui rappelle `appliquerRailPli` — l'etat
+   vit ici, l'affichage se refait la-bas. */
+const lireRail = () => { try { return localStorage.getItem(CLE_RAIL) === '1'; } catch { return false; } };
+let RAIL_MINCE = lireRail();
 
 /* Les libelles de la navbar sont retires VISUELLEMENT en mode icones (ils
    restent le nom accessible du bouton) : a l'ecran, il ne reste que l'icone.
@@ -67,6 +74,35 @@ function appliquer(){
 }
 
 export function basculerPli(){ MINCE = !MINCE; ecrire(MINCE); appliquer(); }
+
+/* Le rail replie passe en ICONES, il ne disparait pas : ses entrees restent
+   atteignables d'un clic. C'est la difference avec le masquage sous 1100 px,
+   ou il s'efface parce que la place manque — ici c'est un choix de confort, et
+   masquer des outils qu'on a demande a garder serait un autre geste. */
+export function basculerRailPli(){
+  RAIL_MINCE = !RAIL_MINCE;
+  try { localStorage.setItem(CLE_RAIL, RAIL_MINCE ? '1' : '0'); } catch { /* tant pis */ }
+  appliquerRailPli();
+}
+
+export function appliquerRailPli(){
+  document.body.classList.toggle('rail-mince', RAIL_MINCE);
+  const b = $('#btnRailPli');
+  if (b) b.setAttribute('aria-expanded', RAIL_MINCE ? 'false' : 'true');
+  const lab = $('#railPliLab');
+  if (lab) lab.textContent = RAIL_MINCE ? 'Déplier' : 'Réduire';
+  // icone seule : l'infobulle porte le libelle, comme dans la navbar. C'est le
+  // seul moment ou une bulle sur une destination apprend quelque chose.
+  document.querySelectorAll('#toolRail .rail-it').forEach(el => {
+    const t = el.querySelector('.rail-lab-it');
+    if (!t) return;
+    // ne pas ecraser la raison d'un bouton INERTE : elle en dit plus que le
+    // libelle, et c'est elle qui doit rester
+    if (el.disabled && el.dataset.hintText && !el.dataset.railLab) return;
+    if (RAIL_MINCE){ el.dataset.railLab = '1'; el.dataset.hintText = t.textContent.trim(); }
+    else if (el.dataset.railLab){ delete el.dataset.railLab; delete el.dataset.hintText; }
+  });
+}
 
 /* Le focus n'est PAS persiste, deliberement. Retrouver au chargement suivant
    une application dont le bandeau a disparu, sans se souvenir de l'avoir
