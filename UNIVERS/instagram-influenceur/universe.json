@@ -6,6 +6,7 @@
   "posing": "flux-controlnet-union-pro-2.0",
   "types": ["instagram-influenceur"],
   "workflow": "WORKFLOWS/content/lena_master_prod_ui.json",
+  "edit_workflow": "WORKFLOWS/nsfw/lena_nsfw_branch_ui.json",
   "output_styles": {
     "realiste": { "prompt_add": "", "checkpoint": null }
   },
@@ -23,6 +24,13 @@
     "output_styles : map style -> effet sur le pipeline (prompt_add ajoute au prompt",
     "positif ; checkpoint swap si non-null). Le style d'un personnage est choisi et",
     "fige a sa creation, non modifiable ensuite (CLAUDE.md §3). Cet univers ne",
-    "produit que du realiste, sans effet (prompt inchange). Univers de Lena."
+    "produit que du realiste, sans effet (prompt inchange). Univers de Lena.",
+    "edit_workflow : graphe de l'outil « modification live par IA » DU PACK (J7).",
+    "C'est lui que le NSFW recompose (ADR-0003) : le runner ne connait plus aucun",
+    "chemin de graphe en dur, et le config.json d'un personnage n'en porte plus",
+    "(CLAUDE.md §8.11, jamais un graphe par personnage). Son etage N4 (PuLID Flux",
+    "+ FaceDetailer) est lie a la famille flux : c'est un actif de PACK, pas un",
+    "outil unique pour toute la plateforme. Nomme d'apres Lena tant que",
+    "WORKFLOWS/*/lena_*.json n'est pas renomme (hors perimetre J7)."
   ]
 }

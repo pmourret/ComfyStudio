@@ -184,7 +184,13 @@ def create_character(cid, name, character_type, output_style, world, base_gelee)
         "assemblage": {"wardrobe_position": "apres_scene"},
     })
     for lvl in creative.get("intensity", []):            # destination par personnage
-        lvl.setdefault("destination", f"PROD/{cid.upper()}")
+        # Le palier qui EDITE range dans l'arbre NSFW du personnage
+        # (PROD/<CID>/_NSFW, cf. nsfw_batch.out_root), les autres dans son arbre
+        # SFW. La destination affichee doit etre la verite disque : c'est elle
+        # que la confirmation de palier montre a l'utilisateur.
+        edite = str(lvl.get("pipeline") or "").endswith("+edit")
+        lvl.setdefault("destination", f"PROD/{cid.upper()}/_NSFW" if edite
+                       else f"PROD/{cid.upper()}")
 
     dest.mkdir(parents=True)
     try:

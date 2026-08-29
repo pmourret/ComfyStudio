@@ -7,6 +7,7 @@
   "posing": "controlnet-canny-sdxl",
   "types": ["rpg-personnage"],
   "workflow": "WORKFLOWS/content/abyssiaelle_master_prod_ui.json",
+  "edit_workflow": null,
   "output_styles": {
     "realiste": { "prompt_add": "", "checkpoint": null },
     "fantastique": { "prompt_add": "painterly fantasy illustration, dramatic lighting", "checkpoint": null },
@@ -36,6 +37,14 @@
     "Univers d'Abyssiaelle. En J4 c'est une ENTREE DE REGISTRE seule : aucun",
     "personnage onboarde, aucune implementation identity/ (J5), aucun build_jobs",
     "(J6). Il sert a prouver que le registre generalise — ce n'est pas une copie",
-    "de l'univers de Lena (model_family differente)."
+    "de l'univers de Lena (model_family differente).",
+    "edit_workflow : null — ce pack n'a PAS d'outil de modification live par IA",
+    "(J7). L'etage d'edition lui-meme (Qwen) serait reutilisable, mais l'etage",
+    "« identite restauree » du graphe flux est PuLID + FaceDetailer : il n'a pas",
+    "d'equivalent SDXL/LoRA ici, et l'ecrire demande un graphe neuf plus une",
+    "mesure par personnage (reporte, voir ROADMAP J7). Consequence assumee et",
+    "VISIBLE : un personnage de ce pack peut etre arme (character.json/nsfw), le",
+    "cran d'edition n'apparait pas, et l'ecran Application en donne la raison.",
+    "Jamais de repli sur le graphe d'une autre famille de modele."
   ]
 }

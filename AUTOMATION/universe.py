@@ -129,6 +129,41 @@ def workflow(uid):
     return load_universe(uid).get("workflow")
 
 
+class EditToolUnavailableError(ValueError):
+    """The pack declares no live-AI-edit graph, so the edit tool does not exist
+    for it yet.
+
+    NSFW is a composition of two GLOBAL tools (ADR-0003), and that ADR is
+    explicit: adding a pack costs no NSFW-specific work *as long as both tools
+    exist for it*. The edit graph's identity stage is model-family bound (PuLID
+    Flux + FaceDetailer for the flux pack), so it is a PACK asset, never a
+    per-character file (CLAUDE.md §8.11). A pack without one says so loudly
+    instead of falling back on another family's graph.
+    """
+
+
+def edit_workflow(uid):
+    """Path (repo-relative) of the pack's live-AI-edit graph, or None.
+
+    `universe.json` / `edit_workflow`, nullable by design: a pack that has no
+    such graph yet returns None, and the edit step of the intensity ladder is
+    simply not offered for its characters (see /api/creative).
+    """
+    return load_universe(uid).get("edit_workflow")
+
+
+def require_edit_workflow(uid):
+    """Same, but raises EditToolUnavailableError when the pack has none —
+    for the runner, which cannot proceed without a graph."""
+    wf = edit_workflow(uid)
+    if not wf:
+        raise EditToolUnavailableError(
+            f"le pack {uid!r} ne declare aucun graphe d'edition "
+            f"(universe.json / edit_workflow) : l'outil de modification live "
+            f"par IA n'existe pas encore pour ce pack")
+    return wf
+
+
 def load_character_defaults(uid):
     """UNIVERS/<uid>/character_defaults.json : le gabarit que le wizard stampe
     dans un nouveau CHARACTERS/<id>/ (config aux defauts du pack, amorces de
@@ -242,6 +277,9 @@ def _diagnostic():
         print(f"    styles   : {', '.join(style_names(uid))}")
         print(f"    types    : {', '.join(types(uid)) or '(aucun)'}")
         print(f"    workflow : {wf or '(aucun)'}{wf_ok}")
+        ew = edit_workflow(uid)
+        ew_ok = "" if (ew and (OFM / ew).is_file()) else "  <- INTROUVABLE" if ew else ""
+        print(f"    edition  : {ew or '(aucun - outil NSFW indisponible)'}{ew_ok}")
         print(f"    defauts  : {'oui' if load_character_defaults(uid) else 'aucun gabarit'}")
         print(f"    outils   : {', '.join(o['id'] for o in outils) or '(aucun)'}")
 

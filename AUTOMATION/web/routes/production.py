@@ -74,7 +74,7 @@ def filters_from(body):
     )
 
 
-def guard_intensity(body, character="lena"):
+def guard_intensity(body, character):
     """Verrous du curseur. Retourne un message d'erreur, ou None si c'est bon."""
     try:
         level = int(body.get("intensity") or 0)
@@ -167,7 +167,7 @@ def niveau_generation(body, character="lena"):
     return corps
 
 
-def mode_edition(body, character="lena"):
+def mode_edition(body, character):
     """Vrai quand le cran demande EDITE une image existante au lieu d'engendrer.
 
     C'est le comportement par defaut du cran NSFW, et c'est la regle du projet :
@@ -184,7 +184,7 @@ def mode_edition(body, character="lena"):
                 and not body.get("generer_avant"))
 
 
-def sources_valides(body, character="lena"):
+def sources_valides(body, character):
     """Sources cochees qui existent reellement dans l'arbre de CE personnage.
 
     Filtre sur le disque et pas seulement sur la forme du nom : une image triee
@@ -306,7 +306,7 @@ async def api_plan(request):
         for j in jobs]})
 
 
-def chainage_nsfw(configuration, use_qc, batch_id, character="lena"):
+def chainage_nsfw(configuration, use_qc, batch_id, character):
     """Crochet du niveau 3 : editer la sortie SFW, sans tri intermediaire.
 
     Rend None quand le batch n'est pas de niveau 3. Les garde-fous ne bougent pas :
@@ -340,7 +340,7 @@ def chainage_nsfw(configuration, use_qc, batch_id, character="lena"):
             runner=etat["runner"], batch_id=batch_id, character_id=character)
         if ligne:
             etat["rows"].append(ligne)
-            nsfw_batch.journal([ligne])
+            nsfw_batch.journal([ligne], character)
             sc = f" ({result['score']:.3f})" if result.get("score") else ""
             ss.push_log(f"→ NSFW {result['fichier']} : {result['verdict']}{sc} "
                        f"— {result['duree']:.0f}s")
@@ -411,7 +411,7 @@ def _lancer(travail):
     asyncio.create_task(runner())
 
 
-def edition_blocking(sources, instruction, configuration, use_qc, character="lena"):
+def edition_blocking(sources, instruction, configuration, use_qc, character):
     """Edition d'images deja validees, sur le meme STATE que la production."""
     if use_qc:
         ss.checker_partage(configuration)
@@ -441,7 +441,7 @@ def edition_blocking(sources, instruction, configuration, use_qc, character="len
 
 
 def demarrer_edition(sources, instruction, configuration, use_qc, niveau,
-                     character="lena"):
+                     character):
     """Lance une edition. Pendant de `demarrer`, meme etat, meme panneau."""
     batch_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     ss.STATE.update(running=True, stop=False, batch_id=batch_id, index=0,
@@ -505,7 +505,7 @@ def palier_edition(creative):
                  if p.get("pipeline") == "flux+edit"), None)
 
 
-def lancer_edition_depuis(name, body, niveau, character="lena"):
+def lancer_edition_depuis(name, body, niveau, character):
     """Edite UNE image de la revue, sans rien regenerer.
 
     Avant le 26/08/2026, ce geste passait par build_jobs et REGENERAIT la source

@@ -1,16 +1,30 @@
-"""Branche NSFW : edition d'images SFW deja validees, puis remise du visage.
+"""Outil « modification live par IA » : edition d'images deja validees.
 
-Principe (voir DOCS/lena-identite-pulid.md) : on n'engendre jamais une scene NSFW
-a partir de rien. On part d'une image deja validee — pose, decor et identite
-conformes — on applique une instruction d'edition avec le modele local
-Qwen-Rapid-AIO-NSFW, puis PuLID + FaceDetailer re-rendent le visage depuis la
-base gelee (voir le commentaire de GROUPS plus bas : ReActor a ete retire).
+Le NSFW n'est pas une branche, c'est une COMPOSITION de deux outils globaux
+(ADR-0003, CLAUDE.md §6) : on n'engendre jamais une scene NSFW a partir de rien.
+L'utilisateur choisit lui-meme une image deja validee — pose, decor et identite
+conformes — cet outil y applique une instruction d'edition, puis le verrou
+d'identite du pack re-rend le visage depuis la base gelee. La retouche
+eventuelle revient a l'editeur photo, l'autre outil global.
+
+AUCUN DEFAUT DE PERSONNAGE (J7). `character_id` est obligatoire partout ici, y
+compris en mot-cle sur `editer` et `run` : une retombee silencieuse sur 'lena'
+est exactement le bug d'isolation du 29/08 — un personnage lisait l'arbre d'un
+autre. Chaque chemin (sources, sortie, journal, transit ComfyUI, copie
+temporaire) porte le cid.
+
+LE GRAPHE APPARTIENT AU PACK, PAS AU PERSONNAGE. `edit_workflow_path()` le
+resout par `universe.require_edit_workflow(pack)` : il n'existe jamais un
+fichier de graphe par personnage (CLAUDE.md §8.11), et un pack qui n'en declare
+aucun leve EditToolUnavailableError au lieu d'emprunter celui d'une autre
+famille de modele. Cote interface, le cran d'edition n'est alors pas propose.
 
 GARDE-FOU D'ARMEMENT. Tant que le registre personnage
 (CHARACTERS/<id>/character.json, cle `nsfw`) ne vaut pas true, toute tentative
 d'execution leve Disarmed. L'armement est une decision explicite de
-l'utilisateur, prise dans l'interface ; elle a ete prise le 23/08/2026 et se
-revoque d'un clic. Deplace de config.json vers le registre en J4 (ADR-0010).
+l'utilisateur, prise sur l'ecran Application (« Contenu adulte »), et se revoque
+au meme endroit. Off a la creation d'un personnage (create_character), deplace
+de config.json vers le registre en J4 (ADR-0010).
 """
 import random
 import re
@@ -26,18 +40,57 @@ sys.path.insert(0, str(HERE))
 import env_config                # noqa: E402
 import runner as lb              # noqa: E402
 import ui_to_api                 # noqa: E402
+import universe                  # noqa: E402
 
 OFM = HERE.parent
 COMFY = env_config.comfyui_root()
 COMFY_INPUT = env_config.comfyui_input()
 COMFY_OUTPUT = env_config.comfyui_output()
 
-WORKFLOW = "WORKFLOWS/nsfw/lena_nsfw_branch_ui.json"
 GROUPS = ("N1 - ENTREES", "N2 - MODELE NSFW LOCAL", "N3 - EDITION GUIDEE",
           "N3b - REFINER REALISME", "N4 - IDENTITE RESTAUREE", "N5 - SORTIE")
 # N4 : PuLID + FaceDetailer. ReActor a ete retire du graphe, son classificateur
 # NSFW integre renvoyait un carre noir (verifie le 23/08).
-SRC_PREFIX = "_LENA_NSFW_SRC_"          # copie temporaire dans ComfyUI/input
+
+
+def edit_workflow_path(character_id):
+    """Absolute path of the live-AI-edit graph serving THIS character.
+
+    Resolved from the character's pack (`universe.json` / `edit_workflow`), never
+    from a path held by the character: a graph belongs to a pack, never to one
+    character (CLAUDE.md §8.11). A pack with no edit graph raises
+    EditToolUnavailableError rather than falling back on another family's graph.
+    """
+    pack = lb.character_universe(character_id)
+    return OFM / universe.require_edit_workflow(pack)
+
+
+def src_prefix(character_id):
+    """Prefix of the temporary source copy dropped in ComfyUI/input.
+
+    Namespaced per character: two characters can hold the same file name in
+    their own trees, and a shared prefix made the second batch read the first
+    one's copy.
+    """
+    return f"_{character_id.upper()}_NSFW_SRC_"
+
+
+def transit_prefix(character_id, batch_id):
+    """ComfyUI-side transit folder (relative to ComfyUI's own output/).
+
+    The output does NOT stay there: `editer` moves it to
+    PROD/<CID>/_NSFW/<bucket>/ as soon as it lands. Namespaced per character
+    like every other NSFW path — a shared PROD/_NSFW/_BATCH/ mixed the transit
+    of every character in the same folder.
+    """
+    return f"OFM/PROD/{character_id.upper()}/_NSFW/_BATCH/{batch_id}"
+
+
+def transit_dir(character_id, batch_id):
+    """Same folder, seen from this side: that is where the leftovers to sweep
+    actually are. The sweep used to target PROD/<CID>/_NSFW/_BATCH/, a folder
+    nothing ever created, so it swept nothing."""
+    return COMFY_OUTPUT / transit_prefix(character_id, batch_id)
 
 
 def out_root(character_id):
@@ -125,12 +178,12 @@ class Disarmed(RuntimeError):
     """Levee quand la branche n'est pas armee."""
 
 
-def is_armed(character_id="lena"):
+def is_armed(character_id):
     """Etat de l'interrupteur NSFW du personnage, lu dans le registre (J4)."""
     return bool(lb.load_character(character_id).get("nsfw"))
 
 
-def check_armed(character_id="lena"):
+def check_armed(character_id):
     if not is_armed(character_id):
         raise Disarmed("branche NSFW desarmee : elle doit etre armee explicitement "
                        "dans l'interface avant toute execution")
@@ -185,12 +238,12 @@ def resoudre_source(nom, cfg, character_id):
 
 
 class NsfwRunner:
-    def __init__(self, cfg, character_id="lena"):
+    def __init__(self, cfg, character_id):
         check_armed(character_id)
         self.character_id = character_id
         self.cfg = cfg
         self.url = cfg["comfy_url"].rstrip("/")
-        self.ui = lb.load_json(OFM / cfg.get("nsfw", {}).get("workflow", WORKFLOW))
+        self.ui = lb.load_json(edit_workflow_path(character_id))
         self.obj = ui_to_api.fetch_object_info(self.url)
         f = ui_to_api.find_node
         self.roles = {
@@ -247,19 +300,21 @@ class NsfwRunner:
         # Dossier de TRANSIT, cote ComfyUI (relatif a son propre output/), pas
         # l'arbre du personnage : la sortie n'y reste pas, `editer` la deplace
         # aussitot vers PROD/<CID>/_NSFW/<bucket>/.
-        node("save")["inputs"]["filename_prefix"] = f"OFM/PROD/_NSFW/_BATCH/{batch_id}/e"
+        node("save")["inputs"]["filename_prefix"] = (
+            transit_prefix(self.character_id, batch_id) + "/e")
         return api
 
     def queue(self, api):
-        return lb.queue_prompt(self.url, api, client_id="lena_nsfw")
+        return lb.queue_prompt(self.url, api,
+                               client_id=f"{self.character_id}_nsfw")
 
     def wait(self, pid, timeout=1800):
         return lb.wait_prompt(self.url, pid, timeout)
 
 
-def _prepare_source(path):
+def _prepare_source(path, character_id):
     """LoadImage ne lit que ComfyUI/input : on y depose une copie temporaire."""
-    dest = COMFY_INPUT / (SRC_PREFIX + path.name)
+    dest = COMFY_INPUT / (src_prefix(character_id) + path.name)
     shutil.copy(path, dest)
     return dest
 
@@ -285,7 +340,7 @@ def _size_for(path, cfg, fmt=None):
 
 
 def editer(src, instruction, cfg, checker=None, runner=None, batch_id=None,
-           seed=None, character_id="lena"):
+           seed=None, *, character_id):
     """Edite UNE image et range la sortie. Retourne (result, ligne_de_journal).
 
     `src` est un chemin quelconque : c'est ce qui permet a la generation de niveau
@@ -310,7 +365,7 @@ def editer(src, instruction, cfg, checker=None, runner=None, batch_id=None,
     result = {"verdict": "ERREUR", "score": None, "fichier": "", "duree": 0.0,
               "error": None}
     ligne = None
-    tmp = _prepare_source(src)
+    tmp = _prepare_source(src, character_id)
     try:
         from PIL import Image
         with Image.open(src) as _im:
@@ -351,7 +406,7 @@ def editer(src, instruction, cfg, checker=None, runner=None, batch_id=None,
 
 
 def run(sources, instruction, cfg, checker=None, on_event=None, should_stop=None,
-        character_id="lena"):
+        *, character_id):
     """sources : noms de fichiers editables (voir `resoudre_source`)."""
     check_armed(character_id)
     if not instruction.strip():
@@ -378,10 +433,13 @@ def run(sources, instruction, cfg, checker=None, on_event=None, should_stop=None
             stats["ERREUR"] += 1
         on_event("done", index=i, total=len(sources), source=name, result=result)
 
-    batch_dir = out_root(character_id) / "_BATCH" / batch_id
+    # le transit vit cote ComfyUI (voir transit_dir) : c'est CE dossier qu'il
+    # faut balayer. Le balayage visait PROD/<CID>/_NSFW/_BATCH/, que rien ne
+    # cree — il ne ramassait donc rien et le transit s'accumulait (J7).
+    batch_dir = transit_dir(character_id, batch_id)
     if batch_dir.exists() and not any(batch_dir.iterdir()):
         batch_dir.rmdir()
-        if not any(batch_dir.parent.iterdir()):
+        if batch_dir.parent.exists() and not any(batch_dir.parent.iterdir()):
             batch_dir.parent.rmdir()
     if rows:
         journal(rows, character_id)

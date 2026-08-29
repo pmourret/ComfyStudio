@@ -27,7 +27,10 @@
     "tones": [],
     "intensity": [
       { "level": 0, "key": "sfw", "label": "SFW strict", "pipeline": "flux",
-        "prompt_add": "", "export": true, "requires": null }
+        "prompt_add": "", "export": true, "requires": null },
+      { "level": 1, "key": "edition", "label": "NSFW", "pipeline": "flux+edit",
+        "base_level": 0, "wardrobe": "", "edit_instruction": "",
+        "export": false, "requires": "armed" }
     ],
     "assemblage": { "wardrobe_position": "apres_scene" }
   },
@@ -42,6 +45,14 @@
     "export_sizes / qc : point de depart mesure de Lena, repris comme defaut de pack.",
     "Le wizard ajoute par-dessus : `workflow` (= universe.json/workflow, le graphe",
     "DU PACK — jamais un graphe par personnage, §8.11) et `base_gelee` (l'image",
-    "d'identite gelee, fournie ou generee)."
+    "d'identite gelee, fournie ou generee).",
+    "creative_seed.intensity porte le palier d'EDITION (`pipeline` flux+edit,",
+    "`requires` armed) depuis J7 : c'est le pack qui le stampe, plus une entree",
+    "ecrite a la main dans un seul character.json. Il n'apparait dans l'interface",
+    "que si le personnage est arme ET que le pack declare un `edit_workflow`",
+    "(universe.json) — les deux conditions, voir /api/creative. Un personnage",
+    "neuf n'est jamais arme (character.json/nsfw = false), donc le cran est",
+    "absent a la creation, pas grise (ADR-0003, CLAUDE.md §6).",
+    "`base_level` 0 : l'edition part d'une image deja validee du niveau de base."
   ]
 }
