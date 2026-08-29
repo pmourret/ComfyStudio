@@ -40,6 +40,7 @@ TESTS = [
     "test_contenu_adulte",
     "test_sondes_comfy",
     "test_rail_repli",
+    "test_compte_rendu",
     "test_apercu_prompt",
     "test_pose_scene_card",
     "test_pose_extraction",                       # ComfyUI requis (s'ignore sinon)

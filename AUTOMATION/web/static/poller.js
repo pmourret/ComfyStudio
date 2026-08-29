@@ -48,7 +48,13 @@ export async function tick(){
   const bcounts = triageState().space === 'nsfw' ? s.nsfw_counts : s.counts;
   ['OK', 'A_REVOIR', 'REJET', 'SANS_VISAGE', 'ARCHIVE'].forEach(b => {
     const el = $('#b' + b); if (el) el.textContent = (bcounts && bcounts[b]) ?? 0; });
-  $('#nTri').textContent = s.counts.A_REVOIR ?? 0;
+  // `data-zero` : replie, le compteur devient une pastille sur l'icone, et une
+  // pastille qui annonce zero est du bruit. Le CSS ne sait pas lire un nombre,
+  // on le lui dit ici. Deplie, le compteur garde son « 0 » comme avant.
+  const nTri = $('#nTri');
+  const aRevoir = s.counts.A_REVOIR ?? 0;
+  nTri.textContent = aRevoir;
+  nTri.dataset.zero = aRevoir ? '0' : '1';
   // Galerie n'a plus d'onglet dans le shell studio (hash #galerie seulement) :
   // le badge #nGal peut ne pas exister.
   const nGal = $('#nGal'); if (nGal) nGal.textContent = s.counts.OK ?? 0;

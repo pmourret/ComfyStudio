@@ -1010,8 +1010,19 @@ $('#btnRun').onclick = async () => {
   }
 };
 
-/* --------------------------------------------------------- panneau execution */
+/* --------------------------------------------------------- panneau execution
+   La carte d'un lot TERMINE est un compte rendu : ce qui a tourne, ce que ca a
+   donne, et le journal technique dessous. Elle restait jusqu'au lot suivant,
+   sans moyen de la refermer une fois lue — sur un ecran de travail elle
+   occupait le haut de Produire pour ne plus rien apprendre.
+
+   On la ferme A LA MAIN, et le renvoi se retient PAR BATCH : le lot suivant
+   ramene la carte. Fermer n'est donc pas « ne plus jamais montrer », c'est
+   « celui-la, je l'ai lu ». Un lot EN COURS n'a pas de croix : il a deja son
+   bouton d'arret, et une carte de production qu'on peut faire disparaitre
+   pendant qu'elle tourne cacherait le seul endroit qui dit ou elle en est. */
 let RUN_SIG = null;
+let RUN_FERME = null;         // batch_id de la carte que l'utilisateur a fermee
 export function renderRun(s){
   const p = $('#runPanel');
   // l'inspecteur AVANT le retour anticipe : il lit le meme /api/state, mais il
@@ -1020,6 +1031,10 @@ export function renderRun(s){
   // image, elle, n'est peinte qu'une fois, a droite (voir inspector.js).
   updateInspector(s);
   if (!s.running && !s.total){ p.style.display = 'none'; RUN_SIG = null; return; }
+  // lot termine et deja lu : on n'y revient pas tant qu'un autre n'a pas tourne
+  if (!s.running && s.batch_id && s.batch_id === RUN_FERME){
+    p.style.display = 'none'; RUN_SIG = null; return;
+  }
   p.style.display = '';
   // ne rien reconstruire tant que rien n'a bouge : sinon le bloc "journal
   // technique" se replierait tout seul a chaque tick
@@ -1051,6 +1066,8 @@ export function renderRun(s){
         <div class="spacer" style="flex:1"></div>
         ${s.running ? '<button class="btn sm" id="btnStop">Arrêter</button>'
                     : '<button class="btn sm" id="btnGoTri">Trier les résultats</button>'}
+        ${s.running ? '' : `<button class="run-x" id="btnRunFermer"
+          aria-label="Fermer le compte rendu">✕</button>`}
       </div>
       <div class="bar"><div style="width:${pct}%"></div></div>
       <div class="strip">${strip}</div>
@@ -1068,6 +1085,11 @@ export function renderRun(s){
     if (!r.ok){ stop.disabled = false; toast(r.erreur || 'arrêt impossible'); }
   };
   const gt = $('#btnGoTri'); if (gt) gt.onclick = () => go('trier');
+  const fx = $('#btnRunFermer'); if (fx) fx.onclick = () => {
+    RUN_FERME = s.batch_id;
+    p.style.display = 'none';
+    RUN_SIG = null;
+  };
   const gn = $('#btnGoNsfw'); if (gn) gn.onclick = () => {
     setTriageEntry('OK', 'nsfw');           // le lot vient d'y ranger ses sorties
     go('trier');

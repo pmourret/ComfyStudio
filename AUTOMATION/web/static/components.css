@@ -114,7 +114,20 @@ body.nav-mince .nav-chrome, body.focus .nav-chrome{justify-content:center;paddin
 body.nav-mince .nav-lab, body.focus .nav-lab{
   position:absolute;width:1px;height:1px;overflow:hidden;
   clip-path:inset(50%);white-space:nowrap}
-body.nav-mince .tabs button .n, body.focus .tabs button .n{display:none}
+/* Les compteurs disparaissent en mode icones — SAUF celui de la Revue. C'est
+   la seule valeur du chrome qui dise qu'un travail ATTEND, et c'est replie
+   qu'on en a le plus besoin : il devient une pastille sur l'icone. A zero il
+   n'a rien a annoncer et s'efface (data-zero, pose par poller.js — le CSS ne
+   sait pas lire un nombre). */
+body.nav-mince .tabs button .n:not(#nTri),
+body.focus .tabs button .n:not(#nTri){display:none}
+body.nav-mince .tabs button, body.focus .tabs button{position:relative}
+body.nav-mince #nTri, body.focus #nTri{
+  position:absolute;top:3px;right:8px;min-width:17px;height:17px;padding:0 4px;
+  display:flex;align-items:center;justify-content:center;border-radius:9px;
+  background:var(--acc);color:var(--on-acc);font-size:10.5px;font-weight:700;
+  opacity:1;margin:0}
+body.nav-mince #nTri[data-zero="1"], body.focus #nTri[data-zero="1"]{display:none}
 body.nav-mince .nav-chev, body.focus .nav-chev{transform:rotate(180deg)}
 
 .nav-ic{flex:none;width:20px;height:20px}
@@ -148,7 +161,13 @@ body.focus header{display:none}
   .sidenav .nav-lab{position:absolute;width:1px;height:1px;overflow:hidden;
            clip-path:inset(50%);white-space:nowrap}
   .tabs button, .nav-chrome{justify-content:center;padding:9px 0}
-  .tabs button .n{display:none}
+  .tabs button .n:not(#nTri){display:none}
+  .tabs button{position:relative}
+  #nTri{position:absolute;top:3px;right:8px;min-width:17px;height:17px;padding:0 4px;
+    display:flex;align-items:center;justify-content:center;border-radius:9px;
+    background:var(--acc);color:var(--on-acc);font-size:10.5px;font-weight:700;
+    opacity:1;margin:0}
+  #nTri[data-zero="1"]{display:none}
   #btnNavPli{display:none}          /* rien de plus a replier */
 }
 
@@ -385,6 +404,12 @@ input:focus,select:focus,textarea:focus{outline:0;border-color:var(--acc)}
 
 /* --------------------------------------------------------------- execution */
 .run{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:20px}
+/* Croix de la carte de compte rendu. Discrete au repos : elle ne dispute pas
+   l'attention a « Trier les resultats », qui est le geste utile. */
+.run-x{background:none;border:0;color:var(--dim2);cursor:pointer;font-size:14px;
+  line-height:1;padding:6px 8px;border-radius:8px;margin-left:2px}
+.run-x:hover{color:var(--txt);background:var(--panel2)}
+.run-x:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .bar{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;margin:12px 0}
 .bar>div{height:100%;background:var(--acc);width:0;transition:width .5s}
 .strip{display:flex;gap:9px;overflow-x:auto;padding:4px 0 2px}
