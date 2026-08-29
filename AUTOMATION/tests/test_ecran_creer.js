@@ -43,9 +43,11 @@ const B = (process.env.DASHBOARD_URL || 'http://127.0.0.1:8199') + '/?character=
   console.log('\n[1] chargement');
   dire(erreurs.length === 0, `aucune erreur JS (${erreurs.length})`);
   erreurs.forEach(e => console.log('      ' + e.slice(0, 150)));
+  dire(await vu('.intbar'), 'la barre d\'intensite est peinte sur Produire');
   dire(await vu('#intSel'), 'le curseur d\'intensite est peint');
   const crans = await page.$$eval('#intSel button', bs => bs.map(b => b.textContent.trim()));
   dire(crans.length === 4, `4 crans : ${crans.join(' | ')}`);
+  dire(!(await vu('#intMode')), 'aucune pastille metier au cran de generation');
 
   console.log('\n[1b] en-tete reflete le registre personnage (J4 + chrome J7bis)');
   const brand = (await page.textContent('.brand')).replace(/\s+/g, ' ').trim();
@@ -90,6 +92,12 @@ const B = (process.env.DASHBOARD_URL || 'http://127.0.0.1:8199') + '/?character=
   dire(nsrc > 0, `${nsrc} images sources proposees`);
   const num = await page.textContent('#stepSource .num');
   dire(num === '1', `numerotation contextuelle : source = ${num}`);
+  // le cran nommait une intensite, jamais le metier : ici « Générer » ne genere
+  // pas, il reprend une image deja validee — la barre doit le dire (29/08/2026)
+  dire(await vu('#intMode'), 'la pastille metier apparait');
+  const past = ((await page.textContent('#intMode')) || '').trim();
+  dire(/^Édition/.test(past) && !/PROD|NSFW/.test(past),
+       `libelle metier, sans nom de dossier : « ${past} »`);
 
   console.log('\n[4] preambule et bibliotheque');
   const pre = (await page.textContent('#preambule')) || '';
@@ -123,11 +131,44 @@ const B = (process.env.DASHBOARD_URL || 'http://127.0.0.1:8199') + '/?character=
   dire(await vu('#intentGrid'), 'bloc Intention revenu');
   dire(!(await vu('#stepSource')), 'bloc Image source reparti');
   dire((await page.textContent('#btnRun')).trim() === 'Générer', 'le bouton redit « Générer »');
+  dire(!(await vu('#intMode')), 'la pastille metier repart');
 
   console.log('\n[8] onglet NSFW parallele');
   const navTabs = await page.$$eval('.tabs button', e => e.map(x => x.dataset.s));
   dire(!navTabs.includes('nsfw'), `nav studio : ${navTabs.join(', ')}`);
   dire((await page.$$('#nsfw')).length === 0, 'l\'ecran #nsfw n\'existe plus');
+
+  /* [8b] La barre d'intensite etait du chrome global : peinte sur Banque et
+     Réglages, ou elle ne pilote RIEN — et y changer de cran basculait quand meme
+     le metier de Produire, sans que l'ecran courant le montre. On verifie les
+     deux moities du contrat : elle disparait la ou elle n'agit pas, et l'etat
+     qu'elle porte n'est pas perdu pour autant. */
+  console.log('\n[8b] l\'intensite ne vit que sur Produire (29/08/2026)');
+  await page.click('#intSel button[data-lv="2"]');
+  await page.waitForTimeout(500);
+  const cfOui = await page.$('#cfOui');       // ce cran demande une confirmation
+  if (cfOui){ await cfOui.click(); await page.waitForTimeout(800); }
+  const cranAvant = await page.$eval('#intSel button.on', b => b.dataset.lv);
+  const scAvant = (await page.$$('#sceneGrid .sc')).length;
+  for (const onglet of ['scenes', 'appli']){
+    await page.click(`.tabs button[data-s="${onglet}"]`);
+    await page.waitForTimeout(600);
+    // getComputedStyle et pas isVisible : on veut le MOTIF du masquage, pas
+    // seulement le fait qu'il ait eu lieu — c'est une regle CSS, pas du JS
+    const aff = await page.$eval('.intbar', e => getComputedStyle(e).display);
+    dire(aff === 'none', `#${onglet} : .intbar display = ${aff}`);
+    dire(!(await vu('#intSel')), `#${onglet} : aucun cran cliquable`);
+  }
+  await page.click('.tabs button[data-s="creer"]');
+  await page.waitForTimeout(800);
+  dire(await vu('.intbar'), 'la barre revient sur Produire');
+  const cranApres = await page.$eval('#intSel button.on', b => b.dataset.lv);
+  dire(cranAvant === '2' && cranApres === '2',
+       `le cran survit a l'aller-retour : ${cranAvant} -> ${cranApres}`);
+  dire((await page.$$('#sceneGrid .sc')).length === scAvant,
+       `les scenes restent filtrees par ce cran (${scAvant})`);
+  await page.click('#intSel button[data-lv="0"]');
+  await page.waitForTimeout(800);
 
   console.log('\n[9] editeur de scenes — schema simplifie');
   await page.click('.tabs button[data-s="scenes"]');

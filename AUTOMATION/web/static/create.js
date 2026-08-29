@@ -161,6 +161,24 @@ function syncEtapes(){
   if (edition){ numEtape('stepSource', 1); numEtape('stepEdit', 2); }
   else { numEtape('stepIntent', 1); numEtape('stepTone', 2);
          numEtape('stepScenes', 3); numEtape('stepEdit', 4); }
+  majPastilleMode(edition);
+}
+
+/* Pastille metier de la barre d'intensite (#intMode). Les crans nommaient une
+   intensite, jamais le METIER derriere : au dernier cran, « Générer » ne genere
+   pas — il reprend une image deja validee. Le curseur ne le disait nulle part.
+
+   Elle vit dans syncEtapes() et suit `edition` — donc estEdition(), la meme
+   source que les blocs — et non `pipeline === 'flux+edit'` : avec « générer
+   avant d'éditer » coche, le cran qui edite ENGENDRE d'abord, et la pastille
+   dirait le contraire de ce que le lancement fait. Aucune pastille en
+   generation : le cas par defaut n'a rien a annoncer, et une pastille permanente
+   redeviendrait du decor. */
+function majPastilleMode(edition){
+  const el = $('#intMode');
+  el.hidden = !edition;
+  el.textContent = edition
+    ? 'Édition — n’engendre rien, reprend une image validée' : '';
 }
 
 /* ====================================================================== CREER

@@ -127,9 +127,10 @@ td.num{font-variant-numeric:tabular-nums}
 
    `.launch` est DANS #creer : la portee suffit, et les autres barres de
    lancement (wizard, banque de scenes) gardent leur largeur d'article.
-   `.intbar` est hors des ecrans — c'est du chrome global — d'ou le `:has` sur
-   l'ecran allume. Si un navigateur ne le connaissait pas, la barre resterait
-   centree : un desalignement, rien de casse.
+   `.intbar` est hors des ecrans — d'ou le `:has` sur l'ecran allume. C'est le
+   MEME levier que celui qui decide de l'afficher (components.css), pas un
+   second mecanisme : depuis le 29/08 elle n'existe plus qu'ici, donc ce `:has`
+   n'est plus qu'un garde-fou de largeur.
 
    Le padding lateral vient dans les deux cas de la surface parente
    (`.intbar` et `.launch` posent deja 20 px) : ici on ne fait que relacher la

@@ -47,9 +47,12 @@ header{display:flex;align-items:center;gap:20px;padding:0 20px;height:56px;
    vert, qui restait vert-Lena sous une autre palette */
 .dot.on{background:var(--ok);
         box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 15%,transparent)}
-/* barre d'intensite — hors du <main> qui defile, donc toujours a l'ecran */
-.intbar{flex:none;background:var(--panel);border-bottom:1px solid var(--line);
-        padding:9px 20px}
+/* Barre d'intensite — hors du <main> qui defile, donc toujours a l'ecran TANT
+   QU'ELLE Y EST. `display:none` est son etat par defaut : elle ne pilote que
+   l'ecran Produire, et l'unique condition qui la revele vit dans components.css,
+   ecrite comme celle du rail. */
+.intbar{display:none;flex:none;background:var(--panel);
+        border-bottom:1px solid var(--line);padding:9px 20px}
 .intbar .inner{max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;
         gap:14px;flex-wrap:wrap}
 .intbar .lab{font-size:12px;text-transform:uppercase;letter-spacing:.9px;

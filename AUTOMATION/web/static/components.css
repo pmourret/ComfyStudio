@@ -62,15 +62,37 @@
         color:var(--dim2);font-weight:600}
 
 /* sas d'entree (pas de ?character=) : le chrome ne revendique aucun personnage
-   — il se reduit a « Personnages » + le titre neutre. Onglets studio, menu de
-   perso et barre d'intensité masques tant qu'un personnage n'est pas charge. */
+   — il se reduit a « Personnages » + le titre neutre. Onglets studio et menu de
+   perso masques tant qu'un personnage n'est pas charge. */
 body.no-character .tabs button:not([data-s="registre"]){display:none}
 body.no-character #btnId{display:none}
-body.no-character .intbar{display:none}
 
-/* mode editeur (body.editing) : l'editeur occupe <main>, le chrome reste ;
-   le curseur d'intensite n'a pas de sens pendant une retouche photo. */
-body.editing .intbar{display:none}
+/* ------------------------------ barre d'intensite, bornee a Produire (29/08)
+   Meme famille que le rail ci-dessous : masquee par defaut (base.css), revelee
+   par UNE condition positive.
+
+   Elle etait du chrome global, peinte sur Banque et Réglages ou elle ne pilote
+   RIEN — et changer de cran depuis ces ecrans basculait quand meme le metier de
+   Produire (generation <-> edition) sans que l'ecran courant le montre. Ce
+   n'etait pas un manque de place, c'etait un mensonge de parcours. Donc :
+   retirer la barre la ou elle n'agit pas, et surtout pas desactiver ses crans —
+   un cran grise resterait la promesse d'un reglage sur cet ecran.
+
+   `:has` sur l'ecran allume, comme le rail et comme la pleine largeur de
+   `.inner` (screens.css) : nav.js n'a aucune classe a poser. Et hors media
+   query, volontairement — sous 1100 px la barre reste celle de Produire, pas un
+   repli different. Les deux `:not` sont ceux du rail : le sas n'a pas de niveau
+   a regler, l'editeur photo non plus (il eteint deja #creer, mais la condition
+   se lit d'un bloc plutot que de dependre de ce detail). */
+body:not(.no-character):not(.editing):has(#creer.on) .intbar{display:block}
+
+/* Pastille metier de la barre : le cran courant EDITE. Elle repond a la seule
+   question que les crans ne repondaient pas — « est-ce que ce bouton va
+   fabriquer une image, ou reprendre une image que j'ai deja validee ? ».
+   Absente en generation : le cas par defaut n'a rien a annoncer. */
+.int-mode{background:var(--warn-bg);border:1px solid var(--warn-line);
+          color:var(--warn-txt);border-radius:999px;padding:3px 10px;
+          font-size:12px;line-height:1.35}
 
 /* ------------------------------------------------ rail d'outils (29/08/2026)
    Pas une seconde navigation : les cinq onglets restent le chrome. Le rail

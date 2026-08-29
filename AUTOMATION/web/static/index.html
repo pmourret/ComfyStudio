@@ -50,13 +50,20 @@
     <span class="dot" id="dot"></span><span id="stTxt">connexion…</span></div>
 </header>
 
-<!-- barre d'intensite : seul controle global, visible sur tous les ecrans d'un
-     personnage charge. `body.no-character` la masque sur le sas d'entree. -->
+<!-- BARRE D'INTENSITE — hors de <main> pour ne pas defiler, mais PAS du chrome
+     global : elle ne pilote que l'ecran Produire et n'est peinte que la
+     (components.css, une seule condition `:has(#creer.on)`).
+
+     `#intMode` est la pastille metier : peinte par create.js, et seulement
+     quand le cran courant edite une image validee au lieu d'en engendrer une.
+     Elle est vide et `hidden` au repos — le cas par defaut, la generation,
+     n'a rien a annoncer. -->
 <div class="intbar">
   <div class="inner">
     <span class="lab">Intensité</span>
     <div class="seg" id="intSel"></div>
     <span class="tiny" id="intHint"></span>
+    <span class="int-mode" id="intMode" hidden></span>
   </div>
 </div>
 
