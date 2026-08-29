@@ -3,28 +3,59 @@
    Un univers redefinit ce fichier (palette, typographie, forme) ; base.css /
    components.css / screens.css n'en dependent que par var(), jamais par une
    valeur en dur qui encoderait un choix de style. Voir DESIGN.md pour le
-   contrat : ce qui est jetonne, ce qui reste brut en V1 (elevations, scrims,
-   quelques ambiances ponctuelles), et l'inventaire des composants.
+   contrat : ce qui est jetonne, ce qui reste brut, et l'inventaire des
+   composants.
 
-   Toutes les valeurs ci-dessous sont celles de l'ancien app.css, a l'identique
-   — l'etape 3 ne change aucun pixel, elle deplace et nomme. */
+   Palette « Chambre noire » (29/08/2026). Elle remplace la palette chaude
+   heritee de Lena, qui datait de J3 et n'avait jamais bouge : c'etait la peau
+   d'UN personnage servant de chrome a TOUS. Celle-ci est neutre et froide —
+   une identite de studio, pas de monde. Un univers qui veut sa propre ambiance
+   redefinit ce fichier ; le chrome commun, lui, reste celui-ci.
+
+   Contrastes verifies au ratio WCAG contre les fonds reellement utilises
+   (--bg pour le corps, --panel pour les cartes, les fonds de bandeau pour leur
+   propre texte) : tout texte est a 4.5:1 ou mieux. */
 :root{
   /* --- palette : fonds, lignes, textes --- */
-  --bg:#15120f; --panel:#1e1a17; --panel2:#262019;
-  --line:#342b25; --line2:#463a31;
-  --txt:#f0e9e2; --dim:#a3948a; --dim2:#7a6c63;
+  --bg:#121418; --panel:#1a1d23; --panel2:#232831;
+  --line:#2e3440; --line2:#434b5a;
+  /* --dim2 porte du 11-12 px (.tiny, .brand-id, crans verrouilles) : il est
+     eclairci par rapport a la valeur d'origine de la palette, qui tombait a
+     3.64:1 sur --panel — sous le seuil AA pour du texte de cette taille. */
+  --txt:#e6e8ee; --dim:#9aa3b2; --dim2:#828b9c;
   /* accent + texte pose SUR un aplat d'accent (ou de warn/ok clair) */
-  --acc:#c9714a; --acc-d:#a85a37; --on-acc:#1a1310;
+  --acc:#c4a36a; --acc-d:#9a7d4a; --on-acc:#141208;
   /* verdicts / etats */
-  --ok:#7fa87f; --warn:#d8a657; --bad:#c0605a; --high:#4fae5c; --none:var(--dim2);
+  --ok:#7d9a7e; --warn:#c4a04a; --bad:#c46b66; --high:#5aa86a; --none:var(--dim2);
   /* bandeau d'avertissement (fond / bord / texte) */
-  --warn-bg:#3a2a18; --warn-line:#5a4020; --warn-txt:#e5d3b4;
+  --warn-bg:#2e2718; --warn-line:#544527; --warn-txt:#eddcb0;
   /* bandeau / bouton de danger (fond / bord / texte) */
-  --danger-bg:#3a1d1a; --danger-line:#6b2f28; --danger-txt:#e8877c;
+  --danger-bg:#33201f; --danger-line:#6b3a36; --danger-txt:#f0b8b3;
   /* pastille « mesure » du panneau de reglages */
-  --mes-bg:#2a3a2a; --mes-line:#354a35;
+  --mes-bg:#1e2c22; --mes-line:#35503c;
+
+  /* --- profondeur --- */
+  /* Une seule elevation pour toute surface qui FLOTTE au-dessus du contenu :
+     menu d'identite, panneau de reglages, barre de lancement, apercu de
+     prompt, toast, boites de dialogue. Elles avaient cinq geometries d'ombre
+     differentes (26 a 50 px de flou) sans qu'aucune ne le justifie. Les petites
+     ombres de detail — pouce de curseur, pastille de score — n'en relevent pas
+     et restent locales (DESIGN.md). */
+  --elev:0 14px 38px #00000099;
+  /* Voile pose sur du contenu pour le faire reculer : backdrop des <dialog>,
+     lightbox, et les plaques posees sur une vignette (badge, coche, fleches de
+     navigation). Teinte sur le bleu du fond, pas un noir pur. */
+  --scrim:#0b0d10cc;
+  /* Anneau de :focus-visible. Volontairement DISTINCT de --acc : un anneau
+     pose en outline-offset negatif sur une surface accentuee serait invisible
+     s'il valait l'accent lui-meme. 11.5:1 sur --bg, 9.3:1 sur --panel2. */
+  --focus:#e8c98a;
 
   /* --- typographie --- */
+  /* Mesure du 29/08/2026 : le header n'herite PAS de --font (ses trois zones
+     ont des tailles propres, 16/14/13 px). Le passer a 14px ne lui gagnait
+     rien — verifie au pixel pres. Il reste donc a 15px/1.55, la taille de
+     lecture du contenu. */
   --font:15px/1.55 system-ui,'Segoe UI',Roboto,sans-serif;
   --font-mono:12px ui-monospace,monospace;
 

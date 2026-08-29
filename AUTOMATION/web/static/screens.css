@@ -17,17 +17,17 @@ table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
 th{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
 td.num{font-variant-numeric:tabular-nums}
-#lightbox{position:fixed;inset:0;background:#000d;display:none;align-items:center;
+#lightbox{position:fixed;inset:0;background:var(--scrim);display:none;align-items:center;
           justify-content:center;z-index:30;padding:26px;cursor:zoom-out}
 #lightbox img{max-width:100%;max-height:100%;border-radius:6px}
 #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120%);
        background:var(--panel);border:1px solid var(--line2);border-radius:10px;
        padding:11px 16px;display:flex;gap:14px;align-items:center;z-index:40;
-       box-shadow:0 8px 26px #0008;transition:transform .22s;font-size:14px}
+       box-shadow:var(--elev);transition:transform .22s;font-size:14px}
 #toast.on{transform:translateX(-50%) translateY(0)}
 
 /* --------------------------------------------------------------- composeur */
-.compose{background:linear-gradient(180deg,#221c18,var(--panel));border:1px solid var(--line2);
+.compose{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line2);
          border-radius:var(--r);padding:18px;margin-bottom:22px}
 .compose textarea{min-height:70px}
 .prop{background:var(--panel2);border:1px solid var(--line2);border-radius:9px;
@@ -43,7 +43,7 @@ td.num{font-variant-numeric:tabular-nums}
 .lockbox h3{margin:0 0 12px;font-size:17px}
 .lockbox p{color:var(--dim);font-size:14px}
 .lockbox ul{color:var(--dim);font-size:13.5px;padding-left:20px}
-.warnband{background:var(--danger-bg);border:1px solid var(--danger-line);color:#e8c4bf;border-radius:8px;
+.warnband{background:var(--danger-bg);border:1px solid var(--danger-line);color:var(--danger-txt);border-radius:8px;
           padding:10px 14px;font-size:13px;margin-bottom:16px}
 .srcgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;
          max-height:330px;overflow:auto;padding:3px}
@@ -52,7 +52,7 @@ td.num{font-variant-numeric:tabular-nums}
 .src.on{border-color:var(--acc)}
 .src img{width:100%;aspect-ratio:4/5;object-fit:cover;display:block}
 .src .tick{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;
-  background:#000000aa;border:1.5px solid #ffffff55;color:transparent;font-size:12px;
+  background:var(--scrim);border:1.5px solid #ffffff55;color:transparent;font-size:12px;
   display:flex;align-items:center;justify-content:center}
 .src.on .tick{background:var(--acc);border-color:var(--acc);color:var(--on-acc);font-weight:700}
 
@@ -149,7 +149,7 @@ details.preamb{margin-top:0;border-top:0;padding-top:0;margin-bottom:12px}
 #apercuPanel{max-width:var(--maxw);margin:0 auto 10px;max-height:52vh;overflow:auto}
 #apercuPanel[hidden]{display:none}
 .ap{background:var(--panel);border:1px solid var(--line2);border-radius:12px;
-  padding:14px 18px;box-shadow:0 10px 30px #0007}
+  padding:14px 18px;box-shadow:var(--elev)}
 .aph{display:flex;align-items:baseline;gap:12px;margin-bottom:10px}
 .aph b{font-size:14px}
 .fr{display:flex;gap:12px;align-items:baseline;padding:5px 0;
@@ -160,7 +160,7 @@ details.preamb{margin-top:0;border-top:0;padding-top:0;margin-bottom:12px}
   text-transform:uppercase;letter-spacing:.4px}
 .fr .tx{font-size:12.5px;line-height:1.5}
 /* la scene est le seul fragment que l'utilisateur ecrit : on la distingue */
-.fr.sc{background:#1d2420;margin:0 -18px;padding-left:18px;padding-right:18px}
+.fr.sc{background:#1e2630;margin:0 -18px;padding-left:18px;padding-right:18px}
 .fr.sc .src,.fr.sc .tx{color:var(--txt)}
 .fr.sc .src{color:var(--acc)}
 .ech{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
@@ -180,7 +180,7 @@ details.preamb{margin-top:0;border-top:0;padding-top:0;margin-bottom:12px}
 .posePrev[hidden]{display:none}
 .posePrev img{width:100%;height:100%;object-fit:contain}
 
-.sc .posebadge{position:absolute;top:8px;right:8px;background:#000000aa;color:#9fd8ff;
+.sc .posebadge{position:absolute;top:8px;right:8px;background:var(--scrim);color:#9fd8ff;
   border-radius:10px;padding:1px 7px;font-size:10.5px;font-weight:700}
 
 /* =============================================== 26/08/2026 — quatre ajouts
@@ -189,7 +189,7 @@ details.preamb{margin-top:0;border-top:0;padding-top:0;margin-bottom:12px}
 
 /* -------------------------------------------------------------- bouton danger */
 .btn.danger{background:transparent;border-color:var(--danger-line);color:var(--danger-txt)}
-.btn.danger:hover{background:var(--danger-bg);border-color:#8a3c30}
+.btn.danger:hover{background:var(--danger-bg);border-color:var(--danger-line)}
 
 /* --------------------------------------------------- banque de poses (Scenes) */
 .posegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));
@@ -198,7 +198,7 @@ details.preamb{margin-top:0;border-top:0;padding-top:0;margin-bottom:12px}
   overflow:hidden;background:#000;aspect-ratio:1}
 .posecard img{width:100%;height:100%;object-fit:contain}
 .posecard .del{position:absolute;top:4px;right:4px;width:20px;height:20px;
-  border-radius:50%;border:1px solid var(--danger-line);background:#000000cc;color:var(--danger-txt);
+  border-radius:50%;border:1px solid var(--danger-line);background:var(--scrim);color:var(--danger-txt);
   font-size:13px;line-height:1;cursor:pointer}
 .posecard .del:hover{background:var(--danger-bg)}
 .poseUpload{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:26px}
@@ -219,7 +219,7 @@ details.preamb{margin-top:0;border-top:0;padding-top:0;margin-bottom:12px}
   border:2px solid var(--line);border-radius:var(--r);text-decoration:none;
   color:var(--txt)}
 .char-card:hover{border-color:var(--line2)}
-.char-card:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.char-card:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .char-card--current{border-color:var(--acc)}
 .char-card b{display:block;font-size:15px;font-weight:600}
 .char-card code{font:12px var(--font-mono);color:var(--dim2)}
@@ -287,7 +287,7 @@ details.preamb{margin-top:0;border-top:0;padding-top:0;margin-bottom:12px}
   justify-content:center;background:#0a0a0a;padding:16px;min-width:0}
 .edStage canvas{max-width:100%;max-height:100%;display:block;border-radius:2px}
 #edCropBox{position:absolute;border:1.5px solid var(--acc);
-  box-shadow:0 0 0 2000px #00000066;cursor:move;touch-action:none}
+  box-shadow:0 0 0 2000px #0b0d1066;cursor:move;touch-action:none}
 .edHandle{position:absolute;width:14px;height:14px;background:var(--acc);
   border-radius:50%;transform:translate(-50%,-50%);cursor:nwse-resize;touch-action:none}
 .edHandle[data-h="nw"]{left:0;top:0}

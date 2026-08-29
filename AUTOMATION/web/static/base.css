@@ -22,7 +22,8 @@ header{display:flex;align-items:center;gap:20px;padding:0 20px;height:56px;
        background:var(--panel);border-bottom:1px solid var(--line);flex:none}
 .brand{display:flex;align-items:baseline;gap:8px;font-size:16px;font-weight:600;
        letter-spacing:.2px;min-width:0}
-.brand i{color:var(--acc);font-style:normal}
+.brand i{color:var(--acc);font-style:normal;
+         overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .brand .brand-id{font:12px var(--font-mono);font-weight:400;color:var(--dim2)}
 .brand .brand-tag{font-size:11px;font-weight:600;color:var(--dim);
                   padding:2px 7px;border:1px solid var(--line2);border-radius:20px}
@@ -35,7 +36,10 @@ header{display:flex;align-items:center;gap:20px;padding:0 20px;height:56px;
 .tabs button.on .n{background:var(--acc);color:var(--on-acc)}
 .status{margin-left:auto;display:flex;align-items:center;gap:9px;font-size:13px;color:var(--dim)}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--bad)}
-.dot.on{background:var(--ok);box-shadow:0 0 0 3px #7fa87f22}
+/* halo derive de --ok : la valeur etait une copie figee de l'ancien accent
+   vert, qui restait vert-Lena sous une autre palette */
+.dot.on{background:var(--ok);
+        box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 15%,transparent)}
 /* barre d'intensite — hors du <main> qui defile, donc toujours a l'ecran */
 .intbar{flex:none;background:var(--panel);border-bottom:1px solid var(--line);
         padding:9px 20px}
@@ -55,7 +59,10 @@ header{display:flex;align-items:center;gap:20px;padding:0 20px;height:56px;
 .intbar .seg button.lv0.on{background:var(--ok);color:var(--bg)}
 .intbar .seg button.lv1.on{background:var(--acc)}
 .intbar .seg button.lv2.on{background:var(--warn)}
-.intbar .seg button.lv3.on{background:var(--bad);color:var(--txt)}
+/* --bg et pas --txt : un texte clair sur l'aplat --bad tombe a 3.0:1, sous le
+   seuil AA. Les crans lv0 et lv2 posaient deja --bg, lv3 etait le seul ecart —
+   et c'est le cran qu'on veut lire sans hesiter. */
+.intbar .seg button.lv3.on{background:var(--bad);color:var(--bg)}
 main{flex:1;overflow:auto;position:relative}
 .screen{display:none;height:100%}
 .screen.on{display:block}
