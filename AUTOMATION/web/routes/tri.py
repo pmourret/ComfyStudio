@@ -23,8 +23,10 @@ ACTIONS = {"valider": "OK", "revoir": "A_REVOIR", "rejeter": "REJET",
            "archiver": "ARCHIVE"}
 
 
-def nsfw_journal_index():
-    path = nsfw_batch.JOURNAL
+def nsfw_journal_index(character_id):
+    """Journal de la branche NSFW. Pas de colonne `character` : il est deja
+    propre a un personnage par son chemin (PROD/<CID>/_NSFW/journal_nsfw.csv)."""
+    path = nsfw_batch.journal_path(character_id)
     if not path.exists():
         return {}
     out = {}
@@ -39,13 +41,19 @@ def nsfw_journal_index():
     return out
 
 
-def noter_bucket(nom, bucket, espace="lena", ancien_nom=None):
-    """Reporte le TRI HUMAIN dans la base.
+def noter_bucket(nom, bucket, space, character_id, ancien_nom=None):
+    """Reporte le TRI HUMAIN dans la base, sur la ligne du BON personnage.
 
     `image.bucket` n'etait ecrit qu'a la generation, avec le verdict du QC. Or
     base.stats_par_scene compte `WHERE bucket = 'OK'` : le badge « n produites ·
     ok » des cartes de scene affichait donc le verdict automatique et ignorait
     tout du tri. Une image rejetee a la main y comptait encore comme validee.
+
+    `character_id` est obligatoire : les deux appels de base prennent 'lena'
+    par defaut (base.py, compatibilite J2). Trier une image d'un autre
+    personnage depuis la Revue ecrivait donc une ligne character_id='lena'
+    dans la seule base — la base restait propre uniquement parce que personne
+    n'avait encore trie un autre personnage depuis l'interface.
 
     Ne doit jamais faire echouer un tri : le fichier, lui, a deja bouge.
     """
@@ -53,15 +61,16 @@ def noter_bucket(nom, bucket, espace="lena", ancien_nom=None):
         import base as db
         with db.ouvrir() as cx:
             if ancien_nom and ancien_nom != nom:
-                db.renommer(cx, ancien_nom, nom)
-            db.enregistrer_image(cx, nom, bucket=bucket, espace=espace)
+                db.renommer(cx, ancien_nom, nom, character_id=character_id)
+            db.enregistrer_image(cx, nom, character_id=character_id,
+                                 bucket=bucket, espace=ss.espace_db(space))
             cx.commit()
     except Exception as e:
         ss.push_log(f"base : bucket non mis a jour pour {nom} — "
                    f"{type(e).__name__} : {e}")
 
 
-def exporter(src, nom_journal, espace="lena"):
+def exporter(src, nom_journal, space, character_id):
     """Produit le JPEG publiable. Rend son nom, ou "" si rien n'a ete ecrit.
 
     `nom_journal` est le nom sous lequel l'image est INSCRITE AU JOURNAL, pas
@@ -70,15 +79,15 @@ def exporter(src, nom_journal, espace="lena"):
     et `format = 4:5` par defaut — l'export partait dans le mauvais dossier et
     une image 9:16 se retrouvait redimensionnee en 1080x1350.
     """
-    if espace != "lena":                  # la branche NSFW ne s'exporte jamais
+    if ss.space_id(space) == "nsfw":       # la branche NSFW ne s'exporte jamais
         return ""
-    row = ss.journal_index().get(nom_journal, {})
-    configuration = ss.cfg()
+    row = ss.journal_index(character_id).get(nom_journal, {})
+    configuration = ss.cfg(character_id)
     fmt = row.get("format") or "4:5"
     cat = row.get("categorie") or "divers"
     try:
         from PIL import Image
-        exp_dir = ss.OFM / "PROD" / "EXPORT" / cat
+        exp_dir = ss.export_dir(character_id) / cat
         exp_dir.mkdir(parents=True, exist_ok=True)
         out = exp_dir / (Path(src).stem + "." + configuration["export"]["format"])
         im = Image.open(src).convert("RGB")
@@ -92,10 +101,16 @@ def exporter(src, nom_journal, espace="lena"):
         return ""
 
 
-def retirer_export(nom):
-    """Sort une image de la publication. Rend le nombre de fichiers retires."""
+def retirer_export(nom, character_id):
+    """Sort une image de la publication. Rend le nombre de fichiers retires.
+
+    Balaye le seul dossier d'export du personnage : le `rglob` sur tout
+    PROD/EXPORT/ supprimait l'export homonyme d'un AUTRE personnage en meme
+    temps que le sien (deux personnages peuvent produire un meme nom de
+    fichier — `nom_libre` ne garantit l'unicite que dans un arbre PROD/<CID>/).
+    """
     retires = 0
-    for f in (ss.OFM / "PROD" / "EXPORT").rglob(Path(nom).stem + ".*"):
+    for f in ss.export_dir(character_id).rglob(Path(nom).stem + ".*"):
         f.unlink(missing_ok=True)
         retires += 1
     return retires
@@ -103,12 +118,15 @@ def retirer_export(nom):
 
 @routes.get("/api/gallery")
 async def api_gallery(request):
+    """Contenu d'un dossier de tri — de CE personnage, et de lui seul."""
+    cid = ss.character(request)
     bucket = request.query.get("bucket", "OK")
-    space = request.query.get("space", "lena")
-    d = ss.bucket_dir(bucket, space)
+    space = ss.space_id(request.query.get("space"))
+    d = ss.bucket_dir(bucket, space, cid)
     files = sorted(d.glob("*.png"), key=lambda f: f.stat().st_mtime,
                    reverse=True) if d.exists() else []
-    index = ss.journal_index() if space == "lena" else nsfw_journal_index()
+    index = (nsfw_journal_index(cid) if space == "nsfw"
+             else ss.journal_index(cid))
     store = mes.charger()
     # Compte sur TOUT le dossier, pas sur les 200 affichees : le bouton annonce
     # ce que /api/mesurer aura reellement a faire, et lui parcourt tout. Les deux
@@ -172,10 +190,11 @@ async def api_mesurer(request):
         return web.json_response(
             {"ok": False, "erreur": "une production tourne — mesure après"},
             status=409)
+    cid = ss.character(request)
     bucket = body.get("bucket", "OK")
-    space = body.get("space", "lena")
+    space = ss.space_id(body.get("space"))
     lot = max(1, min(40, int(body.get("lot") or 20)))
-    d = ss.bucket_dir(bucket, space)
+    d = ss.bucket_dir(bucket, space, cid)
     if not d.exists():
         return web.json_response({"ok": True, "faites": 0, "restant": 0})
 
@@ -189,7 +208,7 @@ async def api_mesurer(request):
         return web.json_response({"ok": True, "faites": 0, "restant": 0})
 
     checker = await asyncio.get_running_loop().run_in_executor(
-        None, ss.checker_partage, ss.cfg())
+        None, ss.checker_partage, ss.cfg(cid))
 
     paquet = a_faire[:lot]
 
@@ -213,21 +232,24 @@ async def api_mesurer(request):
 
 @routes.post("/api/action")
 async def api_action(request):
+    cid = ss.character(request)
     body = await request.json()
     name = body.get("name", "")
     bucket, action = body.get("bucket", ""), body.get("action", "")
-    space = body.get("space", "lena")
+    space = ss.space_id(body.get("space"))
     if not ss.SAFE_NAME.match(name):
         ss.bad_request("nom de fichier invalide")
     if action not in ACTIONS:
         ss.bad_request(f"action inconnue : « {action} »")
     origine = name                      # nom sous lequel le journal la connait
-    src = ss.bucket_dir(bucket, space) / name
+    src = ss.bucket_dir(bucket, space, cid) / name
     if not src.exists():
+        # 404 franc : le fichier n'est pas dans l'arbre de CE personnage. Jamais
+        # de recherche dans un autre arbre, meme si le nom y existe.
         return web.json_response({"ok": False, "erreur": "fichier introuvable"},
                                  status=404)
     dest_bucket = ACTIONS[action]
-    dest_dir = ss.bucket_dir(dest_bucket, space)
+    dest_dir = ss.bucket_dir(dest_bucket, space, cid)
     dest_dir.mkdir(parents=True, exist_ok=True)
     final = name
     if dest_bucket != bucket:
@@ -240,30 +262,32 @@ async def api_action(request):
             ss.push_log(f"{name} existait déjà dans {dest_bucket} — renommé {final}")
             mes.renommer(name, final)
         shutil.move(str(src), str(dest_dir / final))
-        ss.oublier_vignette(origine, bucket, space)   # elle repartait du dossier quitte
+        # la vignette repartait du dossier quitte
+        ss.oublier_vignette(origine, bucket, space, cid)
         src = dest_dir / final
     name = final
 
     exported = ""
     if action == "valider":
-        exported = exporter(src, origine, space)
-    elif space == "lena" and dest_bucket != "OK":
+        exported = exporter(src, origine, space, cid)
+    elif space == "sfw" and dest_bucket != "OK":
         # Sortir une image de OK doit la sortir AUSSI de la publication. Sans ca
         # le dossier d'export accumule des images rejetees : constate le
         # 25/08/2026, 11 JPEG dont le PNG etait en REJET. Seul le bouton
         # « annuler » nettoyait, un rejet normal ne nettoyait pas.
-        retires = retirer_export(name)
+        retires = retirer_export(name, cid)
         if retires:
             ss.push_log(f"{name} sort de l'export ({retires} fichier(s) retire(s))")
     if dest_bucket != bucket:
-        noter_bucket(name, dest_bucket, space,
+        noter_bucket(name, dest_bucket, space, cid,
                      ancien_nom=origine if name != origine else None)
         ss.UNDO.append({"name": name, "from": bucket, "to": dest_bucket,
-                       "export": exported, "space": space, "journal": origine})
+                       "export": exported, "space": space, "journal": origine,
+                       "character": cid})
         del ss.UNDO[:-50]
     ss.push_log(f"{name} → {dest_bucket}" + (f" (export {exported})" if exported else ""))
     return web.json_response({"ok": True, "bucket": dest_bucket, "export": exported,
-                              "undo": len(ss.UNDO)})
+                              "undo": len(ss.undo_disponible(cid))})
 
 
 @routes.post("/api/delete")
@@ -277,18 +301,19 @@ async def api_delete(request):
     ligne qui pointe vers un fichier disparu reste un fait vrai : cette image a
     existé, a été notée, et a été supprimée.
     """
+    cid = ss.character(request)
     body = await request.json()
     name = body.get("name", "")
-    bucket, space = body.get("bucket", ""), body.get("space", "lena")
+    bucket, space = body.get("bucket", ""), ss.space_id(body.get("space"))
     if not ss.SAFE_NAME.match(name):
         ss.bad_request("nom de fichier invalide")
-    path = ss.bucket_dir(bucket, space) / name
+    path = ss.bucket_dir(bucket, space, cid) / name
     if not path.exists():
         return web.json_response({"ok": False, "erreur": "fichier introuvable"},
                                  status=404)
     path.unlink()
-    ss.oublier_vignette(name, bucket, space)
-    retires = retirer_export(name) if space == "lena" else 0
+    ss.oublier_vignette(name, bucket, space, cid)
+    retires = retirer_export(name, cid) if space == "sfw" else 0
     ss.push_log(f"{name} supprimée définitivement" +
               (f" (export retiré : {retires} fichier(s))" if retires else ""))
     return web.json_response({"ok": True})
@@ -303,9 +328,10 @@ async def api_edit_save(request):
     api_delete. Ni mesure ni export automatique : ce n'est pas une generation,
     `api_mesurer` reste le chemin pour noter la copie si besoin.
     """
+    cid = ss.character(request)
     body = await request.json()
     name = (body.get("name") or "").strip()
-    bucket, space = body.get("bucket", ""), body.get("space", "lena")
+    bucket, space = body.get("bucket", ""), ss.space_id(body.get("space"))
     b64 = body.get("data_base64") or ""
     if not ss.SAFE_NAME.match(name):
         ss.bad_request("nom de fichier invalide")
@@ -319,7 +345,7 @@ async def api_edit_save(request):
     if len(data) > ss.TAILLE_MAX_PHOTO:
         return web.json_response(
             {"ok": False, "erreur": "image trop lourde (20 Mo max)"}, status=400)
-    dest_dir = ss.bucket_dir(bucket, space)
+    dest_dir = ss.bucket_dir(bucket, space, cid)
     if not (dest_dir / name).exists():
         return web.json_response(
             {"ok": False, "erreur": "image d'origine introuvable"}, status=404)
@@ -331,13 +357,22 @@ async def api_edit_save(request):
 
 @routes.post("/api/undo")
 async def api_undo(request):
-    """Annule le dernier tri : remet l'image dans son dossier d'origine."""
-    if not ss.UNDO:
+    """Annule le dernier tri DE CE PERSONNAGE : remet l'image dans son dossier
+    d'origine.
+
+    La pile reste unique (un seul etat partage), mais on n'y reprend que les
+    actions du personnage courant : sans ca, « annuler » depuis la Revue d'un
+    personnage deplacait le fichier d'un autre, dans un arbre qu'on ne regarde
+    meme pas.
+    """
+    cid = ss.character(request)
+    act = next((a for a in reversed(ss.UNDO) if a.get("character") == cid), None)
+    if act is None:
         return web.json_response({"ok": False, "erreur": "rien a annuler"}, status=400)
-    act = ss.UNDO.pop()
-    space = act.get("space", "lena")
-    src = ss.bucket_dir(act["to"], space) / act["name"]
-    retour = ss.bucket_dir(act["from"], space)
+    ss.UNDO.remove(act)
+    space = ss.space_id(act.get("space"))
+    src = ss.bucket_dir(act["to"], space, cid) / act["name"]
+    retour = ss.bucket_dir(act["from"], space, cid)
     nom = act["name"]
     if src.exists():
         retour.mkdir(parents=True, exist_ok=True)
@@ -350,23 +385,24 @@ async def api_undo(request):
                       f"renommé {nom}")
             mes.renommer(act["name"], nom)
         shutil.move(str(src), str(retour / nom))
-        ss.oublier_vignette(act["name"], act["to"], space)
+        ss.oublier_vignette(act["name"], act["to"], space, cid)
     if act.get("export"):
-        for f in (ss.OFM / "PROD" / "EXPORT").rglob(act["export"]):
+        for f in ss.export_dir(cid).rglob(act["export"]):
             f.unlink(missing_ok=True)
     # Annuler un rejet doit REMETTRE l'image en publication : le rejet avait
     # supprime le JPEG, et l'annulation le laissait supprime. L'image revenait
     # dans OK sans son export, sans que rien ne le signale.
     refait = ""
-    if act["from"] == "OK" and space == "lena":
+    if act["from"] == "OK" and space == "sfw":
         cible = retour / nom
         if cible.exists():
-            refait = exporter(cible, act.get("journal", act["name"]), space)
+            refait = exporter(cible, act.get("journal", act["name"]), space, cid)
     # l'annulation est un tri comme un autre : la base doit la suivre, sinon
     # elle garde le bucket de l'action qu'on vient justement de defaire
-    noter_bucket(nom, act["from"], space,
+    noter_bucket(nom, act["from"], space, cid,
                  ancien_nom=act["name"] if nom != act["name"] else None)
     ss.push_log(f"annule : {nom} → {act['from']}"
               + (f" (export {refait} refait)" if refait else ""))
     return web.json_response({"ok": True, "bucket": act["from"], "name": nom,
-                              "export": refait, "undo": len(ss.UNDO)})
+                              "export": refait,
+                              "undo": len(ss.undo_disponible(cid))})
