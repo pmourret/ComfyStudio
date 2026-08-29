@@ -35,6 +35,9 @@ bord cohérent, de structure identique, d'ambiance différente.
   `.nav`, `.posebadge`, `.posecard .del`), `--focus` (anneau `:focus-visible`).
 - **Typographie** — `--font` (texte courant), `--font-mono` (`.kbd`, raccourcis).
 - **Forme** — `--r` (rayon des cartes), `--maxw` (largeur max du contenu centré).
+  `--maxw` ne gouverne plus **tous** les écrans depuis le 29/08/2026 : Créer est
+  passé en pleine largeur (voir ci-dessous). Les écrans-listes (registre, banque,
+  revue, réglages, wizard) le gardent.
 
 ### Laissé brut, et pourquoi
 
@@ -77,6 +80,44 @@ d'identité** qui se replient (monde sous 1100 px, type sous 1000 px,
 identifiant technique sous 820 px, dans `screens.css`) : le nom du personnage
 et les **cinq onglets** ne disparaissent jamais, et aucun onglet n'est replié
 dans un menu.
+
+## Deux modèles de largeur
+
+| Modèle | Écrans | Règle |
+|---|---|---|
+| **Article centré** | registre, banque, revue, réglages, wizard | `.wrap` à `--maxw`, marges auto |
+| **Poste de travail** | **Créer** seulement | `#creer .wrap.split` en pleine largeur ; l'inspecteur touche le bord droit du **viewport**, pas celui d'un wrap |
+
+Créer a changé de modèle le 29/08/2026 : `--maxw` y laissait ~200 px de gouttière
+de chaque côté sur un écran large, et l'inspecteur collait au bord droit du wrap.
+La correction n'est **pas** de monter `--maxw` — ce serait garder le modèle et le
+distendre. Les deux surfaces de chrome qui bordent l'écran suivent
+(`#creer .launch .inner` par portée, `body:has(#creer.on) .intbar .inner` parce
+que la barre d'intensité vit hors des écrans). La colonne de droite est en
+`clamp(280px, 22vw, 420px)` : la borne haute est la largeur réelle de la vignette
+servie, au-delà on afficherait un fichier remonté au-dessus de sa résolution.
+
+## Collision de noms de classe — la carte est scopée à sa grille
+
+`sc` et `src` nomment chacun **deux à trois** choses différentes dans l'app : une
+carte cliquable, et une ou deux étiquettes de texte. Tant que la règle de carte
+était écrite `.sc{…}` / `.src{…}`, elle atteignait aussi les étiquettes et leur
+posait `width:100%`, une bordure de 2 px et un curseur main.
+
+| Classe | La carte | Les étiquettes qui portaient le même nom |
+|---|---|---|
+| `sc` | `.scenes .sc` (carte de scène) | `.fr.sc` (ligne « scène » de l'aperçu), `.bib .sc` (pastille de score) |
+| `src` | `.srcgrid .src` (vignette de source NSFW) | `.fr .src` (provenance d'un fragment), `#declineBox .src` (sous-titre) |
+
+C'est ce qui vidait l'aperçu du prompt de son texte : l'étiquette `.fr .src`
+prenait toute la ligne et chassait `.fr .tx` hors du cadre — on lisait
+« 5 % TENUE » et rien du fragment. Corrigé en scopant les règles de **bloc** à
+leur grille ; les descendantes (`.sc .ph`, `.src .tick`…) restent non scopées,
+elles ne trouvent rien à mordre ailleurs. Renommer aurait été plus propre mais
+touchait le JS et le sélecteur de fumigation `.fr .src`.
+
+**Règle pour la suite** : une règle de carte se scope à son conteneur. Un nom de
+classe court (`sc`, `src`, `tx`, `fr`) n'est pas un identifiant global.
 
 ## Inventaire des composants
 

@@ -70,16 +70,31 @@ td.num{font-variant-numeric:tabular-nums}
    derniere image DU personnage courant et sa fiche, collante pendant qu'on
    fait defiler la banque de scenes.
 
-   340 px : la vignette servie fait 420 px de large, la colonne reste donc sous
-   la resolution reelle du fichier a tous les paliers. Le reste de --maxw
-   (1180) laisse ~800 px au composeur, soit quatre cartes de scene par ligne
-   (auto-fill, minmax 178) — une de moins qu'avant, aucune ne se casse.
+   PLEIN ECRAN (29/08/2026, 2e passe). Creer quitte le modele « article
+   centre » : --maxw laissait ~200 px de gouttiere de chaque cote sur un ecran
+   large, et l'inspecteur collait au bord droit du WRAP, pas de l'ECRAN. On ne
+   corrige pas ca en montant --maxw — ce serait garder le modele et le
+   distendre ; on le retire, pour ce seul ecran. Les autres ecrans (banque,
+   revue, reglages) restent centres : ce sont des listes, pas un poste de
+   travail.
+
+   Le padding reste celui de `.wrap` (20 px, 13 px sous 820 px) : on ne le
+   redeclare pas ici, sinon la regle a #id ecraserait le palier mobile.
+
+   clamp(280,22vw,420) pour la colonne de droite. La borne haute n'est pas
+   decorative : la vignette servie fait 420 px de large, au-dela la colonne
+   afficherait un fichier remonte au-dessus de sa resolution reelle. La borne
+   basse tient la fiche lisible entre 1100 et 1273 px, ou 22vw passerait
+   dessous. Le composeur prend tout le reste — cinq cartes de scene par ligne
+   des ~1500 px, au lieu de quatre a 1180 px fixes.
 
    Sous 1100 px la colonne passe SOUS le composeur, en flux normal : jamais une
    surcouche. Meme palier que le repli du tag « monde » dans le header — c'est
    la meme mesure de largeur qui les declenche. */
-#creer .wrap.split{display:grid;grid-template-columns:minmax(0,1fr) 340px;
-                   gap:22px;align-items:start}
+#creer .wrap.split{display:grid;
+                   grid-template-columns:minmax(0,1fr) clamp(280px,22vw,420px);
+                   gap:22px;align-items:start;
+                   max-width:none;width:100%;margin:0}
 .cr-main{min-width:0}
 /* `top:12px` et pas 0 : colle au bord, la fiche touchait le bandeau de panne.
    La hauteur max garde son bas au-dessus de .launch (barre fixe, ~100 px). */
@@ -105,6 +120,22 @@ td.num{font-variant-numeric:tabular-nums}
 .ins-void{margin:0;padding:0 20px;text-align:center;color:var(--dim);font-size:13px}
 .ins-meta{margin:12px 0 0}
 .ins-meta dd:last-child{margin-bottom:0}
+
+/* Les deux surfaces de chrome qui bordent Creer en haut et en bas suivent la
+   meme largeur que lui, sinon elles restent des rubans de 1180 px centres
+   au-dessus et au-dessous d'un contenu qui, lui, va d'un bord a l'autre.
+
+   `.launch` est DANS #creer : la portee suffit, et les autres barres de
+   lancement (wizard, banque de scenes) gardent leur largeur d'article.
+   `.intbar` est hors des ecrans — c'est du chrome global — d'ou le `:has` sur
+   l'ecran allume. Si un navigateur ne le connaissait pas, la barre resterait
+   centree : un desalignement, rien de casse.
+
+   Le padding lateral vient dans les deux cas de la surface parente
+   (`.intbar` et `.launch` posent deja 20 px) : ici on ne fait que relacher la
+   contrainte de largeur. */
+body:has(#creer.on) .intbar .inner{max-width:none;margin:0}
+#creer .launch .inner{max-width:none;margin:0}
 
 @media(max-width:1100px){
   #creer .wrap.split{grid-template-columns:minmax(0,1fr)}
@@ -225,8 +256,20 @@ details.preamb{margin-top:0;border-top:0;padding-top:0;margin-bottom:12px}
 
 /* ------------------------------------------- apercu du prompt (26/08/2026)
    69 % du prompt final etait assemble hors de vue. Le panneau s'ouvre AU-DESSUS
-   de la barre de lancement, qui est collee en bas de l'ecran. */
-#apercuPanel{max-width:var(--maxw);margin:0 auto 10px;max-height:52vh;overflow:auto}
+   de la barre de lancement, qui est collee en bas de l'ecran.
+
+   Largeur : celle de la barre de lancement, dont il est le prolongement — plus
+   de --maxw centre, qui le decalait de son propre en-tete depuis le passage de
+   Creer en plein ecran (29/08).
+
+   overflow-x:hidden est une ceinture, pas la correction : le vrai defaut etait
+   `.fr .tx` sans `min-width:0` (voir plus bas). Il reste ici parce qu'un
+   fragment sans espace (un chemin, une graine) pourrait encore pousser la
+   ligne, et qu'une barre de defilement horizontale sous la barre de lancement
+   se lit comme un artefact, pas comme une affordance. Le defilement VERTICAL,
+   lui, reste : le prompt complet depasse souvent 52vh. */
+#apercuPanel{max-width:none;margin:0 0 10px;max-height:52vh;
+             overflow-x:hidden;overflow-y:auto}
 #apercuPanel[hidden]{display:none}
 .ap{background:var(--panel);border:1px solid var(--line2);border-radius:12px;
   padding:14px 18px;box-shadow:var(--elev)}

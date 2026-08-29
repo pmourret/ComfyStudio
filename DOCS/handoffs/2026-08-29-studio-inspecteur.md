@@ -146,3 +146,120 @@ modules de `static/`. `CLAUDE.md` §2 demande des commentaires en anglais ; la
 divergence est antérieure à cette session et uniforme sur tout le frontend.
 Signalé plutôt que corrigé en douce sur un seul fichier neuf (§11) — c'est
 `CLAUDE.md` ou le frontend entier qu'il faut aligner, en une passe dédiée.
+
+---
+
+# Plein écran + aperçu (2ᵉ passe, 29/08)
+
+**Base** : `5f92e25` (l'inspecteur ci-dessus) · **Statut** : clos. CSS seulement,
+aucun JS touché. 7 fumigations navigateur + 2 fumigations à DOM simulé, vertes.
+
+## Ce que la 1ʳᵉ passe laissait faux
+
+L'inspecteur était collé au bord droit du **wrap**, pas de l'**écran** : Créer
+restait une page centrée à `--maxw` (1180 px), avec ~200 px de gouttière de
+chaque côté sur un écran large. Et l'aperçu du prompt débordait
+horizontalement — on lisait « 5 % TENUE », « 10 % TON », et rien du texte.
+
+## Créer change de modèle de largeur
+
+Créer n'est plus un article centré, c'est un poste de travail. `--maxw` n'a
+**pas** été monté : monter la valeur aurait gardé le modèle en le distendant. La
+contrainte est retirée, pour ce seul écran.
+
+```
+#creer .wrap.split  max-width:none; width:100%; margin:0
+                    grid-template-columns: minmax(0,1fr) clamp(280px,22vw,420px)
+```
+
+Les autres écrans (registre, banque, revue, réglages, wizard) gardent `--maxw` :
+ce sont des listes, pas un plan de travail. Le padding latéral n'est **pas**
+redéclaré — `.wrap` le porte déjà (20 px, 13 px sous 820 px), et une règle à `#id`
+aurait écrasé le palier mobile.
+
+Les deux surfaces de chrome qui bordent l'écran suivent la même largeur, sinon
+elles restent des rubans de 1180 px centrés au-dessus et au-dessous d'un contenu
+qui va d'un bord à l'autre :
+
+| Surface | Sélecteur | Pourquoi celui-là |
+|---|---|---|
+| barre de lancement | `#creer .launch .inner` | elle est **dans** `#creer` — la portée suffit, les autres barres (wizard, banque) gardent leur largeur d'article |
+| barre d'intensité | `body:has(#creer.on) .intbar .inner` | elle vit **hors** des écrans (chrome global) — pas d'ancêtre `#creer` à qui s'accrocher |
+
+`:has()` est le seul recours sans toucher au JS (aucune classe d'écran n'est
+posée sur `<body>`). Dégradation si un navigateur l'ignorait : la barre reste
+centrée. Un désalignement, rien de cassé.
+
+**`clamp(280px, 22vw, 420px)`** pour la colonne de droite, et non `22vw` nu. La
+borne haute n'est pas décorative : la vignette servie fait 420 px de large, au
+delà la colonne afficherait un fichier remonté au-dessus de sa résolution réelle
+— l'invariant que les 340 px fixes de la 1ʳᵉ passe protégeaient déjà. La borne
+basse tient la fiche lisible entre 1100 et 1273 px, où `22vw` passerait dessous.
+
+Mesuré (sonde jetable, 5 largeurs) : composeur à 20 px du bord gauche,
+inspecteur à 20 px du bord droit du viewport, aucun défilement horizontal de
+page. Colonne : 420 px à 2560 et 1920, 317 à 1440, 280 à 1200. Sous 1100 px,
+une colonne — inchangé.
+
+## L'aperçu du prompt : le vrai défaut était une collision de noms
+
+`min-width:0` manquait bien sur `.fr .tx`, mais ce n'était pas la cause. Le
+texte n'était pas *rétréci*, il était à **0 px de large et hors du panneau** :
+l'étiquette de provenance prenait 1842 px sur une ligne de 1880.
+
+`src` nomme trois choses. La règle de **carte** était écrite `.src{…}`, sans
+portée — elle atteignait donc aussi les deux étiquettes et leur posait
+`width:100%`, une bordure de 2 px et un curseur main :
+
+| Classe | La carte | Les étiquettes qui portaient le même nom |
+|---|---|---|
+| `src` | `.srcgrid .src` (vignette de source NSFW) | `.fr .src` (provenance d'un fragment), `#declineBox .src` (sous-titre de Décliner) |
+| `sc` | `.scenes .sc` (carte de scène) | `.fr.sc` (ligne « scène » de l'aperçu), `.bib .sc` (pastille de score) |
+
+Corrigé en scopant les règles de **bloc** à leur grille. Les descendantes
+(`.sc .ph`, `.src .tick`…) restent non scopées : elles ne trouvent rien à mordre
+ailleurs, et les scoper aurait grossi le diff sans rien corriger.
+
+Renommer la classe des étiquettes aurait été plus propre, mais touchait le JS
+**et** le sélecteur `.fr .src` sur lequel `test_apercu_prompt` s'appuie. Scoper
+coûte un sélecteur ; c'est le choix retenu.
+
+Effets de bord repérés au passage, non demandés mais corrigés par la même
+règle : la ligne « scène » de l'aperçu et la pastille de score de la
+bibliothèque d'instructions ne se déguisent plus en carte cliquable (bordure
+2 px + `cursor:pointer` sur du texte non cliquable).
+
+`#apercuPanel` prend maintenant la largeur de la barre de lancement, dont il est
+le prolongement. `overflow-x:hidden` reste, en ceinture : un fragment sans espace
+(un chemin, une graine) pourrait encore pousser la ligne, et une barre de
+défilement horizontale sous la barre de lancement se lit comme un artefact. Le
+défilement vertical, lui, reste — le prompt complet dépasse souvent 52vh.
+
+## Tests
+
+| Suite | Résultat |
+|---|---|
+| `run_browser_tests.py` — les 7 fumigations navigateur | **7 vertes**, 0 ignorée, 0 échec |
+| `test_panneau_reglages`, `test_scenes_aller_retour` (DOM simulé, hors liste) | **2 vertes** |
+
+`test_ecran_creer` et `test_apercu_prompt` verts avant **et** après le scopage
+de `.sc` / `.src` — c'est ce qui prouve que les cartes sont restées des cartes.
+Sélecteurs de fumigation intacts, aucun renommé.
+
+Sonde jetable (hors repo) sur ce qu'aucun test ne couvre : géométrie aux cinq
+largeurs, débordement du panneau d'aperçu, texte de chaque fragment entièrement
+dans le cadre, carte de scène toujours bordée et cliquable, ligne `.fr.sc`
+redevenue du texte. Toutes vertes.
+
+Non vérifié : **ComfyUI toujours hors ligne** (`--no-comfy`) — comme la 1ʳᵉ
+passe. Rien dans ce diff n'en dépend (CSS pur), mais l'inspecteur en cours de
+batch réel reste à regarder au premier vrai lancement.
+
+## Ce qui n'a pas été fait, et pourquoi
+
+- **Rail d'outils à gauche** — phase 2, hors session. La question ouverte de la
+  1ʳᵉ passe (« les trois zones ne tiendront plus à 1180 px ») **tombe d'elle
+  même** : il n'y a plus de 1180 px. Un rail se logera dans la largeur gagnée.
+- **`/img/base`, Banque Scènes\|Poses, J7** — inchangés, toujours ouverts.
+- **Renommage des classes en collision** — laissé. Voir plus haut : le gain est
+  cosmétique, le coût touche le JS et un sélecteur de fumigation.
