@@ -51,6 +51,7 @@
         border:0;color:var(--txt);text-decoration:none;padding:8px 11px;
         border-radius:6px;cursor:pointer;font-size:13.5px;text-align:left}
 .idmenu a:hover{background:var(--panel2)}
+.idmenu a:focus-visible{background:var(--panel2);outline:2px solid var(--acc);outline-offset:-2px}
 .idmenu a small{color:var(--dim);font-size:11px}
 .idmenu .sep{border-top:1px solid var(--line);margin:5px 0}
 .idmenu #idSwitch:empty+.sep{display:none}
@@ -66,6 +67,10 @@
 body.no-character .tabs button:not([data-s="registre"]){display:none}
 body.no-character #btnId{display:none}
 body.no-character .intbar{display:none}
+
+/* mode editeur (body.editing) : l'editeur occupe <main>, le chrome reste ;
+   le curseur d'intensite n'a pas de sens pendant une retouche photo. */
+body.editing .intbar{display:none}
 
 /* panneau de reglages, ouvert par l'engrenage de la barre de lancement */
 #gearPanel{position:fixed;right:20px;bottom:96px;width:min(620px,calc(100vw - 40px));
@@ -120,8 +125,10 @@ body.no-character .intbar{display:none}
 /* ----------------------------------------------------------------- produire */
 .spacer{flex:1}
 .scenes{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:14px}
-.sc{background:var(--panel);border:2px solid var(--line);border-radius:var(--r);
+.sc{display:block;width:100%;font:inherit;color:inherit;text-align:left;
+    background:var(--panel);border:2px solid var(--line);border-radius:var(--r);
     overflow:hidden;cursor:pointer;position:relative;transition:border-color .12s}
+.sc:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .sc:hover{border-color:var(--line2)}
 .sc.on{border-color:var(--acc)}
 .sc .ph{aspect-ratio:4/5;background:var(--panel2) center/cover;position:relative}
@@ -206,6 +213,9 @@ pre.log{background:#100e0c;border:1px solid var(--line);border-radius:8px;paddin
 /* Image visee par le clavier en vue grille. Sans ce reperage, V/X/A triaient
    la premiere image de la liste sans que rien ne l'indique. */
 .tile.cur{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc)}
+/* vignette cliquable : <button> pour l'acces clavier a la vue Revue */
+.thumb{display:block;width:100%;padding:0;border:0;background:none;cursor:zoom-in;font:inherit;color:inherit}
+.thumb:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 .tile img{width:100%;aspect-ratio:4/5;object-fit:cover;display:block;cursor:zoom-in;background:#0d0b0a}
 .tile .m{padding:8px 10px;font-size:12px;color:var(--dim)}
 .tile .m b{color:var(--txt);font-size:12.5px}
@@ -238,10 +248,12 @@ pre.log{background:#100e0c;border:1px solid var(--line);border-radius:8px;paddin
 .tile.ia{opacity:.62}
 .tile.ia .chip{filter:saturate(.4)}
 
-/* declinaison : repartir d'une image gardee, sans repasser par un batch */
-#declineBox,#armBox{position:fixed;inset:0;background:#000c;display:none;
-   align-items:center;justify-content:center;z-index:32;padding:24px}
-#declineBox.on,#armBox.on{display:flex}
+/* declinaison / armement : <dialog> natif pilote par la primitive ui-dialog.js
+   (focus piege, Echap natif, clic backdrop). La boite visible est .card ; le
+   <dialog> ne porte que le centrage (UA) et le backdrop. */
+#declineBox,#armBox{border:0;padding:0;background:transparent;color:inherit;
+   max-width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:visible}
+#declineBox::backdrop,#armBox::backdrop{background:#000c}
 #armBox .card{background:var(--panel);border:1px solid var(--line2);border-radius:12px;
    padding:22px;width:min(560px,100%);box-shadow:0 18px 50px #000b}
 #armBox h3{margin:0 0 12px;font-size:17px}

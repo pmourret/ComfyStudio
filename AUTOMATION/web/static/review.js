@@ -9,12 +9,13 @@ import {signalerPanne} from './health.js';
 import {on} from './bus.js';
 import {toast} from './toast.js';
 import {confirmer} from './modal.js';
+import {openDialog, closeDialog} from './ui-dialog.js';
 import {openLight} from './lightbox.js';
 import {go} from './nav.js';
 import {qc} from './config.js';
 import {creative, loadCreative, palier} from './taxonomy.js';
 import {setLevel} from './create.js';
-import {ouvrirEditeur, fermerEditeur} from './editor.js';
+import {ouvrirEditeur} from './editor.js';
 import {refreshCounts} from './poller.js';
 
 /* --- etat du tri, prive au module ---------------------------------- */
@@ -442,24 +443,20 @@ export function ouvrirArmement(p){
     <div style="margin-top:16px;display:flex;gap:12px;align-items:center">
       <button class="btn primary" id="btnArm2">Armer la branche</button>
       <button class="link" id="armClose">annuler</button></div>`;
-  $('#armBox').classList.add('on');
   const armer = async () => {
     const r = await post('/api/nsfw/arm', {arm: true, confirm: $('#armWord2').value});
     if (!r.ok) return toast(r.erreur === 'confirmation manquante'
       ? 'recopie exactement le mot ARMER' : (r.erreur || 'échec'));
-    $('#armBox').classList.remove('on');
+    closeDialog($('#armBox'));
     toast('branche armée');
     await loadCreative();
     setLevel(p.level);
   };
   $('#btnArm2').onclick = armer;
   $('#armWord2').addEventListener('keydown', e => { if (e.key === 'Enter') armer(); });
-  $('#armClose').onclick = () => $('#armBox').classList.remove('on');
-  $('#armWord2').focus();
+  $('#armClose').onclick = () => closeDialog($('#armBox'));
+  openDialog($('#armBox'), {initialFocus: '#armWord2'});
 }
-$('#armBox').onclick = e => {
-  if (e.target.id === 'armBox') $('#armBox').classList.remove('on');
-};
 
 /* =============================================================== DECLINER
    Repartir d'une image gardee plutot que relancer un batch. Le serveur
@@ -520,7 +517,7 @@ async function ouvrirDeclinaison(k){
     <div style="margin-top:18px;display:flex;align-items:center;gap:12px">
       <button class="link" id="dclose">fermer</button>
       <span class="tiny">même seed sauf pour les tirages</span></div>`;
-  $('#declineBox').classList.add('on');
+  openDialog($('#declineBox'), {onDismiss: fermerDeclinaison});
   $('#dclose').onclick = fermerDeclinaison;
   $('#declineCard').querySelectorAll('.dm').forEach(b =>
     b.onclick = () => lancerDeclinaison(b.dataset.m));
@@ -541,9 +538,8 @@ async function ouvrirDeclinaison(k){
 }
 
 const fermerDeclinaison = () => {
-  $('#declineBox').classList.remove('on'); DECLINE_SRC = null; DECLINE_DRY = null;
+  closeDialog($('#declineBox')); DECLINE_SRC = null; DECLINE_DRY = null;
 };
-$('#declineBox').onclick = e => { if (e.target.id === 'declineBox') fermerDeclinaison(); };
 
 async function lancerDeclinaison(mode, ton){
   if (!DECLINE_SRC) return;
@@ -589,22 +585,18 @@ async function undo(){
 $('#btnUndo').onclick = undo;
 
 document.addEventListener('keydown', e => {
-  // Echap doit fermer une modale meme quand le focus est dans un champ texte
-  // qu'elle contient (#armWord2 recoit le focus des l'ouverture de l'armement) —
-  // teste AVANT la garde input/textarea ci-dessous, qui sinon l'avale en premier
-  if (e.key === 'Escape'){
-    if ($('#armBox').classList.contains('on')){ $('#armBox').classList.remove('on'); return; }
-    if ($('#declineBox').classList.contains('on')){ fermerDeclinaison(); return; }
-    if ($('#lightbox').style.display === 'flex'){ $('#lightbox').style.display = 'none'; return; }
-    if ($('#editorBox')?.classList.contains('on')){ fermerEditeur(); return; }
+  // #armBox / #declineBox sont des <dialog> natifs : Echap y est gere par le
+  // navigateur (ui-dialog.js). #editorBox est un mode : sa sortie Echap vit
+  // dans editor.js. Ne reste ici que la loupe, qui n'est pas un <dialog>.
+  if (e.key === 'Escape' && $('#lightbox').style.display === 'flex'){
+    $('#lightbox').style.display = 'none'; return;
   }
   if (/input|textarea/i.test(e.target.tagName)) return;
-  if ($('#armBox').classList.contains('on')) return;
-  if ($('#declineBox').classList.contains('on')) return;
+  // un <dialog> modal ouvert avale la page : ses raccourcis ne doivent pas
+  // percoler jusqu'au tri (les curseurs de l'editeur non plus — body.editing)
+  if ($('#armBox').open || $('#declineBox').open) return;
   if ($('#lightbox').style.display === 'flex') return;
-  // les curseurs (recadrage, couleur, grain) repondent aux fleches : sans ce
-  // garde, ArrowRight y deplace le curseur de tri EN PLUS de la valeur du champ
-  if ($('#editorBox')?.classList.contains('on')) return;
+  if (document.body.classList.contains('editing')) return;
   if (!$('#trier').classList.contains('on')) return;
   const k = e.key.toLowerCase();
   if (k === 'arrowright') step(1);

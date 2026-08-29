@@ -22,11 +22,11 @@
     <div class="brand" id="brand">Studio</div>
     <button id="btnId" aria-haspopup="true" aria-expanded="false"
             title="Changer de personnage">▾</button>
-    <div class="idmenu" id="idMenu">
-      <div id="idSwitch"></div>
-      <div class="sep"></div>
-      <a href="#registre">Registre des personnages</a>
-      <a href="#wizard">+ Nouveau personnage</a>
+    <div class="idmenu" id="idMenu" role="menu" aria-label="Personnages">
+      <div id="idSwitch" role="none"></div>
+      <div class="sep" role="separator"></div>
+      <a href="#registre" role="menuitem" tabindex="-1">Registre des personnages</a>
+      <a href="#wizard" role="menuitem" tabindex="-1">+ Nouveau personnage</a>
     </div>
   </div>
 
@@ -367,16 +367,14 @@
     <pre class="log" id="appliLog" style="display:block;max-height:220px"></pre>
   </div>
 </div>
-</main>
-</div>
 
-<div id="declineBox"><div class="card" id="declineCard"></div></div>
-<div id="armBox"><div class="card" id="armCard"></div></div>
 <!-- ================================================================= EDITEUR
      Recadrage/rotation/couleur/grain, tout côté navigateur (canvas) — aucun
      calcul GPU, résultat instantané. Enregistre toujours un NOUVEAU fichier,
-     jamais un écrasement : l'original reste comparable, supprimable à part. -->
-<div id="editorBox">
+     jamais un écrasement : l'original reste comparable, supprimable à part.
+     Ce n'est pas une modale : `body.editing` + un <section class="screen"> —
+     le chrome (identité · nav · santé) reste visible pendant la retouche. -->
+<div class="screen" id="editorBox">
   <div class="edWrap">
     <div class="edStage">
       <canvas id="edCanvas"></canvas>
@@ -432,6 +430,11 @@
     </div>
   </div>
 </div>
+</main>
+</div>
+
+<dialog id="declineBox"><div class="card" id="declineCard"></div></dialog>
+<dialog id="armBox"><div class="card" id="armCard"></div></dialog>
 
 <div id="lightbox"><img alt=""></div>
 <div id="toast"><span id="toastTxt"></span><button class="link" id="toastAct" style="display:none"></button></div>
