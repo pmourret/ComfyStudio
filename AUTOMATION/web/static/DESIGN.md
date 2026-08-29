@@ -38,6 +38,10 @@ bord cohérent, de structure identique, d'ambiance différente.
 
 ### Laissé brut, et pourquoi
 
+- **Mouvement** — les deux seules durées de transition de l'inspecteur (fondu
+  d'image `.28s`, barre de progression `.5s`) restent en dur : le bloc
+  `prefers-reduced-motion` de `base.css` les écrase toutes, il n'y a rien qu'un
+  univers voudrait redéfinir ici.
 - **Détails de contrôle** — `0 1px 4px` du pouce de curseur, `0 2px 8px` de la
   pastille de score. Ce ne sont pas des surfaces flottantes : elles ne relèvent
   pas de `--elev`, qui les écraserait sous une ombre de menu.
@@ -87,6 +91,10 @@ dans un menu.
 `.rg` (un réglage : `.rgh`/`.rgv`/`.mes`/`.rge`/`.rgq`, états `.modif`/`.inerte`).
 **Barre de lancement** — `.launch` > `.inner` > `.sum` / `.seg` / `.btn`.
 **Exécution** — `.run` > `.bar` / `.strip` / `pre.log`.
+**Inspecteur de l'écran Créer** *(29/08/2026)* — `#creer .wrap.split` (grille
+deux colonnes) > `.cr-main` / `.cr-side` (collante) ; dans la colonne :
+`.ins-shot` (cadre image, deux calques `.ins-layer` en fondu croisé,
+état `.vide` + `.ins-void`) et `.ins-meta` (une `.meta`).
 **Tri** — `.triage` > `.stage`/`.nav`/`.side`/`.meta`/`.score`/`.acts`/`.kbd`,
 `.grid` de `.tile`, `.bars`/`.b2` (sous-scores), `.tacts` (actions directes),
 `.badge` / `.chip` (score).
@@ -95,7 +103,8 @@ dans un menu.
 **Bandeaux d'état** (haut d'écran, `flex:none`) — `#panneBar` (panne de
 chargement), `#dirtyBar` (modifications non enregistrées).
 **Chrome** — `.idwrap` / `.idmenu` (zone identité de l'en-tête : personnage
-chargé + menu changer de perso / registre / nouveau), `.tabs` (nav studio à
-plat), `.status` + `.status-lab` (zone santé ComfyUI), `.intbar` (curseur
-d'intensité). `body.no-character` réduit le chrome au sas.
+chargé + menu changer de perso / registre / nouveau), `.brand-av` (pastille
+d'initiale, 32 px), `.tabs` (nav studio à plat), `.status` + `.status-lab`
+(zone santé ComfyUI), `.intbar` (curseur d'intensité). `body.no-character`
+réduit le chrome au sas.
 **Divers** — `#toast`, `.empty` (état vide).

@@ -113,7 +113,12 @@
 
 <!-- ================================================================= CREER -->
 <div class="screen on" id="creer">
-  <div class="wrap">
+  <!-- Deux colonnes (29/08/2026). A gauche les crans + la bande d'execution ;
+       a droite l'inspecteur collant, peint par inspector.js. Sous 1100 px la
+       colonne de droite passe SOUS le composeur (screens.css), jamais en
+       surcouche : c'est une fiche qu'on lit, pas une notification. -->
+  <div class="wrap split">
+   <div class="cr-main">
     <div id="runPanel" style="display:none"></div>
 
     <div class="step" id="stepIntent">
@@ -168,6 +173,11 @@
         <div id="biblioList"></div>
       </details>
     </div>
+   </div>
+
+   <!-- L'inspecteur est bati par inspector.js : le laisser vide ici evite un
+        squelette HTML qui mentirait avant le premier /api/state. -->
+   <aside class="cr-side" id="inspector" aria-label="Dernière image du personnage"></aside>
   </div>
 
   <div id="gearPanel">

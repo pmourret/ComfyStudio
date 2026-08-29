@@ -16,6 +16,7 @@ import {qc, presetRef, nsfwRef} from './config.js';
 import {scenes} from './scenes-store.js';
 import {isRunning, markRunning} from './poller.js';
 import {ouvrirArmement} from './review.js';
+import {updateInspector} from './inspector.js';
 
 /* --- etat de l'ecran Creer, prive au module --------------------------- */
 let SEL = new Set();          // scenes selectionnees
@@ -962,6 +963,11 @@ $('#btnRun').onclick = async () => {
 let RUN_SIG = null;
 export function renderRun(s){
   const p = $('#runPanel');
+  // l'inspecteur AVANT le retour anticipe : il lit le meme /api/state, mais il
+  // doit vivre aussi quand rien ne tourne — c'est justement l'ecran a froid
+  // qu'il repare. #runPanel garde la bande de vignettes et l'arret ; la grande
+  // image, elle, n'est peinte qu'une fois, a droite (voir inspector.js).
+  updateInspector(s);
   if (!s.running && !s.total){ p.style.display = 'none'; RUN_SIG = null; return; }
   p.style.display = '';
   // ne rien reconstruire tant que rien n'a bouge : sinon le bloc "journal

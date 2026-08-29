@@ -38,7 +38,13 @@ function paintNeutral(){
 function paint(d){
   const brand = document.querySelector('.brand');
   if (brand){
-    const parts = [`<i>${esc(d.name || d.id)}</i>`,
+    // Pastille d'identite : l'INITIALE, pas le portrait de base gelee. Aucune
+    // route ne sert les octets de config.json/base_gelee (le fichier vit hors
+    // de PROD/, cote entrees ComfyUI) et en inventer une qui lise ce dossier
+    // sans borne character_id rouvrirait la fuite que l'isolation du
+    // 29/08/2026 vient de fermer. Reporte, pas oublie.
+    const parts = [`<span class="brand-av" aria-hidden="true">${esc(initiale(d))}</span>`,
+                   `<i>${esc(d.name || d.id)}</i>`,
                    `<code class="brand-id">${esc(d.id)}</code>`];
     if (d.type) parts.push(`<span class="brand-tag">${esc(d.type)}</span>`);
     if (d.world && d.world.label)
@@ -50,6 +56,10 @@ function paint(d){
   }
   document.title = `${d.name || d.id} — production`;
 }
+
+// premiere lettre du nom lisible, majuscule. `[...str]` et pas charAt : un nom
+// qui commencerait par un caractere hors BMP se couperait en deux demi-unites.
+const initiale = d => ([...String(d.name || d.id || '?').trim()][0] || '?').toUpperCase();
 
 /* Menu identité du chrome (#btnId / #idMenu) : changer de personnage, revenir
    au registre, en creer un. La zone appartient a ce module ; nav.js n'en

@@ -14,6 +14,7 @@ import {estEdition, nsfwTick} from './create.js';
 import {loadRegistre} from './registre.js';
 import {loadWizard} from './wizard.js';
 import {closeIdMenu} from './character.js';
+import {inspectorEnter} from './inspector.js';
 
 $$('.tabs button').forEach(b => b.onclick = () => go(b.dataset.s));
 
@@ -43,6 +44,9 @@ export function go(name, skipHash){
   if (name === 'wizard') loadWizard();
   if (name === 'journal') loadJournal();
   if (name === 'appli') majEtatComfy();
+  // l'inspecteur charge sa fiche et son repli banque au premier passage
+  // seulement : les ticks suivants lui viennent de renderRun, sans appel en plus
+  if (name === 'creer') inspectorEnter();
   // revenir sur Creer au cran NSFW : la grille de sources a pu vieillir
   if (name === 'creer' && estEdition())
     nsfwTick();
