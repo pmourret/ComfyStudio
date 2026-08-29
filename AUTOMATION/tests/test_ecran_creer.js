@@ -74,6 +74,32 @@ const B = (process.env.DASHBOARD_URL || 'http://127.0.0.1:8199') + '/?character=
   });
   dire(focusable, 'une carte d\'intention prend le focus');
 
+  /* [1d] L'inspecteur montre la DERNIERE SORTIE, jamais l'apercu du lot qu'on
+     prepare — l'image future n'existe pas. `#insSrc` disait d'ou vient le
+     fichier (« banque · validées »), une provenance ; rien ne disait son role
+     dans le parcours, et on amendait une scene avec sous les yeux une image
+     qui n'avait rien a voir. Sur du vide en revanche, « rien encore pour X »
+     se suffit : la ligne s'efface. */
+  console.log(`\n[1d] l'inspecteur dit son role (29/08/2026)`);
+  dire(await vu('#insRole'), 'une image est peinte -> la ligne de role est la');
+  const role = (await page.textContent('#insRole')).replace(/\s+/g, ' ').trim();
+  dire(/Dernière sortie/.test(role) && /prochain run/.test(role),
+       `elle dit ce que le panneau n'est PAS : « ${role} »`);
+  const prov = (await page.textContent('#insSrc')).trim();
+  dire(prov.length > 0, `#insSrc garde la provenance a cote : « ${prov} »`);
+
+  // Etat vide REEL, pas simule : on vide la banque, et /api/state arrive deja
+  // avec recent:[] hors batch — l'inspecteur tombe donc sur son propre vide.
+  const pv = await nav.newPage();
+  await pv.route('**/api/gallery?*', r => r.fulfill({status: 200,
+    contentType: 'application/json', body: JSON.stringify({ok: true, items: []})}));
+  await pv.goto(B, {waitUntil: 'networkidle'});
+  await pv.waitForTimeout(1800);
+  dire(!(await pv.isVisible('#insRole')), `aucune image -> la ligne de role s'efface`);
+  const vide = (await pv.textContent('#insVoid')).trim();
+  dire(/rien encore pour/.test(vide), `et le vide garde son texte : « ${vide} »`);
+  await pv.close();
+
   console.log('\n[2] cran SFW — parcours par scenes');
   dire(await vu('#stepIntent'), 'bloc Intention visible');
   dire(!(await vu('#stepSource')), 'bloc Image source masque');

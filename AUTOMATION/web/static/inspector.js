@@ -81,7 +81,12 @@ function loadFallback(){
   }).catch(() => { FALLBACK_DONE = false; });
 }
 
-/* --- peinture --------------------------------------------------------- */
+/* --- peinture ---------------------------------------------------------
+
+   #insRole ne bouge jamais : c'est du texte fixe, et son affichage est une
+   REGLE CSS accrochee a `.ins-shot.vide` (screens.css). Rien a tenir a jour
+   ici, donc rien qui puisse se desynchroniser d'un etat que setShot() decide
+   en asynchrone (onload / onerror). */
 
 function ensureShell(){
   const box = $('#inspector');
@@ -91,6 +96,8 @@ function ensureShell(){
   // l'ecran pendant que l'entrante monte. Le shell n'est bati QU'UNE FOIS —
   // le reconstruire a chaque tick reinitialiserait la transition.
   box.innerHTML = `<h2>Dernière image <span class="tiny" id="insSrc"></span></h2>
+    <p class="tiny ins-role" id="insRole">Dernière sortie de ce personnage —
+      pas l'aperçu du prochain run.</p>
     <div class="ins-shot vide" id="insShot">
       <img class="ins-layer prev" alt="" aria-hidden="true">
       <img class="ins-layer cur" id="insImg" alt="">

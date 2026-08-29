@@ -1,7 +1,7 @@
 # Handoff — UX de parcours (fichier à chaîner)
 
 **Date** : 29/08/2026 · **Base** : `2dec842` (rail d'outils + poses)
-**Statut** : points 1 à 4 clos. Fichier ouvert — les points suivants de la
+**Statut** : points 1 à 5 clos. Fichier ouvert — les points suivants de la
 session UX viennent s'ajouter ici, sous leur propre section.
 
 Ce fichier ne traite pas d'une surface (le rail, l'inspecteur, la banque) mais
@@ -491,3 +491,104 @@ redeviendra rouge sur une image neuve tant que Pillow n'est pas installé.
 Le registre n'est pas redessiné (cartes, `--maxw` inchangés) — ce n'est pas le
 chantier avatar. Aucune `.launch` cachée. `/img/base`, avatars, plein écran
 `#registre` : hors scope.
+
+---
+
+## 5 · Rôle de l'inspecteur
+
+### Le constat
+
+L'inspecteur montrait `cafe_terrasse` (banque · validées) pendant qu'on
+choisissait *Selfie*, puis qu'on amendait `selfie_miroir_entree`. **Rien ne
+disait que ce n'était pas l'aperçu du prochain lot.**
+
+`#insSrc` dit « banque · validées » ou « dernier batch » : c'est une
+**provenance disque**. Le panneau n'énonçait nulle part son **rôle dans le
+parcours** — et le rôle est précisément ce qui manquait, parce que l'aperçu
+qu'on lui prêtait *ne peut pas exister* : l'image du prochain run n'est pas
+encore faite.
+
+### Le patch — une ligne, zéro état
+
+Sous le titre, avant la vignette :
+
+> Dernière sortie de ce personnage — pas l'aperçu du prochain run.
+
+`#insSrc` **reste** à côté du titre : provenance et rôle sont deux choses, et la
+seconde n'annule pas la première.
+
+**Le texte est fixe et son affichage est une règle CSS** — aucune logique
+ajoutée dans `inspector.js` au-delà d'un `<p>` dans le shell bâti une fois :
+
+```css
+.ins-role{margin:0 0 10px;color:var(--dim)}
+#inspector:has(.ins-shot.vide) .ins-role{display:none}
+```
+
+C'est le même levier que `.ins-void`, écrit dans l'autre sens. `.ins-void` est un
+**descendant** de `.ins-shot`, donc `.ins-shot:not(.vide) .ins-void` suffit ; la
+ligne de rôle est un frère **précédent**, hors de portée d'un combinateur qui ne
+va qu'en avant — d'où `:has()`, déjà le mécanisme du rail et de la barre
+d'intensité (§1).
+
+Le choix du CSS n'est pas cosmétique : `setShot()` décide l'état vide **en
+asynchrone** (`onload` / `onerror`, plus le cas « aucun item »). Une ligne pilotée
+en JS aurait eu trois endroits à tenir à jour et un quatrième à oublier — la
+règle CSS suit `.vide` quelle qu'en soit la cause, **y compris l'image qui
+échoue à charger**, où « dernière sortie » n'aurait plus rien désigné.
+
+**`--dim` et pas le `--dim2` de `.tiny`** : c'est une ligne à lire, pas une
+mention de service. Mesuré — `--dim` sur `--bg` donne **7,25:1**, contre 5,38:1
+pour `--dim2` ; le seuil AA du texte normal est 4,5:1.
+
+### Vérifié
+
+Section `[1d]` de `test_ecran_creer` :
+
+```
+ok  une image est peinte -> la ligne de role est la
+ok  elle dit ce que le panneau n'est PAS : « Dernière sortie de ce personnage — pas l'aperçu du prochain run. »
+ok  #insSrc garde la provenance a cote : « banque · validées »
+ok  aucune image -> la ligne de role s'efface
+ok  et le vide garde son texte : « rien encore pour Léna »
+```
+
+L'état vide est **réel, pas simulé** : `/api/gallery` est stubbé à `items: []`
+sur une seconde page, et `/api/state` arrive déjà avec `recent: []` hors batch —
+l'inspecteur tombe donc sur son propre vide, par le chemin que le code emprunte
+vraiment.
+
+**Sondes jetables** (non commitées), toutes vertes :
+
+- **`#apercuPanel` ouvert** : la ligne reste visible — le conflit scène vs
+  inspecteur se lit alors correctement, comme demandé.
+- **Abyssiaelle** : même rendu que Léna. La ligne est du texte statique, donc
+  character-agnostique par construction — vérifié quand même.
+- **900 px** (colonne passée sous le composeur) et **cran NSFW** : la ligne tient
+  dans les deux cas.
+- Contrat unique dans les deux sens : `ligne visible ⇔ vignette peinte`.
+
+Suite complète verte : `test_panneau_reglages`, `test_ecran_creer`,
+`test_ecran_registre`, `test_apercu_prompt`, `test_ecran_wizard`,
+`test_pose_scene_card`, `test_scenes_aller_retour`,
+`test_application_suppression_editeur`.
+
+### Le lien « voir dans la Revue » : non, et pourquoi
+
+Le cadrage l'autorisait à condition de ne pas inventer de deep link par nom.
+Écarté, pour deux raisons qui tiennent ensemble :
+
+1. `loadItems()` ne filtre pas par nom de fichier — le bouton n'aurait mené qu'à
+   la galerie, sans désigner l'image dont on parle.
+2. `inspector.js` est **importé par** `nav.js` ; lui faire importer `go()` créait
+   un cycle. Des cycles existent déjà (`create.js` ↔ `nav.js`), mais on n'en
+   ajoute pas un pour un lien qui ne pointe sur rien de précis.
+
+À reprendre le jour où la Revue sait s'ouvrir sur un item nommé.
+
+### Pas fait
+
+`pickFromState()` et l'isolation `recent` vs `gallery` : inchangés. `#runPanel`
+n'est pas fusionné. L'inspecteur **n'est pas** devenu un aperçu de la scène
+cochée — c'est justement ce qu'il ne peut pas être. Pas de tooltip (point 6),
+pas de `hints.js`, pas de `/img/base`.

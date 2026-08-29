@@ -139,6 +139,22 @@ td.num{font-variant-numeric:tabular-nums}
 .ins-shot.vide .ins-layer{display:none}
 .ins-shot:not(.vide) .ins-void{display:none}
 .ins-void{margin:0;padding:0 20px;text-align:center;color:var(--dim);font-size:13px}
+/* Ligne de ROLE. `#insSrc` dit d'ou vient l'image (« dernier batch » / « banque
+   · validées ») — une PROVENANCE. Il ne disait pas ce que le panneau est dans le
+   parcours : en choisissant une intention, on voyait une image sans rien qui
+   dise que ce n'est pas l'apercu du lot qu'on prepare. L'image future n'existe
+   pas ; le panneau montre du passe, et il le dit maintenant.
+
+   `--dim` et pas le `--dim2` de `.tiny` : c'est une ligne a lire, pas une
+   mention de service.
+
+   Meme levier que `.ins-void`, ecrit dans l'autre sens : celle-la est un frere
+   PRECEDENT de `.ins-shot`, hors de portee d'un combinateur qui ne va qu'en
+   avant — d'ou `:has()`, deja le mecanisme du rail et de la barre d'intensite.
+   Sur du vide, « rien encore pour X » se suffit : annoncer qu'une image absente
+   n'est pas l'apercu du prochain run n'apprendrait rien. */
+.ins-role{margin:0 0 10px;color:var(--dim)}
+#inspector:has(.ins-shot.vide) .ins-role{display:none}
 .ins-meta{margin:12px 0 0}
 .ins-meta dd:last-child{margin-bottom:0}
 
