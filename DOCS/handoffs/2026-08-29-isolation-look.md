@@ -1,10 +1,10 @@
-# ISOLATION DISQUE (vague 1, terminée) + LOOK « Chambre noire » (vague 2, à faire)
+# ISOLATION DISQUE + LOOK « Chambre noire » (deux vagues, terminées)
 
-Session « STUDIO LOOK + ISOLATION DISQUE ». Plan validé avant patch (inventaire
-`fichier:ligne` + plan de migration, puis STOP). **Vague 1 livrée et verte** ;
-la vague 2 (look) est reportée à la session suivante, sa spec est en bas de ce
-fichier. Stack inchangée : JS vanilla, modules ES, zéro build, zéro dépendance.
-Métier NSFW (J7) et nav shell hors scope, non touchés.
+Session « STUDIO LOOK + ISOLATION DISQUE », en deux temps, chacun avec son plan
+validé avant patch (inventaire `fichier:ligne` puis STOP). **Vague 1 —
+isolation** : commits `2d2e550..535c79d`. **Vague 2 — look** : session suivante,
+sur `535c79d`. Stack inchangée : JS vanilla, modules ES, zéro build, zéro
+dépendance. Métier NSFW (J7) et nav shell hors scope, non touchés.
 
 Références : `CLAUDE.md` §8.7 / §11, `.claude/rules/backend.md`,
 `AUTOMATION/web/static/DESIGN.md`, `DOCS/handoffs/2026-08-29-vague2-primitives-editeur.md`
@@ -202,36 +202,131 @@ Plus une seule URL `/img` assemblée à la main hors `api.js:19`.
 
 ---
 
-## Vague 2 — LOOK « Chambre noire » (session suivante)
+## Vague 2 — LOOK « Chambre noire » (terminée)
 
-**Non commencée.** Spec validée en session, à appliquer telle quelle. Uniquement
-tokens + CSS qui consommaient des hex. Identité visuelle **commune** (chrome
-studio), pas une peau Léna.
+Palette appliquée telle que validée. Uniquement `tokens.css` + les hex que les
+trois autres CSS consommaient — **aucune structure, aucun parcours touché**.
+Identité visuelle **commune du chrome studio**, pas une peau de monde : la
+palette précédente était celle de Léna, servie à tous les personnages depuis J3.
 
-Remplacer `:root` dans `tokens.css` :
+### Ce que la mesure a corrigé dans le plan
+
+Deux hypothèses du brief sont tombées à la mesure (Playwright, header réel) :
+
+- **`--font` n'est pas un levier pour le header.** Ses trois zones ont des
+  tailles propres et en dur (`.brand` 16 px, `.tabs button` 14 px, `.status`
+  13 px) : passer `--font` de 15px/1.55 à 14px/1.45 donne un header **identique
+  au pixel près**. `--font` reste donc à 15px/1.55.
+- **Ce qui coince n'est pas les onglets, c'est l'identité.** Les cinq onglets
+  tiennent en **466 px** et ne débordent jamais, même à 700 px. C'est `.brand`
+  qui casse — 410 px dans le pire cas (Abyssiaelle : nom + id + type + monde),
+  header à l'étroit dès **960 px**, et le texte était **coupé net**
+  (`min-width:0` sans `text-overflow`).
+
+### Valeurs finales
 
 ```css
---bg:#121418; --panel:#1a1d23; --panel2:#232831;
---line:#2e3440; --line2:#434b5a;
---txt:#e6e8ee; --dim:#9aa3b2; --dim2:#6d7584;
---acc:#c4a36a; --acc-d:#9a7d4a; --on-acc:#141208;
---ok:#7d9a7e; --warn:#c4a04a; --bad:#c46b66; --high:#5aa86a;
---none:var(--dim2);
+--txt:#e6e8ee; --dim:#9aa3b2; --dim2:#828b9c;
+--warn-bg:#2e2718;   --warn-line:#544527;   --warn-txt:#eddcb0;
+--danger-bg:#33201f; --danger-line:#6b3a36; --danger-txt:#f0b8b3;
+--mes-bg:#1e2c22;    --mes-line:#35503c;
+--elev:0 14px 38px #00000099;   --scrim:#0b0d10cc;   --focus:#e8c98a;
 ```
-Adapter `--warn-bg` / `--danger-bg` / `--mes-bg` pour rester lisibles sur ce
-fond (pas de néon). Ajouter et brancher les jetons laissés bruts par
-`DESIGN.md` : `--elev`, `--scrim`, `--focus` — plus aucun `#000x` / `#000c`
-orphelin dans `components.css` / `screens.css` pour les overlays (il en reste au
-moins un : `::backdrop` des `<dialog>`, posé à la vague 2 des primitives).
 
-Contraintes : densité studio (Lightroom), pas landing · header, les 5 onglets
-lisibles ≥ 1100 px, sous 1100 labels plus courts ou wrap contrôlé — **ne pas
-cacher Banque dans un menu** · `body.no-character` et `body.editing` inchangés
-fonctionnellement · `:focus-visible` sur `--focus` · pas d'emoji nouveaux, pas
-de gradient hero, pas de card marketing · garder `system-ui` ; `--font` un peu
-plus compact (14px/1.45) seulement si le header coince — **le mesurer**.
+Le reste de la palette est celui du brief, à une exception : **`--dim2` est
+passé de `#6d7584` à `#828b9c`**. À `#6d7584` il tombait à **3,64:1** sur
+`--panel`, sous le seuil AA — or il porte du 11–12 px (`.tiny`, `.brand-id`,
+crans verrouillés). À `#828b9c` : **4,92:1**. Ce n'était pas une régression
+introduite par la palette (l'ancienne était à 3,42), mais l'occasion de la
+solder.
 
-Hors look : rewrite `create.js`, wizard métier, file GPU, React.
+Les familles de bandeau ont été calées contre **les 12 paires réellement
+utilisées dans le CSS**, pas contre `--bg` en général : `--warn` porte du texte
+de 9,5 px sur `--warn-bg` (`.src .aff`), `--dim` porte `#panneBar span` sur
+`--danger-bg`, `--danger-txt` sert aussi sur `--panel` (`.btn.danger` au
+repos). 12/12 passent, textes ≥ 4,5:1.
+
+`--focus` est volontairement **distinct de `--acc`** : un anneau en
+`outline-offset` négatif posé sur une surface accentuée serait invisible s'il
+valait l'accent. Pour `.thumb` — anneau posé **sur une photo**, dont on ne sait
+rien — il est doublé d'un halo `box-shadow:0 0 0 4px var(--scrim)`.
+
+### Hex branchés (30 sites)
+
+- **`--elev`** (7) : `.idmenu`, `#gearPanel`, `.launch .inner`, `.ap`, `#toast`,
+  `.card`, `#armCard/#declineCard`. Cinq géométries d'ombre (26 → 50 px de
+  flou) ramenées à une seule.
+- **`--scrim`** (8) : `::backdrop`, `#lightbox`, et les 6 plaques posées sur une
+  vignette. Leurs alphas (0,53 / 0,67 / 0,80) sont aplatis à 0,80 — ce qui
+  **améliore** le contraste des textes posés dessus (`.posebadge`, `.sc .aff`,
+  `.nav`).
+- **`--focus`** (4) : `.idmenu a`, `.sc`, `.thumb`, `.char-card`. Laissé tel
+  quel : `input:focus{border-color:var(--acc)}` — bordure d'état de saisie, pas
+  un anneau de focus clavier.
+- **Jetons existants qui manquaient** (5) — de vraies incohérences :
+  `.dot.on` portait `#7fa87f22`, **copie figée de l'ANCIEN `--ok`** (le halo
+  serait resté vert-Léna sous toute autre palette) → `color-mix` sur `var(--ok)` ;
+  `.warnband` avait `color:#e8c4bf` alors qu'il utilisait déjà `--danger-bg` et
+  `--danger-line` → `var(--danger-txt)` ; `.btn.danger:hover` `#8a3c30` →
+  `var(--danger-line)` ; `.nav` `color:#fff` → `var(--txt)` ; `pre.log`
+  `color:#c8bcb2` (gris chaud) → `var(--dim)`.
+- **Ambiances retintées** (4) — chaudes, elles auraient fait des taches brunes
+  sur le fond froid : fond du journal `#100e0c` → `#0e1014`, fond de vignette
+  `#0d0b0a` → `#0f1114`, dégradé du composeur `#221c18` → `var(--panel2)`,
+  surlignage de scène `#1d2420` → `#1e2630`.
+
+**Douze hex subsistent, tous assumés et documentés dans `DESIGN.md`** : détails
+de contrôle (pouce de curseur, pastille de score), liseré `#ffffff55` des
+pastilles cochées, bleu `#9fd8ff` du badge pose, noirs neutres des cadres image
+et du plan de travail, et le voile du cadre de recadrage — laissé à **40 % par
+conception** (au scrim à 80 %, on ne verrait plus l'image hors du cadre : ce
+serait une régression fonctionnelle de l'éditeur, pas un gain de cohérence).
+
+### Correction de contraste hors palette
+
+`.intbar .seg button.lv3.on` posait `color:var(--txt)` sur l'aplat `--bad` :
+**3,04:1**. Les crans lv0 et lv2 posaient déjà `--bg` ; lv3 était le seul écart,
+et c'est le cran NSFW — celui qu'on veut lire sans hésiter. Aligné : **4,95:1**.
+
+### Header sous 1100 px
+
+Les onglets ne sont pas touchés. Ce sont les tags d'identité qui se replient,
+du plus contextuel au plus identifiant (`screens.css`) :
+
+```css
+@media(max-width:1100px){ .brand .brand-tag ~ .brand-tag{display:none} }  /* le monde */
+@media(max-width:1000px){ .brand .brand-tag{display:none} }               /* le type  */
+@media(max-width:820px) { .brand .brand-id{display:none} }                /* règle existante */
+```
+
+`.brand i` reçoit `text-overflow:ellipsis` — un nom très long est désormais
+**ellipsé**, plus coupé net. Sélecteur `~` et non `:last-child` : un personnage
+sans monde n'a qu'un tag, et il ne faut pas lui retirer son type à 1100 px.
+
+Vérifié en pas-à-pas sur les deux personnages réels, **sans aucune CSS
+injectée** — largeur requise (pire cas Abyssiaelle) et onglets visibles :
+
+| viewport | 1400 | 1101 | 1100 | 1000 | 900 | 821 | 820 | 720 | 700 |
+|---|---|---|---|---|---|---|---|---|---|
+| requis | 1015 | 1015 | 911 | 803 | 803 | 782 | 647 | 647 | 647 |
+| débordement | non | non | non | non | non | non | non | non | non |
+| onglets visibles | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 |
+
+### Vérification
+
+- **7/7 fumigations navigateur vertes**, 0 erreur JS.
+- Mesures de contraste et de header refaites après patch (scripts jetables,
+  hors repo — scratchpad de session).
+- Inspection visuelle des écrans Produire / Revue / Réglages / Registre à
+  1440 px : fond froid homogène, accent or, densité studio, aucun reliquat
+  chaud dans le chrome.
+
+### Ce qui n'a pas bougé
+
+Hashes, `data-s`, `imgUrl`, `?character=`, `<dialog>`, mode éditeur,
+`body.no-character`, `body.editing`, `--font`, `--font-mono`, `--r`, `--maxw`.
+Aucun emoji ajouté, aucun gradient hero, aucune carte marketing, aucune
+dépendance.
 
 ---
 

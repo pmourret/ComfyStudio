@@ -19,7 +19,7 @@ primer sur un composant y est.
 fournit son propre `tokens.css` avec **les mêmes noms** et obtient un tableau de
 bord cohérent, de structure identique, d'ambiance différente.
 
-### Jetonné en V1
+### Jetonné
 
 - **Palette** — fonds (`--bg`, `--panel`, `--panel2`), lignes (`--line`,
   `--line2`), textes (`--txt`, `--dim`, `--dim2`), accent (`--acc`, `--acc-d`,
@@ -28,17 +28,51 @@ bord cohérent, de structure identique, d'ambiance différente.
 - **Familles de bandeau** — avertissement (`--warn-bg` / `--warn-line` /
   `--warn-txt`), danger (`--danger-bg` / `--danger-line` / `--danger-txt`),
   pastille « mesuré » (`--mes-bg` / `--mes-line`).
+- **Profondeur** *(ajouté le 29/08/2026)* — `--elev` (ombre unique de toute
+  surface qui flotte : `.idmenu`, `#gearPanel`, `.launch .inner`, `.ap`,
+  `#toast`, `.card` des `<dialog>`), `--scrim` (voile posé sur du contenu :
+  `::backdrop`, `#lightbox`, et les plaques sur vignette — `.sc .aff`, `.tick`,
+  `.nav`, `.posebadge`, `.posecard .del`), `--focus` (anneau `:focus-visible`).
 - **Typographie** — `--font` (texte courant), `--font-mono` (`.kbd`, raccourcis).
 - **Forme** — `--r` (rayon des cartes), `--maxw` (largeur max du contenu centré).
 
-### Laissé brut en V1 (à jetonner plus tard si un univers en a besoin)
+### Laissé brut, et pourquoi
 
-- **Élévations** — `box-shadow: 0 … #000x` des menus, panneaux, modales, toasts.
-- **Scrims** — `#000000aa` / `#ffffff55` des pastilles cochées, fonds de modale.
-- **Ambiances ponctuelles** — dégradé du composeur, surlignage de la scène dans
-  l'aperçu de prompt, fond du journal technique, bleu du badge « pose ».
+- **Détails de contrôle** — `0 1px 4px` du pouce de curseur, `0 2px 8px` de la
+  pastille de score. Ce ne sont pas des surfaces flottantes : elles ne relèvent
+  pas de `--elev`, qui les écraserait sous une ombre de menu.
+- **Voile du cadre de recadrage** (`#edCropBox`, 40 %) — volontairement plus
+  clair que `--scrim` : on doit voir l'image **hors** du cadre. Le passer au
+  scrim serait une régression fonctionnelle de l'éditeur.
+- **Liseré clair des pastilles cochées** (`#ffffff55`) — aucune famille de
+  jetons ne décrit un rehaut clair ; en inventer une pour deux occurrences
+  coûterait plus qu'elle ne rend.
+- **Ambiances ponctuelles** — dégradé du composeur (désormais sur `--panel2`),
+  surlignage de la scène dans l'aperçu de prompt, fond du journal technique,
+  fond de vignette, bleu du badge « pose », noirs neutres des cadres image et
+  du plan de travail de l'éditeur. Leurs valeurs ont été **retintées** avec la
+  palette « Chambre noire » : elles étaient chaudes et faisaient des taches
+  brunes sur le fond froid. Un univers qui les veut autrement les reprend ici.
 - **Rayons secondaires** — les `border-radius` des contrôles (7–9 px) et pilules
   (20 px) restent en dur ; seul `--r` (cartes) est jetonné.
+
+### Contrastes
+
+Les valeurs de `tokens.css` sont vérifiées au ratio WCAG **contre les fonds où
+elles servent réellement** — `--warn` porte du texte de 9,5 px sur `--warn-bg`,
+`--dim` porte `#panneBar span` sur `--danger-bg`, etc. Tout texte est à 4,5:1 ou
+mieux. Une nouvelle palette d'univers doit refaire ce contrôle : un jeu de
+couleurs cohérent à l'œil peut très bien passer sous le seuil.
+
+### Header
+
+Le header n'hérite pas de `--font` : ses trois zones ont des tailles propres
+(16 / 14 / 13 px). Le rétrécir n'est donc pas un levier de place — mesuré au
+pixel près le 29/08/2026. Quand la largeur manque, ce sont les **tags
+d'identité** qui se replient (monde sous 1100 px, type sous 1000 px,
+identifiant technique sous 820 px, dans `screens.css`) : le nom du personnage
+et les **cinq onglets** ne disparaissent jamais, et aucun onglet n'est replié
+dans un menu.
 
 ## Inventaire des composants
 
