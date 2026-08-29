@@ -20,11 +20,32 @@ td.num{font-variant-numeric:tabular-nums}
 #lightbox{position:fixed;inset:0;background:var(--scrim);display:none;align-items:center;
           justify-content:center;z-index:30;padding:26px;cursor:zoom-out}
 #lightbox img{max-width:100%;max-height:100%;border-radius:6px}
-#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120%);
+/* Toast au repos — CORRIGE le 29/08/2026. `translateY(120%)` ne sortait pas de
+   l'ecran : 120 % d'un toast vide font 29 px, alors qu'il faut franchir sa
+   propre hauteur PUIS les 26 px de `bottom`. Il restait donc ~21 px d'une
+   capsule grise, centree, sans libelle, collee au bas du viewport — visible
+   partout, et flagrante sur le sas d'entree, seul ecran sans `.launch` pour la
+   noyer. Elle etait meme cliquable (`pointer-events` par defaut).
+
+   Deux gardes independantes plutot qu'une arithmetique juste :
+     1. `calc(100% + 40px)` sort la boite en entier, quelle que soit sa hauteur ;
+     2. `visibility:hidden` + `pointer-events:none` la retirent de l'arbre
+        visible et de la cible des clics — c'est ce que verifie la sonde.
+   La 1re couvre la fenetre ou la 2e n'a pas encore pris : sous
+   `prefers-reduced-motion`, base.css ecrase la DUREE des transitions, pas leur
+   DELAI, donc `visibility` reste 220 ms a `visible` apres la sortie.
+
+   `transition:visibility 0s .22s` : le basculement attend la fin du glissement,
+   sinon le toast disparaitrait d'un coup au lieu de sortir par le bas. */
+#toast{position:fixed;left:50%;bottom:26px;
+       transform:translateX(-50%) translateY(calc(100% + 40px));
+       visibility:hidden;pointer-events:none;
        background:var(--panel);border:1px solid var(--line2);border-radius:10px;
        padding:11px 16px;display:flex;gap:14px;align-items:center;z-index:40;
-       box-shadow:var(--elev);transition:transform .22s;font-size:14px}
-#toast.on{transform:translateX(-50%) translateY(0)}
+       box-shadow:var(--elev);transition:transform .22s,visibility 0s .22s;font-size:14px}
+#toast.on{transform:translateX(-50%) translateY(0);
+          visibility:visible;pointer-events:auto;
+          transition:transform .22s,visibility 0s}
 
 /* --------------------------------------------------------------- composeur */
 .compose{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line2);

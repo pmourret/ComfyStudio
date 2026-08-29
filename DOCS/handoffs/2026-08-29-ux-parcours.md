@@ -1,7 +1,7 @@
 # Handoff — UX de parcours (fichier à chaîner)
 
 **Date** : 29/08/2026 · **Base** : `2dec842` (rail d'outils + poses)
-**Statut** : points 1 à 3 clos. Fichier ouvert — les points suivants de la
+**Statut** : points 1 à 4 clos. Fichier ouvert — les points suivants de la
 session UX viennent s'ajouter ici, sous leur propre section.
 
 Ce fichier ne traite pas d'une surface (le rail, l'inspecteur, la banque) mais
@@ -371,3 +371,123 @@ L'attribution de pose n'a pas bougé (elle reste sur la carte de scène, sous-vu
 Scènes). Pas de plein écran sur `#scenes` — autre chantier. La barre
 d'enregistrement n'est pas cachée sur Poses. `INPUTS/POSE/` et l'API
 d'extraction ne sont pas renommés. J7, `hints.js`, `/img/base` : hors scope.
+
+---
+
+## 4 · Artefact bas du sas
+
+### Le coupable : `screens.css:23` — le toast au repos
+
+Inventaire fait avant le patch, par sonde Playwright sur l'URL **sans**
+`?character=`, hash `#registre` : pour chaque élément du document, boîte +
+styles calculés, filtre sur les 48 px bas du viewport (1400×900).
+
+```
+boites dans les 48 px bas :
+  div.app                    static  1400x900     ← porte l'écran
+  div.shell                  static  1400x844     ← porte l'écran
+  main                       relative 1400x844    ← porte l'écran
+  div#registre.screen.on     static  1400x844     ← l'écran lui-même
+  div#toast   position:fixed  z=40   x683 y879 34x24   ← L'INTRUS
+```
+
+**`#toast`**, `visibility:visible`, `pointer-events:auto`, boîte 34×24 à
+`y=879` sur un viewport de 900 : **21 px d'une capsule grise sans libellé,
+centrée, collée au bord** — et cliquable.
+
+L'arithmétique : `bottom:26px` + `transform:translateY(120%)`. 120 % d'un toast
+**vide** font 29 px, alors qu'il faut franchir sa propre hauteur (24 px) **puis**
+les 26 px de `bottom`, soit 50. Il manquait 21 px. Le sas est le seul écran sans
+`.launch` pour noyer le reste — d'où la capture, mais l'artefact était partout.
+
+**Tous les autres suspects sont blancs**, mesurés et non déduits : `.launch` des
+trois écrans (boîte 0×0 — le `display:none` du `.screen` parent suffit, aucune
+fuite d'enfant `fixed` sur ce moteur), `.intbar` (`display:none`, UX-1 tient),
+`#gearPanel`, `#lightbox`, `#dirtyBar`, `#panneBar`, `.rail` : tous
+`display:none`. **Aucune scrollbar** : `main` a `overflow-y:auto` mais
+`scrollHeight === clientHeight` (844 = 844), et le document ne défile pas non
+plus (900 = 900). Pas d'`<input type=range>` orphelin.
+
+### Le patch
+
+```css
+#toast{ … transform:translateX(-50%) translateY(calc(100% + 40px));
+        visibility:hidden; pointer-events:none;
+        transition:transform .22s, visibility 0s .22s}
+#toast.on{ transform:translateX(-50%) translateY(0);
+           visibility:visible; pointer-events:auto;
+           transition:transform .22s, visibility 0s}
+```
+
+**Deux gardes indépendantes**, plutôt qu'une arithmétique juste :
+
+1. `calc(100% + 40px)` sort la boîte en entier **quelle que soit sa hauteur** —
+   un toast à deux lignes ne réintroduira pas le bug ;
+2. `visibility:hidden` + `pointer-events:none` le retirent de l'arbre visible et
+   de la cible des clics.
+
+La première couvre la fenêtre où la seconde n'a pas encore pris : sous
+`prefers-reduced-motion`, `base.css` écrase la **durée** des transitions, pas
+leur **délai** — `visibility` reste donc 220 ms à `visible` après la sortie.
+
+`transition:visibility 0s .22s` : le basculement attend la fin du glissement,
+sinon le toast disparaîtrait d'un coup au lieu de sortir par le bas.
+
+### Vérifié
+
+**Sonde de bande** (rejouée après patch) : plus que `.app`, `.shell`, `main`,
+`#registre` — les conteneurs qui *portent* l'écran. `#toast` est à `y=914`,
+entièrement sous le viewport, `visibility=hidden`, `pointer-events=none`.
+
+**Le toast SERT toujours** — c'était le vrai risque du patch. Sonde sur le chemin
+réel (« Appliquer le JSON » de la banque) :
+
+```
+ok  au repos     : {vis:hidden,  pe:none, y:914, dansEcran:false, ck:false}
+ok  toast leve   : {vis:visible, pe:auto, y:828, dansEcran:true,  ck:true}
+ok  il porte un libelle : « JSON appliqué — pense à enregistrer »
+ok  retombe et redevient inerte : {vis:hidden, pe:none, y:914, ck:false}
+```
+
+Piège rencontré en écrivant la sonde, noté pour la suite :
+**`checkVisibility()` ignore `visibility` par défaut** — il faut
+`checkVisibility({visibilityProperty: true})`, sans quoi un élément
+`visibility:hidden` est rapporté visible.
+
+**Les écrans AVEC `.launch` gardent leur barre** — on n'a pas « caché tout le
+bas ». Sonde : Produire 1200×116 collée au bord, Banque 1200×116, Wizard h=116.
+
+**Assertion permanente** : `test_ecran_registre`, section `[3b]`. Elle vérifie la
+**bande**, pas le seul coupable connu — n'importe quelle surface `fixed` qui
+percerait demain y tomberait :
+
+```
+ok  aucun element visible dans les 48 px bas
+ok  au bas du viewport, le curseur touche : div#registre
+ok  #toast au repos : visibility=hidden pointer-events=none
+```
+
+La deuxième ligne est le « clic dans cette zone = rien » du cadrage, testé par
+`elementFromPoint` plutôt que déduit.
+
+### Toute la suite est verte
+
+`test_panneau_reglages`, `test_ecran_creer`, `test_ecran_registre`,
+`test_apercu_prompt`, `test_ecran_wizard`, `test_pose_scene_card`,
+`test_scenes_aller_retour`, `test_application_suppression_editeur`.
+
+**Y compris les deux rouges des sections 2 et 3 — et ce n'est pas ce patch qui
+les a réglés.** Le `500` sur `/img?…&thumb=1` venait de Pillow absent ; la seule
+vignette dont l'inspecteur a besoin est désormais **en cache**
+(`PROD/.thumbs/lena/sfw/OK/lifestyle_cafe_terrasse_20260828_01.jpg`, écrite
+aujourd'hui à 20:16), donc la route sert un `200` sans jamais appeler PIL.
+**Le manque est intact** : `python -c "import PIL"` échoue toujours, et toute
+vignette non encore en cache rend `500` — vérifié sur trois autres images de
+`PROD/LENA/OK/`. Un vert de cache chaud, pas un vert de correction : il
+redeviendra rouge sur une image neuve tant que Pillow n'est pas installé.
+
+### Pas fait
+
+Le registre n'est pas redessiné (cartes, `--maxw` inchangés) — ce n'est pas le
+chantier avatar. Aucune `.launch` cachée. `/img/base`, avatars, plein écran
+`#registre` : hors scope.
