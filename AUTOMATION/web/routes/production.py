@@ -447,6 +447,7 @@ def demarrer_edition(sources, instruction, configuration, use_qc, niveau,
     ss.STATE.update(running=True, stop=False, batch_id=batch_id, index=0,
                    total=len(sources), current=None, stats={}, recent=[],
                    intensity=niveau, character=character, last_error=None,
+                   edition=True,
                    started_at=datetime.now().isoformat(timespec="seconds"))
     ss.push_log(f"édition {batch_id} — {len(sources)} image(s) déjà validée(s) "
               f"· sortie dans PROD/{character.upper()}/_NSFW · hors export")
@@ -467,7 +468,7 @@ def demarrer(jobs, configuration, use_qc, entete=None, character="lena"):
     batch_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     ss.STATE.update(running=True, stop=False, batch_id=batch_id, index=0,
                    total=len(jobs), current=None, stats={}, recent=[],
-                   character=character, last_error=None,
+                   character=character, last_error=None, edition=False,
                    started_at=datetime.now().isoformat(timespec="seconds"))
     p = configuration["preset"]
     # le niveau DEMANDE, pas celui de la passe de generation : au niveau 3 les

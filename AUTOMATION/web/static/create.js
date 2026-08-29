@@ -16,6 +16,7 @@ import {qc, presetRef, nsfwRef} from './config.js';
 import {scenes} from './scenes-store.js';
 import {isRunning, markRunning} from './poller.js';
 import {updateInspector} from './inspector.js';
+import {setTriageEntry} from './review.js';
 import {brancher} from './hints.js';
 
 /* --- etat de l'ecran Creer, prive au module --------------------------- */
@@ -27,7 +28,7 @@ const CONFIRMED = new Set();  // paliers confirmes pour cette session
 let PLAN_OK = false;          // le dernier /api/plan connu a des jobs a lancer
 let NSRC = new Set();         // images sources cochees au cran NSFW
 let NSRC_SIG = null;          // signature de la grille de sources rendue
-let NARMED = false;           // etat d'armement de la branche NSFW
+let NARMED = false;           // l'outil d'edition est-il disponible ici
 let NSFW_SEQ = 0;             // jeton anti-reponse-perimee (nsfwTick)
 
 // lue par poller.js (tick) : seul planOk() est la source commune du
@@ -383,6 +384,8 @@ export async function nsfwTick(){
   }
   NARMED = dispo;
   NSFW_SRC = d.sources || [];
+  const sortie = $('#sortieNsfw');
+  if (sortie && d.sortie) sortie.textContent = d.sortie;
   if (estEdition()) renderSources();
 }
 
@@ -1020,11 +1023,16 @@ export function renderRun(s){
   p.style.display = '';
   // ne rien reconstruire tant que rien n'a bouge : sinon le bloc "journal
   // technique" se replierait tout seul a chaque tick
-  const sig = [s.running, s.index, s.total, (s.recent || []).length,
+  const sig = [s.running, s.index, s.total, s.edition, (s.recent || []).length,
                (s.log || []).length, JSON.stringify(s.stats)].join('|');
   if (sig === RUN_SIG) return;
   RUN_SIG = sig;
   const wasOpen = !!p.querySelector('details[open]');
+  // Fin d'un lot d'EDITION : le geste suivant du flux NSFW est la retouche, et
+  // elle vit dans l'editeur photo, joignable depuis la Revue (ADR-0003 : le
+  // NSFW recompose deux outils globaux, il n'en ajoute aucun). On nomme le
+  // chemin plutot que d'ouvrir une route qui sauterait par-dessus la Revue.
+  const finiEnEdition = !s.running && !!s.edition && !!s.total;
   // pendant la generation, l'image en cours n'est pas encore acquise
   const doneN = Math.max(0, s.index - (s.running ? 1 : 0));
   const pct = s.total ? Math.round(100 * doneN / s.total) : 0;
@@ -1046,6 +1054,9 @@ export function renderRun(s){
       </div>
       <div class="bar"><div style="width:${pct}%"></div></div>
       <div class="strip">${strip}</div>
+      ${finiEnEdition ? `<p class="tiny" style="margin:8px 0 0">
+        Retouche : <b>Revue, espace NSFW</b> → l'image → <b>Éditer</b>.
+        <button class="link" id="btnGoNsfw">ouvrir la Revue en NSFW</button></p>` : ''}
       <details class="adv" style="margin-top:6px;border:0;padding:0" ${wasOpen ? 'open' : ''}>
         <summary>journal technique</summary>
         <pre class="log">${esc((s.log || []).slice(-40).join('\n'))}</pre>
@@ -1057,6 +1068,10 @@ export function renderRun(s){
     if (!r.ok){ stop.disabled = false; toast(r.erreur || 'arrêt impossible'); }
   };
   const gt = $('#btnGoTri'); if (gt) gt.onclick = () => go('trier');
+  const gn = $('#btnGoNsfw'); if (gn) gn.onclick = () => {
+    setTriageEntry('OK', 'nsfw');           // le lot vient d'y ranger ses sorties
+    go('trier');
+  };
   p.querySelectorAll('.strip img').forEach(im => im.onclick = () => openLight(im.dataset.full));
 }
 

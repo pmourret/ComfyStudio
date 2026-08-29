@@ -33,8 +33,11 @@ let ITEMS_SEQ = 0;           // jeton anti-reponse-perimee (loadItems)
 export const triageState = () => ({bucket: BUCKET, space: SPACE, view: VIEW});
 // point d'entree depuis un onglet (Galerie/Revue) : bucket impose, retour SFW
 // strict, vue grille — ouvrir sur du NSFW sans l'avoir choisi serait surprenant
-export function setTriageEntry(bucket){
-  BUCKET = bucket; SPACE = 'sfw'; VIEW = 'grille';
+export function setTriageEntry(bucket, space){
+  // `space` par defaut 'sfw' : les onglets du chrome retombent toujours sur le
+  // SFW (voir nav.go). Seul un geste qui NOMME le NSFW y entre — le renvoi de
+  // fin de lot d'edition, qui sait de quel espace sort le lot (J7).
+  BUCKET = bucket; SPACE = space || 'sfw'; VIEW = 'grille';
 }
 
 /* Reflete BUCKET/SPACE sur les boutons du selecteur de l'ecran #trier et sur

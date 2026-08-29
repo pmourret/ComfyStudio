@@ -143,6 +143,10 @@ STATE = {
     "recent": [],          # images du batch en cours, pour la bande en direct
     "eta": None,
     "intensity": 0,        # niveau DEMANDE : sert a estimer la duree par image
+    # Le batch EDITE des images validees au lieu d'en engendrer (J7). Pose par
+    # demarrer_edition, remis a faux par demarrer : le resume de fin de lot
+    # renvoie alors vers la retouche, qui n'a de sens que la.
+    "edition": False,
     "character": "lena",   # personnage du batch en cours (pose par demarrer*)
     # derniere erreur de batch, {at, msg} ou None. Pose au niveau du batch (pas
     # par job) et efface au demarrage du suivant : le chrome la montre meme

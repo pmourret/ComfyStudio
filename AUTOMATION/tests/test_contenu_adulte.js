@@ -109,6 +109,19 @@ const ORIGIN = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   dire((await page.$$('#nsfwBox button')).length === 1,
        'un seul geste propose (desactiver)');
 
+  console.log('\n[5b] le cran d\'édition nomme le dossier DU personnage');
+  await page.goto(ORIGIN + '/?character=lena', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(900);
+  const cran = await page.$('#intSel button.lvedit');
+  dire(!!cran, 'le cran d\'édition porte sa propre teinte (.lvedit), pas celle de son rang');
+  if (cran){
+    await cran.click();
+    await page.waitForTimeout(1400);
+    const sortie = ((await page.textContent('#sortieNsfw')) || '').trim();
+    dire(sortie === 'PROD/LENA/_NSFW/', `dossier annoncé : ${sortie}`);
+    dire(!/^PROD\/_NSFW/.test(sortie), 'jamais le PROD/_NSFW global d\'avant J7');
+  }
+
   console.log('\n[6] aucune erreur JS sur tout le parcours');
   dire(erreurs.length === 0, `${erreurs.length} erreur(s)`);
   erreurs.forEach(e => console.log('      ' + e.slice(0, 150)));

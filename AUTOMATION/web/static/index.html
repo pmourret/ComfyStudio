@@ -220,8 +220,11 @@
 
       <textarea id="editInstr" placeholder="ex: unbuttoned shirt"></textarea>
       <div id="instrAlertes"></div>
+      <!-- le dossier est celui DU personnage : peint par nsfwTick depuis
+           /api/nsfw/state, jamais ecrit en dur (il valait PROD/_NSFW/ pour
+           tout le monde, ce qui n'a jamais ete le chemin reel). -->
       <p class="tiny" style="margin:6px 0 0">La sortie va dans
-        <code>PROD/_NSFW/</code> et n'est jamais exportée.</p>
+        <code id="sortieNsfw">—</code> et n'est jamais exportée.</p>
 
       <details class="adv" id="instrBiblio" style="margin-top:14px">
         <summary>instructions déjà employées <span class="tiny" id="biblioN"></span></summary>
