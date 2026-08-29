@@ -15,16 +15,25 @@ routes = web.RouteTableDef()
 
 @routes.get("/img")
 async def serve_image(request):
+    """Octets d'une image de tri. `character=` est OBLIGATOIRE ici.
+
+    Cette route sert des donnees de personnage : lui laisser un defaut, c'est
+    servir les images de Lena a qui ne les a pas demandees — c'est exactement
+    ce qui se passait avant le 29/08/2026, la Revue d'Abyssiaelle affichait la
+    galerie de Lena. Un nom qui n'est pas dans l'arbre du personnage demande
+    sort en 404, jamais par une retombee sur un autre arbre.
+    """
+    cid = ss.character(request, requis=True)
     bucket = request.query.get("bucket", "OK")
-    space = request.query.get("space", "lena")
+    space = ss.space_id(request.query.get("space"))
     name = request.query.get("name", "")
     if not ss.SAFE_NAME.match(name):
         ss.bad_request("nom invalide")
-    path = ss.bucket_dir(bucket, space) / name
+    path = ss.bucket_dir(bucket, space, cid) / name
     if not path.exists():
         raise web.HTTPNotFound()
     if request.query.get("thumb"):
-        tdir = ss.THUMBS / space / bucket
+        tdir = ss.THUMBS / cid / space / bucket
         tdir.mkdir(parents=True, exist_ok=True)
         thumb = tdir / (path.stem + ".jpg")
         if not thumb.exists() or thumb.stat().st_mtime < path.stat().st_mtime:
