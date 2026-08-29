@@ -56,6 +56,9 @@ function paint(d){
    appelle que la fermeture (closeIdMenu). */
 let switcherLoaded = false;
 
+// entrees navigables du menu : les <a> injectes (#idSwitch) + les 2 statiques
+const idMenuItems = menu => [...menu.querySelectorAll('a')];
+
 function wireIdMenu(){
   const btn = document.getElementById('btnId');
   const menu = document.getElementById('idMenu');
@@ -63,18 +66,42 @@ function wireIdMenu(){
   btn.dataset.wired = '1';
   btn.addEventListener('click', e => {
     e.stopPropagation();
-    const open = menu.classList.toggle('on');
-    btn.classList.toggle('on', open);
-    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    if (open) fillSwitcher();
+    menu.classList.contains('on') ? closeIdMenu() : openIdMenu();
   });
+  // role=menu : fleches / Home / End deplacent le focus, Echap ferme
+  menu.addEventListener('keydown', e => {
+    const items = idMenuItems(menu);
+    if (!items.length) return;
+    const i = items.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown'){ e.preventDefault(); items[(i + 1) % items.length].focus(); }
+    else if (e.key === 'ArrowUp'){ e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+    else if (e.key === 'Home'){ e.preventDefault(); items[0].focus(); }
+    else if (e.key === 'End'){ e.preventDefault(); items[items.length - 1].focus(); }
+    else if (e.key === 'Escape'){ closeIdMenu(); }
+  });
+}
+
+function openIdMenu(){
+  const btn = document.getElementById('btnId');
+  const menu = document.getElementById('idMenu');
+  if (!btn || !menu) return;
+  menu.classList.add('on');
+  btn.classList.add('on');
+  btn.setAttribute('aria-expanded', 'true');
+  fillSwitcher();                       // remplit #idSwitch (une seule fois)
+  idMenuItems(menu)[0]?.focus();        // focus sur la premiere entree
 }
 
 export function closeIdMenu(){
   const btn = document.getElementById('btnId');
   const menu = document.getElementById('idMenu');
+  const dansMenu = menu && menu.contains(document.activeElement);
   if (menu) menu.classList.remove('on');
-  if (btn){ btn.classList.remove('on'); btn.setAttribute('aria-expanded', 'false'); }
+  if (btn){
+    btn.classList.remove('on');
+    btn.setAttribute('aria-expanded', 'false');
+    if (dansMenu) btn.focus();          // rendre le focus au declencheur
+  }
 }
 
 /* Liste des AUTRES personnages, chargee au premier ouverture du menu (une
@@ -91,7 +118,7 @@ function fillSwitcher(){
       const others = (Array.isArray(d && d.characters) ? d.characters : [])
         .filter(c => c.id !== CURRENT);
       box.innerHTML = others.map(c =>
-        `<a href="?character=${encodeURIComponent(c.id)}">${esc(c.name || c.id)}`
+        `<a href="?character=${encodeURIComponent(c.id)}" role="menuitem" tabindex="-1">${esc(c.name || c.id)}`
         + `<small>${esc(c.type || c.id)}</small></a>`).join('')
         || `<span class="tiny">aucun autre personnage</span>`;
     })

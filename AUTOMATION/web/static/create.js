@@ -280,8 +280,10 @@ export function renderScenes(){
     const aff = (scenes().meta?.[s.id]?.tones || []).includes(TONE);
     const tags = (scenes().meta?.[s.id]?.tags || []).slice(0, 3).join(' · ');
     const pose = scenes().meta?.[s.id]?.pose;
-    const el = document.createElement('div');
+    const el = document.createElement('button');
+    el.type = 'button';
     el.className = 'sc' + (SEL.has(s.id) ? ' on' : '');
+    el.setAttribute('aria-pressed', SEL.has(s.id) ? 'true' : 'false');
     el.innerHTML = `
       <div class="ph ${prev ? '' : 'empty'}" ${prev ? `style="background-image:url('/img?bucket=${prev.bucket}&name=${encodeURIComponent(prev.name)}&thumb=1')"` : ''}>
         ${aff ? '<div class="aff">ce ton</div>' : ''}
@@ -306,7 +308,8 @@ export function renderScenes(){
   });
   // creer une scene reste possible, mais ce n'est plus le point d'entree : c'est
   // une carte en fin de grille, qui emmene au composeur avec l'intention deja mise
-  const neuf = document.createElement('div');
+  const neuf = document.createElement('button');
+  neuf.type = 'button';
   neuf.className = 'sc';
   neuf.style.cssText = 'border-style:dashed;display:flex;align-items:center;' +
     'justify-content:center;min-height:150px;text-align:center';

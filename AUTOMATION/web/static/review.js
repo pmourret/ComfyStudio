@@ -227,8 +227,9 @@ function renderTriage(){
   if (VIEW === 'grille'){
     body.innerHTML = '<div class="grid">' + VITEMS.map((i, k) => `
       <div class="tile${i.flag === 'ia' ? ' ia' : ''}${k === CUR ? ' cur' : ''}" data-k="${k}">
-        <img loading="lazy" data-k="${k}"
-          src="/img?bucket=${i.bucket}&space=${i.space}&name=${encodeURIComponent(i.name)}&thumb=1">
+        <button type="button" class="thumb" data-k="${k}" title="Ouvrir en grand">
+          <img loading="lazy"
+            src="/img?bucket=${i.bucket}&space=${i.space}&name=${encodeURIComponent(i.name)}&thumb=1"></button>
         <div class="chip ${scoreClass(i.score)}">${i.score ? parseFloat(i.score).toFixed(2) : '—'}</div>
         <div class="m"><b>${esc(i.scene || i.name)}</b><br>${esc(i.format||'')} · ${esc(i.date)}</div>
         ${i.nettete == null
@@ -259,8 +260,9 @@ function renderTriage(){
       CUR = +t.dataset.k;                          // cliquer = viser
       viserEnGrille();                             // le cadre suit tout de suite
     }));
-    body.querySelectorAll('.tile img').forEach(im => im.onclick = () => {
-      CUR = +im.dataset.k; VIEW = 'revue';
+    // la vignette est un <button> : ouvre la vue Revue au clic ET au clavier
+    body.querySelectorAll('.thumb').forEach(b => b.onclick = () => {
+      CUR = +b.dataset.k; VIEW = 'revue';
       $$('#viewSel button').forEach(x => x.classList.toggle('on', x.dataset.v === 'revue'));
       renderTriage();
     });
