@@ -12,8 +12,9 @@
    pixels d'AFFICHAGE, et converties au facteur d'echelle au moment d'exporter.
 
    Bascule en modules ES le 27/08/2026 (J3 etape 1) — comportement inchange. */
-import {$, $$} from './dom.js';
+import {$, $$, esc} from './dom.js';
 import {post, imgUrl} from './api.js';
+import {openDialog, closeDialog} from './ui-dialog.js';
 import {toast} from './toast.js';
 import {loadItems} from './review.js';
 import {refreshCounts} from './poller.js';
@@ -24,17 +25,24 @@ let ED_ROT = 0;           // 0..3 : pas de 90°
 let ED_RATIO = null;      // null = libre, sinon {w, h}
 let ED_CROP = null;       // {x,y,w,h} en pixels d'affichage (post-rotation 90°)
 let ED_DRAG = null;
-let ED_RETURN = 'creer';  // ecran d'ou l'editeur a ete ouvert (mode, pas overlay)
+
+/* Part de la boite disponible que le cadre occupe a l'ouverture et a chaque
+   changement de ratio. PAS 100 % : un cadre qui remplit exactement le canvas a
+   une marge de deplacement NULLE — le clamp de `surDrag` le verrouille alors a
+   x=0, et le cadre parait casse alors qu'il obeit (mesure du 30/08 : un tirer
+   de +120 px deplacait de 0). On laisse de quoi le saisir tout de suite. */
+const REMPLISSAGE = 0.92;
 
 export async function ouvrirEditeur(item){
   if (!item) return;
   ED_ITEM = {name: item.name, bucket: item.bucket, space: item.space};
-  // MODE, pas overlay : on memorise l'ecran courant, on pose body.editing, et
-  // #editorBox (class="screen") s'affiche via .screen.on. Le chrome (identite /
-  // nav / sante) reste visible ; Fermer / Enregistrer / Echap ramenent ici.
-  ED_RETURN = (document.querySelector('.screen.on') || {}).id || 'creer';
+  // MODALE : <dialog>.showModal() couvre le chrome et prend le focus. On garde
+  // `body.editing` — ce n'est plus lui qui affiche l'editeur, mais il tient
+  // toujours les raccourcis clavier du studio a l'ecart (review.js, studio.js)
+  // et masque le rail et la barre d'intensite sous le voile.
   document.body.classList.add('editing');
-  $$('.screen').forEach(s => s.classList.toggle('on', s.id === 'editorBox'));
+  openDialog($('#editorBox'), {initialFocus: '#edClose', onDismiss: fermerEditeur});
+  $('#edFichier').textContent = item.name || '';
   $('#edMsg').textContent = 'chargement…';
   $('#edSave').disabled = true;
   const img = new Image();
@@ -51,15 +59,28 @@ export async function ouvrirEditeur(item){
   img.src = imgUrl(item);
 }
 
+/* Une seule remise a zero, quel que soit le chemin de sortie : bouton, Echap,
+   clic sur le voile. Branchee sur l'evenement `close` du <dialog>, elle couvre
+   les trois — un handler par bouton en aurait manque deux. */
 export function fermerEditeur(){
+  closeDialog($('#editorBox'));
   document.body.classList.remove('editing');
-  $$('.screen').forEach(s => s.classList.toggle('on', s.id === ED_RETURN));
   ED_ITEM = null; ED_IMG = null; ED_CROP = null; ED_DRAG = null;
 }
+$('#editorBox').addEventListener('close', () => {
+  document.body.classList.remove('editing');
+  ED_ITEM = null; ED_IMG = null; ED_CROP = null; ED_DRAG = null;
+});
 $('#edCancel').onclick = fermerEditeur;
-// Echap quitte le mode editeur (les <dialog> gerent le leur nativement)
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && document.body.classList.contains('editing')) fermerEditeur();
+$('#edClose').onclick = fermerEditeur;
+
+/* Le plan de travail change de taille avec la fenetre : sans ca le canvas
+   garderait la taille calculee a l'ouverture, et `max-width:100%` le
+   reduirait en CSS — donc une echelle != 1, que `echelleAffichage` absorbe,
+   mais au prix d'une image floue. On recalcule plutot. */
+addEventListener('resize', () => {
+  if (!ED_IMG || !$('#editorBox').open) return;
+  ajusterTailleCanvas(); clampCrop(); dessiner();
 });
 
 /* ------------------------------------------------------------- geometrie */
@@ -73,12 +94,32 @@ function dimsRotees(){
 function ajusterTailleCanvas(){
   const {w, h} = dimsRotees();
   const stage = $('.edStage');
-  const maxW = Math.max(280, Math.min(760, (stage?.clientWidth || 760) - 20));
-  const maxH = 560;
+  // La place REELLE du plan de travail, dans les deux axes. Les plafonds
+  // d'avant (760 de large, 560 de haut) etaient ecrits en dur : sur le plan
+  // mesure le 30/08 — 1112 x 844 — l'image n'occupait plus que 29 % de la
+  // place, ce qui faisait l'essentiel du « mal organise ». La modale ayant une
+  // taille connue, mesurer est desormais fiable.
+  const pad = 32;                                   // .edStage padding, deux cotes
+  const maxW = Math.max(200, (stage?.clientWidth || 760) - pad);
+  const maxH = Math.max(200, (stage?.clientHeight || 560) - pad);
+  // jamais au-dela de 1 : agrandir une image au-dessus de sa resolution la
+  // rendrait floue sans rien montrer de plus
   const echelle = Math.min(maxW / w, maxH / h, 1);
   const cv = $('#edCanvas');
   cv.width = Math.max(40, Math.round(w * echelle));
   cv.height = Math.max(40, Math.round(h * echelle));
+  cv.style.width = cv.width + 'px';
+  cv.style.height = cv.height + 'px';
+}
+
+/* Rapport entre le canvas AFFICHE et le canvas de travail. Il vaut 1 tant que
+   `ajusterTailleCanvas` a fait son office, mais `max-width:100%` reste un filet
+   (fenetre reduite entre deux rendus) : sans cette conversion, un canvas remis
+   a l'echelle par le CSS ferait deriver le cadre et le tirer d'autant. */
+function echelleAffichage(){
+  const cv = $('#edCanvas');
+  const rendu = cv.getBoundingClientRect().width;
+  return (rendu && cv.width) ? rendu / cv.width : 1;
 }
 
 function straightenVal(){ return +($('#edStraighten').value || 0); }
@@ -112,6 +153,7 @@ function appliquerRatioCentre(){
     const rr = ED_RATIO.w / ED_RATIO.h;
     if (dispoW / dispoH > rr){ h = dispoH; w = h * rr; } else { w = dispoW; h = w / rr; }
   } else { w = dispoW; h = dispoH; }
+  w *= REMPLISSAGE; h *= REMPLISSAGE;
   ED_CROP = {x: (cv.width - w) / 2, y: (cv.height - h) / 2, w, h};
 }
 
@@ -180,8 +222,11 @@ function positionnerCropBox(){
   if (!box) return;
   if (!ED_CROP){ box.style.display = 'none'; return; }
   box.style.display = '';
-  box.style.left = ED_CROP.x + 'px'; box.style.top = ED_CROP.y + 'px';
-  box.style.width = ED_CROP.w + 'px'; box.style.height = ED_CROP.h + 'px';
+  // ED_CROP est en pixels de TRAVAIL ; la boite est posee en pixels D'ECRAN.
+  // Le parent (.edCanvasWrap) donne l'origine, cette echelle donne l'unite.
+  const k = echelleAffichage();
+  box.style.left = (ED_CROP.x * k) + 'px'; box.style.top = (ED_CROP.y * k) + 'px';
+  box.style.width = (ED_CROP.w * k) + 'px'; box.style.height = (ED_CROP.h * k) + 'px';
 }
 
 /* --------------------------------------------------------------- controles */
@@ -229,7 +274,9 @@ function apresRotation(){
 /* -------------------------------------------------- cadre de recadrage */
 function surDrag(e){
   if (!ED_DRAG) return;
-  const dx = e.clientX - ED_DRAG.sx, dy = e.clientY - ED_DRAG.sy;
+  // la souris parle en pixels d'ecran, ED_CROP en pixels de travail
+  const k = echelleAffichage() || 1;
+  const dx = (e.clientX - ED_DRAG.sx) / k, dy = (e.clientY - ED_DRAG.sy) / k;
   const o = ED_DRAG.orig, cv = $('#edCanvas'), m = margeSecurite(cv);
   const minX = m, minY = m, maxX = cv.width - m, maxY = cv.height - m;
   if (ED_DRAG.mode === 'move'){

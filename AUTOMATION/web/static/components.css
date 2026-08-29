@@ -89,16 +89,14 @@ body{--nav:0px}
 body:not(.no-character) .sidenav{display:flex}
 body:not(.no-character){--nav:208px}
 
-/* PAS de `:not(.editing)` ici, contrairement au rail — et la difference est
-   toute la distinction entre les deux colonnes. Le rail porte des OUTILS : ils
-   n'ont rien a faire pendant une retouche photo, qui a les siens. La navbar est
-   la SORTIE : c'est par elle qu'on quitte l'editeur (cliquer une destination
-   retire `body.editing`, nav.js). La masquer aurait enferme l'utilisateur dans
-   un mode dont le seul autre echappement est Echap.
-
-   L'invariant etait deja ecrit — « l'editeur occupe <main>, le chrome reste » —
-   et une fumigation le garde (test_application_suppression_editeur [6]). C'est
-   elle qui a rattrape la condition recopiee du rail sans y penser. */
+/* PAS de `:not(.editing)` ici, contrairement au rail. La raison a CHANGE le
+   30/08/2026 sans changer la regle : l'editeur etant devenu une modale, il
+   porte sa propre sortie (#edClose, Echap, voile) et la navbar n'est plus le
+   seul echappement. Elle reste malgre tout hors de la condition, parce qu'une
+   modale la couvre deja — l'inclure serait une seconde facon de cacher la meme
+   chose, et c'est celle qui laisserait le studio nu si la modale ne s'ouvrait
+   pas. Le rail, lui, garde `:not(.editing)` : ses OUTILS n'ont rien a faire
+   sous le voile d'une retouche, qui a les siens. */
 
 /* MODE ICONES. Deux chemins y menent, et ils sont independants :
      - `body.nav-mince` : une preference durable, choisie au pied de la navbar ;

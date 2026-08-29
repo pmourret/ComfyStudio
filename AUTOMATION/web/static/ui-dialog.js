@@ -2,7 +2,7 @@
    showModal/close, focus moved into the box on open and restored to the
    triggering element on close, Escape handled natively, backdrop click closes
    when the box allows it. Serves #armBox (confirm + NSFW arming) and
-   #declineBox. The photo editor is NOT a modal — it is a mode (body.editing). */
+   #declineBox, and the photo editor (#editorBox) since 30/08/2026. */
 
 const FOCUSABLE =
   'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),' +

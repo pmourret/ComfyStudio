@@ -104,7 +104,7 @@ précédent/suivant de la Revue, dans `screens.css`, qui charge après.)*
 | `body.focus` (mode de travail) | 58 px, icônes seules, header masqué |
 | sous 1100 px | 58 px — imposé, pas une préférence |
 | sas (`body.no-character`) | **absente** : entrer dans le studio, c'est choisir un personnage |
-| mode éditeur (`body.editing`) | **présente** — c'est la sortie du mode, pas un outil |
+| éditeur photo ouvert (`body.editing`) | **présente**, mais sous le voile de la modale — l'éditeur porte sa propre sortie depuis le 30/08/2026 |
 
 En mode icônes les libellés sont retirés **visuellement** (`clip-path`), jamais
 par `display:none` : ils restent le nom accessible du bouton. `studio.js` y pose
@@ -157,7 +157,7 @@ Vérifié : Léna (`instagram-influenceur`) et Abyssiaelle (`rpg-personnage`)
 rendent un rail identique, au caractère près.
 
 Il s'affiche là où ses entrées ont une surface — **Produire et Banque** —, au
-dessus de 1100 px, personnage chargé, hors mode éditeur. Sous 1100 px il
+dessus de 1100 px, personnage chargé, éditeur photo fermé. Sous 1100 px il
 disparaît, et en mode éditeur aussi : ce sont des **outils**, la retouche a les
 siens. La navbar, elle, reste dans les deux cas — c'est la sortie. La condition est écrite en `@media(min-width:1101px)` avec
 `:not(.no-character):not(.editing):has(…)`, ce qui fait du masquage le défaut.
@@ -201,6 +201,27 @@ touchait le JS et le sélecteur de fumigation `.fr .src`.
 
 **Règle pour la suite** : une règle de carte se scope à son conteneur. Un nom de
 classe court (`sc`, `src`, `tx`, `fr`) n'est pas un identifiant global.
+
+## L'éditeur photo est une modale
+
+Il a occupé `<main>` (`body.editing` + un `.screen`) jusqu'au 30/08/2026, pour
+une raison précise : le chrome devait rester visible parce que **la navbar était
+la seule sortie du mode**. Une modale porte la sienne — `#edClose`, Échap, clic
+sur le voile —, ce qui lève cette contrainte et donne en prime un plan de
+travail de **taille connue** : `.edStage` ne dépend plus de ce que `<main>`
+laisse, et `ajusterTailleCanvas` peut le mesurer au lieu de plafonner en dur.
+
+`body.editing` reste posé, et ne sert plus à afficher : il tient les raccourcis
+clavier du studio à l'écart (Échap du tri, « f » du focus) et masque le rail et
+la barre d'intensité plutôt que de les laisser transparaître.
+
+**Le cadre de recadrage est ancré sur `.edCanvasWrap`**, une boîte qui épouse le
+canvas au pixel près — jamais sur `.edStage`, qui le centre. `#edCropBox` porte
+des coordonnées **canvas** : les poser dans le repère du plan de travail les
+décalait de la moitié de la gouttière (332 px mesurés). Deux symptômes pour un
+seul bug : le voile assombrissait toute l'image, et le cadre paraissait
+immobile. `positionnerCropBox` convertit en plus par `echelleAffichage()`, au
+cas où le CSS remettrait le canvas à l'échelle entre deux rendus.
 
 ## Inventaire des composants
 

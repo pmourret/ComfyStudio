@@ -485,19 +485,35 @@
      Recadrage/rotation/couleur/grain, tout côté navigateur (canvas) — aucun
      calcul GPU, résultat instantané. Enregistre toujours un NOUVEAU fichier,
      jamais un écrasement : l'original reste comparable, supprimable à part.
-     Ce n'est pas une modale : `body.editing` + un <section class="screen"> —
-     le chrome (identité · nav · santé) reste visible pendant la retouche. -->
-<div class="screen" id="editorBox">
+     MODALE depuis le 30/08/2026 (<dialog>, ui-dialog.js). Elle occupait <main>
+     en gardant le chrome visible, parce que la navbar etait alors la seule
+     sortie du mode ; une modale porte la sienne, explicite, en tete de boite.
+     `body.editing` RESTE pose : il garde les raccourcis clavier du studio
+     (Echap du tri, « f » du focus) hors de l'editeur, et masque le rail et la
+     barre d'intensite plutot que de les laisser transparaitre sous le voile.
+
+     GEOMETRIE. `#edCropBox` est ancre sur `.edCanvasWrap`, dont la boite est
+     EXACTEMENT celle du canvas — jamais sur `.edStage`, qui centre le canvas
+     et decalait le cadre de la moitie de la gouttiere (mesure du 30/08 :
+     332 px en x, 142 px en y ; le voile assombrissait alors toute l'image, et
+     le cadre n'avait aucune marge pour se deplacer). -->
+<dialog id="editorBox" class="edModal">
   <div class="edWrap">
     <div class="edStage">
-      <canvas id="edCanvas"></canvas>
-      <div id="edCropBox">
-        <div class="edHandle" data-h="nw"></div><div class="edHandle" data-h="ne"></div>
-        <div class="edHandle" data-h="sw"></div><div class="edHandle" data-h="se"></div>
+      <div class="edCanvasWrap">
+        <canvas id="edCanvas"></canvas>
+        <div id="edCropBox">
+          <div class="edHandle" data-h="nw"></div><div class="edHandle" data-h="ne"></div>
+          <div class="edHandle" data-h="sw"></div><div class="edHandle" data-h="se"></div>
+        </div>
       </div>
     </div>
     <div class="edSide">
-      <h3>Éditer</h3>
+      <div class="edHead">
+        <h3>Éditer</h3>
+        <button class="edClose" id="edClose" aria-label="Fermer l'éditeur">✕</button>
+      </div>
+      <p class="tiny edFichier" id="edFichier"></p>
       <div class="edSec">
         <div class="edLab">Recadrage</div>
         <div class="seg" id="edRatio">
@@ -542,7 +558,7 @@
       </div>
     </div>
   </div>
-</div>
+</dialog>
 </main>
 </div><!-- /.shell -->
 </div>

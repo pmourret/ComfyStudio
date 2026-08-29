@@ -127,17 +127,34 @@ process.on('exit', nettoyer);
   console.log('\n[6] éditeur — ouverture, ajustements, recadrage, enregistrement');
   await page.click('#btnOuvrirEditeur');
   await page.waitForTimeout(900);
-  dire(await page.isVisible('#editorBox.on, #editorBox'), 'le panneau éditeur s’ouvre');
-  dire(await page.locator('#editorBox').evaluate(e => e.classList.contains('on')), 'classe .on posée');
-  // l'editeur est un MODE, pas une overlay : le chrome reste visible et le
-  // contexte personnage n'est pas perdu
-  dire(await page.isVisible('.tabs'), 'la nav du chrome reste visible pendant l’édition');
+  // MODALE depuis le 30/08/2026 : <dialog>.showModal(), donc l'attribut `open`
+  // et non plus la classe `.on` d'un .screen
+  dire(await page.isVisible('#editorBox'), 'la modale éditeur s’ouvre');
+  dire(await page.locator('#editorBox').evaluate(e => e.open), 'le <dialog> est ouvert');
+  // une modale couvre le chrome : elle doit donc porter SA sortie, sinon on
+  // enferme l'utilisateur (c'est la raison qui faisait de l'editeur un mode)
+  dire(await page.isVisible('#edClose'), 'la modale porte sa propre sortie (#edClose)');
   dire(await page.evaluate(() => document.body.classList.contains('editing')), 'body.editing posé');
   dire((await page.evaluate(() => location.search)).includes('character=lena'),
        'le contexte personnage (?character=lena) est conservé');
   const cvW = await page.locator('#edCanvas').evaluate(c => c.width);
   dire(cvW > 0, `le canvas est dimensionné (${cvW}px de large)`);
   dire(await page.isVisible('#edCropBox'), 'le cadre de recadrage est affiché');
+
+  /* LE CADRE EST SUR L'IMAGE, pas à côté. Rien ne le vérifiait : le test ne
+     comparait #edCropBox qu'à lui-même (avant/après), donc un cadre ancré sur
+     le mauvais parent restait invisible pour lui. Mesuré le 30/08 : 332 px de
+     décalage, le voile assombrissait toute l'image. */
+  const surImage = async () => {
+    const cv = await page.locator('#edCanvas').boundingBox();
+    const cb = await page.locator('#edCropBox').boundingBox();
+    return {cv, cb, dedans: cb.x >= cv.x - 1 && cb.y >= cv.y - 1
+      && cb.x + cb.width <= cv.x + cv.width + 1
+      && cb.y + cb.height <= cv.y + cv.height + 1};
+  };
+  const pose = await surImage();
+  dire(pose.dedans, `le cadre est dans le canvas — cadre x=${pose.cb.x.toFixed(0)} `
+    + `canvas x=${pose.cv.x.toFixed(0)} (décalage ${(pose.cb.x - pose.cv.x).toFixed(0)}px)`);
 
   // ratio 1:1 — depuis J3 (modules ES) l'etat de l'editeur n'est plus global :
   // on lit la geometrie rendue de #edCropBox au lieu de ED_CROP
@@ -171,23 +188,39 @@ process.on('exit', nettoyer);
   await page.waitForTimeout(150);
   dire((await page.textContent('#v_edGrain')).trim() === '50', 'étiquette grain suit le curseur');
 
-  // deplacement du cadre de recadrage (drag) — position rendue de #edCropBox
+  /* DEPLACEMENT DU CADRE. Le test d'avant acceptait qu'UN SEUL axe bouge
+     (`||`) : le ratio 1:1 posé plus haut sur une image 4:5 laisse de la marge
+     verticale, donc il passait au vert pendant que l'axe horizontal était
+     verrouillé. On exige les DEUX, et on se donne d'abord de la marge par une
+     poignée — un cadre qui remplit l'image n'a nulle part où aller, et c'est
+     de la géométrie, pas un bug. */
+  const grand = await page.locator('#edCropBox').boundingBox();
+  await page.mouse.move(grand.x + grand.width, grand.y + grand.height);
+  await page.mouse.down();
+  await page.mouse.move(grand.x + grand.width - 160, grand.y + grand.height - 200, { steps: 10 });
+  await page.mouse.up();
+  await page.waitForTimeout(200);
   const box = await page.locator('#edCropBox').boundingBox();
+  dire(box.width < grand.width - 100,
+       `la poignée redimensionne (${grand.width.toFixed(0)} -> ${box.width.toFixed(0)}px)`);
+
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width / 2 + 25, box.y + box.height / 2 + 15, { steps: 5 });
+  await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2 + 25, { steps: 6 });
   await page.mouse.up();
   await page.waitForTimeout(150);
   const boxApres = await page.locator('#edCropBox').boundingBox();
-  dire(Math.abs(boxApres.x - box.x) > 2 || Math.abs(boxApres.y - box.y) > 2,
-       `le cadre de recadrage se déplace au glisser (${box.x.toFixed(0)},${box.y.toFixed(0)} -> ${boxApres.x.toFixed(0)},${boxApres.y.toFixed(0)})`);
+  const dx = boxApres.x - box.x, dy = boxApres.y - box.y;
+  dire(Math.abs(dx - 40) < 4 && Math.abs(dy - 25) < 4,
+       `le cadre suit la souris au pixel près : demandé +40/+25, obtenu ${dx.toFixed(0)}/${dy.toFixed(0)}`);
+  dire((await surImage()).dedans, 'et il reste dans le canvas après déplacement');
 
   // enregistrement
   await page.click('#edSave');
   await page.waitForTimeout(1500);
-  dire(!(await page.locator('#editorBox').evaluate(e => e.classList.contains('on'))),
-       'le panneau se ferme après enregistrement');
-  dire(await page.isVisible('#trier'), 'retour sur l’écran d’où l’éditeur a été ouvert (Revue)');
+  dire(!(await page.locator('#editorBox').evaluate(e => e.open)),
+       'la modale se ferme après enregistrement');
+  dire(await page.isVisible('#trier'), 'la Revue est de nouveau accessible dessous');
   dire(!(await page.evaluate(() => document.body.classList.contains('editing'))),
        'body.editing retiré à la fermeture');
   const nouveauxFichiers = await page.evaluate(() =>
