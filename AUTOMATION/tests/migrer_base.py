@@ -1,5 +1,15 @@
 """Peuple PROD/comfystudio.db depuis les fichiers existants. Idempotent.
 
+    !! SCRIPT HISTORIQUE (J1), ANTERIEUR A L'ISOLATION DISQUE (29/08/2026) !!
+    Il ecrit character_id="lena" partout et lit l'ancienne disposition
+    (PROD/LENA/ + PROD/_NSFW/ global). Depuis la bascule par personnage, il ne
+    reconstruirait que Lena, et attribuerait a Lena les images des autres.
+    NE PLUS LE LANCER TEL QUEL sur ce disque : la base EST deja la source de
+    verite (elle porte character_id depuis J2). Garde ici pour l'historique et
+    parce qu'il documente d'ou vient la base. Pour verifier la coherence :
+    tests/test_coherence_base.py. Pour la disposition disque :
+    tests/migrer_prod_par_personnage.py.
+
     python_embeded\\python.exe ComfyUI\\output\\OFM\\AUTOMATION\\tests\\migrer_base.py
 
 Sources lues, aucune n'est modifiee :

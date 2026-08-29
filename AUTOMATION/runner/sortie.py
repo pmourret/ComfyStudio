@@ -69,8 +69,14 @@ def sort_and_export(src, job, verdict, score, cfg, batch_id, character_id="lena"
     return dest, export_path
 
 
-JOURNAL_COLS = ["date", "batch", "scene", "categorie", "intensite", "ton",
-                "variante", "format", "seed", "score_identite", "verdict",
+# `character` : le journal est un CSV UNIQUE pour toute la plateforme (il se lit
+# hors outil, et la base porte deja la meme information par personnage). Sans
+# cette colonne, rien n'y distingue la ligne d'un personnage de celle d'un
+# autre — la galerie d'Abyssiaelle pouvait donc s'illustrer d'une ligne de Lena
+# des que deux noms de fichier se croisaient. Ajoutee le 29/08/2026 ; migration
+# des lignes existantes : AUTOMATION/tests/migrer_prod_par_personnage.py.
+JOURNAL_COLS = ["date", "batch", "character", "scene", "categorie", "intensite",
+                "ton", "variante", "format", "seed", "score_identite", "verdict",
                 "fichier", "export", "duree_s", "prompt"]
 
 
@@ -320,7 +326,8 @@ def execute_jobs(jobs, cfg, checker, batch_id, character_id="lena", runner=None,
                                   export=Path(export).name if export else "")
                     stats[verdict] = stats.get(verdict, 0) + 1
                     rows.append([datetime.now().isoformat(timespec="seconds"),
-                                 batch_id, job["scene"], job["category"],
+                                 batch_id, character_id,
+                                 job["scene"], job["category"],
                                  job.get("intensity", 0), job.get("tone", ""),
                                  job["variant"], job["format"], job["seed"],
                                  f"{score:.3f}" if score else "", verdict,

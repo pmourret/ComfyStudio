@@ -28,8 +28,10 @@ COMFY = env_config.comfyui_root()
 def fichiers_sur_disque():
     """nom -> chemin, pour tout ce qui est range quelque part."""
     out = {}
-    for racine in (OFM / "PROD" / "LENA", OFM / "PROD" / "_NSFW",
-                   OFM / "INPUTS" / "REALISME"):
+    # un arbre par personnage (le NSFW y est un sous-arbre) + le corpus de
+    # reference, qui lui reste commun a toute la plateforme
+    racines = [OFM / "PROD" / c.upper() for c in lb.list_characters()]
+    for racine in racines + [OFM / "INPUTS" / "REALISME"]:
         if not racine.exists():
             continue
         for f in racine.rglob("*.png"):

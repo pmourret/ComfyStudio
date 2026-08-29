@@ -33,7 +33,11 @@ sys.path.insert(0, str(AUTOMATION))
 import runner as lb      # noqa: E402
 import mesures as mes    # noqa: E402
 
-RACINES = [OFM / "PROD" / "LENA", OFM / "PROD" / "_NSFW"]
+# Un arbre de tri par personnage. Le NSFW est un sous-arbre du sien
+# (PROD/<CID>/_NSFW/) et se balaye a part : `collisions()` ne descend que d'un
+# niveau, et deux buckets homonymes dans deux arbres ne sont PAS une collision.
+RACINES = ([OFM / "PROD" / c.upper() for c in lb.list_characters()]
+           + [OFM / "PROD" / c.upper() / "_NSFW" for c in lb.list_characters()])
 
 
 def collisions(racine):
