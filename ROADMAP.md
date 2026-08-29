@@ -333,12 +333,44 @@ prouvent la généralisation — pas juste Léna renommée.
   + 7/7 fumigations verts ; `test_isolation_disque.py` neuf.
   Détail : `DOCS/handoffs/2026-08-29-isolation-look.md`.
 
-**J7 — NSFW généralisé comme outil, pas comme branche**
-- Flux confirmé : génération de personnage → sélection manuelle de l'image
-  → reprise en NSFW → édition par IA → retouche
-- Recomposé à partir des outils déjà prévus (modification live par IA +
-  éditeur d'image) — pas de sous-système séparé
-- Réglage dans le paramétrage de l'app, off par défaut
+**J7 — NSFW généralisé comme outil, pas comme branche** ✅ *(terminé 2026-08-29)*
+- Flux confirmé et inchangé : génération → sélection manuelle de l'image
+  → reprise en NSFW → édition par IA → retouche. Recomposé à partir des deux
+  outils globaux déjà prévus, aucun sous-système séparé (ADR-0003)
+- Ce que J7 a réellement fait : rendre ce flux **indépendant du personnage**
+  et **fermé par défaut**. Il marchait déjà, mais seulement pour Léna
+- **Le graphe d'édition appartient au pack** : `universe.json` gagne
+  `edit_workflow` (nullable). Plus aucun chemin de graphe en dur dans le
+  runner, ni dans le `config.json` d'un personnage (CLAUDE.md §8.11).
+  Un pack sans graphe lève, il n'emprunte jamais celui d'une autre famille
+- **Le cran est ABSENT sans l'outil, pas grisé** : `/api/creative` n'émet
+  pas un palier `requires: armed` indisponible. Disponible = armé **ET**
+  pack qui déclare un graphe, jamais une seule des deux conditions.
+  `guard_intensity` reste le verrou serveur
+- **Un seul geste** : section « Contenu adulte — *nom* » sur l'écran
+  Application, activation et désactivation. Pas d'interrupteur global —
+  l'interrupteur est celui d'un personnage (ADR-0010), `false` à la création
+  (`create_character`). Les trois portes du flux de production sont retirées
+- `character_id` obligatoire partout sur le chemin d'édition ; préfixe
+  ComfyUI et dossier de transit namespacés par cid
+- Deux défauts trouvés en chemin et corrigés : la branche d'édition
+  n'écrivait **jamais en base** (seules les migrations le faisaient, alors
+  que la base est la source de vérité, §7) ; la destination *affichée* d'un
+  palier pouvait nommer le dossier d'un autre personnage
+- 22/22 tests Python + 8/8 fumigations. Neufs : `test_nsfw_isolation.py`,
+  `test_isolation_disque.py` §8, `test_contenu_adulte.js`
+- Détail : `DOCS/handoffs/2026-08-29-j7-nsfw-outil.md`
+
+**Reste après J7** — n'a pas bloqué le jalon :
+- **Graphe d'édition SDXL pour `rpg-personnage`** (reporté). Seule chose qui
+  manque pour qu'Abyssiaelle ait l'outil : son étage « identité restaurée »
+  est PuLID Flux + FaceDetailer, sans équivalent SDXL/LoRA. Graphe neuf +
+  `wf_check` + mesure par personnage. La déclaration l'attend déjà
+  (`edit_workflow: null`)
+- Un lot NSFW réel de bout en bout piloté par une session (les fumigations
+  tournent en `--no-comfy` : UI et routes vérifiées, graphe non relancé)
+- `"flux+edit"` en dur en 17 endroits pour dire « ce palier édite » — sans
+  effet tant que le seul pack qui édite est flux
 
 ## V2 — Extensions
 

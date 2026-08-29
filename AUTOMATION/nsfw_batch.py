@@ -475,6 +475,16 @@ def run(sources, instruction, cfg, checker=None, on_event=None, should_stop=None
 
 
 def journal(rows, character_id):
+    """Double ecriture, comme la branche SFW : le CSV reste lisible hors outil,
+    la base est la source de verite (CLAUDE.md §7).
+
+    Point de passage UNIQUE des deux chemins qui produisent des lignes — le lot
+    d'edition (`run`) et l'enchainement « generer avant d'editer »
+    (chainage_nsfw). C'est pour ca que l'ecriture en base vit ici : la brancher
+    chez les appelants, c'etait s'assurer qu'un des deux l'oublie. Il l'avait
+    d'ailleurs oubliee entierement jusqu'a J7, et seule une migration manuelle
+    rattrapait la base.
+    """
     import csv
     chemin = journal_path(character_id)
     chemin.parent.mkdir(parents=True, exist_ok=True)
@@ -482,6 +492,6 @@ def journal(rows, character_id):
     with open(chemin, "a", newline="", encoding="utf-8") as f:
         wr = csv.writer(f, delimiter=";")
         if new:
-            wr.writerow(["date", "batch", "source", "seed", "score_identite",
-                         "verdict", "fichier", "duree_s", "instruction"])
+            wr.writerow(lb.JOURNAL_NSFW_COLS)
         wr.writerows(rows)
+    lb.ecrire_nsfw_en_base(rows, character_id)

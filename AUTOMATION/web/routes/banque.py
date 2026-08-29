@@ -277,6 +277,15 @@ async def api_creative(request):
         # mais ce mode est un repli, pas ce que le cran annonce.
         niveau_scenes = p.get("base_level", p["level"])
         paliers.append({**p,
+                        # La destination est MONTREE a l'utilisateur (confirmation
+                        # de palier) : elle se calcule, elle ne se croit pas.
+                        # Stockee dans creative.json, elle derive des que le
+                        # fichier est repris d'un autre personnage — on a vu un
+                        # palier annoncer PROD/LENA/_NSFW en ecrivant ailleurs.
+                        # La verite disque est nsfw_batch.out_root / l'arbre du
+                        # personnage ; c'est elle qu'on affiche.
+                        "destination": (f"PROD/{cid.upper()}/_NSFW" if edite
+                                        else f"PROD/{cid.upper()}"),
                         "besoin_instruction": edite,
                         "unite": "image" if edite else "scène",
                         "scenes": n_sources if edite else

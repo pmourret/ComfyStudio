@@ -109,6 +109,53 @@ def ecrire_en_base(rows, character_id="lena"):
         log(f"   base : ecriture impossible — {type(e).__name__} : {e}")
 
 
+# Colonnes du journal NSFW (PROD/<CID>/_NSFW/journal_nsfw.csv). Pas de colonne
+# `character` : le chemin porte deja l'information, contrairement au journal SFW
+# qui est unique pour tous les personnages.
+JOURNAL_NSFW_COLS = ["date", "batch", "source", "seed", "score_identite",
+                     "verdict", "fichier", "duree_s", "instruction"]
+
+
+def ecrire_nsfw_en_base(rows, character_id):
+    """Meme double ecriture que `ecrire_en_base`, pour l'outil d'edition.
+
+    POURQUOI ELLE EXISTE (J7). L'edition ecrivait son CSV et s'arretait la :
+    ses sorties n'entraient en base que par une MIGRATION, lancee a la main.
+    La base etant la source de verite (CLAUDE.md §7), chaque lot d'edition
+    laissait donc la verite en retard sur le disque — `test_coherence_base`
+    le signalait apres coup, sans que rien ne le repare a la source.
+
+    `espace='nsfw'` (l'axe SFW/NSFW, distinct de `character_id`) et `bucket` =
+    le verdict, comme la migration les posait. `intensite` reste nul : le
+    niveau du palier qui edite depend du pack, le figer a 3 comme le faisait la
+    migration ne vaudrait que pour Lena.
+
+    Ne doit jamais faire echouer un lot : une base indisponible se journalise,
+    elle n'annule pas des images deja produites.
+    """
+    try:
+        import base
+        with base.ouvrir() as cx:
+            for r in rows:
+                d = dict(zip(JOURNAL_NSFW_COLS, r))
+                cx.execute("INSERT INTO batch (id, character_id, debut) VALUES (?,?,?) "
+                           "ON CONFLICT(id) DO NOTHING",
+                           (d["batch"], character_id, d["date"]))
+                iid = base.enregistrer_image(
+                    cx, d["fichier"], character_id=character_id,
+                    batch_id=d["batch"], espace="nsfw", bucket=d["verdict"],
+                    source=d["source"], intention="nsfw", cree_le=d["date"],
+                    seed=int(d["seed"]) if str(d["seed"]).isdigit() else None,
+                    prompt=d["instruction"],
+                    duree_s=float(d["duree_s"]) if d["duree_s"] else None)
+                if d["score_identite"]:
+                    base.enregistrer_score(cx, iid, "identite",
+                                           float(d["score_identite"]), d["date"])
+            cx.commit()
+    except Exception as e:
+        log(f"   base : ecriture NSFW impossible — {type(e).__name__} : {e}")
+
+
 def append_log(rows, character_id="lena"):
     path = OFM / "PROD" / "journal_batch.csv"
     path.parent.mkdir(parents=True, exist_ok=True)

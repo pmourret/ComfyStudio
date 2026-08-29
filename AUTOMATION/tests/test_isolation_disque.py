@@ -259,6 +259,84 @@ try:
                 f"{cid} : {len(rows)} ligne(s), aucune d'un autre personnage "
                 f"({sorted(etrangeres) or '—'})")
 
+    # ============================================================== [8]
+    # L'outil d'edition (NSFW) est le chemin qui touche le plus de dossiers a la
+    # fois : il LIT l'arbre SFW d'un personnage et ECRIT dans son arbre _NSFW.
+    # Deux occasions de se tromper d'arbre, et aucune route ne les couvrait.
+    # Ici, par les ROUTES et sans GPU : armement, sources proposees, palier emis,
+    # et le refus d'editer une image qui appartient a quelqu'un d'autre.
+    print("\n[8] l'outil d'edition ne lit ni n'ecrit chez un autre personnage")
+
+    def arbre(racine):
+        return {p.relative_to(racine) for p in racine.rglob("*.png")} if racine.exists() else set()
+
+    avant_lena, avant_probe = arbre(PROD_LENA), arbre(PROD_PROBE)
+
+    def paliers(cid):
+        code, corps = appel(f"/api/creative?character={cid}")
+        return code, (jget(corps) or {}).get("intensity", [])
+
+    # -- desarme : le palier d'edition n'est PAS emis (le cran est absent)
+    code, ps = paliers("probe")
+    verifie(code == 200 and not [p for p in ps if p.get("requires") == "armed"],
+            f"probe desarme : aucun palier d'edition emis ({len(ps)} palier(s))")
+    code, corps = appel("/api/nsfw/state?character=probe")
+    etat = jget(corps) or {}
+    verifie(etat.get("outil", {}).get("available") is False,
+            "probe desarme : l'outil est annonce indisponible")
+
+    # -- on arme probe, et LUI SEUL
+    code, corps = appel("/api/nsfw/arm?character=probe", {"arm": True, "confirm": "ARMER"})
+    verifie(code == 200, f"probe s'arme par sa propre route ({code})")
+    verifie(json.loads((LENA / "character.json").read_text(encoding="utf-8")).get("nsfw")
+            is True, "lena n'a pas ete desarmee au passage")
+
+    code, ps = paliers("probe")
+    edit = next((p for p in ps if p.get("requires") == "armed"), None)
+    verifie(edit is not None, "probe arme : le palier d'edition apparait")
+    verifie(str(edit.get("destination", "")).upper().startswith("PROD/PROBE"),
+            f"et sa destination est SON arbre : {edit.get('destination')}")
+
+    # -- les sources proposees sont les siennes, jamais celles de lena
+    code, corps = appel("/api/nsfw/state?character=probe")
+    etat = jget(corps) or {}
+    srcs = {s.get("name") for s in etat.get("sources", [])}
+    verifie(etat.get("outil", {}).get("available") is True, "l'outil devient disponible")
+    verifie(srcs == {IMAGE_PROBE}, f"probe ne voit que son image : {sorted(srcs)}")
+    if image_lena:
+        verifie(image_lena not in srcs,
+                f"aucune image de lena dans ses sources ({image_lena})")
+    verifie(str(etat.get("sortie", "")).upper().startswith("PROD/PROBE"),
+            f"sa sortie annoncee est la sienne : {etat.get('sortie')}")
+
+    # -- editer une image qui appartient a LENA : refuse, et rien d'ecrit
+    if image_lena:
+        code, corps = appel("/api/run?character=probe", {
+            "intensity": edit["level"], "sources": [image_lena],
+            "edit_instruction": "unbuttoned linen shirt", "confirm_intensity": True})
+        verifie(code == 400,
+                f"probe ne peut pas editer une image de lena ({code}) — "
+                f"{(jget(corps) or {}).get('erreur')}")
+
+    # -- et lancer sans rien cocher reste refuse : la selection est manuelle
+    code, corps = appel("/api/run?character=probe", {
+        "intensity": edit["level"], "sources": [],
+        "edit_instruction": "unbuttoned linen shirt", "confirm_intensity": True})
+    verifie(code == 400, f"aucune source cochee : refuse ({code})")
+
+    verifie(arbre(PROD_LENA) == avant_lena,
+            "l'arbre de lena n'a pas bouge d'un fichier")
+    verifie(arbre(PROD_PROBE) == avant_probe,
+            "celui de probe non plus (rien n'a ete produit)")
+    verifie(not (PROD_LENA / "_NSFW" / "journal_nsfw.csv").exists()
+            or "probe" not in (PROD_LENA / "_NSFW" / "journal_nsfw.csv")
+            .read_text(encoding="utf-8", errors="ignore"),
+            "aucune ligne de probe dans le journal NSFW de lena")
+
+    # -- desarme : on ne laisse pas une sonde armee derriere soi
+    code, _ = appel("/api/nsfw/arm?character=probe", {"arm": False})
+    verifie(code == 200, "la sonde est desarmee en sortant")
+
     print("\n" + "=" * 70)
     print("tout est vert" if not KO else f"{KO} ECHEC(S)")
     print("=" * 70)

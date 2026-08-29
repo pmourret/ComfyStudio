@@ -177,7 +177,18 @@ dans un ordre précis.
 
 - Réglage dans le paramétrage de l'app, **off par défaut** — un personnage
   nouvellement créé n'a jamais le NSFW actif tant que l'utilisateur ne l'a
-  pas explicitement activé
+  pas explicitement activé. Précisé en J7 : le *geste* vit à un seul
+  endroit, la section « Contenu adulte » de l'écran Application ; ce qu'il
+  écrit est l'interrupteur **du personnage courant** (`character.json` /
+  `nsfw`, ADR-0010). Pas d'interrupteur global — il n'y a rien qui vaille
+  pour tous les personnages à la fois. Jamais de porte d'armement dans le
+  flux de production
+- L'outil de modification live par IA est un **graphe de pack**
+  (`universe.json` / `edit_workflow`, nullable) : son étage d'identité est
+  lié à la famille de modèle, comme le verrou (§4). Le cran d'édition n'est
+  proposé que si le personnage est armé **et** que son pack déclare ce
+  graphe — sinon il est **absent**, jamais grisé, et l'interface dit
+  pourquoi (ADR-0013)
 - La vidéo NSFW suit la même logique une fois la vidéo SFW disponible (V2,
   voir `ROADMAP.md`) — pas de conception anticipée avant que la vidéo SFW
   existe
@@ -216,9 +227,10 @@ dans un ordre précis.
 10. Toute exposition MCP (existante ou future) reste **lecture et
     validation seulement** — jamais de génération, jamais d'écriture,
     jamais un raccourci qui court-circuite QC, tri ou garde-fous (§10)
-11. Il n'existe jamais un fichier de graphe par personnage. Le wizard
-    attache un personnage au pack de sa famille, il ne génère aucun graphe
-    à la création (§4, ADR-0012)
+11. Il n'existe jamais un fichier de graphe par personnage, ni pour la
+    production ni pour l'édition. Le wizard attache un personnage au pack de
+    sa famille, il ne génère aucun graphe à la création (§4, ADR-0012) ; un
+    `config.json` ne porte aucun chemin de graphe (ADR-0013)
 
 ## 9 · Frontend
 
