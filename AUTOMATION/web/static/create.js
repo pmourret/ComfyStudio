@@ -942,9 +942,12 @@ $$('#qual button').forEach(b => b.onclick = () => {
 // se rafraichir a la frappe, pas seulement en quittant le champ
 $('#editInstr').addEventListener('input', refreshPlan);
 
-$('#btnGear').onclick = e => {
-  e.stopPropagation(); $('#gearPanel').classList.toggle('on');
-};
+/* Exporte : le rail d'outils ouvre le MEME panneau que l'engrenage de la barre
+   de lancement. Deux boutons, un seul etat — pas une seconde surface de
+   reglages, qui pourrait diverger de celle-ci. */
+export function toggleGear(){ $('#gearPanel').classList.toggle('on'); }
+
+$('#btnGear').onclick = e => { e.stopPropagation(); toggleGear(); };
 $('#btnRun').onclick = async () => {
   $('#btnRun').disabled = true;
   // optimiste : sans ca, RUNNING reste faux jusqu'au prochain tick() (1,5 s),

@@ -70,6 +70,19 @@
   <button class="btn sm" id="btnRecharger">Réessayer</button>
 </div>
 
+<!-- `.shell` : rail + <main> cote a cote, sous le header et la barre d'intensite.
+     Le rail est HORS de <main> exprès — il ne defile pas avec le contenu, il
+     tient toute la hauteur, et il est UN seul element partage par les ecrans qui
+     l'affichent (Produire et Banque) plutot qu'un bloc recopie dans chacun. -->
+<div class="shell">
+
+<!-- RAIL D'OUTILS — ce n'est pas une seconde navigation. Les cinq onglets du
+     header restent le chrome ; le rail porte les OUTILS du pack (lus dans
+     tools.json via /api/universe/tools) et les raccourcis d'atelier qui ne sont
+     pas des destinations primaires. Bati par rail.js : le laisser vide ici evite
+     un squelette qui mentirait avant /api/universe/tools. -->
+<nav class="rail" id="toolRail" aria-label="Outils de l'atelier"></nav>
+
 <main>
 <!-- ============================================================== REGISTRE
      Sas d'entree (J7bis) : l'app s'ouvre ici quand aucun ?character= n'est
@@ -459,6 +472,7 @@
   </div>
 </div>
 </main>
+</div><!-- /.shell -->
 </div>
 
 <dialog id="declineBox"><div class="card" id="declineCard"></div></dialog>

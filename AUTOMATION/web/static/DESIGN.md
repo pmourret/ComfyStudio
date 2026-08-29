@@ -88,6 +88,11 @@ dans un menu.
 | **Article centré** | registre, banque, revue, réglages, wizard | `.wrap` à `--maxw`, marges auto |
 | **Poste de travail** | **Créer** seulement | `#creer .wrap.split` en pleine largeur ; l'inspecteur touche le bord droit du **viewport**, pas celui d'un wrap |
 
+Depuis le 29/08/2026 les deux modèles vivent à droite d'un **rail** de 200 px
+(voir ci-dessous) : « pleine largeur » et « centré » s'entendent désormais dans
+`<main>`, pas dans le viewport. Le rail est hors de `<main>`, donc hors des deux
+modèles — il ne défile pas et ne participe d'aucun wrap.
+
 Créer a changé de modèle le 29/08/2026 : `--maxw` y laissait ~200 px de gouttière
 de chaque côté sur un écran large, et l'inspecteur collait au bord droit du wrap.
 La correction n'est **pas** de monter `--maxw` — ce serait garder le modèle et le
@@ -96,6 +101,48 @@ distendre. Les deux surfaces de chrome qui bordent l'écran suivent
 que la barre d'intensité vit hors des écrans). La colonne de droite est en
 `clamp(280px, 22vw, 420px)` : la borne haute est la largeur réelle de la vignette
 servie, au-delà on afficherait un fichier remonté au-dessus de sa résolution.
+
+## Le rail d'outils n'est pas une seconde navigation
+
+`.rail` (200 px, hors de `<main>`, dans `.shell`) porte les **outils du pack**
+— lus dans `UNIVERS/<pack>/tools.json` via `/api/universe/tools` — et les
+raccourcis d'atelier. Les **cinq onglets du header restent le chrome** : aucune
+de leurs destinations n'est recopiée dans le rail.
+
+| | Dans le rail | Jamais dans le rail |
+|---|---|---|
+| | outils déclarés par le pack, raccourcis Banque/Poses, ⚙ réglages de **génération** | Personnages, Produire, Revue, Réglages **de l'app**, n° de version, ETA (déjà dans `#stTxt`) |
+
+Le rail ne connaît ni le personnage ni le pack (CLAUDE.md §8.7). Il lit le champ
+`surface` de chaque outil et cherche ce que cette surface ouvre dans la table
+`SURFACES` de `rail.js` — **une table de données, jamais un `if`**. Surface
+inconnue → bouton **inerte qui dit pourquoi**, jamais une destination inventée.
+Vérifié : Léna (`instagram-influenceur`) et Abyssiaelle (`rpg-personnage`)
+rendent un rail identique, au caractère près.
+
+Il s'affiche là où ses entrées ont une surface — **Produire et Banque** —, au
+dessus de 1100 px, personnage chargé, hors mode éditeur. Sous 1100 px il
+disparaît : les onglets suffisent, **pas de hamburger, aucune destination
+repliée**. La condition est écrite en `@media(min-width:1101px)` avec
+`:not(.no-character):not(.editing):has(…)`, ce qui fait du masquage le défaut.
+
+`--rail` (0 ou 200 px) existe pour **une** raison : `.launch` est
+`position:fixed`, donc aveugle à la grille — sans `left:var(--rail)` la barre de
+lancement passerait sous le rail. La variable porte exactement la même condition
+que l'affichage : une condition écrite deux fois, jamais deux conditions.
+
+## La banque a deux sous-vues
+
+`#scenes` porte un `.seg` **Scènes | Poses** au-dessus de deux enveloppes
+(`#bankScenes` / `#bankPoses`) que `setBankView()` montre ou masque — aucune
+n'est repeinte à la bascule. Hash partageable : `#scenes` et `#scenes/poses`,
+résolu par `ROUTES` dans `constants.js`, qui allume l'onglet **Banque** dans les
+deux cas. L'onglet Banque rouvre toujours sur **Scènes** : la sous-vue laissée
+au passage précédent n'est écrite nulle part dans l'URL.
+
+La barre « Enregistrer scenes.json » reste visible sur les deux vues — elle
+enregistre le document de l'écran, et une édition en attente sur l'autre vue
+doit garder son bouton pendant que `#dirtyBar` avertit.
 
 ## Collision de noms de classe — la carte est scopée à sa grille
 
@@ -148,4 +195,9 @@ chargé + menu changer de perso / registre / nouveau), `.brand-av` (pastille
 d'initiale, 32 px), `.tabs` (nav studio à plat), `.status` + `.status-lab`
 (zone santé ComfyUI), `.intbar` (curseur d'intensité). `body.no-character`
 réduit le chrome au sas.
+**Rail d'outils** *(29/08/2026)* — `.shell` (rail + `<main>` côte à côte) >
+`.rail` > `.rail-grp` / `.rail-lab` / `.rail-it` (états `.on` / `:disabled`) /
+`.rail-foot` (⚙, collé en bas) / `.rail-msg` (+ `.rail-ko` en panne).
+**Sous-vues de la banque** *(29/08/2026)* — `.bankview` (un `.seg`) +
+`#bankScenes` / `#bankPoses`.
 **Divers** — `#toast`, `.empty` (état vide).

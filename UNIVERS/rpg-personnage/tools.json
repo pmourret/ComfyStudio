@@ -1,6 +1,12 @@
 {
   "tools": [
     {
+      "id": "posing",
+      "label": "Poses",
+      "scope": "global",
+      "surface": "bank-poses"
+    },
+    {
       "id": "image-editor",
       "label": "Éditeur d'image",
       "scope": "global",
@@ -12,7 +18,10 @@
     "l'univers instagram-influenceur : on ne liste que ce qui existe vraiment.",
     "Les outils orientes monde/lore (editeur de lore, carte, PNJ) sont V3 et ne",
     "sont pas listes ici tant qu'ils n'existent pas.",
-    "En J4 : aucun personnage de cet univers, donc ce panel n'est encore rendu",
-    "nulle part — il est deja declaratif pour que J6 n'ait qu'a onboarder."
+    "Depuis le 29/08/2026 ce fichier est RENDU par le rail d'outils (rail.js), via",
+    "/api/universe/tools. `posing` y est declare avec la MEME entree que l'univers",
+    "instagram-influenceur : la pose est un outil global (CLAUDE.md §5), seul le",
+    "modele ControlNet depend de la famille technique du pack — pas le panel.",
+    "Voir les notes de instagram-influenceur/tools.json pour le contrat `surface`."
   ]
 }

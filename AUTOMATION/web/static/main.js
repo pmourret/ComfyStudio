@@ -12,6 +12,7 @@ import './nav.js';
 import './advanced.js';
 import './appli.js';
 import './editor.js';
+import {loadRail} from './rail.js';
 import {reflectCharacter, characterIsExplicit} from './character.js';
 import {go} from './nav.js';
 import {loadConfig} from './config.js';
@@ -36,6 +37,9 @@ Promise.all([loadConfig(), loadCreative()]).then(() => {
   // ?character=<id> (ou #hash) reste honore.
   go(characterIsExplicit() ? (location.hash.slice(1) || 'creer') : 'registre', true);
   loadScenes(); tick(); nsfwTick();
+  // le rail lit le pack DU personnage courant : sans ?character=, l'appel n'a
+  // pas de sujet — et le rail est de toute facon masque sur le sas d'entree
+  if (characterIsExplicit()) loadRail();
 });
 setInterval(tick, 1500);
 // la grille de sources ne se rafraichit que quand elle est a l'ecran : c'est le

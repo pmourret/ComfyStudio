@@ -70,7 +70,15 @@ header{display:flex;align-items:center;gap:20px;padding:0 20px;height:56px;
    seuil AA. Les crans lv0 et lv2 posaient deja --bg, lv3 etait le seul ecart —
    et c'est le cran qu'on veut lire sans hesiter. */
 .intbar .seg button.lv3.on{background:var(--bad);color:var(--bg)}
-main{flex:1;overflow:auto;position:relative}
+/* `.shell` : la bande sous le header, la barre d'intensite et le bandeau de
+   panne — rail a gauche, contenu a droite. `min-height:0` sur un enfant de
+   colonne flex, sinon la bande refuse de descendre sous la hauteur de son
+   contenu et c'est la PAGE qui defilerait, pas <main>. */
+.shell{flex:1;display:flex;min-height:0}
+/* `min-width:0` pour la meme raison, sur l'axe horizontal : sans lui une grille
+   large (l'ecran Creer en pleine largeur) pousserait <main> au-dela de la place
+   laissee par le rail, et la page prendrait un defilement horizontal. */
+main{flex:1;min-width:0;overflow:auto;position:relative}
 .screen{display:none;height:100%}
 .screen.on{display:block}
 .wrap{max-width:var(--maxw);margin:0 auto;padding:24px 20px 120px}

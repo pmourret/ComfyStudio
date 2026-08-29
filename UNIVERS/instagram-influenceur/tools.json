@@ -1,6 +1,12 @@
 {
   "tools": [
     {
+      "id": "posing",
+      "label": "Poses",
+      "scope": "global",
+      "surface": "bank-poses"
+    },
+    {
       "id": "image-editor",
       "label": "Éditeur d'image",
       "scope": "global",
@@ -13,7 +19,13 @@
     "posing) ; scope 'universe' : outil qui n'a de sens que dans ce monde.",
     "On ne liste ici QUE ce qui existe vraiment — un outil implemente mais non",
     "enregistre n'apparait nulle part, et c'est voulu (skill nouvel-outil).",
-    "Le rendu data-driven du panel a l'ecran arrive avec le premier outil dedie",
-    "(J5+) ; en J4 ce fichier est expose par /api/universe/tools sans ecran encore."
+    "Depuis le 29/08/2026 ce fichier est RENDU : le rail d'outils (rail.js) le lit",
+    "via /api/universe/tools. `surface` dit ce que l'outil ouvre, et c'est la",
+    "SEULE chose que le rail sait interpreter — la table des surfaces connues vit",
+    "dans rail.js, jamais un test sur le personnage ou l'univers (CLAUDE.md §8.7).",
+    "Surfaces connues : 'bank-poses' (banque, sous-vue Poses), 'bank-scenes'.",
+    "Une surface absente de cette table rend un bouton inerte qui DIT pourquoi —",
+    "on n'invente pas une destination ('review-lightbox' est dans ce cas : l'editeur",
+    "s'ouvre depuis une image de la Revue, il n'a pas de point d'entree propre)."
   ]
 }
