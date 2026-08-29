@@ -20,6 +20,7 @@ export const characterIsExplicit = () => PARAMS.has('character');
    reste (regle frontend : jamais un echec silencieux, mais pas d'ecran casse).
    fetch direct plutot que api() pour ne pas creer de cycle d'import avec api.js. */
 export function reflectCharacter(){
+  wireIdMenu();
   if (!characterIsExplicit()){ paintNeutral(); return; }
   paint({id: CURRENT});
   fetch(`/api/character?character=${encodeURIComponent(CURRENT)}`)
@@ -48,4 +49,54 @@ function paint(d){
     brand.innerHTML = parts.join(' ');
   }
   document.title = `${d.name || d.id} — production`;
+}
+
+/* Menu identité du chrome (#btnId / #idMenu) : changer de personnage, revenir
+   au registre, en creer un. La zone appartient a ce module ; nav.js n'en
+   appelle que la fermeture (closeIdMenu). */
+let switcherLoaded = false;
+
+function wireIdMenu(){
+  const btn = document.getElementById('btnId');
+  const menu = document.getElementById('idMenu');
+  if (!btn || !menu || btn.dataset.wired) return;
+  btn.dataset.wired = '1';
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = menu.classList.toggle('on');
+    btn.classList.toggle('on', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) fillSwitcher();
+  });
+}
+
+export function closeIdMenu(){
+  const btn = document.getElementById('btnId');
+  const menu = document.getElementById('idMenu');
+  if (menu) menu.classList.remove('on');
+  if (btn){ btn.classList.remove('on'); btn.setAttribute('aria-expanded', 'false'); }
+}
+
+/* Liste des AUTRES personnages, chargee au premier ouverture du menu (une
+   seule fois). Chaque entree recharge en ?character=<id> — contrat V1. Echec
+   -> message dans le menu, jamais un menu vide muet ; reessayable. */
+function fillSwitcher(){
+  if (switcherLoaded) return;
+  const box = document.getElementById('idSwitch');
+  if (!box) return;
+  switcherLoaded = true;
+  fetch('/api/characters')
+    .then(r => r.json())
+    .then(d => {
+      const others = (Array.isArray(d && d.characters) ? d.characters : [])
+        .filter(c => c.id !== CURRENT);
+      box.innerHTML = others.map(c =>
+        `<a href="?character=${encodeURIComponent(c.id)}">${esc(c.name || c.id)}`
+        + `<small>${esc(c.type || c.id)}</small></a>`).join('')
+        || `<span class="tiny">aucun autre personnage</span>`;
+    })
+    .catch(() => {
+      switcherLoaded = false;
+      box.innerHTML = `<span class="tiny">liste indisponible</span>`;
+    });
 }

@@ -60,5 +60,8 @@ bord cohérent, de structure identique, d'ambiance différente.
 (`.edWrap`), `#lightbox`.
 **Bandeaux d'état** (haut d'écran, `flex:none`) — `#panneBar` (panne de
 chargement), `#dirtyBar` (modifications non enregistrées).
-**Divers** — `#toast`, `.empty` (état vide), `.advmenu` (menu Avancé),
-`.intbar` (curseur d'intensité).
+**Chrome** — `.idwrap` / `.idmenu` (zone identité de l'en-tête : personnage
+chargé + menu changer de perso / registre / nouveau), `.tabs` (nav studio à
+plat), `.status` + `.status-lab` (zone santé ComfyUI), `.intbar` (curseur
+d'intensité). `body.no-character` réduit le chrome au sas.
+**Divers** — `#toast`, `.empty` (état vide).

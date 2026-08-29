@@ -35,21 +35,37 @@
 .sc .aff{position:absolute;top:8px;left:8px;background:#000000aa;color:var(--acc);
          border-radius:10px;padding:1px 7px;font-size:10.5px;font-weight:700}
 
-/* menu Avance : tout ce qui n'est plus dans le chemin par defaut */
-/* actif quand un ecran ouvert depuis ce menu est affiche (scenes/journal/nsfw) :
-   ces ecrans n'ont pas d'onglet dans .tabs, sans ca rien n'indiquait plus
-   quelle section etait active */
-#btnAdv.on{background:var(--acc);border-color:var(--acc);color:var(--on-acc);font-weight:600}
-.advwrap{position:relative}
-.advmenu{position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);
-         border:1px solid var(--line2);border-radius:9px;padding:5px;min-width:190px;
-         box-shadow:0 12px 30px #0009;z-index:20;display:none}
-.advmenu.on{display:block}
-.advmenu button{display:flex;width:100%;align-items:center;gap:8px;background:none;
-        border:0;color:var(--txt);padding:8px 11px;border-radius:6px;cursor:pointer;
-        font-size:13.5px;text-align:left}
-.advmenu button:hover{background:var(--panel2)}
-.advmenu button .n{margin-left:auto;font-size:11px;color:var(--dim)}
+/* zone IDENTITE du chrome : nom du personnage charge + menu (changer de perso,
+   revenir au registre, en creer un). Remplace le menu « Avancé » : ses entrees
+   sont maintenant soit des onglets de .tabs, soit un sous-ecran de Réglages. */
+.idwrap{position:relative;display:flex;align-items:baseline;gap:6px;min-width:0}
+#btnId{background:none;border:0;color:var(--dim);cursor:pointer;font-size:12px;
+       line-height:1;padding:5px 7px;border-radius:6px}
+#btnId:hover{color:var(--txt);background:var(--panel2)}
+#btnId.on{color:var(--txt);background:var(--panel2)}
+.idmenu{position:absolute;left:0;top:calc(100% + 8px);background:var(--panel);
+        border:1px solid var(--line2);border-radius:9px;padding:5px;min-width:230px;
+        box-shadow:0 12px 30px #0009;z-index:20;display:none}
+.idmenu.on{display:block}
+.idmenu a{display:flex;width:100%;align-items:baseline;gap:8px;background:none;
+        border:0;color:var(--txt);text-decoration:none;padding:8px 11px;
+        border-radius:6px;cursor:pointer;font-size:13.5px;text-align:left}
+.idmenu a:hover{background:var(--panel2)}
+.idmenu a small{color:var(--dim);font-size:11px}
+.idmenu .sep{border-top:1px solid var(--line);margin:5px 0}
+.idmenu #idSwitch:empty+.sep{display:none}
+.idmenu #idSwitch .tiny{display:block;padding:7px 11px}
+
+/* zone SANTE : petit label pour lever l'ambiguite du point (up/down ComfyUI) */
+.status-lab{font-size:11px;text-transform:uppercase;letter-spacing:.9px;
+        color:var(--dim2);font-weight:600}
+
+/* sas d'entree (pas de ?character=) : le chrome ne revendique aucun personnage
+   — il se reduit a « Personnages » + le titre neutre. Onglets studio, menu de
+   perso et barre d'intensité masques tant qu'un personnage n'est pas charge. */
+body.no-character .tabs button:not([data-s="registre"]){display:none}
+body.no-character #btnId{display:none}
+body.no-character .intbar{display:none}
 
 /* panneau de reglages, ouvert par l'engrenage de la barre de lancement */
 #gearPanel{position:fixed;right:20px;bottom:96px;width:min(620px,calc(100vw - 40px));

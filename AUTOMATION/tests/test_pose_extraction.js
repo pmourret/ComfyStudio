@@ -48,8 +48,7 @@ const comfyUp = () => new Promise(r => {
 
   await page.goto(B + '/?character=lena', { waitUntil: 'networkidle' });
   await page.waitForTimeout(1000);
-  await page.click('#btnAdv');
-  await page.click('.advmenu button[data-s="scenes"]');
+  await page.click('.tabs button[data-s="scenes"]');
   await page.waitForTimeout(600);
 
   const avantList = await page.evaluate(() => fetch('/api/scenes').then(r=>r.json()).then(d=>d.poses));

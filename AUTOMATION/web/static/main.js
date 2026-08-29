@@ -23,6 +23,10 @@ import {tick} from './poller.js';
 // personnage courant reflete dans l'en-tete avant tout le reste : un
 // rechargement en ?character=<x> doit se voir, pas seulement passer dans /api/*
 reflectCharacter();
+// sas d'entree : sans ?character=, le chrome ne revendique aucun personnage —
+// `body.no-character` masque les onglets studio, le menu de perso et la barre
+// d'intensité (CSS). Un rechargement en ?character=<id> les fait apparaitre.
+document.body.classList.toggle('no-character', !characterIsExplicit());
 
 // config (bandes de score, valeurs mesurees) et taxonomie d'abord : elles
 // conditionnent les deux ecrans ; leurs `*:loaded` declenchent les repeints

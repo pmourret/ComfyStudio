@@ -125,13 +125,12 @@ const B = (process.env.DASHBOARD_URL || 'http://127.0.0.1:8199') + '/?character=
   dire((await page.textContent('#btnRun')).trim() === 'Générer', 'le bouton redit « Générer »');
 
   console.log('\n[8] onglet NSFW parallele');
-  const adv = await page.$$eval('.advmenu button', e => e.map(x => x.dataset.s));
-  dire(!adv.includes('nsfw'), `menu Avance : ${adv.join(', ')}`);
+  const navTabs = await page.$$eval('.tabs button', e => e.map(x => x.dataset.s));
+  dire(!navTabs.includes('nsfw'), `nav studio : ${navTabs.join(', ')}`);
   dire((await page.$$('#nsfw')).length === 0, 'l\'ecran #nsfw n\'existe plus');
 
   console.log('\n[9] editeur de scenes — schema simplifie');
-  await page.click('#btnAdv');
-  await page.click('.advmenu button[data-s="scenes"]');
+  await page.click('.tabs button[data-s="scenes"]');
   await page.waitForTimeout(700);
   const cartes = await page.$$('#sceneCards .sceneCard');
   dire(cartes.length > 0, `${cartes.length} cartes de scene`);

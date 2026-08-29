@@ -12,29 +12,46 @@
 <body>
 <div class="app">
 <header>
-  <div class="brand" id="brand">Studio</div>
-  <div class="tabs">
-    <button class="on" data-s="creer">Créer</button>
-    <button data-s="galerie">Galerie <span class="n" id="nGal">0</span></button>
-    <button data-s="trier">Revue <span class="n" id="nTri">0</span></button>
-  </div>
-  <div class="status"><span class="dot" id="dot"></span><span id="stTxt">connexion…</span></div>
-  <div class="advwrap">
-    <button class="btn sm" id="btnAdv">⚙ Avancé</button>
-    <!-- l'onglet « Branche NSFW » a disparu le 26/08/2026 : son ecran EST
-         desormais le cran NSFW du curseur. Deux entrees pour la meme operation
-         donnaient deux champs d'instruction qui s'ignoraient. -->
-    <div class="advmenu" id="advMenu">
-      <button data-s="registre">Registre des personnages</button>
-      <button data-s="wizard">Nouveau personnage</button>
-      <button data-s="scenes">Banque de scènes</button>
-      <button data-s="journal">Journal</button>
-      <button data-s="appli">Application</button>
+  <!-- zone IDENTITE : le personnage charge (nom + type + monde, peints par
+       character.js) et un menu pour changer de perso, revenir au registre ou
+       en creer un. Le wizard est une ACTION d'ici, pas un onglet du chrome
+       (DOCS/cadrage/2026-08-28-flux-usage-studio.md). Sans ?character= dans
+       l'URL, `body.no-character` masque le bouton : le sas ne revendique aucun
+       personnage. -->
+  <div class="idwrap">
+    <div class="brand" id="brand">Studio</div>
+    <button id="btnId" aria-haspopup="true" aria-expanded="false"
+            title="Changer de personnage">▾</button>
+    <div class="idmenu" id="idMenu">
+      <div id="idSwitch"></div>
+      <div class="sep"></div>
+      <a href="#registre">Registre des personnages</a>
+      <a href="#wizard">+ Nouveau personnage</a>
     </div>
   </div>
+
+  <!-- nav STUDIO : cinq destinations, a plat. Le menu « Avancé » a disparu —
+       ses entrees etaient soit du premier plan (Personnages, Banque, Réglages),
+       soit un sous-ecran (Journal, desormais dans Réglages). L'onglet « Branche
+       NSFW » avait deja disparu le 26/08/2026 : son ecran EST le cran NSFW du
+       curseur d'intensité. -->
+  <div class="tabs">
+    <button data-s="registre">Personnages</button>
+    <button class="on" data-s="creer">Produire</button>
+    <button data-s="trier">Revue <span class="n" id="nTri">0</span></button>
+    <button data-s="scenes">Banque</button>
+    <button data-s="appli">Réglages</button>
+  </div>
+
+  <!-- zone SANTE : ComfyUI joignable ou non (#dot) + progression du batch en
+       cours (#stTxt), tels quels depuis /api/state via poller.js. Une file de
+       jobs en attente n'existe pas encore cote serveur — vague 2. -->
+  <div class="status"><span class="status-lab">Comfy</span>
+    <span class="dot" id="dot"></span><span id="stTxt">connexion…</span></div>
 </header>
 
-<!-- barre d'intensite : seul controle global, visible sur tous les ecrans -->
+<!-- barre d'intensite : seul controle global, visible sur tous les ecrans d'un
+     personnage charge. `body.no-character` la masque sur le sas d'entree. -->
 <div class="intbar">
   <div class="inner">
     <span class="lab">Intensité</span>
@@ -193,8 +210,12 @@
 <div class="screen" id="trier">
   <div class="wrap">
     <div class="viewsel">
+      <!-- `data-sp="lena"` reste la cle de fil (envoyee a /api/gallery,
+           /img?space=… et lue par review.js) : SFW, pas le nom d'un
+           personnage. Seul le libellé change — plus de « Léna » figé quand un
+           autre personnage est chargé. -->
       <div class="seg" id="spaceSel">
-        <button class="on" data-sp="lena">Léna</button>
+        <button class="on" data-sp="lena">SFW</button>
         <button data-sp="nsfw">NSFW</button>
       </div>
       <div class="seg" id="bucketSel">
@@ -337,7 +358,12 @@
       <button class="btn danger" id="btnComfyStop">Arrêter</button>
     </div>
 
-    <h2 style="margin-top:34px">Journal</h2>
+    <h2 style="margin-top:34px">Journal des productions</h2>
+    <p class="tiny" style="margin:6px 0 10px">L'historique des batchs — date, scène,
+      format, score, verdict, durée. <a class="link" href="#journal">Ouvrir le
+      journal des productions</a></p>
+
+    <h2 style="margin-top:34px">Journal du serveur</h2>
     <pre class="log" id="appliLog" style="display:block;max-height:220px"></pre>
   </div>
 </div>

@@ -25,8 +25,7 @@ catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'
   await page.waitForTimeout(1200);
 
   console.log('\n[1] onglet Scenes, champ pose');
-  await page.click('#btnAdv');
-  await page.click('.advmenu button[data-s="scenes"]');
+  await page.click('.tabs button[data-s="scenes"]');
   await page.waitForTimeout(700);
   const selects = await page.$$('#sceneCards [data-f="pose"]');
   dire(selects.length > 0, `${selects.length} selecteurs de pose rendus`);
@@ -61,8 +60,7 @@ catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'
   dire(await badge.count() > 0, 'le badge « pose » est visible sur la carte de scene');
 
   console.log('\n[4] retour a vide, aller-retour propre');
-  await page.click('#btnAdv');
-  await page.click('.advmenu button[data-s="scenes"]');
+  await page.click('.tabs button[data-s="scenes"]');
   await page.waitForTimeout(700);
   await page.locator('#sceneCards [data-f="pose"]').first().selectOption('');
   await page.waitForTimeout(300);

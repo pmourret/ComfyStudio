@@ -22,9 +22,17 @@ export async function loadRegistre(){
   signalerPanne('registre', null);
   LOADED = true;
 
+  // <a href="#wizard"> : la navigation passe par le hashchange de nav.js, ce
+  // qui evite un cycle d'import registre <-> nav. Presente MEME registre vide :
+  // sinon une machine neuve (CHARACTERS/ absent, cas prevu) ouvre un sas sans
+  // aucun chemin vers le wizard.
+  const newCard = `<a class="char-card char-card--new" href="#wizard">`
+    + `<b>+ Nouveau personnage</b>`
+    + `<span class="tiny">type, style et monde — figés à la création</span></a>`;
+
   if (!d.characters.length){
-    grid.innerHTML = `<div class="empty"><b>Aucun personnage</b>`
-      + `Le dossier CHARACTERS/ est vide sur cette machine.</div>`;
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><b>Aucun personnage</b>`
+      + `Le dossier CHARACTERS/ est vide sur cette machine.</div>` + newCard;
     return;
   }
 
@@ -43,10 +51,6 @@ export async function loadRegistre(){
       + `<b>${esc(c.name || c.id)}</b><code>${esc(c.id)}</code>`
       + `<div class="char-tags">${tags}</div></a>`;
   });
-  // <a href="#wizard"> : la navigation passe par le hashchange de nav.js, ce
-  // qui evite un cycle d'import registre <-> nav.
-  cards.push(`<a class="char-card char-card--new" href="#wizard">`
-    + `<b>+ Nouveau personnage</b>`
-    + `<span class="tiny">type, style et monde — figés à la création</span></a>`);
+  cards.push(newCard);
   grid.innerHTML = cards.join('');
 }

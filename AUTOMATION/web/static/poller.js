@@ -49,7 +49,9 @@ export async function tick(){
   ['OK', 'A_REVOIR', 'REJET', 'SANS_VISAGE', 'ARCHIVE'].forEach(b => {
     const el = $('#b' + b); if (el) el.textContent = (bcounts && bcounts[b]) ?? 0; });
   $('#nTri').textContent = s.counts.A_REVOIR ?? 0;
-  $('#nGal').textContent = s.counts.OK ?? 0;
+  // Galerie n'a plus d'onglet dans le shell studio (hash #galerie seulement) :
+  // le badge #nGal peut ne pas exister.
+  const nGal = $('#nGal'); if (nGal) nGal.textContent = s.counts.OK ?? 0;
   $('#btnUndo').disabled = !s.undo;
   renderRun(s);
   // memes criteres que refreshPlan() (create.js), plus planOk() qu'elle seule

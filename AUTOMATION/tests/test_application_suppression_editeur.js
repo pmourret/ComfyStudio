@@ -62,8 +62,7 @@ process.on('exit', nettoyer);
 
   // ============================================================== POSES
   console.log('\n[1] banque de poses (ecran Scenes)');
-  await page.click('#btnAdv');
-  await page.click('.advmenu button[data-s="scenes"]');
+  await page.click('.tabs button[data-s="scenes"]');
   await page.waitForTimeout(700);
   dire(await page.isVisible('#poseGrid'), 'la grille de squelettes est visible');
   const nPoses = await page.$$eval('#poseGrid .posecard', e => e.length);
@@ -73,8 +72,7 @@ process.on('exit', nettoyer);
 
   // ============================================================ APPLICATION
   console.log('\n[2] écran Application — présence, PAS d\'exécution');
-  await page.click('#btnAdv');
-  await page.click('.advmenu button[data-s="appli"]');
+  await page.click('.tabs button[data-s="appli"]');
   await page.waitForTimeout(500);
   dire(await page.isVisible('#btnAppRestart'), 'bouton redémarrer (dashboard)');
   dire(await page.isVisible('#btnAppStop'), 'bouton arrêter (dashboard)');
