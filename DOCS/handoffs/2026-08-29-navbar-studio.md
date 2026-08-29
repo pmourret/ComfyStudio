@@ -151,15 +151,82 @@ icônes imposées sous 1100 px ; navigation répondant à toutes les largeurs.
 Produire), `role` (ligne de rôle de l'inspecteur) et `hints` (infobulles) ont
 été rejouées — vertes.
 
-## Ouvert
+## Les trois points ouverts, vérifiés
 
-- **Les icônes sont neuves** et faites maison (SVG inline, `currentColor`). Le
-  studio n'en avait aucune ; celles-ci sont volontairement sobres. Si un jeu
-  d'icônes cohérent arrive un jour, c'est ici qu'il se pose — cinq `<svg>` dans
-  `index.html`, rien d'autre à toucher.
-- **Le raccourci `f` n'est annoncé nulle part.** Il n'y a pas d'écran d'aide, et
-  le bouton du pied suffit à découvrir le mode. À revoir si d'autres raccourcis
-  globaux arrivent — il faudra alors un endroit qui les liste.
-- **`localStorage` entre dans le projet.** Un seul usage, une seule clé
-  (`studio.nav-mince`), sous `try/catch`. Si d'autres préférences de chrome
-  suivent, elles mériteront un petit module dédié plutôt qu'une clé par fichier.
+Passe de vérification menée avant de boucler. **Elle a trouvé deux vrais
+défauts** — aucun des deux n'était le risque que j'avais anticipé.
+
+### 1 · Les icônes — et le défaut qu'elles ont révélé
+
+Mesuré : les cinq font 20×20, 1 à 4 tracés chacune, toutes `aria-hidden` et
+`focusable="false"` (le nom accessible vient du libellé). Elles suivent
+`currentColor`, donc l'état du bouton. Rien hors d'`index.html` ne connaît leur
+dessin : les remplacer reste bien un bloc à échanger.
+
+**Mais la capture a montré deux entrées surlignées à la fois.** Mesure :
+
+| | fond | couleur | graisse |
+|---|---|---|---|
+| survolé | `rgb(35,40,49)` | `rgb(230,232,238)` | 400 |
+| écran courant | `rgb(35,40,49)` | `rgb(230,232,238)` | **600** |
+
+**Survol et destination courante étaient identiques à la graisse près.** Sur une
+rangée d'onglets on ne s'attardait pas dessus ; dans une colonne on promène le
+pointeur le long de la liste, et « où suis-je » devenait ambigu dès qu'il s'y
+posait. Le défaut préexistait — la navbar l'a rendu visible.
+
+Corrigé : l'écran courant porte une **barre d'accent à gauche**, que le survol ne
+pose jamais. Une forme et une position, pas seulement une teinte — « statut
+jamais par la couleur seule » (`frontend.md`).
+
+### 2 · Le raccourci `f`
+
+Confirmé annoncé nulle part (le bouton dit seulement « Mode focus »). Conflits
+passés en revue, un par un :
+
+| Contexte | Attendu | Mesuré |
+|---|---|---|
+| panneau ⚙ ouvert | entre en focus, le panneau survit | ✔ (il sert au travail) |
+| écran Revue (`v/r/x/a/d/c/i/u` pris) | entre en focus, ne trie rien | ✔ |
+| `<textarea>` de la banque | ne fait rien, le `f` va dans le champ | ✔ |
+| **menu d'identité ouvert** | ne fait rien | **✘ — il entrait en focus** |
+
+**Le défaut** : le menu d'identité vit *dans* le header. Entrer en focus le
+faisait disparaître au milieu d'une interaction, en le laissant ouvert dans le
+DOM. Le focus était sur un `<a>` du menu, donc la garde `input|textarea|select`
+ne mordait pas, et le menu n'est pas un `<dialog>`.
+
+Corrigé : `f` est ignoré tant que `#idMenu` est ouvert — et tant que la loupe
+l'est, pour la même raison (basculer le chrome derrière un voile n'a aucun sens
+visible). Échap ferme d'abord, puis `f` retrouve son sens. Vérifié dans cet
+ordre.
+
+### 3 · `localStorage`
+
+Le seul point qui est ressorti **intact**.
+
+| Scénario | Résultat |
+|---|---|
+| accesseur qui lève (fenêtre privée, cookies bloqués) | chrome **normal** (208 px), 0 erreur JS ; le repli marche toujours, il n'est simplement pas retenu |
+| valeur corrompue (`{oops`) | retombe sur le chrome normal, 0 erreur JS |
+| clés écrites après repli + deux `f` | `["studio.nav-mince"]` — une seule, et le focus n'est pas retenu |
+
+Le contrat visé est tenu : un réglage de confort perdu rend le chrome normal,
+**jamais un studio bloqué en focus**.
+
+## Vérifié (après corrections)
+
+8 fumigations vertes, aucune modifiée. Sonde de vérification : 24 assertions
+vertes. Sondes `nav`, `nav2`, et celles des sessions UX 1 à 6 (`intbar`, `role`,
+`hints`) rejouées : vertes.
+
+## Reste ouvert
+
+- **Aucun endroit ne liste les raccourcis globaux.** `f` reste découvrable par
+  le bouton du pied, qui nomme l'action. Le jour où un deuxième raccourci global
+  arrive, il faudra un endroit qui les liste — pas avant, sous peine d'inventer
+  un écran d'aide pour une seule touche.
+- **Les icônes sont faites maison** et volontairement sobres. Si un jeu cohérent
+  arrive, il se pose ici — cinq `<svg>` dans `index.html`.
+- **`localStorage` n'a qu'une clé.** Si d'autres préférences de chrome suivent,
+  elles mériteront un petit module dédié plutôt qu'une clé par fichier.

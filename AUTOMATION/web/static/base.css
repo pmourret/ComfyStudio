@@ -46,7 +46,19 @@ header{display:flex;align-items:center;gap:20px;padding:0 20px;height:56px;
   background:none;border:0;color:var(--dim);padding:9px 11px;border-radius:8px;
              cursor:pointer;font-size:14px}
 .tabs button:hover{color:var(--txt);background:var(--panel2)}
+/* Mesure du 29/08/2026 : survol et destination courante posaient EXACTEMENT le
+   meme fond et la meme couleur, la graisse etant leur seule difference. Sur une
+   rangee d'onglets on ne s'attardait pas dessus ; dans une colonne on promene le
+   pointeur le long de la liste, et « ou suis-je » devenait ambigu des qu'il s'y
+   posait.
+
+   Le repere de l'ecran courant est donc une BARRE D'ACCENT a gauche, que le
+   survol ne pose jamais. Une forme et une position, pas seulement une teinte :
+   « statut jamais par la couleur seule » (frontend.md). */
+.tabs button{position:relative}
 .tabs button.on{color:var(--txt);background:var(--panel2);font-weight:600}
+.tabs button.on::before{content:"";position:absolute;left:0;top:6px;bottom:6px;
+  width:3px;border-radius:0 3px 3px 0;background:var(--acc)}
 /* `margin-left:auto` : le compteur se cale a droite de la colonne, pas contre
    le libelle — sinon il flotterait au milieu d'un bouton pleine largeur. */
 .tabs button .n{font-size:11px;background:var(--line2);border-radius:9px;

@@ -87,6 +87,13 @@ document.addEventListener('keydown', e => {
   if (/input|textarea|select/i.test(e.target.tagName) || e.target.isContentEditable) return;
   if (document.body.classList.contains('editing')) return;
   if (document.querySelector('dialog[open]')) return;
+  // Le menu d'identite vit DANS le header : entrer en focus le ferait
+  // disparaitre au milieu d'une interaction, en le laissant ouvert dans le DOM.
+  // La loupe, elle, recouvre l'ecran — basculer le chrome derriere son voile
+  // n'aurait aucun sens visible. Dans les deux cas on ne fait rien : Echap
+  // ferme d'abord, puis « f » retrouve son sens.
+  if ($('#idMenu').classList.contains('on')) return;
+  if ($('#lightbox').style.display === 'flex') return;
   e.preventDefault();
   basculerFocus();
 });
