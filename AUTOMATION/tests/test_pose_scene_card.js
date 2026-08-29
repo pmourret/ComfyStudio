@@ -73,6 +73,36 @@ catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'
   dire(JSON.stringify(final) === JSON.stringify(avant),
        'la banque est revenue a son etat initial, octet pour octet');
 
+  /* [5] Copy de la sous-vue Poses (29/08/2026). L'intro citait un chemin de
+     repo — « DOCS/…md » ne s'ouvre pas depuis l'ecran — et la barre disait
+     « scenes.json » sur une vue de SQUELETTES, ce qui laissait croire qu'elle
+     les enregistrait. La cible disque n'a pas change : c'est le contexte qui
+     manquait. Le test verifie les deux sens de la bascule, pas seulement Poses. */
+  console.log('\n[5] copy de la sous-vue Poses');
+  await page.click('#bankView button[data-vue="poses"]');
+  await page.waitForTimeout(600);
+  const intro = (await page.textContent('#bankPoses p')).replace(/\s+/g, ' ').trim();
+  dire(!/DOCS|\.md|controlnet\.md/i.test(intro),
+       `l'intro ne cite plus aucun chemin de repo : « ${intro} »`);
+  dire(/ne reste jamais sur le disque/.test(intro),
+       'elle garde la garantie sur la photo source');
+  const rappels = await page.$$eval('#bankPoses p',
+    e => e.filter(x => /sous-vue/.test(x.textContent)).length);
+  dire(rappels === 1, `le rappel « sous-vue Scènes » est la, une seule fois (${rappels})`);
+  const tP = (await page.textContent('#scTitre')).trim();
+  const mP = (await page.textContent('#scMsg')).replace(/\s+/g, ' ').trim();
+  dire(tP === 'Scènes + attributions de pose', `barre, titre : « ${tP} »`);
+  dire(/pas les squelettes/.test(mP), `barre, sous-titre : « ${mP} »`);
+  dire(await page.isVisible('#btnSaveScenes'),
+       'le bouton Enregistrer reste sur la vue Poses');
+  // et la vue Scenes retrouve son texte : le libelle suit la vue, il ne derive pas
+  await page.click('#bankView button[data-vue="scenes"]');
+  await page.waitForTimeout(600);
+  dire((await page.textContent('#scTitre')).trim() === 'scenes.json',
+       'de retour sur Scenes, la barre redit « scenes.json »');
+  dire(/sauvegarde \.bak/.test(await page.textContent('#scMsg')),
+       `et son sous-titre d'origine`);
+
   console.log('\n  erreurs JS : ' + (err.length ? err.join(' | ') : 'aucune'));
   if (err.length) ko++;
   console.log(`\n${ko ? ko + ' ECHEC(S)' : 'tout est vert'}`);

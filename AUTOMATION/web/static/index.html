@@ -342,10 +342,13 @@
 
    <div id="bankPoses" hidden>
     <h2>Squelettes de pose <span class="tiny" id="nPoses"></span></h2>
+    <!-- Pas de chemin de repo dans une phrase d'interface : « DOCS/…md » ne
+         s'ouvre pas d'ici et ne veut rien dire pour qui utilise le studio. Ce
+         que la doc porte reste dans le code (screens.css), pas a l'ecran. -->
     <p class="tiny" style="margin:6px 0 16px">Un squelette OpenPose extrait d'une
-      photo, imposable à une scène (ControlNet, cran SFW uniquement — voir
-      DOCS/lena-pose-controlnet.md). <b>La photo source ne reste jamais sur le
-      disque</b> : seul le squelette est gardé.</p>
+      photo, imposable à une scène (ControlNet, cran SFW seulement).
+      <b>La photo source ne reste jamais sur le disque</b> : seul le squelette
+      est gardé.</p>
     <div class="posegrid" id="poseGrid"></div>
     <div class="poseUpload">
       <label class="btn sm" for="poseFile">choisir une photo</label>
@@ -362,7 +365,10 @@
   </div>
   <div class="launch">
     <div class="inner">
-      <div class="sum"><b>scenes.json</b><div id="scMsg">une sauvegarde .bak est faite à chaque enregistrement</div></div>
+      <!-- Un seul bouton pour les deux sous-vues, un seul handler, un seul
+           scenes.json — mais le LIBELLE suit la vue : voir majBarreBanque()
+           dans advanced.js. Les deux textes vivent la-bas, pas ici. -->
+      <div class="sum"><b id="scTitre">scenes.json</b><div id="scMsg">une sauvegarde .bak est faite à chaque enregistrement</div></div>
       <div class="spacer"></div>
       <button class="btn primary" id="btnSaveScenes">Enregistrer</button>
     </div>

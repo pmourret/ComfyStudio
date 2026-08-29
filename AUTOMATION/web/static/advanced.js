@@ -45,6 +45,35 @@ export function setBankView(vue){
     b.classList.toggle('on', actif);
     b.setAttribute('aria-selected', actif ? 'true' : 'false');
   });
+  majBarreBanque(poses);
+}
+
+/* Ce que la barre d'enregistrement DIT enregistrer, selon la sous-vue. Meme
+   bouton, meme handler, meme fichier : seul le libelle change.
+
+   Sur Poses, « scenes.json » tout court laissait croire qu'on sauvegarde les
+   squelettes. Ils sont deja sur le disque au moment ou la grille les montre
+   (INPUTS/POSE/, ecrits par l'extraction) ; ce que cette vue fait entrer dans
+   scenes.json, ce sont les ATTRIBUTIONS portees par les scenes. La cible disque
+   n'a jamais menti — c'est le contexte qui manquait.
+
+   Une table de deux entrees, pas un `if` a rallonge : le jour ou la banque gagne
+   une troisieme sous-vue, elle ajoute une ligne. */
+const BARRE_BANQUE = {
+  scenes: ['scenes.json',
+           'une sauvegarde .bak est faite à chaque enregistrement'],
+  poses:  ['Scènes + attributions de pose',
+           'Enregistre scenes.json — pas les squelettes (déjà sur le disque). ' +
+           'Une .bak à chaque fois.'],
+};
+
+/* `#scMsg` sert aussi de ligne d'etat a enregistrerScenes() (« enregistré ·
+   sauvegarde .bak faite »). C'est voulu : le statut est transitoire, ce texte-ci
+   est l'etat de repos, et seul un changement de vue le repose. */
+function majBarreBanque(poses){
+  const [titre, sous] = BARRE_BANQUE[poses ? 'poses' : 'scenes'];
+  $('#scTitre').textContent = titre;
+  $('#scMsg').textContent = sous;
 }
 
 /* Le clic passe par go() plutot que d'appeler setBankView : la sous-vue est une

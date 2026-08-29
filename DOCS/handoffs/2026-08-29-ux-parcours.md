@@ -1,7 +1,7 @@
 # Handoff — UX de parcours (fichier à chaîner)
 
 **Date** : 29/08/2026 · **Base** : `2dec842` (rail d'outils + poses)
-**Statut** : points 1 et 2 clos. Fichier ouvert — les points suivants de la
+**Statut** : points 1 à 3 clos. Fichier ouvert — les points suivants de la
 session UX viennent s'ajouter ici, sous leur propre section.
 
 Ce fichier ne traite pas d'une surface (le rail, l'inspecteur, la banque) mais
@@ -264,3 +264,110 @@ silence, ce que `frontend.md` demande.
 
 `appli.js`, l'écran, le hash : pas renommés. Infobulles (point 6), intensité
 (point 1, clos), J7, `hints.js`, `/img/base` : hors scope.
+
+---
+
+## 3 · Copy vue Poses
+
+### Le constat
+
+Deux phrases de la sous-vue **Poses** ne disaient pas la vérité de l'écran.
+
+**L'intro citait un chemin de repo** — « ControlNet, cran SFW uniquement — voir
+`DOCS/lena-pose-controlnet.md` ». Ce fichier ne s'ouvre pas depuis l'écran et ne
+veut rien dire pour qui utilise le studio.
+
+**La barre `.launch` disait « scenes.json »** sur une vue de squelettes. Le
+fichier est pourtant le bon : les poses y sont référencées, les PNG vivent dans
+`INPUTS/POSE/`. **Le mensonge était le contexte, pas la cible disque** — « ce
+bouton enregistre les squelettes » est ce que la barre laissait comprendre,
+alors qu'ils sont déjà écrits sur le disque au moment où la grille les montre.
+
+### Le patch
+
+**A — l'intro**, deux phrases, sans chemin :
+
+> Un squelette OpenPose extrait d'une photo, imposable à une scène (ControlNet,
+> cran SFW seulement). **La photo source ne reste jamais sur le disque** : seul
+> le squelette est gardé.
+
+Le rappel « Pour **imposer** un de ces squelettes à une scène, c'est sur la carte
+de la scène — sous-vue **Scènes** » reste, **une seule fois** (assertion
+dédiée). Ce que la doc porte reste dans le code, pas à l'écran : le commentaire
+de `screens.css` continue de pointer `DOCS/lena-pose-controlnet.md`, et c'est sa
+place.
+
+**B — la barre suit la sous-vue.** Un bouton, un handler, un `scenes.json` :
+seul le libellé change. `<b>` gagne un id (`#scTitre`), et `setBankView()` appelle
+`majBarreBanque()` :
+
+```js
+const BARRE_BANQUE = {
+  scenes: ['scenes.json',
+           'une sauvegarde .bak est faite à chaque enregistrement'],
+  poses:  ['Scènes + attributions de pose',
+           'Enregistre scenes.json — pas les squelettes (déjà sur le disque). Une .bak à chaque fois.'],
+};
+```
+
+Une **table de deux entrées**, pas un `if` : une troisième sous-vue ajoutera une
+ligne. Pas de second bouton, et la barre n'est pas cachée sur Poses — une
+édition de scène laissée en attente doit garder son bouton (raison déjà écrite
+dans `setBankView`).
+
+À noter : `#scMsg` sert **aussi** de ligne d'état à `enregistrerScenes()`
+(« enregistré · sauvegarde .bak faite »). C'est voulu — le statut est
+transitoire, le texte de vue est l'état de repos, et seul un changement de vue
+le repose. Le test vérifie donc la bascule **dans les deux sens**, pas seulement
+l'arrivée sur Poses.
+
+**C — grep.** Zéro occurrence de `DOCS/lena` ou `lena-pose-controlnet` dans
+`static/*.html` et `static/*.js`. Reste la seule ligne légitime :
+`screens.css:316`, un commentaire de code qui pointe une doc réelle.
+
+### Fichiers touchés
+
+| Fichier | Quoi |
+|---|---|
+| `index.html` | intro de `#bankPoses`, `id="scTitre"` sur le titre de la barre |
+| `advanced.js` | `BARRE_BANQUE` + `majBarreBanque()`, appelée depuis `setBankView()` |
+| `tests/test_pose_scene_card.js` | section `[5]` |
+
+### Vérifié
+
+Aucune fumigation n'assertait l'ancien chemin `DOCS/` — rien à adapter, seulement
+à ajouter. La section `[5]` est allée dans **`test_pose_scene_card`** et non dans
+`test_pose_extraction` : ce dernier saute proprement quand ComfyUI est absent, et
+une assertion de copy qui ne s'exécute qu'avec un GPU en ligne ne garde rien.
+
+`test_pose_scene_card` **vert**, section `[5]` comprise :
+
+```
+ok  l'intro ne cite plus aucun chemin de repo
+ok  elle garde la garantie sur la photo source
+ok  le rappel « sous-vue Scènes » est la, une seule fois (1)
+ok  barre, titre : « Scènes + attributions de pose »
+ok  barre, sous-titre : « Enregistre scenes.json — pas les squelettes (déjà sur le disque). Une .bak à chaque fois. »
+ok  le bouton Enregistrer reste sur la vue Poses
+ok  de retour sur Scenes, la barre redit « scenes.json »   ok  et son sous-titre d'origine
+```
+
+`test_pose_extraction` **vert par le chemin réel** : ComfyUI était en ligne cette
+fois, une extraction GPU est réellement partie (2 → 3 squelettes) et le test a
+nettoyé derrière lui (retour à 2). La carte de scène est inchangée — sections
+`[1]` à `[4]` vertes, banque revenue à son état initial **octet pour octet**.
+
+Verts, inchangés : `test_panneau_reglages`, `test_apercu_prompt`,
+`test_ecran_wizard`, `test_scenes_aller_retour`,
+`test_application_suppression_editeur`.
+
+Toujours les **deux mêmes rouges d'environnement**, identiques à la section 2 et
+antérieurs à ces patches : `test_ecran_creer [1]` et `test_ecran_registre [5]`,
+un `500` sur `/img?…&thumb=1` faute de Pillow. Rien de neuf.
+
+### Pas fait
+
+L'attribution de pose n'a pas bougé (elle reste sur la carte de scène, sous-vue
+Scènes). Pas de plein écran sur `#scenes` — autre chantier. La barre
+d'enregistrement n'est pas cachée sur Poses. `INPUTS/POSE/` et l'API
+d'extraction ne sont pas renommés. J7, `hints.js`, `/img/base` : hors scope.
