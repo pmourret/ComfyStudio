@@ -50,6 +50,13 @@ const comfyUp = () => new Promise(r => {
   await page.waitForTimeout(1000);
   await page.click('.tabs button[data-s="scenes"]');
   await page.waitForTimeout(600);
+  // Depuis le 29/08/2026 la banque a deux sous-vues : l'onglet Banque ouvre
+  // toujours « Scenes », les squelettes vivent sous « Poses ». Meme chemin
+  // d'entree qu'avant, un clic de plus — pas une nouvelle suite.
+  await page.click('#bankView button[data-vue="poses"]');
+  await page.waitForTimeout(400);
+  dire(await page.isVisible('#poseGrid'), 'la sous-vue Poses montre la banque de squelettes');
+  dire(!(await page.isVisible('#sceneCards')), 'et masque les cartes de scene');
 
   const avantList = await page.evaluate(() => fetch('/api/scenes').then(r=>r.json()).then(d=>d.poses));
   const avant = avantList.length;

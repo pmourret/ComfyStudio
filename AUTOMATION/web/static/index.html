@@ -267,6 +267,17 @@
 
 <div class="screen" id="scenes">
   <div class="wrap">
+    <!-- Deux sous-vues (29/08/2026). La banque tenait tout sur une colonne : le
+         bloc des squelettes de pose s'intercalait entre le composeur et les
+         cartes de scene, au milieu d'une page qu'on fait defiler pour editer des
+         scenes. Ce sont deux ateliers differents, pas deux sections.
+         Hash partageable : #scenes et #scenes/poses. -->
+    <div class="seg bankview" id="bankView" role="tablist" aria-label="Sous-vue de la banque">
+      <button class="on" data-vue="scenes" role="tab" aria-selected="true">Scènes</button>
+      <button data-vue="poses" role="tab" aria-selected="false">Poses</button>
+    </div>
+
+   <div id="bankScenes">
     <div class="compose">
       <h2 style="margin-bottom:10px">Décrire une intention · le modèle local écrit les scènes</h2>
       <textarea id="intention" placeholder="ex : Léna aime passer du temps dans son jardin, elle y bouture ses plantes le matin"></textarea>
@@ -280,20 +291,6 @@
         <div style="display:flex;align-items:flex-end"><span class="tiny" id="cmpMsg"></span></div>
       </div>
       <div id="props"></div>
-    </div>
-
-    <h2 style="margin-top:34px">Squelettes de pose <span class="tiny" id="nPoses"></span></h2>
-    <p class="tiny" style="margin:6px 0 16px">Un squelette OpenPose extrait d'une
-      photo, imposable à une scène (ControlNet, cran SFW uniquement — voir
-      DOCS/lena-pose-controlnet.md). <b>La photo source ne reste jamais sur le
-      disque</b> : seul le squelette est gardé.</p>
-    <div class="posegrid" id="poseGrid"></div>
-    <div class="poseUpload">
-      <label class="btn sm" for="poseFile">choisir une photo</label>
-      <input type="file" id="poseFile" accept="image/png,image/jpeg,image/webp" hidden>
-      <span class="tiny" id="poseFileName"></span>
-      <button class="btn" id="btnPoseExtract" disabled>Extraire le squelette</button>
-      <span class="tiny" id="poseMsg"></span>
     </div>
 
     <h2>Note de direction — ajoutée à la fin de tous les prompts</h2>
@@ -316,6 +313,27 @@
       <textarea id="rawJson" spellcheck="false" style="margin-top:12px;min-height:320px"></textarea>
       <button class="btn sm" id="btnRawApply" style="margin-top:10px">Appliquer le JSON</button>
     </details>
+   </div><!-- /#bankScenes -->
+
+   <div id="bankPoses" hidden>
+    <h2>Squelettes de pose <span class="tiny" id="nPoses"></span></h2>
+    <p class="tiny" style="margin:6px 0 16px">Un squelette OpenPose extrait d'une
+      photo, imposable à une scène (ControlNet, cran SFW uniquement — voir
+      DOCS/lena-pose-controlnet.md). <b>La photo source ne reste jamais sur le
+      disque</b> : seul le squelette est gardé.</p>
+    <div class="posegrid" id="poseGrid"></div>
+    <div class="poseUpload">
+      <label class="btn sm" for="poseFile">choisir une photo</label>
+      <input type="file" id="poseFile" accept="image/png,image/jpeg,image/webp" hidden>
+      <span class="tiny" id="poseFileName"></span>
+      <button class="btn" id="btnPoseExtract" disabled>Extraire le squelette</button>
+      <span class="tiny" id="poseMsg"></span>
+    </div>
+    <!-- L'attribution d'une pose A une scene reste sur la carte de scene, dans
+         la sous-vue Scenes : c'est une propriete de la scene, pas du squelette. -->
+    <p class="tiny" style="margin:18px 0 0">Pour <b>imposer</b> un de ces squelettes
+      à une scène, c'est sur la carte de la scène — sous-vue <b>Scènes</b>.</p>
+   </div><!-- /#bankPoses -->
   </div>
   <div class="launch">
     <div class="inner">

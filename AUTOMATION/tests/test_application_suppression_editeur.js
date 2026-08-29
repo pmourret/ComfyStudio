@@ -61,9 +61,13 @@ process.on('exit', nettoyer);
   await page.waitForTimeout(1200);
 
   // ============================================================== POSES
-  console.log('\n[1] banque de poses (ecran Scenes)');
+  console.log('\n[1] banque de poses (ecran Scenes, sous-vue Poses)');
   await page.click('.tabs button[data-s="scenes"]');
   await page.waitForTimeout(700);
+  // Depuis le 29/08/2026 la banque a deux sous-vues : l'onglet Banque ouvre
+  // toujours « Scenes », les squelettes vivent sous « Poses ».
+  await page.click('#bankView button[data-vue="poses"]');
+  await page.waitForTimeout(400);
   dire(await page.isVisible('#poseGrid'), 'la grille de squelettes est visible');
   const nPoses = await page.$$eval('#poseGrid .posecard', e => e.length);
   dire(nPoses >= 2, `${nPoses} squelette(s) affiché(s)`);

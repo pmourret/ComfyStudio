@@ -176,6 +176,14 @@ body:has(#creer.on) .intbar .inner{max-width:none;margin:0}
   .stage img{max-height:52vh}
 }
 
+/* --------------------------------------- banque : deux sous-vues (29/08/2026)
+   Scenes | Poses. Le selecteur est en tete de `.wrap`, au-dessus des deux
+   enveloppes que advanced.js montre ou masque (setBankView). `[hidden]` suffit
+   a les cacher — aucune des deux n'est repeinte a la bascule. */
+.bankview{margin-bottom:22px}
+#bankScenes[hidden],#bankPoses[hidden]{display:none}
+#bankPoses > h2:first-child{margin-top:0}
+
 /* ------------------------------------------- modifications non enregistrees */
 #dirtyBar{display:flex;align-items:center;gap:12px;padding:9px 20px;flex:none;
         background:var(--warn-bg);border-bottom:1px solid var(--warn-line);font-size:13px}

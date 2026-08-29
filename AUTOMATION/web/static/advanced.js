@@ -10,6 +10,7 @@ import {confirmer} from './modal.js';
 import {creative} from './taxonomy.js';
 import {scenes, setDirty, loadScenes} from './scenes-store.js';
 import {renderScenes} from './create.js';
+import {go} from './nav.js';
 
 /* --- etat du tiroir, prive au module ------------------------------- */
 let PROPS = [];              // propositions du composeur
@@ -22,6 +23,34 @@ on('scenes:loaded', ({ok, full}) => {
   if (full) renderSceneCards();
   renderPoses();
 });
+
+/* ============================================ SOUS-VUES DE LA BANQUE (29/08)
+   Deux enveloppes qu'on montre ou masque — pas deux rendus. Le composeur, les
+   cartes de scene et le JSON brut restent peints par renderSceneCards() ; la
+   banque de squelettes par renderPoses(). Rien ici ne repeint : basculer de vue
+   ne doit pas couter un aller-retour serveur ni perdre une saisie en cours.
+
+   La barre « Enregistrer scenes.json » reste visible sur les DEUX vues, et
+   c'est voulu : elle enregistre le document de l'ecran, et une edition de scene
+   laissee en attente sur l'autre vue doit garder son bouton — la masquer
+   cacherait l'action pendant que #dirtyBar continue d'avertir. */
+export function setBankView(vue){
+  const poses = vue === 'poses';
+  const s = $('#bankScenes'), p = $('#bankPoses');
+  if (!s || !p) return;
+  s.hidden = poses;
+  p.hidden = !poses;
+  $$('#bankView button').forEach(b => {
+    const actif = (b.dataset.vue === 'poses') === poses;
+    b.classList.toggle('on', actif);
+    b.setAttribute('aria-selected', actif ? 'true' : 'false');
+  });
+}
+
+/* Le clic passe par go() plutot que d'appeler setBankView : la sous-vue est une
+   destination partageable (#scenes/poses), elle doit vivre dans l'URL. */
+$$('#bankView button').forEach(b =>
+  b.onclick = () => go(b.dataset.vue === 'poses' ? 'scenes/poses' : 'scenes'));
 
 /* ==================================================================== SCENES */
 /* Vocabulaire du parcours, pour le selecteur d'intention des cartes. Une scene
