@@ -4,7 +4,7 @@
    sont deleguees a leurs modules, les reactions inter-modules passent par le
    bus. */
 import {$, $$, esc, mmss} from './dom.js';
-import {api, post} from './api.js';
+import {api, post, imgUrl} from './api.js';
 import {VERDICT_LABEL} from './constants.js';
 import {on} from './bus.js';
 import {toast} from './toast.js';
@@ -285,7 +285,7 @@ export function renderScenes(){
     el.className = 'sc' + (SEL.has(s.id) ? ' on' : '');
     el.setAttribute('aria-pressed', SEL.has(s.id) ? 'true' : 'false');
     el.innerHTML = `
-      <div class="ph ${prev ? '' : 'empty'}" ${prev ? `style="background-image:url('/img?bucket=${prev.bucket}&name=${encodeURIComponent(prev.name)}&thumb=1')"` : ''}>
+      <div class="ph ${prev ? '' : 'empty'}" ${prev ? `style="background-image:url('${imgUrl({...prev, thumb: 1})}')"` : ''}>
         ${aff ? '<div class="aff">ce ton</div>' : ''}
         ${pose ? `<div class="posebadge" title="pose imposée : ${esc(pose)}">⛓ pose</div>` : ''}
         ${scenes().meta?.[s.id] ? '' : '<div class="nonsauv">non enregistrée</div>'}
@@ -355,8 +355,7 @@ function renderSources(){
     g.innerHTML = NSFW_SRC.map(s => `
       <button type="button" class="src${NSRC.has(s.name) ? ' on' : ''}" data-n="${esc(s.name)}"
         aria-pressed="${NSRC.has(s.name)}">
-        <img loading="lazy" src="/img?bucket=${esc(s.bucket)}&name=${
-          encodeURIComponent(s.name)}&thumb=1">
+        <img loading="lazy" src="${imgUrl({...s, thumb: 1})}">
         ${s.bucket === 'OK' ? '' : '<div class="aff">à revoir</div>'}
         <div class="tick">✓</div></button>`).join('')
       || '<div class="empty">aucune image à éditer — produis d’abord au cran Soft, '
@@ -976,12 +975,10 @@ export function renderRun(s){
   const doneN = Math.max(0, s.index - (s.running ? 1 : 0));
   const pct = s.total ? Math.round(100 * doneN / s.total) : 0;
   // `space` : au niveau 3 la bande montre aussi la sortie NSFW, qui vit dans
-  // PROD/_NSFW. Sans lui, /img cherchait dans PROD/LENA et rendait un 404.
-  const strip = (s.recent || []).slice().reverse().map(r => {
-    const ou = `bucket=${r.bucket}&space=${r.space || 'lena'}&name=${encodeURIComponent(r.name)}`;
-    return `<img class="${r.bucket}" src="/img?${ou}&thumb=1" data-full="/img?${ou}"
-      title="${esc(r.scene)}${r.score ? ' · ' + r.score.toFixed(3) : ''}">`;
-  }).join('');
+  // PROD/<CID>/_NSFW. Sans lui, /img cherche du cote SFW et rend un 404.
+  const strip = (s.recent || []).slice().reverse().map(r =>
+    `<img class="${r.bucket}" src="${imgUrl({...r, thumb: 1})}" data-full="${imgUrl(r)}"
+      title="${esc(r.scene)}${r.score ? ' · ' + r.score.toFixed(3) : ''}">`).join('');
   p.innerHTML = `<div class="run">
       <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
         <b>${s.running ? 'Production en cours' : 'Batch terminé'}</b>

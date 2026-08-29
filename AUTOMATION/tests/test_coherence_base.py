@@ -37,10 +37,14 @@ OFM = AUTOMATION.parent
 sys.path.insert(0, str(AUTOMATION))
 
 import base as db                # noqa: E402
+import nsfw_batch                # noqa: E402
+import runner as lb              # noqa: E402
 
 JOURNAL = OFM / "PROD" / "journal_batch.csv"
-JOURNAL_NSFW = OFM / "PROD" / "_NSFW" / "journal_nsfw.csv"
 MESURES = OFM / "PROD" / "mesures.json"
+# Le journal NSFW vit sous l'arbre de chaque personnage depuis l'isolation
+# disque (29/08/2026) : il n'y en a plus un seul a lire.
+JOURNAUX_NSFW = [nsfw_batch.journal_path(c) for c in lb.list_characters()]
 
 # Genres de score que les fichiers portent. `identite_centroide` n'y est pas :
 # il est calcule DEPUIS la base (base.rescorer) et n'existe nulle part ailleurs.
@@ -83,14 +87,17 @@ def lire_journal(path, espace):
 def sur_le_disque():
     """{fichier: (espace, bucket)} d'apres les dossiers de tri reels."""
     out = {}
-    for espace, racine in (("lena", OFM / "PROD" / "LENA"),
-                           ("nsfw", OFM / "PROD" / "_NSFW")):
+    for cid in lb.list_characters():
+        racine = OFM / "PROD" / cid.upper()
         if not racine.exists():
             continue
-        for d in racine.iterdir():
-            if d.is_dir() and not d.name.startswith("_"):
-                for f in d.glob("*.png"):
-                    out[f.name] = (espace, d.name)
+        for espace, base_dir in (("lena", racine), ("nsfw", racine / "_NSFW")):
+            if not base_dir.exists():
+                continue
+            for d in base_dir.iterdir():
+                if d.is_dir() and not d.name.startswith("_"):
+                    for f in d.glob("*.png"):
+                        out[f.name] = (espace, d.name)
     return out
 
 
@@ -101,7 +108,9 @@ def main():
 
     disque = sur_le_disque()
     jsfw = lire_journal(JOURNAL, "lena")
-    jnsfw = lire_journal(JOURNAL_NSFW, "nsfw")
+    jnsfw = {}
+    for chemin in JOURNAUX_NSFW:
+        jnsfw.update(lire_journal(chemin, "nsfw"))
     mesures = json.loads(MESURES.read_text(encoding="utf-8")) if MESURES.exists() else {}
 
     with db.ouvrir() as cx:
@@ -119,13 +128,21 @@ def main():
           f"{len(scores)} scores, {len(juges)} jugements")
 
     # ======================================================= [0] character_id
-    # J2 : ce repo ne connait qu'un seul personnage pour l'instant. Une ligne
-    # avec un autre character_id (ou NULL, signe d'une ecriture qui a
-    # contourne enregistrer_image) serait la premiere preuve d'un melange.
-    print("\n[0] character_id coherent (un seul personnage existe ici : lena)")
-    autres = sorted({r["character_id"] for r in images.values()} - {"lena"})
-    verifie(not autres, "toutes les images ont character_id='lena'"
-            + (f" — inattendus : {', '.join(str(a) for a in autres)}" if autres else ""))
+    # Toute ligne doit porter un personnage du REGISTRE. Un id inconnu, ou NULL
+    # (signe d'une ecriture qui a contourne enregistrer_image), serait la
+    # premiere preuve d'un melange. Depuis J6 le repo en compte plusieurs :
+    # l'assertion n'est plus « c'est lena », c'est « c'est un personnage reel ».
+    print("\n[0] character_id coherent")
+    registre = set(lb.list_characters())
+    vus = {r["character_id"] for r in images.values()}
+    inconnus = sorted(v for v in vus if v not in registre)
+    par_perso = {c: sum(1 for r in images.values() if r["character_id"] == c)
+                 for c in sorted(vus) if c}
+    print(f"  note  registre : {', '.join(sorted(registre))} · base : "
+          + ", ".join(f"{c} {n}" for c, n in par_perso.items()))
+    verifie(not inconnus, "toutes les images portent un personnage du registre"
+            + (f" — inattendus : {', '.join(str(a) for a in inconnus)}" if inconnus else ""))
+    verifie(None not in vus, "aucune ligne sans character_id")
 
     # ============================================================ [1] le disque
     print("\n[1] chaque image presente sur le disque a sa ligne en base")
@@ -244,7 +261,12 @@ def main():
     print("\n" + "=" * 70)
     if KO:
         print(f"{KO} ECHEC(S) — la base est en retard sur les fichiers.")
-        print("Relancer :  python_embeded\\python.exe "
+        # migrer_base.py est ANTERIEUR a l'isolation disque : il ecrirait
+        # character_id='lena' partout. Ne plus l'indiquer comme remede.
+        print("Verifier d'abord la disposition disque :  "
+              "AUTOMATION/tests/migrer_prod_par_personnage.py")
+        print("(migrer_base.py ne convient plus : voir son en-tete)")
+        print("ancien remede :  python_embeded\\python.exe "
               "ComfyUI\\output\\OFM\\AUTOMATION\\tests\\migrer_base.py")
     else:
         print("tout est vert")

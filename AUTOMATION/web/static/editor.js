@@ -13,7 +13,7 @@
 
    Bascule en modules ES le 27/08/2026 (J3 etape 1) — comportement inchange. */
 import {$, $$} from './dom.js';
-import {post} from './api.js';
+import {post, imgUrl} from './api.js';
 import {toast} from './toast.js';
 import {loadItems} from './review.js';
 import {refreshCounts} from './poller.js';
@@ -48,7 +48,7 @@ export async function ouvrirEditeur(item){
     $('#edSave').disabled = false;
   };
   img.onerror = () => { $('#edMsg').textContent = 'échec du chargement de l’image'; };
-  img.src = `/img?bucket=${item.bucket}&space=${item.space}&name=${encodeURIComponent(item.name)}`;
+  img.src = imgUrl(item);
 }
 
 export function fermerEditeur(){

@@ -4,7 +4,7 @@
    triageState() / setTriageEntry() ; les bandes de score viennent de
    config.js. */
 import {$, $$, esc} from './dom.js';
-import {api, post, erreurDe} from './api.js';
+import {api, post, erreurDe, imgUrl} from './api.js';
 import {signalerPanne} from './health.js';
 import {on} from './bus.js';
 import {toast} from './toast.js';
@@ -20,7 +20,7 @@ import {refreshCounts} from './poller.js';
 
 /* --- etat du tri, prive au module ---------------------------------- */
 let BUCKET = 'A_REVOIR';
-let SPACE = 'lena';          // axe SFW/NSFW (valeur SFW 'lena' — != personnage)
+let SPACE = 'sfw';           // axe SFW/NSFW — un axe, PAS un personnage
 let VIEW = 'grille';
 let ITEMS = [];              // liste du dossier courant
 let VITEMS = [];             // sous-ensemble affiche (filtre de score)
@@ -36,7 +36,7 @@ export const triageState = () => ({bucket: BUCKET, space: SPACE, view: VIEW});
 // point d'entree depuis un onglet (Galerie/Revue) : bucket impose, retour SFW
 // strict, vue grille — ouvrir sur du NSFW sans l'avoir choisi serait surprenant
 export function setTriageEntry(bucket){
-  BUCKET = bucket; SPACE = 'lena'; VIEW = 'grille';
+  BUCKET = bucket; SPACE = 'sfw'; VIEW = 'grille';
 }
 
 /* Reflete BUCKET/SPACE sur les boutons du selecteur de l'ecran #trier et sur
@@ -49,7 +49,7 @@ export function syncTriageUi(){
   $$('#spaceSel button').forEach(x => x.classList.toggle('on', x.dataset.sp === SPACE));
   // L'onglet Galerie a disparu du chrome : Revue (#trier) couvre tous les
   // buckets SFW, le hash #galerie (bucket OK) compris. Le NSFW n'a pas d'onglet.
-  const surTrier = SPACE === 'lena';
+  const surTrier = SPACE === 'sfw';
   $$('.tabs button[data-s="trier"]').forEach(x => x.classList.toggle('on', surTrier));
 }
 
@@ -228,8 +228,7 @@ function renderTriage(){
     body.innerHTML = '<div class="grid">' + VITEMS.map((i, k) => `
       <div class="tile${i.flag === 'ia' ? ' ia' : ''}${k === CUR ? ' cur' : ''}" data-k="${k}">
         <button type="button" class="thumb" data-k="${k}" title="Ouvrir en grand">
-          <img loading="lazy"
-            src="/img?bucket=${i.bucket}&space=${i.space}&name=${encodeURIComponent(i.name)}&thumb=1"></button>
+          <img loading="lazy" src="${imgUrl({...i, thumb: 1})}"></button>
         <div class="chip ${scoreClass(i.score)}">${i.score ? parseFloat(i.score).toFixed(2) : '—'}</div>
         <div class="m"><b>${esc(i.scene || i.name)}</b><br>${esc(i.format||'')} · ${esc(i.date)}</div>
         ${i.nettete == null
@@ -283,7 +282,7 @@ function renderTriage(){
   body.innerHTML = `<div class="triage">
     <div class="stage">
       <button class="nav prev">‹</button>
-      <img src="/img?bucket=${i.bucket}&space=${i.space}&name=${encodeURIComponent(i.name)}" id="stageImg">
+      <img src="${imgUrl(i)}" id="stageImg">
       <button class="nav next">›</button>
     </div>
     <div class="side">
@@ -320,7 +319,7 @@ function renderTriage(){
   body.querySelector('.prev').onclick = () => step(-1);
   body.querySelector('.next').onclick = () => step(1);
   body.querySelector('#stageImg').onclick = () =>
-    openLight(`/img?bucket=${i.bucket}&space=${i.space}&name=${encodeURIComponent(i.name)}`);
+    openLight(imgUrl(i));
   body.querySelector('#btnSupprDef').onclick = () => supprimerDefinitivement(CUR);
   const be = body.querySelector('#btnOuvrirEditeur');
   if (be) be.onclick = () => ouvrirEditeur(i);

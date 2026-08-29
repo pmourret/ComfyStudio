@@ -145,7 +145,8 @@ prouvent la généralisation — pas juste Léna renommée.
   erreur JS à chaque étape). Détail : `DOCS/handoffs/2026-08-27-j3-frontend.md`.
 - Hors périmètre, assumé pour J4 : disposition disque par personnage
   (`PROD/<X>/`, journal, vignettes, export, `/img`), axe SFW/NSFW `space`,
-  `UNDO` non scopé, branding de l'en-tête.
+  `UNDO` non scopé, branding de l'en-tête. → **levé le 2026-08-29**, voir
+  « Isolation disque par personnage » plus bas.
 
 **J4 — Registre univers + registre personnage** ✅ *(terminé 2026-08-27)*
 - Registre univers : id, famille de modèle / mécanisme d'identité, panel
@@ -310,6 +311,27 @@ prouvent la généralisation — pas juste Léna renommée.
 - Non fait, à la main : fumigation navigateur du wizard (Playwright hors
   machine, comme J3/J4).
 - **J7bis terminé.**
+
+**Isolation disque par personnage** ✅ *(terminé 2026-08-29, post-J7bis)*
+- Lève ce que J3 avait explicitement laissé hors périmètre (« disposition
+  disque par personnage : `PROD/<X>/`, journal, vignettes, export, `/img`,
+  axe SFW/NSFW `space`, `UNDO` non scopé »). Ce n'était pas cosmétique :
+  le runner rangeait déjà Abyssiaelle dans `PROD/ABYSSIAELLE/` depuis J6,
+  mais **aucune route web ne savait la lire** — sa Revue montrait Léna.
+- `bucket_dir(bucket, space, character_id)` : trois arguments obligatoires,
+  plus aucun défaut vers `PROD/LENA/`. `/img` exige `character=` (400
+  sinon) et rend 404 hors de l'arbre demandé. Journal : colonne
+  `character`. Vignettes : `.thumbs/<cid>/<space>/<bucket>/`. NSFW :
+  `PROD/<CID>/_NSFW/`. Export : une seule disposition,
+  `PROD/EXPORT/<cid>/<catégorie>/`.
+- L'axe SFW s'appelle `sfw` (l'ancienne valeur `lena` — un nom de
+  personnage pour un axe qui n'en est pas un — reste acceptée en alias) ;
+  la colonne `image.espace` garde son vocabulaire, conversion isolée dans
+  `espace_db()`.
+- Migration `AUTOMATION/tests/migrer_prod_par_personnage.py`, idempotente,
+  oracle = la base pour attribuer les lignes de journal. 21/21 tests Python
+  + 7/7 fumigations verts ; `test_isolation_disque.py` neuf.
+  Détail : `DOCS/handoffs/2026-08-29-isolation-look.md`.
 
 **J7 — NSFW généralisé comme outil, pas comme branche**
 - Flux confirmé : génération de personnage → sélection manuelle de l'image

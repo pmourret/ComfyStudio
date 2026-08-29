@@ -90,7 +90,7 @@ try:
     code, corps = appel("/api/state")
     verifie("SANS_VISAGE" in json.loads(corps).get("counts", {}),
             "/api/state le compte")
-    code, _ = appel("/api/gallery?bucket=SANS_VISAGE&space=lena")
+    code, _ = appel("/api/gallery?bucket=SANS_VISAGE&space=sfw&character=lena")
     verifie(code == 200, f"/api/gallery le sert ({code})")
     page = urllib.request.urlopen(BASE + "/static/index.html", timeout=10).read()
     verifie(b'data-b="SANS_VISAGE"' in page, "le bouton est dans la page")
@@ -235,7 +235,7 @@ try:
 
     # ============================================================== F3
     print("\n[F3] le compteur « Mesurer » couvre tout le dossier")
-    code, corps = appel("/api/gallery?bucket=OK&space=lena")
+    code, corps = appel("/api/gallery?bucket=OK&space=sfw&character=lena")
     galerie = json.loads(corps)
     fichier_mesures = OFM / "PROD" / "mesures.json"
     mesures = (json.loads(fichier_mesures.read_text(encoding="utf-8"))
@@ -249,12 +249,12 @@ try:
 
     # ============================================================== E5
     print("\n[E5] les vignettes ne gelent pas la boucle d'evenements")
-    code, corps = appel("/api/gallery?bucket=OK&space=lena")
+    code, corps = appel("/api/gallery?bucket=OK&space=sfw&character=lena")
     noms = [i["name"] for i in json.loads(corps)["items"]]
     if not noms:
         print("  (aucune image dans OK, mesure sautee)")
     else:
-        tdir = OFM / "PROD" / ".thumbs" / "lena" / "OK"
+        tdir = OFM / "PROD" / ".thumbs" / "lena" / "sfw" / "OK"
         shutil.rmtree(tdir, ignore_errors=True)
         lat = []
 
@@ -273,7 +273,7 @@ try:
         t0 = time.time()
         for n in noms:
             urllib.request.urlopen(
-                f"{BASE}/img?bucket=OK&space=lena&name={n}&thumb=1", timeout=30).close()
+                f"{BASE}/img?character=lena&bucket=OK&space=sfw&name={n}&thumb=1", timeout=30).close()
         duree = time.time() - t0
         th.join()
         pire = max(lat)

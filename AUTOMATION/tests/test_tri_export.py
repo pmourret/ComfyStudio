@@ -91,7 +91,8 @@ journal = racine / "PROD" / "journal_batch.csv"
 with open(journal, "w", newline="", encoding="utf-8") as f:
     w = csv.writer(f, delimiter=";")
     w.writerow(lb.JOURNAL_COLS)
-    w.writerow(["2026-08-25T10:00:00", "b1", "rando_montagne", "voyage", "1", "doux",
+    w.writerow(["2026-08-25T10:00:00", "b1", "lena", "rando_montagne", "voyage",
+                "1", "doux",
                 "", "9:16", "42", "0.760", "A_REVOIR", "voyage_rando_01.png", "",
                 "60", "un prompt"])
 
@@ -103,10 +104,10 @@ print("=" * 70)
 
 print("\n[1] valider : l'export prend la categorie et le format du journal")
 r = appeler(tri.api_action, {"name": "voyage_rando_01.png", "bucket": "A_REVOIR",
-                             "action": "valider", "space": "lena"})
+                             "action": "valider", "space": "sfw"})
 verifie(r["ok"] and r["bucket"] == "OK", "l'image passe en OK")
-exp = racine / "PROD" / "EXPORT" / "voyage" / "voyage_rando_01.jpg"
-verifie(exp.exists(), "l'export est dans EXPORT/voyage (pas dans « divers »)")
+exp = racine / "PROD" / "EXPORT" / "lena" / "voyage" / "voyage_rando_01.jpg"
+verifie(exp.exists(), "l'export est dans EXPORT/lena/voyage (pas dans « divers »)")
 if exp.exists():
     attendu = tuple(ss.cfg()["export_sizes"]["9:16"])
     with Image.open(exp) as im:
@@ -114,7 +115,7 @@ if exp.exists():
 
 print("\n[2] rejeter : l'image sort aussi de la publication")
 r = appeler(tri.api_action, {"name": "voyage_rando_01.png", "bucket": "OK",
-                             "action": "rejeter", "space": "lena"})
+                             "action": "rejeter", "space": "sfw"})
 verifie(r["ok"] and r["bucket"] == "REJET", "l'image passe en REJET")
 verifie(not exp.exists(), "le JPEG est retire de l'export")
 
@@ -128,7 +129,7 @@ verifie(exp.exists(), "l'export est REFAIT (il restait supprime avant le correct
 print("\n[4] annuler ne doit jamais ecraser un homonyme")
 # on refait le chemin : rejet, puis on place une AUTRE image du meme nom dans OK
 appeler(tri.api_action, {"name": "voyage_rando_01.png", "bucket": "OK",
-                         "action": "rejeter", "space": "lena"})
+                         "action": "rejeter", "space": "sfw"})
 intruse = racine / "PROD" / "LENA" / "OK" / "voyage_rando_01.png"
 image(intruse, taille=(64, 64))          # image DIFFERENTE, meme nom
 avant = intruse.stat().st_size
@@ -144,16 +145,16 @@ print("\n[5] apres renommage, l'export garde la bonne categorie")
 # l'image renommee n'est PAS dans le journal sous son nouveau nom : c'est le
 # piege. L'export doit malgre tout retrouver « voyage » et le 9:16.
 renomme = r["name"]
-exp2 = racine / "PROD" / "EXPORT" / "voyage" / (Path(renomme).stem + ".jpg")
+exp2 = racine / "PROD" / "EXPORT" / "lena" / "voyage" / (Path(renomme).stem + ".jpg")
 verifie(exp2.exists(),
-        f"l'export du fichier renomme est dans EXPORT/voyage ({exp2.name})")
-verifie(not (racine / "PROD" / "EXPORT" / "divers").exists(),
+        f"l'export du fichier renomme est dans EXPORT/lena/voyage ({exp2.name})")
+verifie(not (racine / "PROD" / "EXPORT" / "lena" / "divers").exists(),
         "aucun export n'a atterri dans « divers »")
 
 print("\n[6] une action inconnue est refusee proprement")
 try:
     appeler(tri.api_action, {"name": "voyage_rando_01.png", "bucket": "OK",
-                             "action": "supprimer_tout", "space": "lena"})
+                             "action": "supprimer_tout", "space": "sfw"})
     verifie(False, "une action inconnue doit lever une erreur HTTP")
 except Exception as e:
     verifie(type(e).__name__ == "HTTPBadRequest",
@@ -162,25 +163,50 @@ except Exception as e:
 print("\n[7] les vignettes ne survivent pas au deplacement")
 # une vignette est rangee par espace/bucket : l'image qui change de dossier
 # laissait la sienne derriere elle (96 fichiers pour 46 PNG le 25/08/2026)
-tdir = ss.THUMBS / "lena" / "OK"
+tdir = ss.THUMBS / "lena" / "sfw" / "OK"
 tdir.mkdir(parents=True, exist_ok=True)
 vignette = tdir / (Path(renomme).stem + ".jpg")
 image(vignette, taille=(64, 64))
 appeler(tri.api_action, {"name": renomme, "bucket": "OK",
-                         "action": "archiver", "space": "lena"})
+                         "action": "archiver", "space": "sfw"})
 verifie(not vignette.exists(), "la vignette du dossier quitte est retiree")
 
 orpheline = tdir / "image_disparue.jpg"
 image(orpheline, taille=(64, 64))
-# vignette d'une disposition PRECEDENTE : .thumbs/<bucket>/ sans niveau
-# d'espace. La premiere version du balayage ne descendait pas jusqu'a elle.
+# vignettes de dispositions PRECEDENTES, qu'un balayage a la profondeur du jour
+# ne voit meme pas : .thumbs/<bucket>/ (avant l'axe SFW/NSFW) et
+# .thumbs/<space>/<bucket>/ (avant l'isolation par personnage). C'est ce qui
+# dispense la bascule par personnage de migrer ce cache.
 ancienne = ss.THUMBS / "OK" / "format_d_avant.jpg"
 image(ancienne, taille=(64, 64))
+avant_perso = ss.THUMBS / "lena" / "OK" / "format_sans_personnage.jpg"
+image(avant_perso, taille=(64, 64))
 retirees = ss.purger_vignettes()
 verifie(not orpheline.exists(), "le balayage retire les vignettes sans image")
 verifie(not ancienne.exists(),
         "le balayage retire aussi celles d'une disposition perimee")
-verifie(retirees >= 2, f"les deux sont comptees ({retirees})")
+verifie(not avant_perso.exists(),
+        "et celles d'avant l'isolation par personnage (.thumbs/<space>/<bucket>/)")
+verifie(retirees >= 3, f"les trois sont comptees ({retirees})")
+
+print()
+print("[8] l'axe SFW garde son ancien nom en alias")
+# `space=lena` a longtemps designe le SFW — un nom de personnage pour un axe
+# qui n'en est pas un. Il reste accepte en entree (marque-page, client pas
+# encore a jour) et doit designer exactement le meme dossier que `sfw`.
+verifie(ss.bucket_dir("OK", "lena", "lena") == ss.bucket_dir("OK", "sfw", "lena"),
+        "space=lena et space=sfw designent le meme dossier")
+verifie(ss.bucket_dir("OK", "sfw", "lena") == racine / "PROD" / "LENA" / "OK",
+        "et c'est le dossier SFW historique de Lena, inchange")
+verifie(ss.bucket_dir("OK", "nsfw", "lena")
+        == racine / "PROD" / "LENA" / "_NSFW" / "OK",
+        "le NSFW vit sous l'arbre du personnage")
+try:
+    ss.bucket_dir("OK", "sfw", None)
+    verifie(False, "bucket_dir sans personnage doit etre refuse")
+except Exception as e:
+    verifie(type(e).__name__ == "HTTPBadRequest",
+            f"bucket_dir sans personnage : refus propre ({type(e).__name__})")
 
 shutil.rmtree(racine, ignore_errors=True)
 print()

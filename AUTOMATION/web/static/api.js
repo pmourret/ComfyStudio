@@ -3,13 +3,23 @@
 import {currentCharacter} from './character.js';
 
 // Chaque appel /api/* porte ?character=<id> (J3 etape 4) — seul point de
-// passage de la couche API JSON. /img et /static n'en ont pas besoin : ils
-// sont construits en dur dans les templates, et leur chemin disque reste sur
-// le personnage unique de V1 (J4 partitionnera PROD/ par personnage).
+// passage de la couche API JSON. /img le porte aussi depuis l'isolation disque
+// (29/08/2026) : les octets d'une image sont une donnee de personnage, et /img
+// les refuse desormais sans ce parametre. Seul /static n'en a pas besoin.
 const avecPersonnage = u => {
   const sep = u.includes('?') ? '&' : '?';
   return `${u}${sep}character=${encodeURIComponent(currentCharacter())}`;
 };
+
+/* URL des octets d'une image de tri. UN SEUL constructeur pour toute
+   l'application : tant que chaque ecran assemblait sa propre chaine, le
+   personnage — et parfois meme l'espace SFW/NSFW — s'oubliait d'un appel a
+   l'autre, et /img rendait les images de Lena a qui passait par la. */
+export const imgUrl = ({bucket, space, name, thumb}) => avecPersonnage(
+  `/img?bucket=${encodeURIComponent(bucket || 'OK')}`
+  + `&space=${encodeURIComponent(space || 'sfw')}`
+  + `&name=${encodeURIComponent(name || '')}`
+  + (thumb ? '&thumb=1' : ''));
 
 // r.json() seul plantait (rejet de promesse non gere) sur toute reponse dont le
 // corps n'est pas du JSON — un 500 non intercepte cote serveur renvoie une page
