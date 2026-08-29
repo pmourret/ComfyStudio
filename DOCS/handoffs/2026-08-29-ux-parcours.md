@@ -1,8 +1,8 @@
 # Handoff — UX de parcours (fichier à chaîner)
 
 **Date** : 29/08/2026 · **Base** : `2dec842` (rail d'outils + poses)
-**Statut** : points 1 à 5 clos. Fichier ouvert — les points suivants de la
-session UX viennent s'ajouter ici, sous leur propre section.
+**Statut** : points 1 à 6 clos. **Fichier complet** — la session UX de parcours
+est terminée, ce document ne s'allonge plus.
 
 Ce fichier ne traite pas d'une surface (le rail, l'inspecteur, la banque) mais
 d'un **parcours** : ce que le chrome promet, et si l'écran courant tient la
@@ -592,3 +592,129 @@ Le cadrage l'autorisait à condition de ne pas inventer de deep link par nom.
 n'est pas fusionné. L'inspecteur **n'est pas** devenu un aperçu de la scène
 cochée — c'est justement ce qu'il ne peut pas être. Pas de tooltip (point 6),
 pas de `hints.js`, pas de `/img/base`.
+
+---
+
+## 6 · Infobulles
+
+### La primitive : un attribut, pas un branchement
+
+`static/hints.js`. Le contrat tient en une ligne de markup :
+
+```html
+<button data-hint="qual.rapide">Rapide</button>
+```
+
+Une **délégation au document** (`mouseover` / `mouseout` / `focusin` /
+`focusout` / `Escape`) sert toute l'application, et **une seule** `#hintPop`
+(`role="tooltip"`) est créée puis déplacée et re-remplie. Conséquence directe, et
+c'est la raison du choix : **rien à re-brancher** quand `renderIntensity()`, le
+wizard ou le rail reconstruisent leur DOM — la clé voyage avec le nœud.
+
+`brancher(el, id)` reste exporté pour stamper depuis du JS (`create.js` s'en
+sert), et **retire `title` au passage** : jamais la bulle native *et* la nôtre,
+ce serait deux textes à maintenir et deux bulles au même survol. Les `title`
+de `#btnApercu` et `#btnGear` ont donc disparu du markup.
+
+`data-hint-text` est l'échappatoire des libellés **pilotés par les données** :
+le rail tire la raison d'un outil inerte de sa table `SURFACES`, elle n'a pas
+de clé fixe. C'est par là que le `title` de « Éditeur d'image » est devenu une
+bulle, **au mot près** (« depuis une image de la Revue »).
+
+Placement : sous l'ancre, recentrée, **retournée au-dessus** si le bas manque —
+ce qui est le cas courant, les préréglages vivant dans la barre de lancement.
+Fermeture au défilement et au redimensionnement plutôt qu'un suivi à chaque
+frame. Fondu de **140 ms**, ramené à 0 par le bloc `prefers-reduced-motion` de
+`base.css`. Sortie **sans** fondu : `hidden` sort la bulle de l'arbre
+d'accessibilité, ce qu'un `opacity:0` ne ferait pas, et un fondu de sortie
+laisserait 150 ms une bulle annoncée pour un élément déjà quitté.
+
+`aria-describedby` posé sur l'ancre à l'ouverture, retiré à la fermeture — la
+bulle **complète** le libellé, elle ne le remplace pas.
+
+### La liste est fermée
+
+19 clés, aucune inventée. Le cran qui édite est le seul dont le texte varie :
+
+| Condition | Texte |
+|---|---|
+| `pipeline === 'flux+edit'`, `generer_avant` **décoché** | « N'engendre rien : reprend une image déjà validée. » |
+| `pipeline === 'flux+edit'`, `generer_avant` **coché** | « Enchaîne une génération Soft puis l'édition. » |
+
+Même règle que la pastille `#intMode` (§1) : avec « générer avant d'éditer », ce
+cran **engendre d'abord**, donc « n'engendre rien » y serait faux. Une seule
+fonction écrit ces clés (`majHintCrans()`), appelée des deux endroits qui
+peuvent changer la réponse — `renderIntensity()` et `syncEtapes()`. Un cran dont
+le niveau n'a pas de clé (un pack à cinq paliers) n'aura **pas de bulle** plutôt
+qu'une bulle approximative.
+
+**L'export n'est pas mentionné** dans `int.lv0/1/2`. Le cadrage l'autorisait
+« seulement si le palier le dit déjà dans creative » : le dire aurait demandé de
+lire `creative()` depuis `hints.js`, donc de troquer la table de chaînes contre
+des fonctions. `#intHint` porte déjà l'information à côté des crans.
+
+**Rien sur** : les cinq onglets, « Générer », les cartes de scène, `#intMode`,
+`.ins-role` — tout ce qui est déjà lisible à l'écran. **Rien sur `#gearPanel
+.rg`** : `.rgq` y est déjà. Vérifié par sonde dans les deux sens.
+
+Ancre du wizard : **chaque carte** de l'étape, pas la puce de `#wizSteps` — une
+`<li>` n'est pas focusable, y accrocher la bulle la rendrait inaccessible au
+clavier, et lui ajouter un `tabindex` mettrait un arrêt de tabulation sur un
+élément décoratif.
+
+### Fichiers touchés
+
+| Fichier | Quoi |
+|---|---|
+| `hints.js` | **neuf** — table, délégation, placement, `brancher()` |
+| `components.css` | `#hintPop` (tokens `--panel`, `--elev`, `--txt`, `--line2`) |
+| `index.html` | 12 `data-hint` statiques, deux `title` retirés |
+| `main.js` | import à effet de bord, après le chrome |
+| `create.js` | `majHintCrans()`, appelée par `renderIntensity()` et `syncEtapes()` |
+| `wizard.js` | `optionCard()` prend une clé |
+| `rail.js` | `title` → `data-hint-text`, même texte |
+
+### Vérifié
+
+Deux sondes jetables, **20 assertions vertes**. Le livrable demandé —
+focus clavier sur `#btnApercu` :
+
+```
+ok  aucune bulle au repos
+ok  bulle visible au focus (opacite 1)
+ok  texte : « Texte réellement envoyé, pas seulement la scène. »
+ok  role="tooltip"        ok  aria-describedby="hintPop"
+ok  plus de title= en doublon
+ok  Escape : la bulle est fermee, aria-describedby retire
+```
+
+Plus : les 12 textes de la liste au survol, le placement (dans le viewport,
+retourné au-dessus), le rail, le double sens du cran qui édite (coché →
+décoché), les sous-vues de banque, la Revue, la carte de monde du wizard, et
+l'absence de bulle là où le cadrage l'interdit.
+
+Les **9 fumigations sont vertes et INCHANGÉES** : aucun sélecteur n'a cassé.
+
+### Un bug trouvé, et un trou de couverture à nommer
+
+La sonde a levé une vraie panne : `ancreDe(e)` rend `null` sur un `mouseout`
+hors de toute ancre, et `null === ANCRE` est **vrai** quand aucune bulle n'est
+ouverte — on entrait alors dans le test de sortie sans ancre à interroger.
+`Cannot read properties of null (reading 'contains')`, **à chaque survol du
+fond**. Corrigé par une garde `ANCRE &&` explicite, commentée sur place.
+
+**Le trou** : j'ai réintroduit ce bug pour mesurer, et `test_ecran_creer` est
+resté **vert** — `[1] aucune erreur JS (0)`. Les clics synthétisés de Playwright
+ne produisent pas la séquence `mouseout`-sur-le-fond qui déclenche la panne.
+**Aucune fumigation ne couvre donc cette classe de bug** ; seule la sonde, qui
+survole vraiment, l'a vue — et une sonde n'est pas commitée.
+
+Le cadrage demandait les fumigations « inchangées sauf si un sélecteur casse » :
+je m'y suis tenu et je n'ai rien ajouté. À arbitrer si une section permanente de
+survol vaut d'être écrite — elle n'existe pas aujourd'hui.
+
+### Pas fait
+
+`#railGear` garde son `title` (`réglages de génération` / `depuis Produire`) :
+il n'est pas dans la liste fermée. `#btnId` et `#btnReset` gardent les leurs,
+pour la même raison. Pas de lib de tooltip, pas de J7, pas de `/img/base`.

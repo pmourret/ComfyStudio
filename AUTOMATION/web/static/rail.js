@@ -20,8 +20,10 @@ import {go} from './nav.js';
 import {toggleGear} from './create.js';
 
 /* Les surfaces que le studio sait ouvrir aujourd'hui. `aller` : une route de
-   nav.js. `inerte` : la raison, affichee en title — l'outil existe, il n'a
-   simplement pas de point d'entree propre depuis le rail. */
+   nav.js. `inerte` : la raison, affichee en infobulle (hints.js, via
+   `data-hint-text` : elle vient des donnees, pas de la table de cles) —
+   l'outil existe, il n'a simplement pas de point d'entree propre depuis le
+   rail. */
 const SURFACES = {
   'bank-poses':      {aller: 'scenes/poses'},
   'bank-scenes':     {aller: 'scenes'},
@@ -44,7 +46,7 @@ let ROUTE = {screen: 'creer', vue: null};
 
 const ligne = (label, aller, inerte) => `
   <button class="rail-it" ${aller ? `data-go="${esc(aller)}"` : 'disabled'}
-          ${inerte ? `title="${esc(inerte)}"` : ''}>${esc(label)}</button>`;
+          ${inerte ? `data-hint-text="${esc(inerte)}"` : ''}>${esc(label)}</button>`;
 
 function peindre(){
   const r = $('#toolRail');

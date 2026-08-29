@@ -70,8 +70,13 @@ function paintStepper(){
   }).join('');
 }
 
-function optionCard(active, title, sub){
-  return `<button class="it${active ? ' on' : ''}" type="button">`
+/* `hint` : cle d'infobulle (hints.js), posee sur CHAQUE carte de l'etape plutot
+   que sur le titre de l'etape. La puce de `#wizSteps` n'est pas focusable — lui
+   accrocher la bulle la rendrait inaccessible au clavier, et lui ajouter un
+   tabindex mettrait un arret de tabulation sur un element decoratif. */
+function optionCard(active, title, sub, hint){
+  return `<button class="it${active ? ' on' : ''}" type="button"`
+    + `${hint ? ` data-hint="${hint}"` : ''}>`
     + `<b>${esc(title)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</button>`;
 }
 
@@ -95,7 +100,7 @@ function paintBody(){
       return;
     }
     b.innerHTML = `<div class="intents">` + t.styles.map(s =>
-      optionCard(S.style === s, s)).join('') + `</div>`;
+      optionCard(S.style === s, s, '', 'wiz.style')).join('') + `</div>`;
     b.querySelectorAll('.it').forEach((el, i) =>
       el.onclick = () => { S.style = t.styles[i]; render(); });
 
@@ -104,7 +109,7 @@ function paintBody(){
     if (!t){ b.innerHTML = ''; return; }
     b.innerHTML = t.worlds.length
       ? `<div class="intents">` + t.worlds.map(w =>
-          optionCard(S.world === w.id, w.label, w.tone)).join('') + `</div>`
+          optionCard(S.world === w.id, w.label, w.tone, 'wiz.monde')).join('') + `</div>`
       : `<p class="wiz-note">Aucun monde déclaré pour ce type.</p>`;
     b.querySelectorAll('.it').forEach((el, i) =>
       el.onclick = () => { S.world = t.worlds[i].id; render(); });

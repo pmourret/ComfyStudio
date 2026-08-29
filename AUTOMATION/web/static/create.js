@@ -17,6 +17,7 @@ import {scenes} from './scenes-store.js';
 import {isRunning, markRunning} from './poller.js';
 import {ouvrirArmement} from './review.js';
 import {updateInspector} from './inspector.js';
+import {brancher} from './hints.js';
 
 /* --- etat de l'ecran Creer, prive au module --------------------------- */
 let SEL = new Set();          // scenes selectionnees
@@ -49,6 +50,7 @@ function renderIntensity(){
     </button>`).join('');
   box.querySelectorAll('button').forEach(b =>
     b.onclick = () => setLevel(+b.dataset.lv));
+  majHintCrans();
   const p = palier(LEVEL);
   // `unite` vient du serveur : le cran qui edite compte des IMAGES sources, pas
   // des scenes — il n'en choisit aucune. Annoncer « 16 scènes » y etait faux.
@@ -59,6 +61,25 @@ function renderIntensity(){
       ` · ${p.scenes} ${u}${s} ${u === 'image' ? 'éditable' : 'disponible'}${s}`
     : '';
   syncNiveauGuards();
+}
+
+/* Quelle infobulle porte chaque cran. Une SEULE fonction l'ecrit, appelee des
+   deux endroits qui peuvent changer la reponse : renderIntensity() (le curseur
+   vient d'etre repeint) et syncEtapes() (le panneau a bouge).
+
+   Le cran qui edite est le seul dont le texte varie, et pour la meme raison que
+   la pastille #intMode : « generer avant d'editer » lui fait ENGENDRER d'abord,
+   donc « n'engendre rien » y serait faux. On ne se tait pas, on dit l'autre
+   chose. Un cran dont le niveau n'a pas de cle — un pack a cinq paliers —
+   n'aura pas de bulle plutot qu'une bulle approximative. */
+function majHintCrans(){
+  (creative().intensity || []).forEach(p => {
+    const b = $(`#intSel button[data-lv="${p.level}"]`);
+    if (!b) return;
+    brancher(b, p.pipeline === 'flux+edit'
+      ? (champ('generavant', false) ? 'int.lv3.avant' : 'int.lv3')
+      : 'int.lv' + p.level);
+  });
 }
 
 /* Vrai quand le cran courant EDITE une image existante au lieu d'en engendrer
@@ -162,6 +183,7 @@ function syncEtapes(){
   else { numEtape('stepIntent', 1); numEtape('stepTone', 2);
          numEtape('stepScenes', 3); numEtape('stepEdit', 4); }
   majPastilleMode(edition);
+  majHintCrans();
 }
 
 /* Pastille metier de la barre d'intensite (#intMode). Les crans nommaient une

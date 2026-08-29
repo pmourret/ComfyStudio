@@ -12,6 +12,9 @@ import './nav.js';
 import './advanced.js';
 import './appli.js';
 import './editor.js';
+// infobulles : delegation au document, posee au chargement. Apres le chrome —
+// elle n'a besoin d'aucun ecran, seulement d'un document.
+import './hints.js';
 import {loadRail} from './rail.js';
 import {reflectCharacter, characterIsExplicit} from './character.js';
 import {go} from './nav.js';
