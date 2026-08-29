@@ -33,6 +33,14 @@ bord cohérent, de structure identique, d'ambiance différente.
   `#toast`, `.card` des `<dialog>`), `--scrim` (voile posé sur du contenu :
   `::backdrop`, `#lightbox`, et les plaques sur vignette — `.sc .aff`, `.tick`,
   `.nav`, `.posebadge`, `.posecard .del`), `--focus` (anneau `:focus-visible`).
+- **Barres de défilement** *(ajouté le 30/08/2026)* — `--sb` (pouce), `--sb-h`
+  (pouce survolé), `--sb-l` (largeur). Elles étaient les seules surfaces non
+  peintes du studio : le thème de l'OS s'invitait sur une douzaine de zones
+  défilantes. Une seule règle dans `base.css`, piste transparente, pouce à
+  gouttière — une barre qui flotte masquerait la fin des libellés au survol.
+  Le pouce est un **composant d'interface** : contraste non-textuel ≥ 3:1
+  (WCAG 1.4.11) contre `--bg`, `--panel` **et** `--panel2`, les trois fonds où
+  il apparaît. Mesuré : 3,93 / 3,60 / 3,16.
 - **Typographie** — `--font` (texte courant), `--font-mono` (`.kbd`, raccourcis).
 - **Forme** — `--r` (rayon des cartes), `--maxw` (largeur max du contenu centré).
   `--maxw` ne gouverne plus **tous** les écrans depuis le 29/08/2026 : Créer est

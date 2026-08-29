@@ -3,6 +3,35 @@
    reference que des tokens de tokens.css. Extrait de app.css en J3 etape 3,
    ordre des regles inchange. */
 html,body{height:100%}
+/* ------------------------------------------------- barres de defilement
+   Peintes partout, en une seule regle. Le studio jetonnait tout SAUF elles :
+   une douzaine de zones defilantes (main, rail, panneaux de reglages, journal
+   technique, bandes de vignettes, boites de dialogue, panneau de l'editeur)
+   affichaient la barre du systeme, claire et large, sur une palette sombre.
+
+   LES DEUX MECANISMES NE COHABITENT PAS. Declarer `scrollbar-width` fait
+   BASCULER le moteur sur le chemin standard et lui fait IGNORER tout
+   `::-webkit-scrollbar` — mesure du 30/08 : la barre passait a 0 px alors que
+   `--sb-l` valait 10. Ecrire les deux « pour etre sur » revenait donc a
+   n'appliquer que le plus pauvre des deux. Le repli standard est du coup
+   enferme dans un `@supports`, et ne sert que la ou l'autre n'existe pas.
+
+   La piste reste TRANSPARENTE et le pouce garde sa gouttiere : une barre qui
+   flotte au-dessus du contenu masquerait la fin des libelles au survol, et une
+   piste peinte dessinerait une colonne permanente le long de chaque panneau. */
+::-webkit-scrollbar{width:var(--sb-l);height:var(--sb-l)}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--sb);border-radius:8px;
+  /* la bordure transparente amincit le pouce sans retrecir la zone cliquable */
+  border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:var(--sb-h);background-clip:padding-box}
+/* l'angle entre une barre verticale et une horizontale : sans regle, il reste
+   au theme du systeme et fait une pastille claire en bas a droite */
+::-webkit-scrollbar-corner{background:transparent}
+@supports not selector(::-webkit-scrollbar){
+  *{scrollbar-width:thin;scrollbar-color:var(--sb) transparent}
+}
+
 body{margin:0;background:var(--bg);color:var(--txt);overflow:hidden;
      font:var(--font);-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}

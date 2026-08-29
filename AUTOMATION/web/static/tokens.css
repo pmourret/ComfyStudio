@@ -51,6 +51,21 @@
      s'il valait l'accent lui-meme. 11.5:1 sur --bg, 9.3:1 sur --panel2. */
   --focus:#e8c98a;
 
+  /* Barres de defilement (30/08/2026). Elles etaient les seules surfaces du
+     studio a ne pas etre peintes : le theme de l'OS s'y invitait, gris clair
+     sur une palette froide et sombre, sur une douzaine de zones.
+
+     Le pouce est un COMPOSANT D'INTERFACE, pas une decoration : il releve du
+     contraste non-textuel (WCAG 1.4.11, seuil 3:1) contre les TROIS fonds ou
+     il apparait. Le premier choix, #3a4251, tombait a 1.46:1 sur --panel2 —
+     joli et invisible. Valeurs verifiees : --sb 3.93 / 3.60 / 3.16 et --sb-h
+     6.28 / 5.75 / 5.04 sur --bg / --panel / --panel2. Une palette d'univers
+     doit refaire ce controle.
+
+     La piste reste transparente : peinte, elle dessinerait une colonne
+     permanente le long de chaque panneau. */
+  --sb:#6b7488; --sb-h:#8d97ab; --sb-l:10px;
+
   /* --- typographie --- */
   /* Mesure du 29/08/2026 : le header n'herite PAS de --font (ses trois zones
      ont des tailles propres, 16/14/13 px). Le passer a 14px ne lui gagnait
