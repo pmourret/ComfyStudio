@@ -41,8 +41,9 @@ export function go(name, skipHash){
   // #scenes/poses allume Banque. Les deux le disent dans ROUTES, plus ici.
   const tabName = (route && route.tab) || name;
   $$('.tabs button').forEach(x => x.classList.toggle('on', x.dataset.s === tabName));
-  // #journal est un sous-ecran de Réglages : il n'a pas d'onglet propre, on
-  // garde l'onglet Réglages allume pour ne pas laisser le chrome sans repere.
+  // #journal est un sous-ecran d'Application : il n'a pas d'onglet propre, on
+  // garde l'onglet Application allume pour ne pas laisser le chrome sans repere.
+  // `data-s="appli"` reste le contrat — seul le libelle a change (29/08/2026).
   // #wizard n'en a pas non plus (action transitoire du menu identité), assume.
   if (name === 'journal') $('.tabs button[data-s="appli"]').classList.add('on');
   $$('.screen').forEach(x => x.classList.toggle('on', x.id === screen));

@@ -139,7 +139,7 @@ const B = (process.env.DASHBOARD_URL || 'http://127.0.0.1:8199') + '/?character=
   dire((await page.$$('#nsfw')).length === 0, 'l\'ecran #nsfw n\'existe plus');
 
   /* [8b] La barre d'intensite etait du chrome global : peinte sur Banque et
-     Réglages, ou elle ne pilote RIEN — et y changer de cran basculait quand meme
+     Application, ou elle ne pilote RIEN — et y changer de cran basculait quand meme
      le metier de Produire, sans que l'ecran courant le montre. On verifie les
      deux moities du contrat : elle disparait la ou elle n'agit pas, et l'etat
      qu'elle porte n'est pas perdu pour autant. */
@@ -169,6 +169,48 @@ const B = (process.env.DASHBOARD_URL || 'http://127.0.0.1:8199') + '/?character=
        `les scenes restent filtrees par ce cran (${scAvant})`);
   await page.click('#intSel button[data-lv="0"]');
   await page.waitForTimeout(800);
+
+  /* [8c] Deux objets s'appelaient « Réglages » : cet onglet (serveur local,
+     ComfyUI, journaux) et le panneau ⚙ de Produire, qui regle une GENERATION.
+     L'onglet nommait le mauvais. Ce qui change est le LIBELLE ; `data-s`, l'id
+     d'ecran et le hash sont le contrat — ce test le dit dans les deux sens. */
+  console.log('\n[8c] onglet Application — le libelle, pas le contrat (29/08/2026)');
+  const libAppli = (await page.textContent('.tabs button[data-s="appli"]')).trim();
+  dire(libAppli === 'Application', `l'onglet dit « ${libAppli} »`);
+  const libTabs = await page.$$eval('.tabs button', e => e.map(x => x.textContent.trim()));
+  dire(!libTabs.some(t => /Réglages/.test(t)),
+       `plus aucun onglet ne dit « Réglages » : ${libTabs.join(' | ')}`);
+  dire(navTabs.join(',') === 'registre,creer,trier,scenes,appli',
+       `les data-s n'ont pas bouge : ${navTabs.join(', ')}`);
+  await page.click('.tabs button[data-s="appli"]');
+  await page.waitForTimeout(700);
+  dire(await vu('#appli'), `il ouvre toujours l'ecran #appli`);
+  dire(await page.evaluate(() => location.hash) === '#appli', 'le hash reste #appli');
+  const h2Appli = (await page.textContent('#appli h2')).trim();
+  dire(h2Appli === 'Application',
+       `l'ecran porte le meme nom que son onglet : « ${h2Appli} »`);
+  const introAppli = (await page.textContent('#appli .wrap p'))
+    .replace(/\s+/g, ' ').trim();
+  dire(/engrenage, sur Produire/.test(introAppli),
+       `l'ecran dit ou sont les AUTRES reglages : « ${introAppli} »`);
+  // les deux boutons d'arret ont garde leur propre niveau de titre : « Arrêter »
+  // sous un h2 « Application » se lirait comme « arrêter l'application »
+  const h2s = await page.$$eval('#appli h2', e => e.map(x => x.textContent.trim()));
+  dire(h2s[1] === 'Serveur web local', `sections : ${h2s.join(' | ')}`);
+  // #journal n'a pas d'onglet propre : il garde celui d'Application allume, et
+  // nav.js le designe par `data-s` — le libelle n'entre pas dans ce chemin
+  await page.evaluate(() => { location.hash = '#journal'; });
+  await page.waitForTimeout(900);
+  dire(await page.$eval('.tabs button[data-s="appli"]', e => e.classList.contains('on')),
+       `depuis #journal, l'onglet Application reste allume`);
+  // le panneau ⚙ de Produire garde SON mot : c'est le bon, LA. Lu sans ouvrir le
+  // panneau — textContent ne demande pas la visibilite, et [10] veut le trouver ferme
+  dire((await page.textContent('#gearPanel h3')).trim() === 'Réglages',
+       'le panneau de generation dit toujours « Réglages »');
+  dire((await page.textContent('#railGear')).includes('Réglages de génération'),
+       'le rail dit toujours « Réglages de génération »');
+  await page.evaluate(() => { location.hash = '#creer'; });
+  await page.waitForTimeout(700);
 
   console.log('\n[9] editeur de scenes — schema simplifie');
   await page.click('.tabs button[data-s="scenes"]');

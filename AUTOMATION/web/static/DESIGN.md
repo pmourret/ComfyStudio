@@ -111,7 +111,7 @@ de leurs destinations n'est recopiée dans le rail.
 
 | | Dans le rail | Jamais dans le rail |
 |---|---|---|
-| | outils déclarés par le pack, raccourcis Banque/Poses, ⚙ réglages de **génération** | Personnages, Produire, Revue, Réglages **de l'app**, n° de version, ETA (déjà dans `#stTxt`) |
+| | outils déclarés par le pack, raccourcis Banque/Poses, ⚙ réglages de **génération** | Personnages, Produire, Revue, Application, n° de version, ETA (déjà dans `#stTxt`) |
 
 Le rail ne connaît ni le personnage ni le pack (CLAUDE.md §8.7). Il lit le champ
 `surface` de chaque outil et cherche ce que cette surface ouvre dans la table

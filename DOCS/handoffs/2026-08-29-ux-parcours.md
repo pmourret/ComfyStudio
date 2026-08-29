@@ -1,8 +1,8 @@
 # Handoff — UX de parcours (fichier à chaîner)
 
 **Date** : 29/08/2026 · **Base** : `2dec842` (rail d'outils + poses)
-**Statut** : point 1 clos. Fichier ouvert — les points suivants de la session
-UX viennent s'ajouter ici, sous leur propre section.
+**Statut** : points 1 et 2 clos. Fichier ouvert — les points suivants de la
+session UX viennent s'ajouter ici, sous leur propre section.
 
 Ce fichier ne traite pas d'une surface (le rail, l'inspecteur, la banque) mais
 d'un **parcours** : ce que le chrome promet, et si l'écran courant tient la
@@ -142,3 +142,125 @@ ComfyUI hors ligne (`--no-comfy`), comme les passes précédentes.
 - L'apparition de la pastille n'est pas annoncée à un lecteur d'écran
   (`aria-live`). Le changement suit un clic sur le contrôle voisin, donc le
   contexte est là — à trancher si un point suivant touche l'annonce d'état.
+
+---
+
+## 2 · Onglet Application
+
+### Le constat
+
+Deux objets s'appelaient **Réglages**, et l'onglet nommait le mauvais :
+
+| Ce qui s'appelait « Réglages » | Ce que ça règle |
+|---|---|
+| l'onglet du chrome → `#appli` | arrêt du serveur local, ComfyUI, journaux |
+| ⚙ de la barre + ⚙ du rail → `#gearPanel` | une **génération** (guidance, refiner, grain…) |
+
+L'écran `#appli` s'intitulait déjà « Tableau de bord » : le chrome et l'écran ne
+disaient pas la même chose, et aucun des deux ne disait ce que l'écran fait.
+
+### Le patch — un libellé, pas un contrat
+
+```html
+<button data-s="appli">Application</button>
+```
+
+**Intangibles, et vérifiés comme tels** : `data-s="appli"`, l'id `#appli`, le
+hash `#appli`, `go('appli')`, `ROUTES`, et la ligne de `nav.js` qui garde
+l'onglet allumé depuis `#journal` (`$('.tabs button[data-s="appli"]')`). Rien de
+ce qui navigue ne passe par le texte.
+
+**Gardent leur mot, parce que c'est le bon là** : `#railGear`
+(« ⚙ Réglages de génération »), `#gearPanel h3` (« Réglages »), et le `title`
+de `#btnGear` — les infobulles sont le point 6, pas celui-ci. Le menu identité
+ne parlait déjà pas de Réglages.
+
+### L'écran prend le nom de son onglet
+
+Option retenue : **aligner** (« Application ») **+ la ligne** — pas deux titres
+différents sans phrase.
+
+```html
+<h2>Application</h2>
+<p class="tiny">Serveur local et ComfyUI. Les réglages d'une génération sont
+  l'engrenage, sur Produire.</p>
+```
+
+**Un `<h2>` a été ajouté**, et c'est le seul écart au patch minimal. « Tableau
+de bord » ne titrait pas l'écran : il titrait la **section des deux boutons du
+serveur web**, ComfyUI ayant sa propre paire juste après. Le titre d'écran
+prenant « Application », ces deux boutons se retrouvaient sous lui — et
+« Arrêter » se serait lu comme « arrêter l'application », l'inverse de ce qu'il
+fait. D'où :
+
+```
+Application            ← titre d'écran + la ligne
+Serveur web local      ← les deux boutons qui arrêtent le SERVEUR (neuf)
+ComfyUI                ← inchangé
+Journal des productions / Journal du serveur  ← inchangés
+```
+
+### Fichiers touchés
+
+| Fichier | Quoi |
+|---|---|
+| `index.html` | libellé de l'onglet, titre d'écran + ligne, `<h2>Serveur web local</h2>` |
+| `nav.js`, `rail.js`, `components.css` | commentaires qui nommaient l'onglet par un libellé devenu faux |
+| `DESIGN.md` | tableau du rail : « Réglages **de l'app** » → « Application » (le clarificateur n'a plus lieu d'être) |
+| `tests/test_ecran_creer.js` | section `[8c]` |
+
+Les identifiants de code `renderReglages()` / `resetReglages()` ne sont **pas**
+renommés : ils désignent le panneau de génération, qui garde son nom.
+
+### Vérifié
+
+Aucune fumigation n'assertait le **texte** d'un onglet — toutes passent par
+`data-s`. Il n'y avait donc rien à adapter, seulement à ajouter. Section `[8c]`,
+11 assertions vertes :
+
+```
+ok  l'onglet dit « Application »
+ok  plus aucun onglet ne dit « Réglages » : Personnages | Produire | Revue 1 | Banque | Application
+ok  les data-s n'ont pas bouge : registre, creer, trier, scenes, appli
+ok  il ouvre toujours l'ecran #appli          ok  le hash reste #appli
+ok  l'ecran porte le meme nom que son onglet : « Application »
+ok  l'ecran dit ou sont les AUTRES reglages
+ok  sections : Application | Serveur web local | ComfyUI | Journal… | Journal…
+ok  depuis #journal, l'onglet Application reste allume
+ok  le panneau de generation dit toujours « Réglages »
+ok  le rail dit toujours « Réglages de génération »
+```
+
+Le test dit le contrat **dans les deux sens** : ce qui devient « Application »,
+et ce qui ne doit surtout pas suivre.
+
+**Sonde jetable** (non commitée), 10 assertions vertes : Léna et Abyssiaelle
+rendent le même libellé, `?character=<id>#appli` ouvre l'écran et allume
+l'onglet dans les deux cas ; sur le sas d'entrée le libellé est déjà le bon dans
+le DOM, l'onglet restant masqué par `body.no-character`.
+
+Verts, inchangés : `test_panneau_reglages`, `test_apercu_prompt`,
+`test_ecran_wizard`, `test_pose_scene_card`, `test_pose_extraction`,
+`test_scenes_aller_retour`, `test_application_suppression_editeur`.
+
+### Un rouge d'environnement, antérieur aux deux patches
+
+`test_ecran_creer [1]` et `test_ecran_registre [5]` signalent chacun **une**
+erreur JS : un `500` sur `/img?…&thumb=1`. Le serveur dit lui-même pourquoi —
+
+```
+{"ok": false, "erreur": "ModuleNotFoundError : No module named 'PIL'"}
+```
+
+`_faire_vignette()` (`shared_state.py`) importe Pillow, absent de ce Python (comme
+numpy et pytest). L'image pleine taille se sert en `200` ; seule la vignette
+non encore en cache échoue. **Reproduit à l'identique sur `2dec842` nu**, sans
+UX-1 ni UX-2 : rien à voir avec ces patches, et rien à corriger dans le code —
+c'est un `pip install Pillow` à faire dans l'environnement de test. À noter au
+passage : l'erreur remonte en clair jusqu'à l'UI plutôt que d'échouer en
+silence, ce que `frontend.md` demande.
+
+### Pas fait
+
+`appli.js`, l'écran, le hash : pas renommés. Infobulles (point 6), intensité
+(point 1, clos), J7, `hints.js`, `/img/base` : hors scope.

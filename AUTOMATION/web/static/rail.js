@@ -2,7 +2,7 @@
 
    CE QUE LE RAIL N'EST PAS : une seconde navigation. Les cinq onglets du header
    restent le chrome, et aucune de leurs destinations n'est recopiee ici —
-   Personnages, Produire, Revue, Réglages n'y figurent pas.
+   Personnages, Produire, Revue, Application n'y figurent pas.
 
    CE QU'IL EST : les OUTILS du pack du personnage courant, lus dans
    `UNIVERS/<pack>/tools.json` via /api/universe/tools, plus les raccourcis

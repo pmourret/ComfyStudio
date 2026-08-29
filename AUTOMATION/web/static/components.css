@@ -37,7 +37,7 @@
 
 /* zone IDENTITE du chrome : nom du personnage charge + menu (changer de perso,
    revenir au registre, en creer un). Remplace le menu « Avancé » : ses entrees
-   sont maintenant soit des onglets de .tabs, soit un sous-ecran de Réglages. */
+   sont maintenant soit des onglets de .tabs, soit un sous-ecran d'Application. */
 .idwrap{position:relative;display:flex;align-items:baseline;gap:6px;min-width:0}
 #btnId{background:none;border:0;color:var(--dim);cursor:pointer;font-size:12px;
        line-height:1;padding:5px 7px;border-radius:6px}
@@ -71,7 +71,7 @@ body.no-character #btnId{display:none}
    Meme famille que le rail ci-dessous : masquee par defaut (base.css), revelee
    par UNE condition positive.
 
-   Elle etait du chrome global, peinte sur Banque et Réglages ou elle ne pilote
+   Elle etait du chrome global, peinte sur Banque et Application ou elle ne pilote
    RIEN — et changer de cran depuis ces ecrans basculait quand meme le metier de
    Produire (generation <-> edition) sans que l'ecran courant le montre. Ce
    n'etait pas un manque de place, c'etait un mensonge de parcours. Donc :
@@ -99,7 +99,7 @@ body:not(.no-character):not(.editing):has(#creer.on) .intbar{display:block}
    porte les outils du pack et les raccourcis d'atelier — voir rail.js.
 
    Il ne s'affiche QUE la ou ses entrees ont une surface : Produire et Banque.
-   Sur les ecrans-listes (Revue, Registre, Réglages) il n'aurait aucune entree
+   Sur les ecrans-listes (Revue, Registre, Application) il n'aurait aucune entree
    active et ne ferait que rogner la largeur — et sous 1100 px les onglets
    suffisent : pas de hamburger, aucune destination repliee.
 

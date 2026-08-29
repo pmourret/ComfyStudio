@@ -31,8 +31,8 @@
   </div>
 
   <!-- nav STUDIO : cinq destinations, a plat. Le menu « Avancé » a disparu —
-       ses entrees etaient soit du premier plan (Personnages, Banque, Réglages),
-       soit un sous-ecran (Journal, desormais dans Réglages). L'onglet « Branche
+       ses entrees etaient soit du premier plan (Personnages, Banque, Application),
+       soit un sous-ecran (Journal, desormais dans Application). L'onglet « Branche
        NSFW » avait deja disparu le 26/08/2026 : son ecran EST le cran NSFW du
        curseur d'intensité. -->
   <div class="tabs">
@@ -40,7 +40,12 @@
     <button class="on" data-s="creer">Produire</button>
     <button data-s="trier">Revue <span class="n" id="nTri">0</span></button>
     <button data-s="scenes">Banque</button>
-    <button data-s="appli">Réglages</button>
+    <!-- « Application » et pas « Réglages » : deux objets portaient ce nom —
+         cet ecran (serveur local, ComfyUI, journaux) et le panneau ⚙ de
+         Produire, qui reglait une GENERATION. L'onglet nommait le mauvais.
+         `data-s`, l'id #appli, le hash et ROUTES ne bougent pas : c'est le
+         libelle qui mentait, pas le contrat. -->
+    <button data-s="appli">Application</button>
   </div>
 
   <!-- zone SANTE : ComfyUI joignable ou non (#dot) + progression du batch en
@@ -388,9 +393,17 @@
      qui règle une génération, pas les deux processus qui la rendent possible. -->
 <div class="screen" id="appli">
   <div class="wrap">
-    <h2>Tableau de bord</h2>
-    <p class="tiny" style="margin:6px 0 16px">Le serveur web local — celui que
-      tu utilises en ce moment.</p>
+    <h2>Application</h2>
+    <p class="tiny" style="margin:6px 0 22px">Serveur local et ComfyUI. Les
+      réglages d'une génération sont l'engrenage, sur Produire.</p>
+
+    <!-- Le titre d'ecran ayant pris « Application », les deux boutons ci-dessous
+         ont besoin du leur : ils arretent le SERVEUR WEB, pas ComfyUI, qui a sa
+         propre paire juste apres. Sans ce niveau, « Arrêter » se lirait comme
+         « arrêter l'application » — l'inverse de ce qu'il fait. -->
+    <h2>Serveur web local</h2>
+    <p class="tiny" style="margin:6px 0 16px">Celui que tu utilises en ce
+      moment.</p>
     <div class="appliActs">
       <button class="btn" id="btnAppRestart">Redémarrer</button>
       <button class="btn danger" id="btnAppStop">Arrêter</button>
