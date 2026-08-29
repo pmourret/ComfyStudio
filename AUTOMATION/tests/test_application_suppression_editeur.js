@@ -84,7 +84,7 @@ process.on('exit', nettoyer);
   console.log('\n[3] le bouton "Arrêter le tableau de bord" ouvre une confirmation — ANNULÉE');
   await page.click('#btnAppStop');
   await page.waitForTimeout(400);
-  dire(await page.isVisible('#armBox.on, #armCard'), 'une modale de confirmation apparaît');
+  dire(await page.isVisible('#armBox[open], #armCard'), 'une modale de confirmation apparaît');
   const texteConfirm = (await page.textContent('#armCard') || '');
   dire(/Coupe le serveur/.test(texteConfirm), 'le texte prévient des conséquences');
   await page.click('#cfNon');   // ANNULER — ne jamais confirmer dans ce test
@@ -125,6 +125,12 @@ process.on('exit', nettoyer);
   await page.waitForTimeout(900);
   dire(await page.isVisible('#editorBox.on, #editorBox'), 'le panneau éditeur s’ouvre');
   dire(await page.locator('#editorBox').evaluate(e => e.classList.contains('on')), 'classe .on posée');
+  // l'editeur est un MODE, pas une overlay : le chrome reste visible et le
+  // contexte personnage n'est pas perdu
+  dire(await page.isVisible('.tabs'), 'la nav du chrome reste visible pendant l’édition');
+  dire(await page.evaluate(() => document.body.classList.contains('editing')), 'body.editing posé');
+  dire((await page.evaluate(() => location.search)).includes('character=lena'),
+       'le contexte personnage (?character=lena) est conservé');
   const cvW = await page.locator('#edCanvas').evaluate(c => c.width);
   dire(cvW > 0, `le canvas est dimensionné (${cvW}px de large)`);
   dire(await page.isVisible('#edCropBox'), 'le cadre de recadrage est affiché');
@@ -177,6 +183,9 @@ process.on('exit', nettoyer);
   await page.waitForTimeout(1500);
   dire(!(await page.locator('#editorBox').evaluate(e => e.classList.contains('on'))),
        'le panneau se ferme après enregistrement');
+  dire(await page.isVisible('#trier'), 'retour sur l’écran d’où l’éditeur a été ouvert (Revue)');
+  dire(!(await page.evaluate(() => document.body.classList.contains('editing'))),
+       'body.editing retiré à la fermeture');
   const nouveauxFichiers = await page.evaluate(() =>
     fetch('/api/gallery?bucket=A_REVOIR&space=lena').then(r => r.json())
       .then(d => d.items.filter(i => i.name.includes('_TEST_EDITEUR_temp_edit')).map(i => i.name)));

@@ -24,11 +24,17 @@ let ED_ROT = 0;           // 0..3 : pas de 90°
 let ED_RATIO = null;      // null = libre, sinon {w, h}
 let ED_CROP = null;       // {x,y,w,h} en pixels d'affichage (post-rotation 90°)
 let ED_DRAG = null;
+let ED_RETURN = 'creer';  // ecran d'ou l'editeur a ete ouvert (mode, pas overlay)
 
 export async function ouvrirEditeur(item){
   if (!item) return;
   ED_ITEM = {name: item.name, bucket: item.bucket, space: item.space};
-  $('#editorBox').classList.add('on');
+  // MODE, pas overlay : on memorise l'ecran courant, on pose body.editing, et
+  // #editorBox (class="screen") s'affiche via .screen.on. Le chrome (identite /
+  // nav / sante) reste visible ; Fermer / Enregistrer / Echap ramenent ici.
+  ED_RETURN = (document.querySelector('.screen.on') || {}).id || 'creer';
+  document.body.classList.add('editing');
+  $$('.screen').forEach(s => s.classList.toggle('on', s.id === 'editorBox'));
   $('#edMsg').textContent = 'chargement…';
   $('#edSave').disabled = true;
   const img = new Image();
@@ -46,13 +52,15 @@ export async function ouvrirEditeur(item){
 }
 
 export function fermerEditeur(){
-  $('#editorBox').classList.remove('on');
+  document.body.classList.remove('editing');
+  $$('.screen').forEach(s => s.classList.toggle('on', s.id === ED_RETURN));
   ED_ITEM = null; ED_IMG = null; ED_CROP = null; ED_DRAG = null;
 }
-$('#editorBox').addEventListener('click', e => {
-  if (e.target.id === 'editorBox') fermerEditeur();
-});
 $('#edCancel').onclick = fermerEditeur;
+// Echap quitte le mode editeur (les <dialog> gerent le leur nativement)
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.body.classList.contains('editing')) fermerEditeur();
+});
 
 /* ------------------------------------------------------------- geometrie */
 function dimsRotees(){

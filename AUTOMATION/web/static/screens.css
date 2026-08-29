@@ -278,13 +278,11 @@ details.preamb{margin-top:0;border-top:0;padding-top:0;margin-bottom:12px}
 .wiz-frozen span{font-size:12.5px;color:var(--dim)}
 @media (max-width:720px){.wiz-id,.wiz-base{grid-template-columns:1fr}}
 
-/* ---------------------------------------------------------------- editeur */
-#editorBox{position:fixed;inset:0;background:#000d;display:none;
-  align-items:center;justify-content:center;z-index:40;padding:20px}
-#editorBox.on{display:flex}
-.edWrap{display:flex;gap:0;background:var(--panel);border:1px solid var(--line2);
-  border-radius:12px;overflow:hidden;max-width:1160px;width:100%;
-  max-height:calc(100vh - 40px)}
+/* ---------------------------------------------------------------- editeur
+   Mode plein <main> (body.editing), pas une overlay : #editorBox porte
+   class="screen", donc .screen / .screen.on (base.css) gerent l'affichage.
+   Le chrome (identite / nav / sante) reste visible au-dessus. */
+#editorBox .edWrap{display:flex;height:100%;background:var(--panel);overflow:hidden}
 .edStage{position:relative;flex:1;display:flex;align-items:center;
   justify-content:center;background:#0a0a0a;padding:16px;min-width:0}
 .edStage canvas{max-width:100%;max-height:100%;display:block;border-radius:2px}
