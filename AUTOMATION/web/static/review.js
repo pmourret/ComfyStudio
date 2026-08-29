@@ -47,10 +47,10 @@ export function setTriageEntry(bucket){
 export function syncTriageUi(){
   $$('#bucketSel button').forEach(x => x.classList.toggle('on', x.dataset.b === BUCKET));
   $$('#spaceSel button').forEach(x => x.classList.toggle('on', x.dataset.sp === SPACE));
-  const routeName = SPACE !== 'lena' ? null
-    : BUCKET === 'OK' ? 'galerie' : BUCKET === 'A_REVOIR' ? 'trier' : null;
-  $$('.tabs button[data-s="galerie"], .tabs button[data-s="trier"]').forEach(x =>
-    x.classList.toggle('on', x.dataset.s === routeName));
+  // L'onglet Galerie a disparu du chrome : Revue (#trier) couvre tous les
+  // buckets SFW, le hash #galerie (bucket OK) compris. Le NSFW n'a pas d'onglet.
+  const surTrier = SPACE === 'lena';
+  $$('.tabs button[data-s="trier"]').forEach(x => x.classList.toggle('on', surTrier));
 }
 
 /* ===================================================================== TRIER */

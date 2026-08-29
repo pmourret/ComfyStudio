@@ -22,11 +22,16 @@ export function go(name, skipHash){
   const screen = route ? route.screen : name;
   if (!$('#' + screen)) name = 'creer';
   closeIdMenu();
+  // cliquer un onglet du chrome pendant une retouche photo quitte le mode
+  // editeur proprement — sinon le marqueur body.editing resterait colle
+  document.body.classList.remove('editing');
   // les onglets Galerie/Revue retombent toujours sur l'espace SFW : ouvrir sur
   // du NSFW sans l'avoir choisi explicitement serait surprenant (ecran partage,
   // capture...) — la bascule NSFW dans l'ecran reste a un clic
   if (route){ setTriageEntry(route.bucket); syncTriageUi(); }
-  $$('.tabs button').forEach(x => x.classList.toggle('on', x.dataset.s === name));
+  // le hash #galerie (bucket OK) partage l'ecran #trier : il allume Revue
+  const tabName = name === 'galerie' ? 'trier' : name;
+  $$('.tabs button').forEach(x => x.classList.toggle('on', x.dataset.s === tabName));
   // #journal est un sous-ecran de Réglages : il n'a pas d'onglet propre, on
   // garde l'onglet Réglages allume pour ne pas laisser le chrome sans repere.
   // #wizard n'en a pas non plus (action transitoire du menu identité), assume.
