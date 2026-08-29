@@ -251,15 +251,25 @@ async def api_creative(request):
     creative = lb.load_creative(cid)
     data = ss.scenes_data(cid)
     configuration = ss.cfg(cid)
-    armed = nsfw_batch.is_armed(cid)
+    # L'outil d'edition existe pour CE personnage a deux conditions, jamais une
+    # seule (J7) : son registre est arme, ET son pack declare un graphe
+    # d'edition. Un pack sans graphe n'a pas l'outil, quel que soit l'armement.
+    outil = nsfw_batch.edit_tool_state(cid)
     # compte une seule fois : la sonde disque est la meme pour tous les paliers
     n_sources = (len(nsfw_batch.sources_disponibles(configuration, cid))
-                 if armed else 0)
+                 if outil["available"] else 0)
     paliers = []
     for p in creative.get("intensity", []):
         exige = p.get("requires")
-        verrouille = exige == "armed" and not armed
         edite = p.get("pipeline") == "flux+edit"
+        # Un palier qui demande l'armement et ne l'a pas n'est PAS EMIS : le
+        # cran est absent de l'interface, pas grise (ADR-0003 : le NSFW est off
+        # par defaut, et un cran grise reste une invitation). Le curseur est
+        # reconstruit depuis cette liste, il n'a donc rien a filtrer — et rien
+        # a filtrer par nom de personnage (CLAUDE.md §8.7). guard_intensity
+        # reste le verrou serveur : le masquage ne remplace pas la garde.
+        if exige == "armed" and not outil["available"]:
+            continue
         # Le cran qui edite ne choisit pas de scene : annoncer un nombre de
         # scenes y etait trompeur (il affichait « 16 », le compte du niveau de
         # base, alors qu'aucune scene n'y est utilisee). Il compte des images.
@@ -267,8 +277,6 @@ async def api_creative(request):
         # mais ce mode est un repli, pas ce que le cran annonce.
         niveau_scenes = p.get("base_level", p["level"])
         paliers.append({**p,
-                        "locked": verrouille,
-                        "reason": "branche NSFW désarmée" if verrouille else None,
                         "besoin_instruction": edite,
                         "unite": "image" if edite else "scène",
                         "scenes": n_sources if edite else

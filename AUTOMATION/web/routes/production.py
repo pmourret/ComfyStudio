@@ -570,9 +570,12 @@ async def api_decline(request):
         # curseur principal : confirmation a montrer, armement a proposer
         # plutot que de laisser cliquer puis echouer sur un toast generique
         configuration = ss.cfg(cid)
-        arme = nsfw_batch.is_armed(cid)
+        # Meme verite que le curseur : l'outil d'edition demande l'armement ET
+        # un graphe declare par le pack. Le geste d'armement, lui, ne vit plus
+        # ici — il a un seul endroit, l'ecran Application (J7).
+        outil = nsfw_batch.edit_tool_state(cid)
         verrouille = (suivant is not None and suivant.get("requires") == "armed"
-                      and not arme)
+                      and not outil["available"])
         # L'edition ne monte pas d'un cran : elle part de l'image affichee, quel
         # que soit son niveau. C'est le geste « j'aime celle-ci, edite-la », qui
         # n'existait jusqu'ici que dans un onglet a part.
@@ -587,7 +590,8 @@ async def api_decline(request):
             "suivant_verrouille": verrouille,
             "edition_label": edit["label"] if edit else None,
             "edition_verrouillee": bool(edit and edit.get("requires") == "armed"
-                                        and not arme),
+                                        and not outil["available"]),
+            "edition_raison": outil["reason"],
             "suivant_instruction": bool(suivant and
                                         suivant.get("pipeline") == "flux+edit")})
 

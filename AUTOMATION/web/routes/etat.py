@@ -331,7 +331,10 @@ async def api_journal(request):
 async def api_nsfw_state(request):
     cid = ss.character(request)
     configuration = ss.cfg(cid)
-    armed = nsfw_batch.is_armed(cid)
+    # `outil` porte les DEUX conditions et la raison quand l'une manque : c'est
+    # ce que la section « Contenu adulte » de l'ecran Application affiche, et
+    # ce que le curseur suit pour montrer ou non son cran (J7).
+    outil = nsfw_batch.edit_tool_state(cid)
     counts = {}
     for b in ("OK", "A_REVOIR", "REJET"):
         d = ss.bucket_dir(b, "nsfw", cid)
@@ -340,8 +343,10 @@ async def api_nsfw_state(request):
     # d'ou vient chaque image, et /img en a besoin pour la retrouver
     sources = [{"name": f.name, "bucket": b}
                for f, b in nsfw_batch.sources_disponibles(configuration, cid)[:120]]
-    return web.json_response({"armed": armed, "counts": counts,
-                              "sources": sources})
+    return web.json_response({"armed": outil["armed"], "outil": outil,
+                              "nom": lb.load_character(cid).get("name") or cid,
+                              "sortie": f"PROD/{cid.upper()}/_NSFW/",
+                              "counts": counts, "sources": sources})
 
 
 # ------------------------------------------------------- application (26/08/2026)

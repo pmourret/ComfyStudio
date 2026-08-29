@@ -179,6 +179,32 @@ try:
     verifie(nsfw_batch.is_armed("lena") is True, "lena toujours armee (non touchee)")
     verifie(nsfw_batch.is_armed("abyssiaelle") is False, "abyssiaelle toujours desarmee")
 
+    # ------------------- [7] les DEUX conditions, jamais une seule (A', J7)
+    print("\n[7] outil disponible = arme ET pack qui declare un graphe")
+    # probe : arme + pack avec graphe -> disponible
+    o = nsfw_batch.edit_tool_state(A)
+    verifie(o["available"] is True and o["reason"] is None,
+            f"{A} arme + pack avec graphe -> outil disponible")
+    # probe2 : desarme + pack sans graphe -> la raison nomme le PACK, la
+    # condition la plus structurelle, pas l'armement qui se corrige d'un clic
+    o = nsfw_batch.edit_tool_state(B)
+    verifie(o["available"] is False and "pack" in (o["reason"] or ""),
+            f"{B} desarme + pack sans graphe -> raison de pack : {o['reason']}")
+    # LE cas d'A' : armer un personnage dont le pack n'a pas l'outil est PERMIS
+    # et ne fait apparaitre aucun cran. C'est ce qui distingue les deux
+    # conditions d'une seule — sans ce test, `available` pourrait ne suivre que
+    # l'armement, et personne ne s'en apercevrait avant un lancement rate.
+    reg = OFM / "CHARACTERS" / B / "character.json"
+    data = json.loads(reg.read_text(encoding="utf-8"))
+    data["nsfw"] = True
+    reg.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    o = nsfw_batch.edit_tool_state(B)
+    verifie(o["armed"] is True, f"{B} accepte d'etre arme (ce n'est pas interdit)")
+    verifie(o["available"] is False,
+            "arme mais pack sans graphe -> outil TOUJOURS indisponible")
+    verifie("rpg-personnage" in (o["reason"] or ""),
+            f"et la raison nomme le pack : {o['reason']}")
+
     print("\n" + "=" * 70)
     print("tout est vert" if not KO else f"{KO} ECHEC(S)")
     print("=" * 70)

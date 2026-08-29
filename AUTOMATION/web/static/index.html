@@ -196,12 +196,13 @@
       <div class="scenes" id="sceneGrid"></div>
     </div>
 
-    <!-- CRAN NSFW : on edite une image deja validee, on n'engendre rien. -->
+    <!-- CRAN NSFW : on edite une image deja validee, on n'engendre rien.
+         Ni armement ni desarmement ici : le geste a UN seul endroit, la
+         section « Contenu adulte » de l'ecran Application (J7). Le flux de
+         production execute la decision, il ne la prend pas. -->
     <div class="step" id="stepSource" hidden>
       <h2><i class="num">1</i> · Image source
         <span class="tiny" id="srcHint"></span>
-        <span class="spacer" style="flex:1"></span>
-        <button class="link" id="btnDisarm">désarmer la branche</button>
       </h2>
       <div class="srcgrid" id="srcGrid"></div>
     </div>
@@ -458,6 +459,14 @@
       <button class="btn" id="btnComfyRestart">Redémarrer</button>
       <button class="btn danger" id="btnComfyStop">Arrêter</button>
     </div>
+
+    <!-- CONTENU ADULTE (J7). Le SEUL endroit ou la decision se prend, pour ce
+         personnage-ci. Ni interrupteur global (aucun reglage d'application ne
+         vaut pour tous les personnages a la fois), ni geste dans le flux de
+         production : Produire execute la decision, il ne la prend pas.
+         Peint par appli.js depuis /api/nsfw/state. -->
+    <h2 style="margin-top:34px">Contenu adulte <span class="tiny" id="nsfwQui"></span></h2>
+    <div id="nsfwBox"></div>
 
     <h2 style="margin-top:34px">Journal des productions</h2>
     <p class="tiny" style="margin:6px 0 10px">L'historique des batchs — date, scène,

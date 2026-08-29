@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Lance les fumigations navigateur (tests/test_ecran_*.js, test_pose_*.js,
-test_apercu_prompt.js, test_application_suppression_editeur.js) chacune contre
-un tableau de bord NEUF.
+test_apercu_prompt.js, test_contenu_adulte.js,
+test_application_suppression_editeur.js) chacune contre un tableau de bord NEUF.
 
 Pourquoi un lanceur. Ces tests mutent l'etat (creent des images, extraient des
 poses, enregistrent scenes.json puis reviennent en arriere). Enchaines sur un
@@ -37,6 +37,7 @@ TESTS = [
     "test_ecran_registre",
     "test_ecran_wizard",
     "test_ecran_creer",
+    "test_contenu_adulte",
     "test_apercu_prompt",
     "test_pose_scene_card",
     "test_pose_extraction",                       # ComfyUI requis (s'ignore sinon)

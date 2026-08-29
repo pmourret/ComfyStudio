@@ -65,6 +65,34 @@ def edit_workflow_path(character_id):
     return OFM / universe.require_edit_workflow(pack)
 
 
+def edit_tool_state(character_id):
+    """Is the live-AI-edit tool available for THIS character, and if not, why?
+
+    Two conditions, never one (J7):
+      - the character's own registry is armed (`character.json` / `nsfw`),
+        off by default and armed only by an explicit gesture;
+      - the character's pack declares an edit graph (`universe.json` /
+        `edit_workflow`) — the tool is a PACK asset (ADR-0003: adding a pack
+        costs no NSFW work *as long as both global tools exist for it*).
+
+    Returns {armed, pack, has_graph, available, reason}. `reason` is the text
+    the interface shows instead of the missing step — a pack without the tool
+    says so, it does not stay silent.
+    """
+    armed = is_armed(character_id)
+    pack = lb.character_universe(character_id)
+    graph = universe.edit_workflow(pack) if pack else None
+    if not graph:
+        raison = ("L'outil de modification live par IA n'existe pas encore "
+                  f"pour ce pack ({pack}).")
+    elif not armed:
+        raison = "Le contenu adulte n'est pas activé pour ce personnage."
+    else:
+        raison = None
+    return {"armed": armed, "pack": pack, "has_graph": bool(graph),
+            "available": bool(armed and graph), "reason": raison}
+
+
 def src_prefix(character_id):
     """Prefix of the temporary source copy dropped in ComfyUI/input.
 

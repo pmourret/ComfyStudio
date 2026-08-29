@@ -11,6 +11,7 @@ import {emit} from './bus.js';
 import {loadItems, syncTriageUi, setTriageEntry} from './review.js';
 import {loadJournal, setBankView} from './advanced.js';
 import {majEtatComfy} from './appli.js';
+import {majContenuAdulte} from './nsfw-arm.js';
 import {estEdition, nsfwTick} from './create.js';
 import {loadRegistre} from './registre.js';
 import {loadWizard} from './wizard.js';
@@ -56,7 +57,7 @@ export function go(name, skipHash){
   if (name === 'registre') loadRegistre();
   if (name === 'wizard') loadWizard();
   if (name === 'journal') loadJournal();
-  if (name === 'appli') majEtatComfy();
+  if (name === 'appli'){ majEtatComfy(); majContenuAdulte(); }
   // l'inspecteur charge sa fiche et son repli banque au premier passage
   // seulement : les ticks suivants lui viennent de renderRun, sans appel en plus
   if (name === 'creer') inspectorEnter();

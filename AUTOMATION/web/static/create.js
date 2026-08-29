@@ -15,7 +15,6 @@ import {creative, palier, loadCreative} from './taxonomy.js';
 import {qc, presetRef, nsfwRef} from './config.js';
 import {scenes} from './scenes-store.js';
 import {isRunning, markRunning} from './poller.js';
-import {ouvrirArmement} from './review.js';
 import {updateInspector} from './inspector.js';
 import {brancher} from './hints.js';
 
@@ -44,9 +43,9 @@ on('scenes:loaded', () => { renderIntentions(); renderTones(); renderScenes(); }
 function renderIntensity(){
   const box = $('#intSel');
   box.innerHTML = (creative().intensity || []).map(p => `
-    <button data-lv="${p.level}" class="lv${p.level}${p.level === LEVEL ? ' on' : ''}${
-      p.locked ? ' locked' : ''}" title="${p.locked ? p.reason : (p.prompt_add || 'aucun ajout de prompt')}">
-      ${p.locked ? '🔒 ' : ''}${p.label}<span class="n">${p.scenes}</span>
+    <button data-lv="${p.level}" class="${estPalierEdition(p) ? 'lvedit' : 'lv' + p.level}${
+      p.level === LEVEL ? ' on' : ''}" title="${esc(p.prompt_add || 'aucun ajout de prompt')}">
+      ${esc(p.label)}<span class="n">${p.scenes}</span>
     </button>`).join('');
   box.querySelectorAll('button').forEach(b =>
     b.onclick = () => setLevel(+b.dataset.lv));
@@ -81,6 +80,11 @@ function majHintCrans(){
       : 'int.lv' + p.level);
   });
 }
+
+/* Le palier qui EDITE une image au lieu d'en engendrer une. Un seul endroit
+   le reconnait, pour que la reponse soit la meme partout (curseur, blocs,
+   pastille, garde-fous). Le serveur a son pendant, `palier_edition`. */
+export const estPalierEdition = p => !!(p && p.pipeline === 'flux+edit');
 
 /* Vrai quand le cran courant EDITE une image existante au lieu d'en engendrer
    une. C'est le comportement par defaut du cran NSFW, et la regle du projet : la
@@ -126,9 +130,6 @@ function syncNiveauGuards(){
 export async function setLevel(lv){
   const p = palier(lv);
   if (!p) return;
-  // le rituel d'armement vit desormais sur le cran verrouille du curseur, plus
-  // dans un onglet a part : c'est la que la decision se prend, au moment utile
-  if (p.locked) return ouvrirArmement(p);
   if (p.requires === 'confirm' && !CONFIRMED.has(lv)){
     const ok = await confirmer({
       titre: `Passer en « ${p.label} » ?`,
@@ -371,13 +372,16 @@ export async function nsfwTick(){
   const seq = ++NSFW_SEQ;
   let d; try { d = await api('/api/nsfw/state'); } catch { return; }
   if (seq !== NSFW_SEQ) return;
-  if (d.armed !== NARMED){
-    // l'armement conditionne le verrouillage des paliers du curseur : un
-    // desarmement fait ailleurs doit reverrouiller le cran ici aussi
-    await loadCreative();
+  const dispo = !!(d.outil && d.outil.available);
+  if (dispo !== NARMED){
+    // Le geste d'armement vit sur l'ecran Application : un changement fait
+    // la-bas doit faire apparaitre ou DISPARAITRE le cran ici. Le serveur
+    // n'emet plus le palier quand l'outil n'est pas disponible, il suffit
+    // donc de relire la taxonomie — et de quitter le cran s'il n'est plus la.
+    await rebasculerSiCranPerdu();
     if (seq !== NSFW_SEQ) return;
   }
-  NARMED = d.armed;
+  NARMED = dispo;
   NSFW_SRC = d.sources || [];
   if (estEdition()) renderSources();
 }
@@ -427,17 +431,18 @@ $('#srcGrid').onclick = e => {
   renderSources(); refreshPlan();
 };
 
-$('#btnDisarm').onclick = async () => {
-  const r = await post('/api/nsfw/arm', {arm: false});
-  if (!r.ok) return toast(r.erreur || 'désarmement impossible');
-  NSRC.clear(); NSRC_SIG = null;
-  toast('branche désarmée');
-  // on ne reste pas sur un cran qui vient d'etre reverrouille
-  if (palier(LEVEL)?.requires === 'armed') LEVEL = 0;
+/* Le cran d'edition vient de disparaitre (desarmement fait ailleurs, ou pack
+   sans graphe) : on ne reste pas sur un cran qui n'existe plus. Appele par
+   nsfwTick quand /api/nsfw/state change d'avis. */
+export async function rebasculerSiCranPerdu(){
+  const avant = LEVEL;
   await loadCreative();
+  if (palier(avant)) return;
+  LEVEL = 0;
+  NSRC.clear(); NSRC_SIG = null;
   if (scenes()){ renderIntentions(); renderTones(); renderScenes(); }
-  syncEtapes(); nsfwTick(); refreshPlan();
-};
+  renderIntensity(); syncEtapes(); refreshPlan();
+}
 
 /* ------------------------------- preambule visible et bibliotheque d'instructions
    Le preambule etait DECRIT par une phrase (« la pose et le decor sont deja

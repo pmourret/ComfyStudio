@@ -81,8 +81,6 @@ header{display:flex;align-items:center;gap:20px;padding:0 20px;height:56px;
 .intbar .lab{font-size:12px;text-transform:uppercase;letter-spacing:.9px;
         color:var(--dim);font-weight:600}
 .intbar .seg button{padding:6px 16px}
-.intbar .seg button.locked{color:var(--dim2);cursor:not-allowed}
-.intbar .seg button.locked:hover{color:var(--dim2)}
 .intbar .seg button .n{font-size:11px;opacity:.6;margin-left:6px;
         font-variant-numeric:tabular-nums}
 /* escalade complete sur les 4 paliers — avant, seuls lv2/lv3 avaient une regle
@@ -96,6 +94,9 @@ header{display:flex;align-items:center;gap:20px;padding:0 20px;height:56px;
    seuil AA. Les crans lv0 et lv2 posaient deja --bg, lv3 etait le seul ecart —
    et c'est le cran qu'on veut lire sans hesiter. */
 .intbar .seg button.lv3.on{background:var(--bad);color:var(--bg)}
+/* le cran qui EDITE porte la teinte de ce qu'il fait, pas de son rang :
+   selon le pack il peut etre au niveau 1 comme au niveau 3 (J7) */
+.intbar .seg button.lvedit.on{background:var(--bad);color:var(--bg)}
 /* `.shell` : la bande sous le header, la barre d'intensite et le bandeau de
    panne — rail a gauche, contenu a droite. `min-height:0` sur un enfant de
    colonne flex, sinon la bande refuse de descendre sous la hauteur de son

@@ -1,4 +1,4 @@
-/* Ecran Revue : tri, sous-scores, jugement, armement, declinaison.
+/* Ecran Revue : tri, sous-scores, jugement, declinaison, retouche.
    Bascule en modules ES le 27/08/2026 (J3). Depuis l'etape 2 : l'etat du tri
    (bucket / espace / vue / liste / curseur) est encapsule ici et expose par
    triageState() / setTriageEntry() ; les bandes de score viennent de
@@ -13,8 +13,6 @@ import {openDialog, closeDialog} from './ui-dialog.js';
 import {openLight} from './lightbox.js';
 import {go} from './nav.js';
 import {qc} from './config.js';
-import {creative, loadCreative, palier} from './taxonomy.js';
-import {setLevel} from './create.js';
 import {ouvrirEditeur} from './editor.js';
 import {refreshCounts} from './poller.js';
 
@@ -424,40 +422,14 @@ async function supprimerDefinitivement(k){
   renderTriage(); refreshCounts();
   toast(`${it.scene || it.name} supprimée définitivement`);
 }
-/* ============================================================== ARMEMENT
-   La branche NSFW ne s'arme pas d'un clic : il faut recopier le mot. Le rituel a
-   quitte l'onglet Avance pour le cran verrouille du curseur — c'est la que la
-   decision se prend, au moment ou on en a besoin. */
-export function ouvrirArmement(p){
-  $('#armCard').innerHTML = `
-    <h3>Niveau « ${p.label} » — branche désarmée</h3>
-    <p>Elle est construite et testée. Elle ne produit rien tant qu'elle n'est pas
-       armée explicitement.</p>
-    <ul>
-      <li>la génération part du niveau <b>Soft</b>, puis l'image est éditée</li>
-      <li>PuLID + FaceDetailer remettent le visage depuis la base gelée</li>
-      <li>sorties isolées dans <code>PROD/_NSFW/</code>, <b>jamais exportées</b></li>
-      <li>une image dont la passe SFW sort de la bande d'identité n'est pas éditée</li>
-    </ul>
-    <label class="f" style="margin-top:14px"><span>pour armer, recopier le mot ARMER</span>
-      <input id="armWord2" autocomplete="off" style="max-width:220px"></label>
-    <div style="margin-top:16px;display:flex;gap:12px;align-items:center">
-      <button class="btn primary" id="btnArm2">Armer la branche</button>
-      <button class="link" id="armClose">annuler</button></div>`;
-  const armer = async () => {
-    const r = await post('/api/nsfw/arm', {arm: true, confirm: $('#armWord2').value});
-    if (!r.ok) return toast(r.erreur === 'confirmation manquante'
-      ? 'recopie exactement le mot ARMER' : (r.erreur || 'échec'));
-    closeDialog($('#armBox'));
-    toast('branche armée');
-    await loadCreative();
-    setLevel(p.level);
-  };
-  $('#btnArm2').onclick = armer;
-  $('#armWord2').addEventListener('keydown', e => { if (e.key === 'Enter') armer(); });
-  $('#armClose').onclick = () => closeDialog($('#armBox'));
-  openDialog($('#armBox'), {initialFocus: '#armWord2'});
-}
+/* Phrase INERTE, pas un bouton : le geste d'armement a un seul endroit, la
+   section « Contenu adulte » de l'ecran Application (J7). Proposer ici un
+   deuxieme chemin vers la meme decision, au milieu d'un geste de production,
+   c'est exactement ce que J7 defait. On dit ou aller, on n'y emmene pas. */
+const renvoiApplication = raison =>
+  `<p class="tiny" style="margin:2px 0 12px">${esc(raison
+    || "L'édition d'image n'est pas disponible pour ce personnage.")}
+     <br>Pour l'activer : <b>Application → Contenu adulte</b>.</p>`;
 
 /* =============================================================== DECLINER
    Repartir d'une image gardee plutot que relancer un batch. Le serveur
@@ -480,12 +452,10 @@ async function ouvrirDeclinaison(k){
   const btn = (mode, libelle, dispo, sfx) =>
     `<button class="btn dm" data-m="${mode}" ${dispo ? '' : 'disabled'}>${libelle}
        <span class="n">${sfx}</span></button>`;
-  // le palier suivant demande l'armement NSFW et elle ne l'est pas : mener
-  // directement au rituel d'armement plutot que de laisser cliquer un bouton
-  // qui echouera cote serveur (guard_intensity) avec un toast generique
-  const boutonIntensite = d.suivant_verrouille
-    ? `<button class="btn dm" data-arm-suivant="1">\u{1F512} Armer la branche NSFW
-         <span class="n">requis pour ${d.niveau_suivant}</span></button>`
+  // le palier suivant demande l'armement et ne l'a pas : dire ou se prend la
+  // decision, plutot que de laisser cliquer un bouton qui echouera cote serveur
+  // (guard_intensity) avec un toast generique. Un renvoi, pas une porte (J7).
+  const boutonIntensite = d.suivant_verrouille ? renvoiApplication(d.edition_raison)
     : btn('intensite', d.niveau_suivant ? 'Monter en ' + d.niveau_suivant : 'Monter d\'un cran',
           m.intensite, m.intensite ? '1 image' : 'niveau max');
   /* « Éditer » ne monte pas d'un cran : elle part de CETTE image, quel que soit
@@ -494,8 +464,7 @@ async function ouvrirDeclinaison(k){
      fois, avec une regeneration complete a chaque fois. */
   const boutonEdition = !d.edition_label ? ''
     : d.edition_verrouillee
-      ? `<button class="btn dm" data-arm-edition="1">\u{1F512} Armer la branche NSFW
-           <span class="n">requis pour éditer</span></button>`
+      ? (d.suivant_verrouille ? '' : renvoiApplication(d.edition_raison))
       : btn('editer', 'Éditer en ' + d.edition_label, m.editer,
             m.editer ? 'cette image, sans régénérer' : 'image non éditable');
   // un seul champ d'instruction : les deux boutons qui editent le partagent
@@ -524,18 +493,6 @@ async function ouvrirDeclinaison(k){
     b.onclick = () => lancerDeclinaison(b.dataset.m));
   $('#declineCard').querySelectorAll('.chip-t').forEach(c =>
     c.onclick = () => lancerDeclinaison('ton', c.dataset.t));
-  const armer = (el, niveau) => {
-    if (!el) return;
-    el.onclick = () => {
-      const cible = niveau == null
-        ? (creative()?.intensity || []).find(p => p.pipeline === 'flux+edit')
-        : palier(niveau);
-      fermerDeclinaison();
-      if (cible) ouvrirArmement(cible);
-    };
-  };
-  armer($('#declineCard').querySelector('[data-arm-suivant]'), d.intensite + 1);
-  armer($('#declineCard').querySelector('[data-arm-edition]'), null);
 }
 
 const fermerDeclinaison = () => {
