@@ -188,16 +188,26 @@ def push_log(msg):
 # (registre) pointant vers un univers existant. J7bis (ADR-0012) : il valide en
 # plus que (type, style) resolvent bien le pack ecrit dans `universe`, et que le
 # monde, s'il est declare, existe et est compatible avec la famille du pack.
-# Toujours hors perimetre : la disposition disque par personnage (PROD/<X>/,
-# journal, vignettes, export), l'axe SFW/NSFW `space` (dont la valeur SFW se
-# trouve aussi nommee "lena", axe different), UNDO non scope.
+#
+# Isolation disque (29/08/2026) : la disposition par personnage n'est plus hors
+# perimetre. `bucket_dir` exige desormais un character_id, le journal porte une
+# colonne `character`, les vignettes vivent sous .thumbs/<cid>/, et UNDO est
+# scope a la lecture. Ce qui reste global et assume : `PROD/mesures.json`
+# (indexe par nom de fichier nu — la base porte deja les memes scores par
+# personnage) et le corpus de reference INPUTS/REALISME/.
 _CHARACTER_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 
 
-def character(request):
+def character(request, requis=False):
     """character_id de la requete, valide AVANT de toucher au disque.
 
+    `requis=True` : l'absence du parametre est elle-meme une erreur, au lieu de
+    retomber sur le defaut. Reserve aux routes qui servent des OCTETS d'un arbre
+    de personnage (/img) : y laisser un defaut, c'est rendre les images de Lena
+    a qui ne les a pas demandees — le bug d'isolation du 29/08/2026.
+
     Rejette en 400 JSON (jamais un 500, jamais un chemin) :
+      - un parametre absent quand `requis` ;
       - un id qui n'est pas un slug simple (`?character=../x`) ;
       - un dossier CHARACTERS/<id>/ absent ;
       - un dossier sans character.json (registre personnage manquant, J4) ;
@@ -208,7 +218,11 @@ def character(request):
         est casse) ;
       - un `world` inconnu, ou incompatible avec la famille du pack (J7bis).
     """
-    cid = request.query.get("character", "lena")
+    cid = request.query.get("character")
+    if cid is None:
+        if requis:
+            bad_request("parametre character= obligatoire sur cette route")
+        cid = "lena"
     if not _CHARACTER_RE.match(cid):
         bad_request(f"character_id invalide : {cid!r}")
     if not lb.character_dir(cid).is_dir():
@@ -256,59 +270,161 @@ def scenes_data(character="lena"):
     return lb.load_scenes(character)
 
 
-def journal_index():
-    """filename -> ligne du journal, pour afficher score/scene dans la galerie."""
+def journal_path():
+    """Journal de production, unique pour toute la plateforme.
+
+    Une FONCTION et pas une constante : les tests montent un faux PROD/ en
+    reassignant `ss.OFM`, et une constante calculee a l'import pointerait
+    encore sur le disque reel.
+    """
+    return OFM / "PROD" / "journal_batch.csv"
+
+
+def ligne_character(row):
+    """Personnage d'une ligne de journal. Repli "lena" pour une ligne d'avant la
+    colonne `character` (journal non migre : voir
+    AUTOMATION/tests/migrer_prod_par_personnage.py)."""
+    return row.get("character") or "lena"
+
+
+def journal_index(character_id):
+    """filename -> ligne du journal, pour CE personnage.
+
+    Le journal est un CSV unique (il le reste : il se lit hors outil, et la
+    base porte deja la meme information par personnage). Le filtre est donc
+    ici : sans lui, une ligne de Lena illustre l'image d'un autre personnage
+    des que deux noms de fichier se croisent — `nom_libre` ne garantit
+    l'unicite qu'a l'interieur d'un seul arbre PROD/<CID>/.
+    """
     import csv
-    path = OFM / "PROD" / "journal_batch.csv"
-    if not path.exists():
+    chemin = journal_path()
+    if not chemin.exists():
         return {}
     out = {}
-    with open(path, encoding="utf-8", newline="") as f:
+    with open(chemin, encoding="utf-8", newline="") as f:
         for row in csv.DictReader(f, delimiter=";"):
-            if row.get("fichier"):
+            if row.get("fichier") and ligne_character(row) == character_id:
                 out[row["fichier"]] = row
     return out
 
 
-def _moyenne_duree(path, default):
+def _moyenne_duree(path, default, character_id=None):
+    """Duree moyenne des dernieres lignes d'un journal.
+
+    `character_id` ne s'applique qu'au journal SFW, seul a porter la colonne :
+    celui de la branche NSFW est deja propre a un personnage par son chemin
+    (PROD/<CID>/_NSFW/journal_nsfw.csv).
+    """
     import csv
     if not path.exists():
         return default
     try:
         with open(path, encoding="utf-8", newline="") as f:
             vals = [float(r["duree_s"]) for r in csv.DictReader(f, delimiter=";")
-                    if r.get("duree_s")]
+                    if r.get("duree_s")
+                    and (character_id is None or ligne_character(r) == character_id)]
         return sum(vals[-40:]) / len(vals[-40:]) if vals else default
     except Exception:
         return default
 
 
-def avg_duration(default=55.0):
-    """Duree moyenne par image, lue dans le journal (donnee reelle, pas estimee).
+def avg_duration(character_id, default=55.0):
+    """Duree moyenne par image de CE personnage, lue dans le journal (donnee
+    reelle, pas estimee). Un pack SDXL et un pack Flux n'ont pas la meme duree
+    par image : moyenner les deux donnait une ETA fausse pour les deux.
 
     Partagee entre etat.py (duree_unitaire, pour l'ETA) et banque.py (badge de
     l'ecran Creer)."""
-    return _moyenne_duree(OFM / "PROD" / "journal_batch.csv", default)
+    return _moyenne_duree(journal_path(), default, character_id)
 
 
-def bucket_dir(bucket, space="lena"):
+# ---------------------------------------------------------------- deux axes
+# `character_id` et `space` sont deux axes distincts, jamais derives l'un de
+# l'autre (CLAUDE.md §8.7) :
+#   - character_id : QUI. Choisit l'arbre disque, PROD/<CID>/.
+#   - space        : SFW ou NSFW. Choisit le sous-arbre a l'interieur.
+# La valeur SFW s'est longtemps appelee "lena" — un nom de personnage pour un
+# axe qui n'en est pas un. Confondre les deux est exactement ce qui faisait
+# servir les images de Lena a tout autre personnage (29/08/2026). La valeur
+# canonique est "sfw" ; "lena" reste ACCEPTEE en entree (marque-page, corps
+# JSON d'un client pas encore a jour) et n'est plus jamais rendue ni ecrite.
+SPACES = ("sfw", "nsfw")
+_ALIAS_ESPACE = {"lena": "sfw", "sfw": "sfw", "nsfw": "nsfw"}
+
+
+def space_id(valeur):
+    """Valeur canonique de l'axe SFW/NSFW. 400 sur une valeur inconnue."""
+    canon = _ALIAS_ESPACE.get((valeur or "sfw").strip().lower())
+    if canon is None:
+        bad_request(f"espace inconnu : {valeur!r}")
+    return canon
+
+
+def espace_db(space):
+    """Valeur ecrite dans la colonne `image.espace` (base.py).
+
+    La base garde son vocabulaire historique — 'lena' y designe le SFW, et
+    trois requetes de base.py filtrent dessus. Migrer la valeur serait un
+    chantier a part, sans effet visible ; la conversion vit donc ICI, au seul
+    point de contact entre le vocabulaire des routes et celui de la base.
+    """
+    return "nsfw" if space_id(space) == "nsfw" else "lena"
+
+
+def bucket_dir(bucket, space, character_id):
+    """Dossier de tri d'UN personnage.
+
+        PROD/<CID>/<bucket>/            SFW
+        PROD/<CID>/_NSFW/<bucket>/      NSFW
+
+    Les trois arguments sont obligatoires, sans aucun defaut : c'est le point
+    de la fonction. Un appelant qui oublie le personnage doit lever bruyamment
+    plutot que retomber en silence sur l'arbre de Lena — cette retombee etait
+    le bug d'isolation (la Revue d'Abyssiaelle montrait les images de Lena).
+    Pour character_id="lena", les chemins SFW sont a l'octet pres ceux d'avant
+    (PROD/LENA/<bucket>) : aucune donnee SFW deplacee.
+    """
     if bucket not in BUCKETS:
         bad_request("bucket inconnu")
-    if space == "nsfw":
-        return OFM / "PROD" / "_NSFW" / bucket
-    if space != "lena":
-        bad_request("espace inconnu")
-    return OFM / "PROD" / "LENA" / bucket
+    if not _CHARACTER_RE.match(character_id or ""):
+        bad_request(f"character_id invalide : {character_id!r}")
+    racine = OFM / "PROD" / character_id.upper()
+    if space_id(space) == "nsfw":
+        return racine / "_NSFW" / bucket
+    return racine / bucket
 
 
-def oublier_vignette(nom, bucket, espace="lena"):
+def export_dir(character_id):
+    """Dossier de publication d'un personnage : PROD/EXPORT/<cid>/<categorie>/.
+
+    Meme disposition que celle que le runner ecrit deja (runner/sortie.py,
+    sort_and_export) : la route de tri ecrivait PROD/EXPORT/<categorie>/ sans
+    personnage, ce qui melangeait deux dispositions dans le meme arbre.
+    """
+    if not _CHARACTER_RE.match(character_id or ""):
+        bad_request(f"character_id invalide : {character_id!r}")
+    return OFM / "PROD" / "EXPORT" / character_id
+
+
+def undo_disponible(character_id):
+    """Actions de tri annulables pour CE personnage.
+
+    UNDO reste UNE pile (un seul etat partage, comme STATE) : c'est la lecture
+    qui est scopee. Annuler ne doit jamais deplacer le fichier d'un autre
+    personnage que celui qu'on regarde.
+    """
+    return [a for a in UNDO if a.get("character") == character_id]
+
+
+def oublier_vignette(nom, bucket, space, character_id):
     """Retire la vignette d'une image qui quitte son dossier.
 
-    Les vignettes sont rangees par espace/bucket : une image qui change de
-    dossier laissait la sienne derriere elle. Constate le 25/08/2026 : 96
-    fichiers dans PROD/.thumbs pour 46 PNG sur le disque.
+    Les vignettes sont rangees par personnage/espace/bucket : une image qui
+    change de dossier laissait la sienne derriere elle. Constate le 25/08/2026 :
+    96 fichiers dans PROD/.thumbs pour 46 PNG sur le disque.
     """
-    (THUMBS / espace / bucket / (Path(nom).stem + ".jpg")).unlink(missing_ok=True)
+    (THUMBS / character_id / space_id(space) / bucket
+     / (Path(nom).stem + ".jpg")).unlink(missing_ok=True)
 
 
 def purger_vignettes():
@@ -316,28 +432,37 @@ def purger_vignettes():
 
     Deux cas, et le second n'etait pas prevu :
 
-      - la vignette est bien rangee en espace/bucket mais son PNG a disparu ;
-      - la vignette date d'une DISPOSITION PRECEDENTE du cache. Avant la bascule
-        d'espace Lena/NSFW, elles vivaient dans .thumbs/<bucket>/ sans niveau
-        d'espace. Un balayage qui descend espace puis bucket ne les voit meme
-        pas — constate le 25/08/2026 sur le disque reel : 9 fichiers oublies
-        dans .thumbs/OK/, invisibles a la premiere version de cette fonction.
+      - la vignette est bien rangee en personnage/espace/bucket mais son PNG a
+        disparu ;
+      - la vignette date d'une DISPOSITION PRECEDENTE du cache. Il y en a eu
+        trois : .thumbs/<bucket>/ (avant l'axe SFW/NSFW), puis
+        .thumbs/<space>/<bucket>/ (avant l'isolation par personnage), et
+        aujourd'hui .thumbs/<cid>/<space>/<bucket>/. Un balayage qui descend a
+        la profondeur du jour ne voit meme pas les precedentes — constate le
+        25/08/2026 sur le disque reel : 9 fichiers oublies dans .thumbs/OK/,
+        invisibles a la premiere version de cette fonction.
 
     Tout ce qui n'est pas a la profondeur attendue est donc perime par
     construction : la vignette se regenere a la demande, la jeter ne coute rien.
+    C'est aussi ce qui dispense la bascule par personnage de migrer ce cache —
+    le premier demarrage le refait tout seul.
 
     Appelee au demarrage : c'est le seul moment ou le balayage complet ne coute
     rien a personne, et il rattrape ce qu'un arret brutal aurait laisse.
     """
     if not THUMBS.exists():
         return 0
-    espaces = {"lena": OFM / "PROD" / "LENA", "nsfw": OFM / "PROD" / "_NSFW"}
+    connus = set(lb.list_characters())
     retirees = 0
     for v in THUMBS.rglob("*.jpg"):
         parts = v.relative_to(THUMBS).parts
-        connue = (len(parts) == 3 and parts[0] in espaces and parts[1] in BUCKETS)
-        if not connue or not (espaces[parts[0]] / parts[1]
-                              / (v.stem + ".png")).exists():
+        garder = False
+        if len(parts) == 4:
+            cid, space, bucket, _ = parts
+            if cid in connus and space in SPACES and bucket in BUCKETS:
+                garder = (bucket_dir(bucket, space, cid)
+                          / (v.stem + ".png")).exists()
+        if not garder:
             v.unlink(missing_ok=True)
             retirees += 1
     for d in sorted(THUMBS.rglob("*"), reverse=True):     # dossiers vides
