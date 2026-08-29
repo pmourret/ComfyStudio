@@ -64,8 +64,95 @@
 /* sas d'entree (pas de ?character=) : le chrome ne revendique aucun personnage
    — il se reduit a « Personnages » + le titre neutre. Onglets studio et menu de
    perso masques tant qu'un personnage n'est pas charge. */
-body.no-character .tabs button:not([data-s="registre"]){display:none}
 body.no-character #btnId{display:none}
+
+/* --------------------------------------------- navbar laterale (29/08/2026)
+   Les cinq destinations ont quitte le bandeau. Elles tiennent la hauteur, a
+   gauche, avant le rail d'outils — deux colonnes de natures differentes et qui
+   le restent : la navbar dit OU ALLER dans l'application, le rail dit QUOI
+   FAIRE sur l'ecran courant. Les fondre aurait melange une carte et un etabli.
+
+   ENTREE EN STUDIO — la navbar n'existe pas sur le sas. Sans `?character=`, il
+   n'y a pas d'atelier a naviguer : le registre occupe l'ecran entier, et
+   choisir un personnage FAIT entrer. C'est le pendant de `body.no-character`
+   sur le reste du chrome, en plus radical : avant, quatre onglets sur cinq
+   etaient masques et le cinquieme restait, ce qui laissait une barre de
+   navigation a une entree. Elle disparait. */
+body{--nav:0px}
+/* `.sidenav` et pas `.nav` : `.nav` etait DEJA pris par les fleches
+   precedent/suivant de la Revue (screens.css, `position:absolute`), qui charge
+   apres ce fichier — la navbar heritait donc de leur positionnement absolu et
+   se superposait au rail. Collision de nom, pas de cascade a arbitrer. */
+.sidenav{display:none;width:var(--nav);flex:none;flex-direction:column;
+     background:var(--panel);border-right:1px solid var(--line);
+     padding:14px 10px;overflow-y:auto}
+body:not(.no-character) .sidenav{display:flex}
+body:not(.no-character){--nav:208px}
+
+/* PAS de `:not(.editing)` ici, contrairement au rail — et la difference est
+   toute la distinction entre les deux colonnes. Le rail porte des OUTILS : ils
+   n'ont rien a faire pendant une retouche photo, qui a les siens. La navbar est
+   la SORTIE : c'est par elle qu'on quitte l'editeur (cliquer une destination
+   retire `body.editing`, nav.js). La masquer aurait enferme l'utilisateur dans
+   un mode dont le seul autre echappement est Echap.
+
+   L'invariant etait deja ecrit — « l'editeur occupe <main>, le chrome reste » —
+   et une fumigation le garde (test_application_suppression_editeur [6]). C'est
+   elle qui a rattrape la condition recopiee du rail sans y penser. */
+
+/* MODE ICONES. Deux chemins y menent, et ils sont independants :
+     - `body.nav-mince` : une preference durable, choisie au pied de la navbar ;
+     - `body.focus`     : le mode de travail, qui l'impose le temps du focus ;
+     - sous 1100 px     : impose aussi, voir plus bas.
+   `--nav` est declare une fois par cas plutot qu'une regle unique a trois
+   conditions : chacune se lit seule, et aucune n'a de priorite a deviner. */
+body.nav-mince:not(.no-character),
+body.focus:not(.no-character){--nav:58px}
+body.nav-mince .tabs button, body.focus .tabs button,
+body.nav-mince .nav-chrome, body.focus .nav-chrome{justify-content:center;padding:9px 0}
+/* Le libelle est retire VISUELLEMENT, jamais par `display:none` : il reste le
+   nom accessible du bouton. Un `display:none` ferait cinq boutons anonymes
+   pour un lecteur d'ecran — l'icone, elle, est `aria-hidden`. */
+body.nav-mince .nav-lab, body.focus .nav-lab{
+  position:absolute;width:1px;height:1px;overflow:hidden;
+  clip-path:inset(50%);white-space:nowrap}
+body.nav-mince .tabs button .n, body.focus .tabs button .n{display:none}
+body.nav-mince .nav-chev, body.focus .nav-chev{transform:rotate(180deg)}
+
+.nav-ic{flex:none;width:20px;height:20px}
+/* Pied de navbar : les deux reglages de chrome, pousses en bas. */
+.nav-foot{margin-top:auto;display:flex;flex-direction:column;gap:3px;
+          padding-top:12px;border-top:1px solid var(--line)}
+.nav-chrome{display:flex;align-items:center;gap:11px;width:100%;text-align:left;
+  background:none;border:0;color:var(--dim2);padding:8px 11px;border-radius:8px;
+  cursor:pointer;font-size:13px;font-family:inherit}
+.nav-chrome:hover{color:var(--txt);background:var(--panel2)}
+.nav-chrome:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.nav-chrome[aria-pressed="true"]{color:var(--acc)}
+
+/* MODE FOCUS — le bandeau part, la navbar passe en icones, l'ecran de travail
+   prend la hauteur gagnee. Ce qui RESTE est ce qui pilote le travail : la barre
+   d'intensite, le rail, la barre de lancement. On enleve ce qui dit « ou
+   suis-je », pas ce qui sert a faire.
+
+   La sortie ne passe pas par Echap : Echap ferme deja le menu d'identite, la
+   loupe et l'editeur, et lui ajouter un quatrieme sens rendrait imprevisible
+   la touche la plus utilisee du chrome. Elle passe par le bouton du pied, qui
+   ne disparait jamais, et par « f ». */
+body.focus header{display:none}
+
+@media(max-width:1100px){
+  /* Pas de hamburger, aucune destination repliee : la navbar passe en icones
+     et les cinq destinations restent toutes atteignables. Meme regle que le
+     rail — sauf que le rail, lui, disparait : ses entrees ont un ailleurs, pas
+     celles-ci. */
+  body:not(.no-character){--nav:58px}
+  .sidenav .nav-lab{position:absolute;width:1px;height:1px;overflow:hidden;
+           clip-path:inset(50%);white-space:nowrap}
+  .tabs button, .nav-chrome{justify-content:center;padding:9px 0}
+  .tabs button .n{display:none}
+  #btnNavPli{display:none}          /* rien de plus a replier */
+}
 
 /* ------------------------------ barre d'intensite, bornee a Produire (29/08)
    Meme famille que le rail ci-dessous : masquee par defaut (base.css), revelee
@@ -259,10 +346,12 @@ input:focus,select:focus,textarea:focus{outline:0;border-color:var(--acc)}
 .check{display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer}
 .check input{width:auto}
 
-/* barre de lancement collée en bas. `left:var(--rail)` : elle est fixed, donc
-   ancree au viewport et aveugle au rail — sans ce decalage elle passerait
-   dessous. --rail vaut 0 partout ou le rail ne s'affiche pas. */
-.launch{position:fixed;left:var(--rail);right:0;bottom:0;
+/* Barre de lancement collée en bas. Elle est `fixed`, donc ancree au viewport
+   et aveugle aux DEUX colonnes de gauche : sans ce decalage elle passerait
+   dessous. `--nav` et `--rail` valent 0 partout ou leur colonne ne s'affiche
+   pas, et chacune est declaree avec exactement la condition de son affichage —
+   une condition ecrite deux fois, jamais deux conditions. */
+.launch{position:fixed;left:calc(var(--nav) + var(--rail));right:0;bottom:0;
         background:linear-gradient(transparent,var(--bg) 22%);
         padding:26px 20px 18px;z-index:6}
 .launch .inner{max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;gap:16px;

@@ -29,10 +29,16 @@ export function reflectCharacter(){
     .catch(() => {});
 }
 
+/* Le nom de l'APPLICATION, present dans les deux etats. Il manquait des qu'un
+   personnage etait charge : `paint()` remplacait tout `.brand` par la carte du
+   personnage, et « ComfyStudio » disparaissait de l'ecran — on ne savait plus
+   dans quel outil on se trouvait, seulement chez qui. */
+const APP = 'ComfyStudio';
+
 function paintNeutral(){
   const brand = document.querySelector('.brand');
-  if (brand) brand.textContent = 'Studio';
-  document.title = 'Studio';
+  if (brand) brand.innerHTML = `<span class="brand-app">${APP}</span>`;
+  document.title = APP;
 }
 
 function paint(d){
@@ -43,7 +49,12 @@ function paint(d){
     // de PROD/, cote entrees ComfyUI) et en inventer une qui lise ce dossier
     // sans borne character_id rouvrirait la fuite que l'isolation du
     // 29/08/2026 vient de fermer. Reporte, pas oublie.
-    const parts = [`<span class="brand-av" aria-hidden="true">${esc(initiale(d))}</span>`,
+    // l'application d'abord, le personnage ensuite : on lit « ComfyStudio,
+    // Léna » et pas l'inverse. Le point mediant est un separateur VISUEL, donc
+    // aria-hidden — un lecteur d'ecran a deja la respiration du balisage.
+    const parts = [`<span class="brand-app">${APP}</span>`,
+                   `<span class="brand-sep" aria-hidden="true">·</span>`,
+                   `<span class="brand-av" aria-hidden="true">${esc(initiale(d))}</span>`,
                    `<i>${esc(d.name || d.id)}</i>`,
                    `<code class="brand-id">${esc(d.id)}</code>`];
     if (d.type) parts.push(`<span class="brand-tag">${esc(d.type)}</span>`);

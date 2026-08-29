@@ -73,13 +73,47 @@ couleurs cohérent à l'œil peut très bien passer sous le seuil.
 
 ### Header
 
-Le header n'hérite pas de `--font` : ses trois zones ont des tailles propres
-(16 / 14 / 13 px). Le rétrécir n'est donc pas un levier de place — mesuré au
-pixel près le 29/08/2026. Quand la largeur manque, ce sont les **tags
-d'identité** qui se replient (monde sous 1100 px, type sous 1000 px,
-identifiant technique sous 820 px, dans `screens.css`) : le nom du personnage
-et les **cinq onglets** ne disparaissent jamais, et aucun onglet n'est replié
-dans un menu.
+Depuis le 29/08/2026 le header ne porte plus la navigation : les cinq
+destinations sont passées dans la **navbar latérale** (ci-dessous). Il ne garde
+que ce qui répond à « où suis-je » — **`ComfyStudio · <personnage>`** et la
+sonde ComfyUI.
+
+Le header n'hérite pas de `--font` : ses zones ont des tailles propres
+(16 / 13 px). Quand la largeur manque, l'identité se replie **du plus contextuel
+au plus identifiant** (`screens.css`) : le monde sous 1100 px, le type sous
+1000 px, puis sous 820 px l'identifiant technique **et le nom de
+l'application** — savoir chez QUI on est prime alors sur savoir dans quel outil,
+la navbar restant à l'écran pour le dire. Le **nom du personnage** ne disparaît
+jamais.
+
+## La navbar latérale
+
+`.sidenav` (208 px, dans `.shell`, avant le rail) porte les **cinq
+destinations**. `.tabs` reste la classe du conteneur : `.tabs button[data-s=…]`
+est le **contrat** de navigation (`nav.js`, `review.js`, quatre fumigations) —
+seuls le libellé et l'emplacement ont changé. Le bouton de repli vit **hors** de
+`.tabs`, qui contient exactement cinq `data-s`.
+
+*(`.sidenav` et pas `.nav` : `.nav` était déjà pris par les flèches
+précédent/suivant de la Revue, dans `screens.css`, qui charge après.)*
+
+| État | Navbar |
+|---|---|
+| personnage chargé | **208 px, libellés visibles** |
+| `body.nav-mince` (préférence retenue) | 58 px, icônes seules |
+| `body.focus` (mode de travail) | 58 px, icônes seules, header masqué |
+| sous 1100 px | 58 px — imposé, pas une préférence |
+| sas (`body.no-character`) | **absente** : entrer dans le studio, c'est choisir un personnage |
+| mode éditeur (`body.editing`) | **présente** — c'est la sortie du mode, pas un outil |
+
+En mode icônes les libellés sont retirés **visuellement** (`clip-path`), jamais
+par `display:none` : ils restent le nom accessible du bouton. `studio.js` y pose
+alors une infobulle portant ce libellé — c'est le seul moment où une bulle sur
+une destination apprend quelque chose, et donc la seule exception à la liste
+fermée des infobulles.
+
+Sous 1100 px : **pas de hamburger, aucune destination repliée**, les cinq
+restent atteignables en icônes.
 
 ## Deux modèles de largeur
 
@@ -106,8 +140,10 @@ servie, au-delà on afficherait un fichier remonté au-dessus de sa résolution.
 
 `.rail` (200 px, hors de `<main>`, dans `.shell`) porte les **outils du pack**
 — lus dans `UNIVERS/<pack>/tools.json` via `/api/universe/tools` — et les
-raccourcis d'atelier. Les **cinq onglets du header restent le chrome** : aucune
-de leurs destinations n'est recopiée dans le rail.
+raccourcis d'atelier. Les **cinq destinations de la navbar restent le chrome** :
+aucune n'est recopiée dans le rail. Les deux colonnes se lisent côte à côte et
+ne se confondent pas — la navbar dit **où aller** dans l'application, le rail
+dit **quoi faire** sur l'écran courant.
 
 | | Dans le rail | Jamais dans le rail |
 |---|---|---|
@@ -122,8 +158,8 @@ rendent un rail identique, au caractère près.
 
 Il s'affiche là où ses entrées ont une surface — **Produire et Banque** —, au
 dessus de 1100 px, personnage chargé, hors mode éditeur. Sous 1100 px il
-disparaît : les onglets suffisent, **pas de hamburger, aucune destination
-repliée**. La condition est écrite en `@media(min-width:1101px)` avec
+disparaît, et en mode éditeur aussi : ce sont des **outils**, la retouche a les
+siens. La navbar, elle, reste dans les deux cas — c'est la sortie. La condition est écrite en `@media(min-width:1101px)` avec
 `:not(.no-character):not(.editing):has(…)`, ce qui fait du masquage le défaut.
 
 `--rail` (0 ou 200 px) existe pour **une** raison : `.launch` est
@@ -192,9 +228,13 @@ deux colonnes) > `.cr-main` / `.cr-side` (collante) ; dans la colonne :
 chargement), `#dirtyBar` (modifications non enregistrées).
 **Chrome** — `.idwrap` / `.idmenu` (zone identité de l'en-tête : personnage
 chargé + menu changer de perso / registre / nouveau), `.brand-av` (pastille
-d'initiale, 32 px), `.tabs` (nav studio à plat), `.status` + `.status-lab`
-(zone santé ComfyUI), `.intbar` (curseur d'intensité). `body.no-character`
-réduit le chrome au sas.
+d'initiale, 32 px), `.brand-app` (nom de l'application), `.status` +
+`.status-lab` (zone santé ComfyUI), `.intbar` (curseur d'intensité).
+`body.no-character` réduit le chrome au sas.
+**Navbar** *(29/08/2026)* — `.sidenav` > `.tabs` (les cinq destinations,
+en colonne) / `.nav-ic` (icône SVG) / `.nav-lab` (libellé) / `.nav-foot` >
+`.nav-chrome` (`#btnFocus`, `#btnNavPli`). États : `body.nav-mince`,
+`body.focus`.
 **Rail d'outils** *(29/08/2026)* — `.shell` (rail + `<main>` côte à côte) >
 `.rail` > `.rail-grp` / `.rail-lab` / `.rail-it` (états `.on` / `:disabled`) /
 `.rail-foot` (⚙, collé en bas) / `.rail-msg` (+ `.rail-ko` en panne).

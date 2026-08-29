@@ -184,19 +184,17 @@ body:has(#creer.on) .intbar .inner{max-width:none;margin:0}
 }
 
 /* ------------------------------------------------------- header a l'etroit
-   Mesure du 29/08/2026 (Playwright, pire cas = le personnage au nom, au type
-   et au monde les plus longs) : les CINQ onglets tiennent en 466 px et ne
-   debordent jamais, meme a 720 px. Ce qui casse en premier, c'est la zone
-   d'IDENTITE — 410 px a elle seule, header a l'etroit des 960 px, et `.brand`
-   coupait son texte net (min-width:0 sans text-overflow).
+   Depuis le 29/08/2026 les cinq destinations ont quitte le header pour la
+   navbar laterale : il ne reste ici que l'IDENTITE (application + personnage)
+   et la sonde ComfyUI. Le probleme de place est donc moindre, mais le principe
+   ne change pas — on relache du plus contextuel au plus identifiant.
 
-   Donc on ne touche pas aux onglets : on relache l'identite, du plus
-   contextuel au plus identifiant. Le type et le monde restent lisibles sur
-   l'ecran Registre ; le NOM et les cinq destinations, eux, ne disparaissent
-   jamais. Aucun onglet n'est masque ni replie dans un menu.
-
-   Largeur requise apres ces regles (pire cas) : 911 px a 1100, 803 a 1000,
-   647 a 820 — le header respire a chaque palier. */
+   Ordre de repli : le monde, puis le type, puis l'identifiant technique ET le
+   nom de l'application. Ce dernier cede volontairement AVANT le nom du
+   personnage : a cette largeur, savoir chez QUI on est prime sur savoir dans
+   quel outil, et la navbar reste a l'ecran pour le dire. Le NOM du personnage
+   ne disparait jamais, et aucune destination n'est masquee ni repliee — elles
+   ne sont plus ici. */
 @media(max-width:1100px){
   .brand .brand-tag ~ .brand-tag{display:none}    /* le monde */
 }
@@ -205,6 +203,10 @@ body:has(#creer.on) .intbar .inner{max-width:none;margin:0}
 }
 
 @media(max-width:820px){
+  /* Le nom de l'application cede AVANT celui du personnage : a cette largeur,
+     savoir chez QUI on est prime sur savoir dans quel outil — la navbar, elle,
+     reste a l'ecran et dit deja que c'est le studio. Il revient des 821 px. */
+  .brand .brand-app, .brand .brand-sep{display:none}
   .triage{grid-template-columns:1fr}
   .side{position:static}
   .tabs button{padding:8px 10px;font-size:13px}

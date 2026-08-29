@@ -15,6 +15,9 @@ import './editor.js';
 // infobulles : delegation au document, posee au chargement. Apres le chrome —
 // elle n'a besoin d'aucun ecran, seulement d'un document.
 import './hints.js';
+// chrome du studio : navbar reduite (preference retenue) et mode focus.
+// Apres hints.js — il pose des bulles sur la navbar quand elle est en icones.
+import './studio.js';
 import {loadRail} from './rail.js';
 import {reflectCharacter, characterIsExplicit} from './character.js';
 import {go} from './nav.js';

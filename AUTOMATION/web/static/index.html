@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Studio — production</title>
+<title>ComfyStudio</title>
 <link rel="stylesheet" href="/static/tokens.css">
 <link rel="stylesheet" href="/static/base.css">
 <link rel="stylesheet" href="/static/components.css">
@@ -19,7 +19,7 @@
        l'URL, `body.no-character` masque le bouton : le sas ne revendique aucun
        personnage. -->
   <div class="idwrap">
-    <div class="brand" id="brand">Studio</div>
+    <div class="brand" id="brand"><span class="brand-app">ComfyStudio</span></div>
     <button id="btnId" aria-haspopup="true" aria-expanded="false"
             title="Changer de personnage">▾</button>
     <div class="idmenu" id="idMenu" role="menu" aria-label="Personnages">
@@ -30,23 +30,9 @@
     </div>
   </div>
 
-  <!-- nav STUDIO : cinq destinations, a plat. Le menu « Avancé » a disparu —
-       ses entrees etaient soit du premier plan (Personnages, Banque, Application),
-       soit un sous-ecran (Journal, desormais dans Application). L'onglet « Branche
-       NSFW » avait deja disparu le 26/08/2026 : son ecran EST le cran NSFW du
-       curseur d'intensité. -->
-  <div class="tabs">
-    <button data-s="registre">Personnages</button>
-    <button class="on" data-s="creer">Produire</button>
-    <button data-s="trier">Revue <span class="n" id="nTri">0</span></button>
-    <button data-s="scenes">Banque</button>
-    <!-- « Application » et pas « Réglages » : deux objets portaient ce nom —
-         cet ecran (serveur local, ComfyUI, journaux) et le panneau ⚙ de
-         Produire, qui reglait une GENERATION. L'onglet nommait le mauvais.
-         `data-s`, l'id #appli, le hash et ROUTES ne bougent pas : c'est le
-         libelle qui mentait, pas le contrat. -->
-    <button data-s="appli">Application</button>
-  </div>
+  <!-- Les cinq destinations ont quitte le bandeau pour la navbar laterale
+       (`.shell > .nav`, plus bas). Le bandeau garde ce qui repond a « ou
+       suis-je » : l'application, le personnage, et l'etat de ComfyUI. -->
 
   <!-- zone SANTE : ComfyUI joignable ou non (#dot) + progression du batch en
        cours (#stTxt), tels quels depuis /api/state via poller.js. Une file de
@@ -87,6 +73,49 @@
      tient toute la hauteur, et il est UN seul element partage par les ecrans qui
      l'affichent (Produire et Banque) plutot qu'un bloc recopie dans chacun. -->
 <div class="shell">
+
+<!-- NAVBAR DU STUDIO — les cinq destinations, a gauche, sur toute la hauteur.
+
+     `.tabs` reste la classe du conteneur, et c'est deliberé : `.tabs
+     button[data-s=…]` est le CONTRAT de navigation (nav.js, review.js, quatre
+     fumigations). Le bandeau n'etait qu'un emplacement ; le deplacer ne doit
+     rien casser de ce qui designe une destination. Meme discipline que le
+     renommage « Réglages » -> « Application » : le libelle et la place changent,
+     le contrat ne bouge pas.
+
+     Le bouton de repli est HORS de `.tabs` : il n'est pas une destination, et
+     une fumigation lit `$$('.tabs button')` en attendant exactement cinq
+     `data-s`.
+
+     Les libelles ne sont jamais `display:none` en mode icones — ils sont
+     retires VISUELLEMENT (clip) et restent dans l'arbre d'accessibilite, sinon
+     les cinq boutons perdraient leur nom accessible. -->
+<nav class="sidenav" id="studioNav" aria-label="Navigation du studio">
+  <div class="tabs">
+      <button data-s="registre"><svg class="nav-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="7" r="3"/><path d="M4 17c0-3.3 2.7-5 6-5s6 1.7 6 5"/></svg><span class="nav-lab">Personnages</span></button>
+      <button class="on" data-s="creer"><svg class="nav-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="14" height="13" rx="2"/><circle cx="7.3" cy="7.3" r="1.3"/><path d="M4 13.5l3.4-3.6 2.6 2.7L12.6 10l3.4 3.8"/></svg><span class="nav-lab">Produire</span></button>
+      <button data-s="trier"><svg class="nav-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.2l4.2 4.3L17 5"/></svg><span class="nav-lab">Revue</span><span class="n" id="nTri">0</span></button>
+      <button data-s="scenes"><svg class="nav-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3l7 3.5-7 3.5-7-3.5z"/><path d="M3 11.2l7 3.5 7-3.5"/></svg><span class="nav-lab">Banque</span></button>
+      <button data-s="appli"><svg class="nav-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6h13M3.5 10h13M3.5 14h13"/><circle cx="7.5" cy="6" r="1.7"/><circle cx="13" cy="10" r="1.7"/><circle cx="6.5" cy="14" r="1.7"/></svg><span class="nav-lab">Application</span></button>
+  </div>
+
+  <!-- Pied : deux reglages de CHROME, pas deux destinations.
+       « Focus » masque le bandeau et reduit la navbar — l'ecran de travail
+       prend la place. « Réduire » est une preference durable, independante du
+       focus : on peut vouloir les icones en permanence sans etre en focus. -->
+  <div class="nav-foot">
+    <button class="nav-chrome" id="btnFocus" aria-pressed="false">
+      <svg class="nav-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"
+           fill="none" stroke="currentColor" stroke-width="1.5"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 3H3v4.5M12.5 3H17v4.5M17 12.5V17h-4.5M3 12.5V17h4.5"/></svg>
+      <span class="nav-lab" id="focusLab">Mode focus</span></button>
+    <button class="nav-chrome" id="btnNavPli" aria-expanded="true">
+      <svg class="nav-ic nav-chev" viewBox="0 0 20 20" aria-hidden="true" focusable="false"
+           fill="none" stroke="currentColor" stroke-width="1.5"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M12 5l-5 5 5 5"/></svg>
+      <span class="nav-lab" id="pliLab">Réduire</span></button>
+  </div>
+</nav>
 
 <!-- RAIL D'OUTILS — ce n'est pas une seconde navigation. Les cinq onglets du
      header restent le chrome ; le rail porte les OUTILS du pack (lus dans
