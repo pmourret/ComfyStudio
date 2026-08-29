@@ -9,6 +9,7 @@ import json
 import os
 import shutil
 import sys
+import time
 
 from aiohttp import web
 
@@ -390,6 +391,52 @@ async def api_app_comfy_stop(request):
         return web.json_response(
             {"ok": False, "erreur": "ComfyUI n'était pas en cours"}, status=409)
     ss.push_log("ComfyUI arrêté depuis l'interface")
+    return web.json_response({"ok": True})
+
+
+# Cache court, meme motif que `comfy_alive` : deux sondes bloquantes (HTTP vers
+# ComfyUI + un sous-processus nvidia-smi) derriere un ecran qui interroge toutes
+# les 2 s. Sans lui, plusieurs onglets ouverts multiplieraient les spawns.
+_STATS = {"at": 0.0, "val": None}
+
+
+@routes.get("/api/app/comfy/stats")
+async def api_app_comfy_stats(request):
+    """Memoire et thermique de ComfyUI, pour l'ecran Application.
+
+    Sondee SEULEMENT quand cet ecran est ouvert (appli.js), jamais dans le tick
+    global : `comfy_alive` a deja coute un gel de boucle d'evenements a 2005 ms
+    le 24/08 pour avoir sonde en bloquant. Les deux sondes partent donc dans un
+    thread, et le resultat est garde une seconde et demie.
+    """
+    now = time.monotonic()
+    if _STATS["val"] is not None and now - _STATS["at"] < 1.5:
+        return web.json_response(_STATS["val"])
+    url = ss.cfg(ss.character(request))["comfy_url"]
+    val = await asyncio.get_running_loop().run_in_executor(
+        None, comfy_server.stats, url)
+    _STATS.update(at=now, val=val)
+    return web.json_response(val)
+
+
+@routes.post("/api/app/comfy/unload")
+async def api_app_comfy_unload(request):
+    """Decharge modeles et VRAM. Geste explicite, jamais automatique.
+
+    Refuse pendant un batch : decharger sous un job en cours le ferait echouer,
+    et l'utilisateur perdrait une production pour gagner de la VRAM.
+    """
+    if ss.STATE["running"]:
+        return web.json_response(
+            {"ok": False, "erreur": "une production est en cours — "
+                                    "décharger la mémoire la ferait échouer"}, status=409)
+    url = ss.cfg(ss.character(request))["comfy_url"]
+    ok, err = await asyncio.get_running_loop().run_in_executor(
+        None, comfy_server.unload, url)
+    if not ok:
+        return web.json_response({"ok": False, "erreur": err or "échec"}, status=502)
+    _STATS["val"] = None                      # la prochaine sonde doit voir l'effet
+    ss.push_log("mémoire ComfyUI déchargée depuis l'interface")
     return web.json_response({"ok": True})
 
 

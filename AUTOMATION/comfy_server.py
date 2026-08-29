@@ -13,6 +13,7 @@ Regles de conduite :
     appele tout seul. Sous Windows il n'y a pas d'arret gracieux : voir sa
     docstring.
 """
+import json
 import subprocess
 import sys
 import time
@@ -42,6 +43,120 @@ def is_up(url=DEFAULT_URL, timeout=2):
         return True
     except Exception:
         return False
+
+
+# --------------------------------------------------------------- sondes (J8)
+# Trois sources, et une seule est garantie. `/system_stats` vient de ComfyUI
+# lui-meme : RAM et VRAM, toujours la si le serveur repond. La temperature, la
+# charge et la consommation N'Y SONT PAS — seul le pilote les connait, et on
+# passe donc par `nvidia-smi`, qui suppose une carte NVIDIA.
+#
+# DEGRADATION SILENCIEUSE, decidee explicitement : une machine sans nvidia-smi
+# (autre fabricant, pilote absent, binaire hors du PATH) rend `gpu: None` et
+# l'interface montre le reste. Une sonde de confort ne doit jamais faire
+# echouer l'ecran qui la porte. Les autres fabricants viendront par une
+# deuxieme source ici, pas par un `if` chez l'appelant.
+NVIDIA_SMI_CHAMPS = ("name", "memory.used", "memory.total", "temperature.gpu",
+                     "utilization.gpu", "power.draw")
+
+
+def _nvidia_smi(timeout=4):
+    """Temperature / charge / consommation de la premiere carte NVIDIA, ou None.
+
+    None a la moindre difficulte : binaire absent, delai depasse, sortie
+    inattendue. L'appelant n'a pas a distinguer les cas — il n'affiche pas la
+    ligne, c'est tout.
+    """
+    cmd = ["nvidia-smi", "--query-gpu=" + ",".join(NVIDIA_SMI_CHAMPS),
+           "--format=csv,noheader,nounits"]
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if out.returncode != 0 or not out.stdout.strip():
+        return None
+    champs = [c.strip() for c in out.stdout.strip().splitlines()[0].split(",")]
+    if len(champs) < len(NVIDIA_SMI_CHAMPS):
+        return None
+
+    def nombre(txt):
+        try:
+            return float(txt)
+        except ValueError:
+            return None          # nvidia-smi ecrit "[N/A]" sur certaines cartes
+
+    return {"nom": champs[0],
+            "vram_utilisee": (nombre(champs[1]) or 0) * 1024 * 1024,
+            "vram_totale": (nombre(champs[2]) or 0) * 1024 * 1024,
+            "temperature": nombre(champs[3]),
+            "charge": nombre(champs[4]),
+            "puissance": nombre(champs[5])}
+
+
+def _system_stats(url, timeout=4):
+    """RAM et VRAM telles que ComfyUI les voit. None s'il ne repond pas."""
+    try:
+        with urllib.request.urlopen(url.rstrip("/") + "/system_stats",
+                                    timeout=timeout) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except Exception:
+        return None
+
+
+def stats(url=DEFAULT_URL):
+    """Etat memoire et thermique, pour l'ecran Application.
+
+    Rend toujours un dict : `en_ligne` dit si ComfyUI a repondu, `gpu` vaut None
+    quand aucune sonde materielle n'est disponible. Jamais d'exception — cette
+    fonction sert un affichage, pas une decision.
+    """
+    brut = _system_stats(url)
+    gpu = _nvidia_smi()
+    if brut is None:
+        return {"en_ligne": False, "ram": None, "vram": None, "gpu": gpu}
+
+    sys_ = brut.get("system") or {}
+    ram_total = sys_.get("ram_total") or 0
+    ram_libre = sys_.get("ram_free") or 0
+    # La premiere carte : la plateforme tient sur UN GPU (CLAUDE.md §2, une
+    # seule instance ComfyUI sert tous les personnages). Lister les autres
+    # donnerait une colonne que rien ne lit.
+    dev = (brut.get("devices") or [{}])[0]
+    vram_total = dev.get("vram_total") or 0
+    vram_libre = dev.get("vram_free") or 0
+    return {
+        "en_ligne": True,
+        "version": sys_.get("comfyui_version"),
+        "ram": {"total": ram_total, "libre": ram_libre,
+                "utilisee": max(0, ram_total - ram_libre)},
+        # `torch_*` : ce que PyTorch retient dans son propre cache, sous-ensemble
+        # de la VRAM occupee. C'est LUI que le dechargement libere.
+        "vram": {"nom": dev.get("name"), "total": vram_total, "libre": vram_libre,
+                 "utilisee": max(0, vram_total - vram_libre),
+                 "torch_reserve": dev.get("torch_vram_total") or 0},
+        "gpu": gpu,
+    }
+
+
+def unload(url=DEFAULT_URL, timeout=30):
+    """Decharge les modeles et rend la VRAM (POST /free de ComfyUI).
+
+    Geste EXPLICITE de l'ecran Application, jamais automatique — meme regle que
+    `stop()`. Rend (ok, erreur) ; l'appelant refuse deja quand un batch tourne,
+    decharger sous un job en cours le ferait echouer.
+    """
+    corps = json.dumps({"unload_models": True, "free_memory": True}).encode()
+    req = urllib.request.Request(url.rstrip("/") + "/free", data=corps,
+                                 headers={"Content-Type": "application/json"},
+                                 method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return (200 <= r.status < 300), None
+    except urllib.error.HTTPError as e:
+        return False, f"ComfyUI a refuse : HTTP {e.code}"
+    except Exception as e:
+        return False, f"{type(e).__name__} : {e}"
 
 
 def start(url=DEFAULT_URL):

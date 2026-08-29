@@ -4,11 +4,28 @@
    rendent possible. Actions consequentes : confirmation systematique, et pour
    ComfyUI un arret n'est JAMAIS propre sous Windows (pas de signal
    d'extinction gracieuse, TerminateProcess coupe net) — le dire avant d'agir. */
-import {$} from './dom.js';
+import {$, esc} from './dom.js';
 import {api, post} from './api.js';
 import {toast} from './toast.js';
 import {confirmer} from './modal.js';
 import {isRunning} from './poller.js';
+
+/* Go, pas Gio : c'est l'unite que nvidia-smi et les fiches constructeur
+   emploient, donc celle que l'utilisateur reconnait sur sa propre carte. */
+const go = o => (o / 1e9).toFixed(1);
+const pct = (a, b) => b > 0 ? Math.round(100 * a / b) : 0;
+
+function jauge(titre, utilisee, total, detail){
+  const p = pct(utilisee, total);
+  // deux seuils, pas un gradient : au-dela de 90 % une generation peut echouer
+  // faute de VRAM, et c'est le seul moment ou la couleur doit alerter
+  const cl = p >= 90 ? ' haut' : p >= 70 ? ' mid' : '';
+  return `<div>
+    <div class="sonde-t"><span>${esc(titre)}${detail ? ' · ' + esc(detail) : ''}</span>
+      <span class="sonde-v">${go(utilisee)} / ${go(total)} Go · ${p}%</span></div>
+    <div class="sonde-b${cl}"><i style="width:${Math.min(100, p)}%"></i></div>
+  </div>`;
+}
 
 function appliLog(msg){
   const el = $('#appliLog');
@@ -20,8 +37,70 @@ export async function majEtatComfy(){
   let s; try { s = await api('/api/state'); } catch { return; }
   const el = $('#comfyEtat');
   if (el) el.textContent = s.comfy ? '— en ligne' : '— hors ligne';
+  majSondes();
 }
+
+/* Sondes memoire / thermique. Appelee UNIQUEMENT depuis majEtatComfy, donc
+   uniquement quand l'ecran Application est a l'affiche : la route sonde en
+   bloquant des deux cotes (HTTP vers ComfyUI + un sous-processus nvidia-smi),
+   elle n'a rien a faire dans le tick global du studio. */
+async function majSondes(){
+  const box = $('#comfyStats');
+  if (!box) return;
+  let d; try { d = await api('/api/app/comfy/stats'); } catch { d = null; }
+  if (!d || !d.en_ligne){
+    box.innerHTML = `<p class="sonde-ko">Mémoire indisponible — ComfyUI ne répond pas.</p>`;
+    majBoutonDecharger(false);
+    return;
+  }
+  const g = d.gpu;
+  // La ligne du pilote n'existe pas partout : nvidia-smi suppose une carte
+  // NVIDIA. Machine sans lui -> on montre RAM et VRAM, et on le DIT, plutot
+  // que de laisser un vide qui se lirait comme une panne.
+  const releves = g
+    ? `<div class="sonde-gpu">
+         ${g.temperature != null ? `<span>température <b>${g.temperature} °C</b></span>` : ''}
+         ${g.charge != null ? `<span>charge <b>${g.charge} %</b></span>` : ''}
+         ${g.puissance != null ? `<span>consommation <b>${g.puissance.toFixed(0)} W</b></span>` : ''}
+       </div>`
+    : `<p class="sonde-ko" style="margin:0">Température et charge indisponibles —
+       elles viennent de <code>nvidia-smi</code>, absent sur cette machine.</p>`;
+  box.innerHTML = `<div class="sondes">
+    ${jauge('VRAM', d.vram.utilisee, d.vram.total, g && g.nom ? g.nom : '')}
+    ${jauge('RAM', d.ram.utilisee, d.ram.total, '')}
+    ${releves}
+  </div>`;
+  majBoutonDecharger(true);
+}
+
+function majBoutonDecharger(actif){
+  const b = $('#btnComfyUnload');
+  if (!b) return;
+  const occupe = isRunning();
+  b.disabled = !actif || occupe;
+  b.title = occupe ? 'une production est en cours' : '';
+}
+
 setInterval(() => { if ($('#appli')?.classList.contains('on')) majEtatComfy(); }, 2000);
+
+/* Decharger n'arrete pas ComfyUI : ca rend la VRAM que les modeles retiennent,
+   et ils se rechargent d'eux-memes a la generation suivante. Le dire, sinon
+   « decharger » se lit comme « arreter » — les deux boutons voisins arretent. */
+$('#btnComfyUnload')?.addEventListener('click', async () => {
+  const ok = await confirmer({
+    titre: 'Décharger la mémoire ?',
+    corps: `<p>Libère la VRAM que les modèles chargés retiennent. ComfyUI
+      <b>reste en ligne</b> : les modèles se rechargent d'eux-mêmes à la
+      prochaine génération, qui sera donc un peu plus longue.</p>
+      <p class="tiny">Rien n'est perdu — ni file d'attente, ni image.</p>`,
+    bouton: 'Décharger'});
+  if (!ok) return;
+  const r = await post('/api/app/comfy/unload');
+  if (!r.ok) return toast(r.erreur || 'échec');
+  appliLog('mémoire ComfyUI déchargée');
+  toast('mémoire déchargée');
+  majSondes();
+});
 
 /* Ecran de prise en charge plein cadre — le tableau de bord entier va devenir
    injoignable pendant l'operation, donc pas la peine de garder les tuiles et

@@ -38,6 +38,7 @@ TESTS = [
     "test_ecran_wizard",
     "test_ecran_creer",
     "test_contenu_adulte",
+    "test_sondes_comfy",
     "test_apercu_prompt",
     "test_pose_scene_card",
     "test_pose_extraction",                       # ComfyUI requis (s'ignore sinon)

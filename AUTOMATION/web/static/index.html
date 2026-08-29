@@ -458,7 +458,13 @@
       <b>Windows ne permet pas un arrêt propre</b> : le processus est coupé
       net, sans le temps de finir un job en cours. Utile pour libérer la VRAM
       ou reprendre en compte un custom node mis à jour.</p>
+    <!-- Sondes memoire / thermique (J8). Peintes par appli.js depuis
+         /api/app/comfy/stats, et SEULEMENT quand cet ecran est ouvert : la
+         sonde est bloquante des deux cotes (HTTP + nvidia-smi), elle n'a rien
+         a faire dans le tick global. -->
+    <div id="comfyStats"></div>
     <div class="appliActs">
+      <button class="btn" id="btnComfyUnload">Décharger la mémoire</button>
       <button class="btn" id="btnComfyRestart">Redémarrer</button>
       <button class="btn danger" id="btnComfyStop">Arrêter</button>
     </div>

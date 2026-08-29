@@ -456,6 +456,26 @@ details.preamb{margin-top:0;border-top:0;padding-top:0;margin-bottom:12px}
 .wiz-frozen span{font-size:12.5px;color:var(--dim)}
 @media (max-width:720px){.wiz-id,.wiz-base{grid-template-columns:1fr}}
 
+/* ------------------------------------------------- sondes ComfyUI (J8)
+   Deux jauges (VRAM, RAM) et une ligne de relevés. La teinte de la jauge suit
+   le REMPLISSAGE, pas une preference : une VRAM pleine annonce un echec de
+   generation, c'est une information, pas une decoration. */
+.sondes{display:flex;flex-direction:column;gap:12px;margin:2px 0 18px}
+.sonde-t{display:flex;justify-content:space-between;align-items:baseline;
+  font-size:12.5px;color:var(--dim);margin-bottom:5px}
+.sonde-v{color:var(--txt);font-variant-numeric:tabular-nums}
+.sonde-b{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden}
+.sonde-b i{display:block;height:100%;border-radius:4px;background:var(--ok);
+  transition:width .3s}
+.sonde-b.mid i{background:var(--warn)}
+.sonde-b.haut i{background:var(--bad)}
+/* Les releves du pilote (temperature, charge, consommation). Absents sur une
+   machine sans nvidia-smi : la ligne disparait, le reste tient debout. */
+.sonde-gpu{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--dim);
+  margin-top:2px}
+.sonde-gpu b{color:var(--txt);font-weight:600;font-variant-numeric:tabular-nums}
+.sonde-ko{font-size:12.5px;color:var(--dim2);margin:2px 0 18px}
+
 /* ---------------------------------------------------------------- editeur
    MODALE (<dialog id="editorBox">, 30/08/2026), pas un mode plein <main>. Elle
    porte sa propre sortie (#edClose, Echap, clic sur le voile) — c'est ce qui
