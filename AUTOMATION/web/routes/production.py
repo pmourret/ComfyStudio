@@ -185,12 +185,15 @@ def mode_edition(body, character="lena"):
 
 
 def sources_valides(body, character="lena"):
-    """Sources cochees qui existent reellement dans PROD/LENA/OK.
+    """Sources cochees qui existent reellement dans l'arbre de CE personnage.
 
     Filtre sur le disque et pas seulement sur la forme du nom : une image triee
     ailleurs entre la selection et le lancement ne doit pas partir en edition.
+    Le disque consulte est PROD/<CID>/ : un nom coche ne peut pas designer
+    l'image d'un autre personnage.
     """
-    dispo = {f.name for f, _ in nsfw_batch.sources_disponibles(ss.cfg(character))}
+    dispo = {f.name
+             for f, _ in nsfw_batch.sources_disponibles(ss.cfg(character), character)}
     return [n for n in (body.get("sources") or [])
             if ss.SAFE_NAME.match(n) and n in dispo]
 
@@ -307,7 +310,7 @@ def chainage_nsfw(configuration, use_qc, batch_id, character="lena"):
     """Crochet du niveau 3 : editer la sortie SFW, sans tri intermediaire.
 
     Rend None quand le batch n'est pas de niveau 3. Les garde-fous ne bougent pas :
-    la sortie va dans PROD/_NSFW, elle n'est jamais exportee, et `editer` verifie
+    la sortie va dans PROD/<CID>/_NSFW, elle n'est jamais exportee, et `editer` verifie
     l'armement une seconde fois.
     """
     niveau = configuration.get("_intensity", 0)
@@ -372,7 +375,7 @@ def run_batch_blocking(jobs, configuration, batch_id, use_qc, character="lena"):
                 ss.push_log(f"{kw['index']}/{kw['total']} {job['scene']} : "
                           f"{r['verdict']}{sc} — {r['duree']:.0f}s")
                 ss.STATE["recent"].append({"bucket": r["verdict"], "name": r["fichier"],
-                                          "scene": job["scene"], "space": "lena",
+                                          "scene": job["scene"], "space": "sfw",
                                           "score": r.get("score")})
                 del ss.STATE["recent"][:-24]
 
@@ -425,7 +428,7 @@ def edition_blocking(sources, instruction, configuration, use_qc, character="len
                 sc = f" ({r['score']:.3f})" if r.get("score") else ""
                 ss.push_log(f"{kw['index']}/{kw['total']} {kw['source']} : "
                           f"{r['verdict']}{sc} — {r['duree']:.0f}s")
-                # space nsfw : la sortie vit dans PROD/_NSFW, /img la cherche la
+                # space nsfw : la sortie vit dans PROD/<CID>/_NSFW, /img la cherche la
                 ss.STATE["recent"].append({"bucket": r["verdict"], "name": r["fichier"],
                                           "scene": kw["source"], "space": "nsfw",
                                           "score": r.get("score")})
@@ -446,7 +449,7 @@ def demarrer_edition(sources, instruction, configuration, use_qc, niveau,
                    intensity=niveau, character=character, last_error=None,
                    started_at=datetime.now().isoformat(timespec="seconds"))
     ss.push_log(f"édition {batch_id} — {len(sources)} image(s) déjà validée(s) "
-              f"· sortie dans PROD/_NSFW · hors export")
+              f"· sortie dans PROD/{character.upper()}/_NSFW · hors export")
     ss.push_log(f"instruction : {instruction[:100]}")
     for a in nsfw_batch.alertes_instruction(instruction):
         ss.push_log(f"  ! {a}")
@@ -517,7 +520,7 @@ def lancer_edition_depuis(name, body, niveau, character="lena"):
                            "no_qc": body.get("no_qc")}, character)
     if err:
         return web.json_response({"ok": False, "erreur": err}, status=403)
-    if nsfw_batch.resoudre_source(name, ss.cfg(character)) is None:
+    if nsfw_batch.resoudre_source(name, ss.cfg(character), character) is None:
         return web.json_response(
             {"ok": False, "erreur": "cette image n'est pas éditable — seules les "
                                     "images validées ou à revoir le sont"}, status=400)
@@ -544,7 +547,7 @@ async def api_decline(request):
     name = body.get("name", "")
     if not ss.SAFE_NAME.match(name):
         ss.bad_request("nom de fichier invalide")
-    row = ss.journal_index().get(name)
+    row = ss.journal_index(cid).get(name)
     if not row:
         return web.json_response(
             {"ok": False, "erreur": "image absente du journal — impossible de la "
@@ -575,7 +578,7 @@ async def api_decline(request):
         # n'existait jusqu'ici que dans un onglet a part.
         edit = palier_edition(creative)
         dispo["editer"] = bool(
-            edit and nsfw_batch.resoudre_source(name, configuration))
+            edit and nsfw_batch.resoudre_source(name, configuration, cid))
         return web.json_response({
             "ok": True, "modes": dispo, "scene": row.get("scene"),
             "intensite": niveau, "ton": row.get("ton") or "",
@@ -701,7 +704,7 @@ async def api_stop(request):
     return web.json_response({"ok": True})
 
 
-def historique_instructions(limite=20):
+def historique_instructions(character_id, limite=20):
     """Instructions deja employees, avec ce qu'elles ont donne.
 
     Le journal NSFW porte deja `instruction` et `score_identite` : la
@@ -713,7 +716,7 @@ def historique_instructions(limite=20):
     distinctes, la plus frequente retapee 6 fois. Le journal savait deja tout ce
     qu'il fallait pour ne pas la retaper.
     """
-    path = nsfw_batch.JOURNAL
+    path = nsfw_batch.journal_path(character_id)
     if not path.exists():
         return []
     par_texte = {}
@@ -748,9 +751,10 @@ async def api_nsfw_instructions(request):
     16 instructions posterieures a la refonte reecrivaient `same pose`. On montre
     le texte, on arrete de le paraphraser.
     """
+    cid = ss.character(request)
     return web.json_response({
         "preambule": nsfw_batch.PREAMBLE.split("Instruction:")[0].strip(),
-        "historique": historique_instructions()})
+        "historique": historique_instructions(cid)})
 
 
 @routes.post("/api/nsfw/arm")

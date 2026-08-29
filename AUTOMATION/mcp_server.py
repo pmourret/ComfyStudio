@@ -99,19 +99,29 @@ def wf_noeuds(a):
 def etat(_):
     """Etat courant : ComfyUI, comptes par dossier de tri, seuils."""
     import urllib.request
+    import runner as lb          # meme import tardif que _cfg()
     cfg = _cfg()
     try:
         urllib.request.urlopen(cfg["comfy_url"] + "/system_stats", timeout=2).close()
         comfy = True
     except Exception:
         comfy = False
+    # Un arbre par personnage depuis l'isolation disque (29/08/2026), le NSFW
+    # en sous-arbre : PROD/<CID>/<bucket>/ et PROD/<CID>/_NSFW/<bucket>/.
+    # Lecture seule, comme tout ce serveur (ADR-0007).
     comptes = {}
-    for espace, racine in (("lena", OFM / "PROD" / "LENA"),
-                           ("nsfw", OFM / "PROD" / "_NSFW")):
-        if racine.exists():
-            comptes[espace] = {d.name: len(list(d.glob("*.png")))
-                               for d in racine.iterdir()
-                               if d.is_dir() and not d.name.startswith("_")}
+    for cid in lb.list_characters():
+        racine = OFM / "PROD" / cid.upper()
+        if not racine.exists():
+            continue
+        for espace, base_dir in (("sfw", racine), ("nsfw", racine / "_NSFW")):
+            if not base_dir.exists():
+                continue
+            dossiers = {d.name: len(list(d.glob("*.png")))
+                        for d in base_dir.iterdir()
+                        if d.is_dir() and not d.name.startswith("_")}
+            if dossiers:
+                comptes[f"{cid}/{espace}"] = dossiers
     return {"comfyui": comfy, "url": cfg["comfy_url"], "qc": cfg["qc"],
             "preset": cfg["preset"], "dossiers": comptes}
 

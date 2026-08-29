@@ -148,14 +148,14 @@ def scene_stats(character):
         ss.push_log(f"base illisible, repli sur le journal : {e}")
 
     import csv
-    path = ss.OFM / "PROD" / "journal_batch.csv"
-    if not path.exists():
+    chemin = ss.journal_path()
+    if not chemin.exists():
         return {}
     acc = {}
-    with open(path, encoding="utf-8", newline="") as f:
+    with open(chemin, encoding="utf-8", newline="") as f:
         for row in csv.DictReader(f, delimiter=";"):
             sid = row.get("scene")
-            if not sid:
+            if not sid or ss.ligne_character(row) != character:
                 continue
             e = acc.setdefault(sid, {"n": 0, "scores": [], "ok": 0})
             e["n"] += 1
@@ -173,12 +173,15 @@ def scene_stats(character):
     return out
 
 
-def scene_previews():
-    """scene -> derniere image produite, pour illustrer le selecteur de scenes."""
-    index = ss.journal_index()
+def scene_previews(character):
+    """scene -> derniere image produite PAR CE PERSONNAGE, pour illustrer le
+    selecteur de scenes. Sans le personnage, les cartes de scene de l'ecran
+    Creer s'illustraient avec les images de Lena, quel que soit le personnage
+    ouvert."""
+    index = ss.journal_index(character)
     best = {}
     for bucket in ("OK", "A_REVOIR", "REJET"):
-        d = ss.bucket_dir(bucket)
+        d = ss.bucket_dir(bucket, "sfw", character)
         if not d.exists():
             continue
         for f in d.glob("*.png"):
@@ -208,10 +211,10 @@ async def api_scenes(request):
             for s in data["scenes"]}
     return web.json_response({"data": data, "categories": cats,
                               "scene_ids": [s["id"] for s in data["scenes"]],
-                              "previews": scene_previews(),
+                              "previews": scene_previews(cid),
                               "meta": meta,
                               "stats": scene_stats(cid),
-                              "avg_duration": round(ss.avg_duration()),
+                              "avg_duration": round(ss.avg_duration(cid)),
                               "poses": pose_tools.poses_disponibles()})
 
 
@@ -250,7 +253,8 @@ async def api_creative(request):
     configuration = ss.cfg(cid)
     armed = nsfw_batch.is_armed(cid)
     # compte une seule fois : la sonde disque est la meme pour tous les paliers
-    n_sources = len(nsfw_batch.sources_disponibles(configuration)) if armed else 0
+    n_sources = (len(nsfw_batch.sources_disponibles(configuration, cid))
+                 if armed else 0)
     paliers = []
     for p in creative.get("intensity", []):
         exige = p.get("requires")

@@ -38,8 +38,22 @@ GROUPS = ("N1 - ENTREES", "N2 - MODELE NSFW LOCAL", "N3 - EDITION GUIDEE",
 # N4 : PuLID + FaceDetailer. ReActor a ete retire du graphe, son classificateur
 # NSFW integre renvoyait un carre noir (verifie le 23/08).
 SRC_PREFIX = "_LENA_NSFW_SRC_"          # copie temporaire dans ComfyUI/input
-OUT_ROOT = OFM / "PROD" / "_NSFW"
-JOURNAL = OUT_ROOT / "journal_nsfw.csv"
+
+
+def out_root(character_id):
+    """Racine NSFW d'UN personnage : PROD/<CID>/_NSFW/.
+
+    Sous l'arbre du personnage, pas a cote : un PROD/_NSFW global melangeait
+    les sorties de tous les personnages dans les memes buckets, et la Revue
+    d'un personnage y voyait celles des autres (29/08/2026).
+    """
+    return OFM / "PROD" / character_id.upper() / "_NSFW"
+
+
+def journal_path(character_id):
+    """Journal NSFW d'un personnage. Pas de colonne `character` : le chemin
+    porte deja l'information (contrairement au journal SFW, unique)."""
+    return out_root(character_id) / "journal_nsfw.csv"
 
 # Preambule ajoute a toute instruction : c'est lui qui protege la pose et le decor.
 PREAMBLE = ("Reference image 1 is the photograph to edit. Reference image 2 is the "
@@ -122,10 +136,10 @@ def check_armed(character_id="lena"):
                        "dans l'interface avant toute execution")
 
 
-def bucket_dir(bucket):
+def bucket_dir(bucket, character_id):
     if bucket not in ("OK", "A_REVOIR", "REJET", "SANS_VISAGE"):
         raise ValueError("dossier inconnu")
-    return OUT_ROOT / bucket
+    return out_root(character_id) / bucket
 
 
 def buckets_sources(cfg=None):
@@ -142,26 +156,29 @@ def buckets_sources(cfg=None):
     return [b for b in permis if b in ("OK", "A_REVOIR")]
 
 
-def sources_disponibles(cfg=None):
-    """Images SFW editables, les plus recentes d'abord."""
+def sources_disponibles(cfg, character_id):
+    """Images SFW editables de CE personnage, les plus recentes d'abord."""
     out = []
     for bucket in buckets_sources(cfg):
-        d = OFM / "PROD" / "LENA" / bucket
+        d = OFM / "PROD" / character_id.upper() / bucket
         if d.exists():
             out += [(f, bucket) for f in d.glob("*.png")]
     out.sort(key=lambda t: t[0].stat().st_mtime, reverse=True)
     return out
 
 
-def resoudre_source(nom, cfg=None):
-    """Chemin d'une image source par son nom. None si elle n'est pas editable.
+def resoudre_source(nom, cfg, character_id):
+    """Chemin d'une image source par son nom, DANS l'arbre de ce personnage.
+    None si elle n'y est pas editable.
 
-    Un nom de fichier est unique sur TOUS les dossiers de tri (`lb.nom_libre`),
-    donc chercher par nom est sans ambiguite. Rendre None plutot que lever :
+    Un nom de fichier est unique sur tous les dossiers de tri d'un personnage
+    (`lb.nom_libre` balaye PROD/<CID>/), donc chercher par nom y est sans
+    ambiguite — mais seulement la : deux personnages peuvent porter le meme
+    nom de fichier, d'ou l'arbre en parametre. Rendre None plutot que lever :
     l'image a pu etre retriee entre la selection et le lancement.
     """
     for bucket in buckets_sources(cfg):
-        p = OFM / "PROD" / "LENA" / bucket / nom
+        p = OFM / "PROD" / character_id.upper() / bucket / nom
         if p.exists():
             return p
     return None
@@ -227,6 +244,9 @@ class NsfwRunner:
         node("sharpen")["inputs"]["amount"] = float(lb.reglage(self.cfg, "sharpen", 0.30))
         fs = final_size or size
         node("final_size")["inputs"].update(width=fs[0], height=fs[1])
+        # Dossier de TRANSIT, cote ComfyUI (relatif a son propre output/), pas
+        # l'arbre du personnage : la sortie n'y reste pas, `editer` la deplace
+        # aussitot vers PROD/<CID>/_NSFW/<bucket>/.
         node("save")["inputs"]["filename_prefix"] = f"OFM/PROD/_NSFW/_BATCH/{batch_id}/e"
         return api
 
@@ -269,7 +289,7 @@ def editer(src, instruction, cfg, checker=None, runner=None, batch_id=None,
     """Edite UNE image et range la sortie. Retourne (result, ligne_de_journal).
 
     `src` est un chemin quelconque : c'est ce qui permet a la generation de niveau
-    3 d'enchainer sur sa propre sortie SFW sans passer par PROD/LENA/OK. Le verrou
+    3 d'enchainer sur sa propre sortie SFW sans passer par PROD/<CID>/OK. Le verrou
     d'armement reste verifie ici, pas seulement chez l'appelant.
 
     Une seule implementation de l'edition : l'onglet Avance (run) et
@@ -310,12 +330,12 @@ def editer(src, instruction, cfg, checker=None, runner=None, batch_id=None,
                     out = COMFY_OUTPUT / im.get("subfolder", "") / im["filename"]
                     score = checker.score(out) if checker else None
                     verdict = checker.verdict(score) if checker else "OK"
-                    dest_dir = bucket_dir(verdict)
+                    dest_dir = bucket_dir(verdict, character_id)
                     dest_dir.mkdir(parents=True, exist_ok=True)
-                    # nom libre sur TOUS les dossiers de _NSFW, pas seulement
-                    # celui d'arrivee : voir lb.nom_libre
+                    # nom libre sur TOUS les dossiers _NSFW de ce personnage,
+                    # pas seulement celui d'arrivee : voir lb.nom_libre
                     dest = dest_dir / lb.nom_libre(
-                        f"nsfw_{src.stem}_{batch_id}", OUT_ROOT)
+                        f"nsfw_{src.stem}_{batch_id}", out_root(character_id))
                     shutil.move(str(out), str(dest))
                     # meme grain que la branche SFW, sinon les deux sorties n'ont
                     # pas la meme signature de bruit dans un meme feed
@@ -344,7 +364,7 @@ def run(sources, instruction, cfg, checker=None, on_event=None, should_stop=None
     for i, name in enumerate(sources, 1):
         if should_stop and should_stop():
             break
-        src = resoudre_source(name, cfg)
+        src = resoudre_source(name, cfg, character_id)
         if src is None:
             stats["ERREUR"] += 1
             continue
@@ -358,21 +378,22 @@ def run(sources, instruction, cfg, checker=None, on_event=None, should_stop=None
             stats["ERREUR"] += 1
         on_event("done", index=i, total=len(sources), source=name, result=result)
 
-    batch_dir = OUT_ROOT / "_BATCH" / batch_id
+    batch_dir = out_root(character_id) / "_BATCH" / batch_id
     if batch_dir.exists() and not any(batch_dir.iterdir()):
         batch_dir.rmdir()
         if not any(batch_dir.parent.iterdir()):
             batch_dir.parent.rmdir()
     if rows:
-        journal(rows)
+        journal(rows, character_id)
     return rows, stats
 
 
-def journal(rows):
+def journal(rows, character_id):
     import csv
-    JOURNAL.parent.mkdir(parents=True, exist_ok=True)
-    new = not JOURNAL.exists()
-    with open(JOURNAL, "a", newline="", encoding="utf-8") as f:
+    chemin = journal_path(character_id)
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    new = not chemin.exists()
+    with open(chemin, "a", newline="", encoding="utf-8") as f:
         wr = csv.writer(f, delimiter=";")
         if new:
             wr.writerow(["date", "batch", "source", "seed", "score_identite",

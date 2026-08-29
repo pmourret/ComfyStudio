@@ -30,11 +30,13 @@ def duree_unitaire():
     edition NSFW sur sa propre sortie. Ne compter que la generation faisait
     annoncer un reste a faire environ deux fois trop court.
     """
-    base = ss.avg_duration()
-    palier = lb.by_level(lb.load_creative(ss.STATE.get("character") or "lena"),
-                         ss.STATE.get("intensity") or 0)
+    # personnage du BATCH en cours, pas celui de l'URL : c'est sa duree reelle
+    # qu'on extrapole. Un pack SDXL et un pack Flux ne vont pas a la meme vitesse.
+    cid = ss.STATE.get("character") or "lena"
+    base = ss.avg_duration(cid)
+    palier = lb.by_level(lb.load_creative(cid), ss.STATE.get("intensity") or 0)
     if palier and palier.get("pipeline") == "flux+edit":
-        base += ss._moyenne_duree(nsfw_batch.JOURNAL, 60.0)
+        base += ss._moyenne_duree(nsfw_batch.journal_path(cid), 60.0)
     return base
 
 
@@ -45,21 +47,31 @@ async def index(request):
 
 @routes.get("/api/state")
 async def api_state(request):
+    """Etat du systeme + compteurs de buckets DU personnage demande.
+
+    Les compteurs sont ceux d'un arbre PROD/<CID>/ precis : sans le personnage,
+    le selecteur de bucket de la Revue annoncait les chiffres de Lena au-dessus
+    des images d'un autre.
+    """
+    cid = ss.character(request)
     ok = await ss.comfy_alive()
-    counts = {b: len(list(ss.bucket_dir(b).glob("*.png"))) if ss.bucket_dir(b).exists() else 0
-              for b in ss.BUCKETS}
+
+    def compte(space):
+        return {b: len(list(ss.bucket_dir(b, space, cid).glob("*.png")))
+                if ss.bucket_dir(b, space, cid).exists() else 0 for b in ss.BUCKETS}
+
+    counts = compte("sfw")
     # memes buckets, espace NSFW : sert a l'ecran Galerie/Revue quand la bascule
     # d'espace y est sur NSFW, pour que les compteurs de bucket affiches
     # correspondent a ce qui est reellement liste (sinon ils restent colles
     # aux chiffres SFW pendant qu'on regarde des images NSFW)
-    nsfw_counts = {b: len(list(ss.bucket_dir(b, "nsfw").glob("*.png")))
-                   if ss.bucket_dir(b, "nsfw").exists() else 0 for b in ss.BUCKETS}
+    nsfw_counts = compte("nsfw")
     eta = None
     if ss.STATE["running"] and ss.STATE["total"]:
         eta = round(duree_unitaire() * (ss.STATE["total"] - ss.STATE["index"] + 1))
     return web.json_response({**ss.STATE, "comfy": ok, "counts": counts,
                               "nsfw_counts": nsfw_counts, "eta": eta,
-                              "undo": len(ss.UNDO)})
+                              "undo": len(ss.undo_disponible(cid))})
 
 
 @routes.get("/api/config")
@@ -304,11 +316,14 @@ async def api_config_save(request):
 
 @routes.get("/api/journal")
 async def api_journal(request):
-    path = ss.OFM / "PROD" / "journal_batch.csv"
-    if not path.exists():
+    """Journal de production, filtre sur le personnage demande."""
+    cid = ss.character(request)
+    chemin = ss.journal_path()
+    if not chemin.exists():
         return web.json_response({"rows": []})
-    with open(path, encoding="utf-8", newline="") as f:
-        rows = list(csv.DictReader(f, delimiter=";"))
+    with open(chemin, encoding="utf-8", newline="") as f:
+        rows = [r for r in csv.DictReader(f, delimiter=";")
+                if ss.ligne_character(r) == cid]
     return web.json_response({"rows": rows[-300:][::-1]})
 
 
@@ -319,12 +334,12 @@ async def api_nsfw_state(request):
     armed = nsfw_batch.is_armed(cid)
     counts = {}
     for b in ("OK", "A_REVOIR", "REJET"):
-        d = ss.bucket_dir(b, "nsfw")
+        d = ss.bucket_dir(b, "nsfw", cid)
         counts[b] = len(list(d.glob("*.png"))) if d.exists() else 0
     # le bucket voyage avec le nom : la grille de sources doit pouvoir dire
     # d'ou vient chaque image, et /img en a besoin pour la retrouver
     sources = [{"name": f.name, "bucket": b}
-               for f, b in nsfw_batch.sources_disponibles(configuration)[:120]]
+               for f, b in nsfw_batch.sources_disponibles(configuration, cid)[:120]]
     return web.json_response({"armed": armed, "counts": counts,
                               "sources": sources})
 
