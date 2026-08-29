@@ -47,9 +47,17 @@ td.num{font-variant-numeric:tabular-nums}
           padding:10px 14px;font-size:13px;margin-bottom:16px}
 .srcgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;
          max-height:330px;overflow:auto;padding:3px}
-.src{display:block;width:100%;padding:0;background:none;font:inherit;color:inherit;
+/* La CARTE est portee par `.srcgrid .src`, pas par `.src` seul (29/08/2026).
+   `src` est un nom que trois vues emploient : la vignette de source NSFW ici,
+   l'etiquette de provenance d'un fragment d'apercu (`.fr .src`), le sous-titre
+   de la carte Decliner (`#declineBox .src`). Non scopee, la regle de carte
+   posait `width:100%` + bordure 2 px + curseur main sur les deux dernieres —
+   d'ou une etiquette d'apercu large de toute la ligne, qui chassait le texte du
+   fragment hors du cadre. Scoper coute un selecteur ; renommer aurait touche le
+   JS et le selecteur de fumigation `.fr .src`. */
+.srcgrid .src{display:block;width:100%;padding:0;background:none;font:inherit;color:inherit;
      border:2px solid var(--line);border-radius:8px;overflow:hidden;cursor:pointer;position:relative}
-.src.on{border-color:var(--acc)}
+.srcgrid .src.on{border-color:var(--acc)}
 .src img{width:100%;aspect-ratio:4/5;object-fit:cover;display:block}
 .src .tick{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;
   background:var(--scrim);border:1.5px solid #ffffff55;color:transparent;font-size:12px;
@@ -230,7 +238,14 @@ details.preamb{margin-top:0;border-top:0;padding-top:0;margin-bottom:12px}
   font-variant-numeric:tabular-nums;flex:none}
 .fr .src{min-width:118px;font-size:11.5px;color:var(--dim);flex:none;
   text-transform:uppercase;letter-spacing:.4px}
-.fr .tx{font-size:12.5px;line-height:1.5}
+/* `min-width:0` : sans lui l'element de flex garde son `min-width:auto`, refuse
+   de descendre sous la largeur de son contenu et pousse la ligne hors du cadre.
+   Les deux etiquettes de gauche etant en `flex:none`, c'est le TEXTE — le seul
+   contenu qu'on vient lire — qui sortait : on lisait « 5 % TENUE », « 10 % TON »
+   et rien de ce qu'ils disent. `overflow-wrap:anywhere` couvre le cas d'un
+   fragment sans espace, qu'un simple retour a la ligne ne casserait pas. */
+.fr .tx{font-size:12.5px;line-height:1.5;flex:1;min-width:0;
+  overflow-wrap:anywhere}
 /* la scene est le seul fragment que l'utilisateur ecrit : on la distingue */
 .fr.sc{background:#1e2630;margin:0 -18px;padding-left:18px;padding-right:18px}
 .fr.sc .src,.fr.sc .tx{color:var(--txt)}

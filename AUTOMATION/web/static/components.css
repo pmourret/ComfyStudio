@@ -125,12 +125,20 @@ body.editing .intbar{display:none}
 /* ----------------------------------------------------------------- produire */
 .spacer{flex:1}
 .scenes{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:14px}
-.sc{display:block;width:100%;font:inherit;color:inherit;text-align:left;
+/* Meme precaution que `.srcgrid .src` (screens.css) : la CARTE est scopee a sa
+   grille. `sc` sert aussi de nom a la ligne « scene » de l'apercu de prompt
+   (`.fr.sc`) et a la pastille de score de la bibliotheque d'instructions
+   (`.bib .sc`) — deux etiquettes, pas des cartes. Non scopee, la regle leur
+   donnait `width:100%`, une bordure de 2 px et un curseur main : elles avaient
+   l'air cliquables sans l'etre, et la pastille de score prenait toute sa ligne.
+   Seules les regles de BLOC sont scopees ; les descendantes (.ph, .tick, .info)
+   ne trouvent rien a mordre ailleurs. */
+.scenes .sc{display:block;width:100%;font:inherit;color:inherit;text-align:left;
     background:var(--panel);border:2px solid var(--line);border-radius:var(--r);
     overflow:hidden;cursor:pointer;position:relative;transition:border-color .12s}
-.sc:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-.sc:hover{border-color:var(--line2)}
-.sc.on{border-color:var(--acc)}
+.scenes .sc:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.scenes .sc:hover{border-color:var(--line2)}
+.scenes .sc.on{border-color:var(--acc)}
 .sc .ph{aspect-ratio:4/5;background:var(--panel2) center/cover;position:relative}
 .sc .ph.empty::after{content:'aucune image';position:absolute;inset:0;display:flex;
   align-items:center;justify-content:center;color:var(--dim2);font-size:12px}
