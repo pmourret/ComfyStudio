@@ -15,11 +15,17 @@ const avecPersonnage = u => {
    l'application : tant que chaque ecran assemblait sa propre chaine, le
    personnage — et parfois meme l'espace SFW/NSFW — s'oubliait d'un appel a
    l'autre, et /img rendait les images de Lena a qui passait par la. */
-export const imgUrl = ({bucket, space, name, thumb}) => avecPersonnage(
+// `v` : version des octets (mtime), rendue par /api/gallery. Le serveur
+// l'ignore — il n'est la que pour l'URL : depuis que l'editeur sait ecraser sa
+// source (F3.3), un meme nom peut designer deux images, et le cache du
+// navigateur montrerait encore la premiere. Absent des items qui n'en portent
+// pas (STATE.recent) : l'URL reste alors celle d'avant, au caractere pres.
+export const imgUrl = ({bucket, space, name, thumb, v}) => avecPersonnage(
   `/img?bucket=${encodeURIComponent(bucket || 'OK')}`
   + `&space=${encodeURIComponent(space || 'sfw')}`
   + `&name=${encodeURIComponent(name || '')}`
-  + (thumb ? '&thumb=1' : ''));
+  + (thumb ? '&thumb=1' : '')
+  + (v ? `&v=${encodeURIComponent(v)}` : ''));
 
 // r.json() seul plantait (rejet de promesse non gere) sur toute reponse dont le
 // corps n'est pas du JSON — un 500 non intercepte cote serveur renvoie une page

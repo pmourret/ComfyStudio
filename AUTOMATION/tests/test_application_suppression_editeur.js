@@ -139,6 +139,30 @@ process.on('exit', nettoyer);
        'le contexte personnage (?character=lena) est conservé');
   const cvW = await page.locator('#edCanvas').evaluate(c => c.width);
   dire(cvW > 0, `le canvas est dimensionné (${cvW}px de large)`);
+
+  /* F3.1 (30/08/2026) — L'EDITEUR S'OUVRE SANS RECADRAGE. Le cadre porte un
+     voile de 2000 px : allume d'office, il assombrissait l'image des l'entree,
+     pour un geste qu'on ne fait pas a chaque retouche. Le test exigeait
+     l'inverse ; c'est la ligne qui a change de sens, pas le reste. */
+  dire(!(await page.isVisible('#edCropBox')),
+       "a l'ouverture, AUCUN cadre de recadrage — donc aucun voile sur l'image");
+  dire((await page.getAttribute('#edCropSec', 'data-on')) === '0',
+       'la section Recadrage est en etat « eteint »');
+  dire(await page.isVisible('#edCropOn'), 'elle propose le geste « Recadrer »');
+  dire(!(await page.isVisible('#edRatio')),
+       'et ne montre pas encore les formats');
+  // l'action principale se trouve sans defiler : le panneau de reglages est
+  // plus haut que la modale, son pied est colle en bas
+  const pied = await page.evaluate(() => {
+    const s = document.getElementById('edSave').getBoundingClientRect();
+    const p = document.querySelector('.edSide').getBoundingClientRect();
+    return {dedans: s.bottom <= p.bottom + 1 && s.top >= p.top, bas: Math.round(s.bottom)};
+  });
+  dire(pied.dedans, `« Enregistrer une copie » est visible sans defiler (bas=${pied.bas})`);
+
+  console.log("\n[6b] « Recadrer » allume le cadre, « annuler » l'éteint");
+  await page.click('#edCropOn');
+  await page.waitForTimeout(300);
   dire(await page.isVisible('#edCropBox'), 'le cadre de recadrage est affiché');
 
   /* LE CADRE EST SUR L'IMAGE, pas à côté. Rien ne le vérifiait : le test ne
@@ -188,6 +212,18 @@ process.on('exit', nettoyer);
   await page.waitForTimeout(150);
   dire((await page.textContent('#v_edGrain')).trim() === '50', 'étiquette grain suit le curseur');
 
+  console.log("\n[6c] miroir : un interrupteur, pas une action à répéter");
+  dire((await page.getAttribute('#edFlip', 'aria-pressed')) === 'false',
+       "le miroir est relache a l'ouverture");
+  await page.click('#edFlip');
+  await page.waitForTimeout(200);
+  dire((await page.getAttribute('#edFlip', 'aria-pressed')) === 'true',
+       "un clic l'enfonce — l'etat se lit, il ne se devine pas");
+  await page.click('#edFlip');
+  await page.waitForTimeout(200);
+  dire((await page.getAttribute('#edFlip', 'aria-pressed')) === 'false',
+       'un second clic le relache');
+
   /* DEPLACEMENT DU CADRE. Le test d'avant acceptait qu'UN SEUL axe bouge
      (`||`) : le ratio 1:1 posé plus haut sur une image 4:5 laisse de la marge
      verticale, donc il passait au vert pendant que l'axe horizontal était
@@ -215,7 +251,14 @@ process.on('exit', nettoyer);
        `le cadre suit la souris au pixel près : demandé +40/+25, obtenu ${dx.toFixed(0)}/${dy.toFixed(0)}`);
   dire((await surImage()).dedans, 'et il reste dans le canvas après déplacement');
 
-  // enregistrement
+  /* [6d] VERSIONS (F3.3). Le geste primaire fait un DERIVÉ : deux fichiers
+     après, pas un. La source doit rester listée — c'est tout l'intérêt de ne
+     pas écraser, et rien ne le vérifiait. */
+  console.log('\n[6d] enregistrer une copie : deux noms, la source intacte');
+  const lister = () => page.evaluate(() =>
+    fetch('/api/gallery?bucket=A_REVOIR&space=sfw&character=lena').then(r => r.json())
+      .then(d => d.items.filter(i => i.name.includes('_TEST_EDITEUR_temp')).map(i => i.name)));
+  const avantSave = await lister();
   await page.click('#edSave');
   await page.waitForTimeout(1500);
   dire(!(await page.locator('#editorBox').evaluate(e => e.open)),
@@ -223,10 +266,57 @@ process.on('exit', nettoyer);
   dire(await page.isVisible('#trier'), 'la Revue est de nouveau accessible dessous');
   dire(!(await page.evaluate(() => document.body.classList.contains('editing'))),
        'body.editing retiré à la fermeture');
-  const nouveauxFichiers = await page.evaluate(() =>
-    fetch('/api/gallery?bucket=A_REVOIR&space=lena').then(r => r.json())
-      .then(d => d.items.filter(i => i.name.includes('_TEST_EDITEUR_temp_edit')).map(i => i.name)));
+  const apresSave = await lister();
+  const nouveauxFichiers = apresSave.filter(n => n.includes('_TEST_EDITEUR_temp_edit'));
   dire(nouveauxFichiers.length > 0, `copie éditée créée : ${nouveauxFichiers.join(', ') || 'AUCUNE'}`);
+  dire(apresSave.includes(TEST_IMG),
+       `la SOURCE est toujours listée (${avantSave.length} -> ${apresSave.length} fichiers)`);
+
+  /* [6e] ÉCRASER LA SOURCE : second rang, et sous confirmation. On vérifie les
+     deux moitiés — la porte (une confirmation qui dit ce qu'elle coûte, et un
+     refus qui ne touche à rien) puis l'effet (même nom, octets remplacés). Le
+     test opère sur SA copie de test, jamais sur une image de production. */
+  console.log('\n[6e] écraser la source : confirmé, jamais primaire');
+  const cible = nouveauxFichiers[0] || TEST_IMG;
+  await page.click('.tabs button[data-s="trier"]');
+  await page.waitForTimeout(700);
+  const tuileEdit = page.locator('.tile').filter({ has: page.locator(`img[src*="${cible}"]`) });
+  await tuileEdit.first().locator('img').click();
+  await page.waitForTimeout(600);
+  await page.click('#btnOuvrirEditeur');
+  await page.waitForTimeout(1200);
+  dire(!(await page.locator('#edSave').evaluate(b => b.classList.contains('danger'))) &&
+       await page.locator('#edSaveOver').evaluate(b => b.classList.contains('danger')),
+       'le geste destructeur n\'est pas le bouton primaire');
+  await page.fill('#edBright', '25');
+  await page.dispatchEvent('#edBright', 'input');
+  await page.click('#edSaveOver');
+  await page.waitForTimeout(600);
+  dire(await page.locator('#armBox').evaluate(e => e.open),
+       'une confirmation s\'ouvre — l\'écrasement n\'est jamais direct');
+  const dit = (await page.textContent('#armCard')).replace(/\s+/g, ' ');
+  dire(/ne sera plus récupérable/.test(dit) && /mesures/.test(dit),
+       'elle dit ce que ça coûte, pas « êtes-vous sûr ? »');
+  await page.click('#cfNon');
+  await page.waitForTimeout(400);
+  dire(await page.locator('#editorBox').evaluate(e => e.open),
+       'refuser laisse l\'éditeur ouvert, sans rien écrire');
+  const avantEcras = await lister();
+  await page.click('#edSaveOver');
+  await page.waitForTimeout(500);
+  await page.click('#cfOui');
+  await page.waitForTimeout(1600);
+  const apresEcras = await lister();
+  dire(apresEcras.length === avantEcras.length,
+       `aucun fichier de plus : ${avantEcras.length} -> ${apresEcras.length}`);
+  dire(apresEcras.includes(cible), `« ${cible} » existe toujours, sous le même nom`);
+  // le jeton `v` (mtime) suit les octets : sans lui, le navigateur reservirait
+  // l'image d'avant sur une URL identique
+  const versions = await page.evaluate(n => fetch(
+    '/api/gallery?bucket=A_REVOIR&space=sfw&character=lena').then(r => r.json())
+      .then(d => (d.items.find(i => i.name === n) || {}).v), cible);
+  dire(Number.isFinite(versions) && versions > 0,
+       `l'item porte une version d'octets (v=${versions})`);
 
   // =================================================== SUPPRESSION DEFINITIVE
   console.log('\n[7] suppression définitive — nettoyage des artefacts de test');

@@ -1,9 +1,19 @@
-/* Editeur photo — phase 1 (26/08/2026) : recadrage, rotation, colorimetrie,
-   grain manuel. Tout cote navigateur (canvas), aucun calcul GPU, resultat
-   instantane. Enregistre toujours une COPIE (jamais un ecrasement) : l'original
-   reste comparable, et supprimable a part via le bouton de suppression
-   definitive. La phase 2 (retouche par instruction, Qwen) viendra plus tard —
-   ce fichier ne s'en occupe pas.
+/* Editeur photo OPTIQUE : recadrage, rotation, miroir, redressement,
+   colorimetrie, grain manuel. Tout cote navigateur (canvas), aucun calcul GPU,
+   resultat instantane. La retouche par instruction (Qwen) est un AUTRE outil,
+   celui de la branche NSFW — ce fichier ne s'en occupe pas, et n'aura ni
+   pinceau ni masque.
+
+   F3 (30/08/2026), deux changements de comportement :
+
+     - le RECADRAGE s'ouvre ETEINT. Le cadre porte un voile de 2000 px : allume
+       d'office, il assombrissait l'image des l'entree pour un geste qu'on ne
+       fait pas a chaque retouche. « Recadrer » l'allume, « annuler le
+       recadrage » le rend eteint sans rien sauver.
+     - enregistrer garde son sens par defaut — une COPIE `<nom>_edit`, la source
+       intacte. « Écraser la source » existe desormais, en second rang et sous
+       confirmation : c'est le seul chemin de cet ecran qui detruise quelque
+       chose, et il dit ce qu'il coute (mesures effacees, export refait).
 
    Le canvas affiche est a taille d'ECRAN (limite a ~760x620) pour rester
    fluide pendant qu'on ajuste les curseurs ; l'enregistrement re-dessine tout
@@ -16,12 +26,14 @@ import {$, $$, esc} from './dom.js';
 import {post, imgUrl} from './api.js';
 import {openDialog, closeDialog} from './ui-dialog.js';
 import {toast} from './toast.js';
+import {confirmer} from './modal.js';
 import {loadItems} from './review.js';
 import {refreshCounts} from './poller.js';
 
 let ED_ITEM = null;      // {name, bucket, space}
 let ED_IMG = null;       // HTMLImageElement source, chargee une fois par ouverture
 let ED_ROT = 0;           // 0..3 : pas de 90°
+let ED_FLIP = false;      // miroir horizontal (apres rotation)
 let ED_RATIO = null;      // null = libre, sinon {w, h}
 let ED_CROP = null;       // {x,y,w,h} en pixels d'affichage (post-rotation 90°)
 let ED_DRAG = null;
@@ -48,9 +60,8 @@ export async function ouvrirEditeur(item){
   const img = new Image();
   img.onload = () => {
     ED_IMG = img;
-    resetReglages();
+    resetReglages();          // recadrage compris : on ouvre sans cadre ni voile
     ajusterTailleCanvas();
-    appliquerRatioCentre();
     dessiner();
     $('#edMsg').textContent = '';
     $('#edSave').disabled = false;
@@ -82,6 +93,39 @@ addEventListener('resize', () => {
   if (!ED_IMG || !$('#editorBox').open) return;
   ajusterTailleCanvas(); clampCrop(); dessiner();
 });
+
+/* --------------------------------------------------- recadrage : on / off
+   `ED_CROP === null` EST l'etat « pas de recadrage » — c'est deja ce que lit
+   `positionnerCropBox` (cadre masque), `clampCrop` et l'export. Il n'y a donc
+   pas de second drapeau a tenir synchronise : allumer, c'est se donner un
+   cadre ; eteindre, c'est le reprendre. */
+const recadrageActif = () => !!ED_CROP;
+
+function majCropUi(){
+  const sec = $('#edCropSec');
+  if (sec) sec.dataset.on = recadrageActif() ? '1' : '0';
+  positionnerCropBox();
+  majNoteRedresser();
+}
+
+function activerCrop(){
+  if (!ED_IMG) return;
+  appliquerRatioCentre();
+  majCropUi();
+}
+
+/* Eteindre ne sauve rien et ne modifie pas l'image : le recadrage n'existe qu'a
+   l'enregistrement. On revient aussi au ratio libre — laisser « 1:1 » allume
+   sur un recadrage eteint annoncerait une contrainte qui ne s'applique plus. */
+function annulerCrop(){
+  ED_CROP = null;
+  ED_RATIO = null;
+  $$('#edRatio button').forEach(x => x.classList.toggle('on', x.dataset.r === 'libre'));
+  majCropUi();
+}
+
+$('#edCropOn').onclick = activerCrop;
+$('#edCropOff').onclick = annulerCrop;
 
 /* ------------------------------------------------------------- geometrie */
 function dimsRotees(){
@@ -208,6 +252,9 @@ function dessiner(){
   ctx.filter = filtreCss();
   ctx.translate(cv.width / 2, cv.height / 2);
   ctx.rotate((ED_ROT * 90 + straightenVal()) * Math.PI / 180);
+  // le miroir s'applique APRES la rotation, sur l'image telle qu'on la voit :
+  // inverser avant ferait basculer le sens du retournement une fois sur deux
+  if (ED_FLIP) ctx.scale(-1, 1);
   ctx.drawImage(ED_IMG, -ED_IMG.naturalWidth * echelle / 2, -ED_IMG.naturalHeight * echelle / 2,
                ED_IMG.naturalWidth * echelle, ED_IMG.naturalHeight * echelle);
   ctx.restore();
@@ -230,22 +277,38 @@ function positionnerCropBox(){
 }
 
 /* --------------------------------------------------------------- controles */
+/* Redresser sans recadrer rogne les coins a l'enregistrement (voir
+   rectDecoupe). L'ecran, lui, montre l'image inclinee avec ses coins vides : on
+   DIT donc ce que la sauvegarde fera, plutot que de laisser decouvrir l'ecart
+   sur le fichier. Rien a dire tant que l'angle est nul, ou si un cadre est
+   pose — c'est alors lui qui decide. */
+function majNoteRedresser(){
+  const note = $('#edStraightenNote');
+  if (note) note.hidden = !(straightenVal() && !recadrageActif());
+}
+
 function majEtiquettesSliders(){
   ['edBright', 'edContrast', 'edSat', 'edTemp', 'edGrain'].forEach(id => {
     const el = $('#v_' + id); if (el) el.textContent = $('#' + id).value;
   });
   $('#v_edStraighten').textContent = straightenVal() + '°';
+  majNoteRedresser();
 }
 
 function resetReglages(){
-  ED_ROT = 0; ED_RATIO = null;
+  ED_ROT = 0; ED_RATIO = null; ED_CROP = null; ED_FLIP = false;
   $('#edStraighten').value = 0;
   ['edBright', 'edContrast', 'edSat', 'edTemp', 'edGrain'].forEach(id => $('#' + id).value = 0);
   $$('#edRatio button').forEach(x => x.classList.toggle('on', x.dataset.r === 'libre'));
+  $('#edFlip').setAttribute('aria-pressed', 'false');
+  $('#edFlip').classList.remove('on');
   majEtiquettesSliders();
+  majCropUi();
 }
+// « Réinitialiser » rend l'image telle qu'elle a ete ouverte — recadrage
+// ETEINT compris : c'est bien l'etat d'ouverture, pas un cadre remis au centre.
 $('#edReset').onclick = () => {
-  resetReglages(); ajusterTailleCanvas(); appliquerRatioCentre(); dessiner();
+  resetReglages(); ajusterTailleCanvas(); dessiner();
 };
 
 $$('#edRatio button').forEach(b => b.onclick = () => {
@@ -253,14 +316,28 @@ $$('#edRatio button').forEach(b => b.onclick = () => {
   const r = b.dataset.r;
   ED_RATIO = r === 'libre' ? null
     : (([a, c]) => ({w: +a, h: +c}))(r.split(':'));
+  // choisir un format EST un geste de recadrage : s'il etait eteint, il
+  // s'allume — sinon le clic ne ferait rien de visible
   appliquerRatioCentre();
-  positionnerCropBox();
+  majCropUi();
 });
 
 $('#edRotL').onclick = () => { ED_ROT = (ED_ROT + 3) % 4; apresRotation(); };
 $('#edRotR').onclick = () => { ED_ROT = (ED_ROT + 1) % 4; apresRotation(); };
+$('#edFlip').onclick = () => {
+  ED_FLIP = !ED_FLIP;
+  $('#edFlip').setAttribute('aria-pressed', ED_FLIP ? 'true' : 'false');
+  $('#edFlip').classList.toggle('on', ED_FLIP);
+  dessiner();     // le miroir ne change ni les dimensions ni le cadre
+};
+/* Une rotation 90° echange largeur et hauteur : le canvas est recalcule, et un
+   cadre existant n'a plus de sens dans le nouveau repere — on le recentre.
+   Recadrage eteint, il le RESTE : tourner n'est pas recadrer. */
 function apresRotation(){
-  ajusterTailleCanvas(); appliquerRatioCentre(); dessiner();
+  ajusterTailleCanvas();
+  if (recadrageActif()) appliquerRatioCentre();
+  dessiner();
+  majCropUi();
 }
 
 ['edBright', 'edContrast', 'edSat', 'edTemp', 'edGrain', 'edStraighten'].forEach(id => {
@@ -329,6 +406,7 @@ function rendreCanvasComplet(){
   ctx.filter = filtreCss();
   ctx.translate(w / 2, h / 2);
   ctx.rotate((ED_ROT * 90 + straightenVal()) * Math.PI / 180);
+  if (ED_FLIP) ctx.scale(-1, 1);
   ctx.drawImage(ED_IMG, -ED_IMG.naturalWidth / 2, -ED_IMG.naturalHeight / 2);
   ctx.restore();
   ctx.filter = 'none';
@@ -337,28 +415,76 @@ function rendreCanvasComplet(){
   return off;
 }
 
-$('#edSave').onclick = async () => {
+/* Rectangle a decouper, en pixels du canvas AFFICHE. Recadrage eteint = toute
+   l'image : `null` n'est pas un cas d'erreur, c'est le cas normal depuis F3.1.
+   Le facteur d'echelle vers la resolution reelle est applique par l'appelant. */
+function rectDecoupe(){
+  const cv = $('#edCanvas');
+  if (ED_CROP) return ED_CROP;
+  // Sans cadre, on ne prend pas betement tout le canvas : un redressement
+  // incline l'image et laisse des COINS TRANSPARENTS. `margeSecurite` est
+  // justement la marge qui les evite — elle vaut 0 a angle nul, donc a plat le
+  // rectangle est bien l'image entiere, au pixel pres. Sans ca, redresser sans
+  // recadrer enregistrait un PNG a coins vides.
+  const m = margeSecurite(cv);
+  return {x: m, y: m, w: cv.width - 2 * m, h: cv.height - 2 * m};
+}
+
+/* Le rendu final, a la resolution ORIGINALE : le canvas affiche est reduit pour
+   rester fluide sous les curseurs, on ne sauve jamais ces pixels-la. */
+function imageFinale(){
+  const plein = rendreCanvasComplet();
+  const facteur = plein.width / $('#edCanvas').width;   // affichage -> reel
+  const c = rectDecoupe();
+  const rx = c.x * facteur, ry = c.y * facteur, rw = c.w * facteur, rh = c.h * facteur;
+  const finale = document.createElement('canvas');
+  finale.width = Math.max(1, Math.round(rw));
+  finale.height = Math.max(1, Math.round(rh));
+  finale.getContext('2d').drawImage(plein, rx, ry, rw, rh, 0, 0, finale.width, finale.height);
+  return finale;
+}
+
+/* Un seul chemin d'enregistrement, deux destinations. `remplacer` ne change pas
+   ce qui est calcule — seulement ou ca atterrit, et ce que le serveur doit
+   defaire derriere (mesures, export, vignette : voir api_edit_save). */
+async function enregistrer(remplacer){
   if (!ED_IMG || !ED_ITEM) return;
-  $('#edSave').disabled = true;
+  const btns = [$('#edSave'), $('#edSaveOver')];
+  btns.forEach(b => b.disabled = true);
   $('#edMsg').textContent = 'enregistrement…';
   try {
-    const plein = rendreCanvasComplet();
-    const facteur = plein.width / $('#edCanvas').width;   // affichage -> reel
-    const rx = ED_CROP.x * facteur, ry = ED_CROP.y * facteur;
-    const rw = ED_CROP.w * facteur, rh = ED_CROP.h * facteur;
-    const finale = document.createElement('canvas');
-    finale.width = Math.max(1, Math.round(rw));
-    finale.height = Math.max(1, Math.round(rh));
-    finale.getContext('2d').drawImage(plein, rx, ry, rw, rh, 0, 0, finale.width, finale.height);
-    const data_base64 = finale.toDataURL('image/png').split(',')[1];
+    const data_base64 = imageFinale().toDataURL('image/png').split(',')[1];
     const r = await post('/api/edit/save', {
-      name: ED_ITEM.name, bucket: ED_ITEM.bucket, space: ED_ITEM.space, data_base64});
+      name: ED_ITEM.name, bucket: ED_ITEM.bucket, space: ED_ITEM.space,
+      remplacer, data_base64});
     if (!r.ok){ $('#edMsg').textContent = ''; toast(r.erreur || 'échec'); return; }
-    toast(`copie enregistrée : ${r.name}`);
+    toast(r.remplace ? `${r.name} remplacée` : `copie enregistrée : ${r.name}`);
     fermerEditeur();
     loadItems();
     refreshCounts();
   } finally {
-    if ($('#edSave')) $('#edSave').disabled = false;
+    btns.forEach(b => { if (b) b.disabled = false; });
   }
+}
+
+$('#edSave').onclick = () => enregistrer(false);
+
+/* ÉCRASER LA SOURCE. Le seul geste destructeur de l'editeur, donc : jamais le
+   bouton primaire, et une confirmation qui dit les trois consequences plutot
+   qu'un « êtes-vous sûr ? ». La ligne de journal de la generation, elle, ne
+   bouge pas — elle raconte ce que le pipeline a produit, ce qui reste vrai. */
+$('#edSaveOver').onclick = async () => {
+  if (!ED_IMG || !ED_ITEM) return;
+  const ok = await confirmer({
+    titre: 'Écraser la source ?',
+    corps: `<p><b>${esc(ED_ITEM.name)}</b> sera remplacée sur le disque par la
+      version retouchée. La version d'origine ne sera plus récupérable.</p>
+      <p class="tiny">Ses mesures de réalisme portaient sur les anciens pixels :
+      elles sont effacées, l'image redevient « non mesurée ». Le jugement
+      ◉ / ◌, lui, est conservé, et l'export publiable est refait. La ligne de
+      journal de la génération reste telle quelle.</p>
+      <p class="tiny">« Enregistrer une copie » garde l'original intact.</p>`,
+    bouton: 'Écraser la source'});
+  if (!ok) return;
+  enregistrer(true);
 };

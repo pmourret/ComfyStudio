@@ -538,6 +538,19 @@ details.preamb{margin-top:0;border-top:0;padding-top:0;margin-bottom:12px}
   box-shadow:0 0 0 2000px #0b0d1066;cursor:move;touch-action:none}
 .edHandle{position:absolute;width:14px;height:14px;background:var(--acc);
   border-radius:50%;transform:translate(-50%,-50%);cursor:nwse-resize;touch-action:none}
+/* RECADRAGE ETEINT / ALLUME (30/08/2026, F3.1). Un seul attribut, ecrit par
+   editor.js : eteint, l'ecran ne montre que le geste qui l'allume ; allume, il
+   montre les formats et la sortie. Rien n'est grise — le recadrage n'est pas
+   indisponible, il n'est simplement pas en cours. */
+#edCropSec[data-on="0"] .edCropOnly{display:none}
+#edCropSec[data-on="1"] .edCropOn{display:none}
+#edCropSec .edCropOn{margin-top:2px}
+/* Ecrit SOUS `[data-on="1"]` et pas sur `.edCropOnly` seul : a specificite
+   egale, la derniere regle gagne, et un `display:block` general rallumait le
+   lien « annuler le recadrage » alors que le recadrage etait eteint. */
+#edCropSec[data-on="1"] .edCropOnly.link{display:block;margin-top:10px;text-align:left}
+/* Miroir : un interrupteur, pas une action a repeter — il se voit enfonce. */
+#edFlip.on{background:var(--acc);border-color:var(--acc);color:var(--on-acc);font-weight:600}
 .edHandle[data-h="nw"]{left:0;top:0}
 .edHandle[data-h="ne"]{left:100%;top:0;cursor:nesw-resize}
 .edHandle[data-h="sw"]{left:0;top:100%;cursor:nesw-resize}
@@ -562,5 +575,17 @@ details.preamb{margin-top:0;border-top:0;padding-top:0;margin-bottom:12px}
 .edVal{color:var(--txt);font-variant-numeric:tabular-nums}
 .edSec input[type=range]{width:100%;margin-top:2px}
 .edSpacer{flex:1;min-height:10px}
+/* Pied COLLANT du panneau de reglages. `.edSide` defile (les reglages sont plus
+   hauts que la modale des 950 px de fenetre) et emportait les boutons avec lui :
+   « Enregistrer une copie » vivait 180 px sous le pli. `bottom:-20px` annule le
+   padding du panneau pour que le bloc se colle au vrai bas ; le degrade dit
+   qu'il reste du contenu dessous quand on n'a pas fini de defiler. */
+.edActions{position:sticky;bottom:-20px;margin-top:auto;background:var(--panel);
+  padding:10px 0 20px;box-shadow:0 -14px 14px -14px #000a}
 .edBtns{display:flex;flex-direction:column;gap:8px;margin-top:14px}
 .edBtns .btn{width:100%}
+/* Second rang : le geste destructeur. Separe du rang primaire par un filet et
+   volontairement PLUS ETROIT — deux boutons pleine largeur l'un sous l'autre se
+   cliquent dans la lancee, et celui-la ne se rattrape pas. */
+.edBtns2{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.edBtns2 .btn{width:auto;align-self:flex-end}

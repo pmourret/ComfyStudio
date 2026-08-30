@@ -551,24 +551,33 @@
         <button class="edClose" id="edClose" aria-label="Fermer l'éditeur">✕</button>
       </div>
       <p class="tiny edFichier" id="edFichier"></p>
-      <div class="edSec">
+      <!-- RECADRAGE — eteint a l'ouverture (30/08/2026, F3.1). Le cadre porte
+           un voile de 2000 px : allume d'office, il assombrissait l'image des
+           l'entree, pour un geste que l'on ne fait pas a chaque retouche.
+           `data-on` est ecrit par editor.js ; le CSS decide quoi montrer. -->
+      <div class="edSec" id="edCropSec" data-on="0">
         <div class="edLab">Recadrage</div>
-        <div class="seg" id="edRatio">
+        <button class="btn sm edCropOn" id="edCropOn">Recadrer</button>
+        <div class="seg edCropOnly" id="edRatio">
           <button class="on" data-r="libre">Libre</button>
           <button data-r="1:1">1:1</button>
           <button data-r="4:5">4:5</button>
           <button data-r="2:3">2:3</button>
           <button data-r="9:16">9:16</button>
         </div>
+        <button class="link edCropOnly" id="edCropOff">annuler le recadrage</button>
       </div>
       <div class="edSec">
         <div class="edLab">Rotation</div>
         <div style="display:flex;align-items:center;gap:10px">
           <button class="btn sm" id="edRotL">↺ 90°</button>
           <button class="btn sm" id="edRotR">90° ↻</button>
+          <button class="btn sm" id="edFlip" aria-pressed="false">⇄ Miroir</button>
         </div>
         <div class="edRow"><span>redresser</span><span class="edVal" id="v_edStraighten">0°</span></div>
         <input type="range" id="edStraighten" min="-15" max="15" step="0.5" value="0">
+        <p class="tiny" id="edStraightenNote" hidden>Les coins laissés vides par
+          l'inclinaison seront rognés à l'enregistrement.</p>
       </div>
       <div class="edSec">
         <div class="edLab">Colorimétrie</div>
@@ -587,11 +596,23 @@
         <input type="range" id="edGrain" min="0" max="100" step="1" value="0">
       </div>
       <div class="edSpacer"></div>
-      <p class="tiny" id="edMsg"></p>
-      <div class="edBtns">
-        <button class="btn sm" id="edReset">Réinitialiser</button>
-        <button class="link" id="edCancel">annuler</button>
-        <button class="btn primary" id="edSave">Enregistrer une copie</button>
+      <!-- PIED COLLANT. Le panneau defile — reglages compris — mais pas ses
+           actions : mesure du 30/08/2026, le contenu fait 1089 px pour 872 de
+           haut, et « Enregistrer une copie » tombait sous le pli. L'action
+           principale d'un ecran ne se cherche pas en defilant.
+           La copie est le geste PRIMAIRE : la source reste intacte par defaut.
+           « Écraser la source » est en second rang et sous confirmation — c'est
+           le seul chemin de l'editeur qui detruise quelque chose. -->
+      <div class="edActions">
+        <p class="tiny" id="edMsg"></p>
+        <div class="edBtns">
+          <button class="btn sm" id="edReset">Réinitialiser</button>
+          <button class="link" id="edCancel">annuler</button>
+          <button class="btn primary" id="edSave">Enregistrer une copie</button>
+        </div>
+        <div class="edBtns edBtns2">
+          <button class="btn sm danger" id="edSaveOver">Écraser la source…</button>
+        </div>
       </div>
     </div>
   </div>

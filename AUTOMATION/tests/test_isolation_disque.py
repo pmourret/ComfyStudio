@@ -24,6 +24,7 @@ Cree un CHARACTERS/probe/ et un PROD/PROBE/ jetables, les supprime a la fin
 
 Lancer :  python.exe AUTOMATION\\tests\\test_isolation_disque.py
 """
+import base64
 import json
 import shutil
 import sqlite3
@@ -233,6 +234,55 @@ try:
             "elle a bouge dans PROD/PROBE/, pas ailleurs")
     verifie(not (PROD_LENA / "A_REVOIR" / IMAGE_PROBE).exists(),
             "et rien n'a ete ecrit dans l'arbre de lena")
+
+    # ============================================================== [5b]
+    # /api/edit/save ECRIT des octets — en copie, et depuis le 30/08/2026 (F3.3)
+    # par-dessus la source. Deux occasions d'ecrire dans le mauvais arbre : la
+    # destination vient de `bucket_dir(..., cid)`, jamais du nom recu.
+    print("\n[5b] /api/edit/save ecrit dans l'arbre du personnage, jamais ailleurs")
+    # 1x1 PNG opaque, le plus petit corps valide que la route accepte
+    pixel = ("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8"
+             "z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+    if image_lena:
+        avant = (PROD_LENA / "OK" / image_lena).read_bytes()
+        code, corps = appel("/api/edit/save?character=probe",
+                            {"name": image_lena, "bucket": "OK", "space": "sfw",
+                             "data_base64": pixel})
+        verifie(code == 404,
+                f"editer une image de lena depuis probe : 404 ({code})")
+        verifie((PROD_LENA / "OK" / image_lena).read_bytes() == avant,
+                "le fichier de lena n'a pas ete reecrit")
+        code, corps = appel("/api/edit/save?character=probe",
+                            {"name": image_lena, "bucket": "OK", "space": "sfw",
+                             "remplacer": True, "data_base64": pixel})
+        verifie(code == 404,
+                f"l'ecrasement non plus ne traverse pas les arbres ({code})")
+        verifie((PROD_LENA / "OK" / image_lena).read_bytes() == avant,
+                "et son image est toujours intacte, a l'octet pres")
+    # A_REVOIR : c'est la que [5] vient de ranger l'image de probe — l'editer
+    # depuis son dossier COURANT, pas depuis celui qu'on croit
+    code, corps = appel("/api/edit/save?character=probe",
+                        {"name": IMAGE_PROBE, "bucket": "A_REVOIR", "space": "sfw",
+                         "data_base64": pixel})
+    copie = (jget(corps) or {}).get("name", "")
+    verifie(code == 200 and copie.endswith("_edit.png"),
+            f"probe edite SA propre image : {copie or corps}")
+    verifie((PROD_PROBE / "A_REVOIR" / copie).exists() if copie else False,
+            "la copie est ecrite dans PROD/PROBE/A_REVOIR/")
+    verifie(not (PROD_LENA / "A_REVOIR" / copie).exists() if copie else False,
+            "rien n'a ete depose dans l'arbre de lena")
+    # l'ecrasement garde le nom et remplace les octets — c'est tout le contrat
+    code, corps = appel("/api/edit/save?character=probe",
+                        {"name": copie, "bucket": "A_REVOIR", "space": "sfw",
+                         "remplacer": True, "data_base64": pixel})
+    d = jget(corps) or {}
+    verifie(code == 200 and d.get("name") == copie and d.get("remplace") is True,
+            f"probe ecrase SA copie, sous le meme nom ({d.get('name')})")
+    verifie((PROD_PROBE / "A_REVOIR" / copie).read_bytes() == base64.b64decode(pixel)
+            if copie else False,
+            "les octets sur le disque sont bien les nouveaux")
+    if copie:
+        (PROD_PROBE / "A_REVOIR" / copie).unlink(missing_ok=True)
 
     # ============================================================== [6]
     print("\n[6] /api/undo n'annule que les actions du personnage courant")

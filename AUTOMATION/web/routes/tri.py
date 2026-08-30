@@ -143,6 +143,12 @@ async def api_gallery(request):
             "scene": row.get("scene", ""), "categorie": row.get("categorie", ""),
             "format": row.get("format", ""), "seed": row.get("seed", ""),
             "date": datetime.fromtimestamp(f.stat().st_mtime).strftime("%d/%m %H:%M"),
+            # Version des OCTETS, pas de la ligne : `imgUrl` l'ajoute a l'URL
+            # (api.js). Un nom de fichier ne suffit plus a identifier une image
+            # depuis que l'editeur sait ecraser sa source (F3.3) — sans ce
+            # jeton, le navigateur reservirait sa copie en cache et l'ecran
+            # montrerait l'image d'avant, sur un fichier qui a change.
+            "v": int(f.stat().st_mtime),
             "prompt": row.get("prompt", ""),
             "nettete": m.get("nettete"), "texture": m.get("texture_visage"),
             "fond": m.get("bruit_fond"), "flag": m.get("flag"),
@@ -321,17 +327,37 @@ async def api_delete(request):
 
 @routes.post("/api/edit/save")
 async def api_edit_save(request):
-    """Enregistre une copie retouchee (recadrage/couleur/grain, cote navigateur).
+    """Enregistre une retouche (recadrage/couleur/grain, cote navigateur).
 
-    Toujours un NOUVEAU fichier, dans le meme bucket que l'original — jamais un
-    ecrasement : l'original reste comparable, et supprimable a part via
-    api_delete. Ni mesure ni export automatique : ce n'est pas une generation,
-    `api_mesurer` reste le chemin pour noter la copie si besoin.
+    Par defaut un NOUVEAU fichier `<nom>_edit`, dans le meme bucket que
+    l'original : c'est le geste normal, l'original reste comparable et
+    supprimable a part via api_delete. Ni mesure ni export automatique sur ce
+    chemin — ce n'est pas une generation, `api_mesurer` reste la pour noter la
+    copie.
+
+    `remplacer: true` ecrase la source (F3.3, 30/08/2026). Le front ne
+    l'envoie qu'apres une confirmation explicite, et ce n'est jamais son bouton
+    primaire. Trois consequences sont traitees ICI, sans quoi l'interface
+    mentirait sur un fichier qui a change sous elle :
+
+      - les MESURES de realisme portaient sur les anciens pixels : effacees
+        (`mes.demesurer`), l'image redevient « non mesuree ». Le jugement
+        humain, lui, est garde ;
+      - l'export publiable (OK/sfw) est refait depuis les nouveaux octets,
+        sinon le JPEG diffuse reste l'image d'avant ;
+      - la vignette est oubliee. Son horodatage suffirait a la refaire, mais
+        `oublier_vignette` rend la chose sure meme si l'horloge du disque est
+        moins fine que le geste.
+
+    La LIGNE DE JOURNAL de la generation n'est pas touchee : elle dit ce que le
+    pipeline a produit, ce qui reste vrai — le fichier, lui, ne l'illustre plus
+    exactement. Le front le dit dans sa confirmation.
     """
     cid = ss.character(request)
     body = await request.json()
     name = (body.get("name") or "").strip()
     bucket, space = body.get("bucket", ""), ss.space_id(body.get("space"))
+    remplacer = bool(body.get("remplacer"))
     b64 = body.get("data_base64") or ""
     if not ss.SAFE_NAME.match(name):
         ss.bad_request("nom de fichier invalide")
@@ -345,14 +371,28 @@ async def api_edit_save(request):
     if len(data) > ss.TAILLE_MAX_PHOTO:
         return web.json_response(
             {"ok": False, "erreur": "image trop lourde (20 Mo max)"}, status=400)
+    # `bucket_dir(…, cid)` : la destination est TOUJOURS l'arbre du personnage
+    # de la requete. Un `name` venu d'ailleurs ne peut pas faire ecrire ailleurs
+    # — au pire il n'existe pas ici, et on sort en 404 juste en dessous.
     dest_dir = ss.bucket_dir(bucket, space, cid)
     if not (dest_dir / name).exists():
         return web.json_response(
             {"ok": False, "erreur": "image d'origine introuvable"}, status=404)
+    if remplacer:
+        (dest_dir / name).write_bytes(data)
+        ss.oublier_vignette(name, bucket, space, cid)
+        mes.demesurer(name)
+        exporte = ""
+        if bucket == "OK" and space == "sfw":
+            exporte = exporter(dest_dir / name, name, space, cid)
+        ss.push_log(f"{name} remplacée par sa version éditée"
+                    + (f" (export {exporte} refait)" if exporte else ""))
+        return web.json_response({"ok": True, "name": name, "remplace": True,
+                                  "export": exporte})
     final = lb.nom_libre(f"{Path(name).stem}_edit", dest_dir.parent)
     (dest_dir / final).write_bytes(data)
     ss.push_log(f"{final} enregistrée (édition de {name})")
-    return web.json_response({"ok": True, "name": final})
+    return web.json_response({"ok": True, "name": final, "remplace": False})
 
 
 @routes.post("/api/undo")
