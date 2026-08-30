@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Garde serveur sur la banque de scenes (routes.banque.valider_banque).
+"""Garde serveur sur la banque de scenes (api.routers.bank.validate_scene_bank).
 
 POURQUOI CE TEST EXISTE. Le 25/08/2026, /api/scenes ne verifiait que deux choses :
 que `scenes` etait une liste, et que `anchor` n'etait pas vide. Une reconstruction
@@ -28,7 +28,7 @@ OFM = HERE.parents[1]
 sys.path.insert(0, str(OFM / "AUTOMATION" / "web"))
 sys.path.insert(0, str(OFM / "AUTOMATION"))
 
-from routes import banque  # noqa: E402
+from api.routers import bank  # noqa: E402
 
 BANQUE = json.loads((OFM / "CHARACTERS" / "lena" / "scenes.json").read_text(encoding="utf-8"))
 
@@ -59,11 +59,11 @@ def avec(champ, valeur, ou=0):
 
 
 print("=" * 70)
-print("valider_banque - tests")
+print("validate_scene_bank - tests")
 print("=" * 70)
 
 print("\n[1] la banque du depot passe")
-pbs = banque.valider_banque(BANQUE, ancienne=BANQUE)
+pbs = bank.validate_scene_bank(BANQUE, previous=BANQUE)
 verifie(not pbs, f"aucun probleme sur scenes.json ({len(BANQUE['scenes'])} scenes)")
 if pbs:
     for p in pbs[:5]:
@@ -71,59 +71,59 @@ if pbs:
 
 print("\n[2] forme : ce qui casserait la production plus tard")
 for cle in ("prefix", "anchor", "texture"):
-    verifie(any(cle in p for p in banque.valider_banque(sans(cle))),
+    verifie(any(cle in p for p in bank.validate_scene_bank(sans(cle))),
             f"champ racine « {cle} » manquant : refuse")
-verifie(any("format inconnu" in p for p in banque.valider_banque(avec("format", "16:9"))),
+verifie(any("format inconnu" in p for p in bank.validate_scene_bank(avec("format", "16:9"))),
         "format hors liste : refuse")
-verifie(any("prompt" in p for p in banque.valider_banque(avec("prompt", "   "))),
+verifie(any("prompt" in p for p in bank.validate_scene_bank(avec("prompt", "   "))),
         "prompt vide : refuse")
-verifie(any("intensity" in p for p in banque.valider_banque(avec("intensity", [2, 1]))),
+verifie(any("intensity" in p for p in bank.validate_scene_bank(avec("intensity", [2, 1]))),
         "bande d'intensite decroissante : refusee")
-verifie(any("intensity" in p for p in banque.valider_banque(avec("intensity", [0, 1, 2]))),
+verifie(any("intensity" in p for p in bank.validate_scene_bank(avec("intensity", [0, 1, 2]))),
         "bande a trois valeurs : refusee")
-verifie(any("intensity" in p for p in banque.valider_banque(avec("intensity", ["0", "1"]))),
+verifie(any("intensity" in p for p in bank.validate_scene_bank(avec("intensity", ["0", "1"]))),
         "bande en chaines de caracteres : refusee")
-verifie(any("num" in p for p in banque.valider_banque(avec("wardrobe", {"zero": "a shirt"}))),
+verifie(any("num" in p for p in bank.validate_scene_bank(avec("wardrobe", {"zero": "a shirt"}))),
         "niveau de tenue non numerique : refuse")
 verifie(any("ni texte ni liste" in p
-            for p in banque.valider_banque(avec("wardrobe", {"0": 42}))),
+            for p in bank.validate_scene_bank(avec("wardrobe", {"0": 42}))),
         "tenue qui n'est ni texte ni liste : refusee")
 
 doublon = copy.deepcopy(BANQUE)
 doublon["scenes"][1]["id"] = doublon["scenes"][0]["id"]
-verifie(any("double" in p for p in banque.valider_banque(doublon)),
+verifie(any("double" in p for p in bank.validate_scene_bank(doublon)),
         "deux scenes du meme identifiant : refuse")
 
 vide = copy.deepcopy(BANQUE)
 vide["scenes"] = []
-verifie(any("liste non vide" in p for p in banque.valider_banque(vide)),
+verifie(any("liste non vide" in p for p in bank.validate_scene_bank(vide)),
         "banque sans aucune scene : refusee")
 
 print("\n[3] LE cas du 25/08/2026 : l'effacement en lot")
 abimee = copy.deepcopy(BANQUE)
 for s in abimee["scenes"]:
-    for c in banque.CLES_SURVEILLEES:
+    for c in bank.WATCHED_KEYS:
         s.pop(c, None)
-pbs = banque.valider_banque(abimee, ancienne=BANQUE)
+pbs = bank.validate_scene_bank(abimee, previous=BANQUE)
 verifie(any("d'un seul coup" in p for p in pbs),
         "la sauvegarde qui a detruit la banque est refusee")
 
 print("\n[4] mais une edition humaine normale passe")
-verifie(not banque.valider_banque(sans("tags", ou=0), ancienne=BANQUE),
+verifie(not bank.validate_scene_bank(sans("tags", ou=0), previous=BANQUE),
         "vider les tags d'UNE scene reste permis")
 deux = copy.deepcopy(BANQUE)
 deux["scenes"][0].pop("tags")
 deux["scenes"][1].pop("tones")
-verifie(any("d'un seul coup" in p for p in banque.valider_banque(deux, ancienne=BANQUE)),
+verifie(any("d'un seul coup" in p for p in bank.validate_scene_bank(deux, previous=BANQUE)),
         "deux scenes amputees dans la meme sauvegarde : refuse")
-verifie(not banque.valider_banque(deux, ancienne=BANQUE, autoriser_pertes=True),
+verifie(not bank.validate_scene_bank(deux, previous=BANQUE, allow_losses=True),
         "sauf si l'appelant assume explicitement la perte")
 
 print("\n[5] une scene NEUVE n'est pas une perte")
 neuve = copy.deepcopy(BANQUE)
 neuve["scenes"].append({"id": "toute_neuve", "category": "lifestyle",
                         "format": "4:5", "count": 1, "prompt": "a new scene"})
-verifie(not banque.valider_banque(neuve, ancienne=BANQUE),
+verifie(not bank.validate_scene_bank(neuve, previous=BANQUE),
         "une scene ajoutee sans metadonnees est acceptee")
 
 print()

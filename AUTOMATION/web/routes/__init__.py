@@ -6,7 +6,7 @@ enregistree nulle part : web/app.py sert desormais l'application FastAPI de
 `api/routers/`. Ne rien ajouter ici.
 
     routes/etat.py       -> api/routers/state.py     (migre)
-    routes/banque.py     -> api/routers/bank.py
+    routes/banque.py     -> api/routers/bank.py      (migre)
     routes/vignettes.py  -> api/routers/images.py
     routes/production.py -> api/routers/production.py
     routes/tri.py        -> api/routers/review.py

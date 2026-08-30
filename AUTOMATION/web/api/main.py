@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 import shared_state as ss
 
 from .errors import install_error_handlers
-from .routers import state
+from .routers import bank, state
 from .security import LocalOriginGuardMiddleware
 
 DESCRIPTION = """
@@ -56,6 +56,7 @@ def create_app() -> FastAPI:
     install_error_handlers(app)
 
     app.include_router(state.router)
+    app.include_router(bank.router)
 
     # `/static` was mounted in web/app.py under aiohttp; it belongs to the
     # assembly either way. No build step, no bundler — the files are served
