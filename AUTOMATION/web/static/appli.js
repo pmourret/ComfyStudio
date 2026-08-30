@@ -4,28 +4,17 @@
    rendent possible. Actions consequentes : confirmation systematique, et pour
    ComfyUI un arret n'est JAMAIS propre sous Windows (pas de signal
    d'extinction gracieuse, TerminateProcess coupe net) — le dire avant d'agir. */
-import {$, esc} from './dom.js';
+import {$} from './dom.js';
 import {api, post} from './api.js';
 import {toast} from './toast.js';
 import {confirmer} from './modal.js';
 import {isRunning} from './poller.js';
-
-/* Go, pas Gio : c'est l'unite que nvidia-smi et les fiches constructeur
-   emploient, donc celle que l'utilisateur reconnait sur sa propre carte. */
-const go = o => (o / 1e9).toFixed(1);
-const pct = (a, b) => b > 0 ? Math.round(100 * a / b) : 0;
-
-function jauge(titre, utilisee, total, detail){
-  const p = pct(utilisee, total);
-  // deux seuils, pas un gradient : au-dela de 90 % une generation peut echouer
-  // faute de VRAM, et c'est le seul moment ou la couleur doit alerter
-  const cl = p >= 90 ? ' haut' : p >= 70 ? ' mid' : '';
-  return `<div>
-    <div class="sonde-t"><span>${esc(titre)}${detail ? ' · ' + esc(detail) : ''}</span>
-      <span class="sonde-v">${go(utilisee)} / ${go(total)} Go · ${p}%</span></div>
-    <div class="sonde-b${cl}"><i style="width:${Math.min(100, p)}%"></i></div>
-  </div>`;
-}
+/* Les sondes ont quitte ce module (30/08/2026) : le bandeau les affiche aussi,
+   et deux surfaces qui interrogent la meme route doubleraient les spawns de
+   nvidia-smi — et pourraient montrer deux verites. sondes.js fait l'appel,
+   peint les deux, et garde le dernier etat. */
+import {majSondes, dernierEtat} from './sondes.js';
+import {on} from './bus.js';
 
 function appliLog(msg){
   const el = $('#appliLog');
@@ -37,48 +26,26 @@ export async function majEtatComfy(){
   let s; try { s = await api('/api/state'); } catch { return; }
   const el = $('#comfyEtat');
   if (el) el.textContent = s.comfy ? '— en ligne' : '— hors ligne';
+  // sur CET ecran on rafraichit a sa cadence (2 s) en plus de la cadence propre
+  // du module (5 s) : c'est l'ecran ou l'on regarde les chiffres bouger, et
+  // c'est le seul endroit qui le justifie
   majSondes();
 }
+// le bouton suit l'etat des sondes, quel que soit le minuteur qui les a
+// rafraichies — le sien (2 s) ou celui de sondes.js (5 s)
+on('sondes:loaded', majBoutonDecharger);
 
-/* Sondes memoire / thermique. Appelee UNIQUEMENT depuis majEtatComfy, donc
-   uniquement quand l'ecran Application est a l'affiche : la route sonde en
-   bloquant des deux cotes (HTTP vers ComfyUI + un sous-processus nvidia-smi),
-   elle n'a rien a faire dans le tick global du studio. */
-async function majSondes(){
-  const box = $('#comfyStats');
-  if (!box) return;
-  let d; try { d = await api('/api/app/comfy/stats'); } catch { d = null; }
-  if (!d || !d.en_ligne){
-    box.innerHTML = `<p class="sonde-ko">Mémoire indisponible — ComfyUI ne répond pas.</p>`;
-    majBoutonDecharger(false);
-    return;
-  }
-  const g = d.gpu;
-  // La ligne du pilote n'existe pas partout : nvidia-smi suppose une carte
-  // NVIDIA. Machine sans lui -> on montre RAM et VRAM, et on le DIT, plutot
-  // que de laisser un vide qui se lirait comme une panne.
-  const releves = g
-    ? `<div class="sonde-gpu">
-         ${g.temperature != null ? `<span>température <b>${g.temperature} °C</b></span>` : ''}
-         ${g.charge != null ? `<span>charge <b>${g.charge} %</b></span>` : ''}
-         ${g.puissance != null ? `<span>consommation <b>${g.puissance.toFixed(0)} W</b></span>` : ''}
-       </div>`
-    : `<p class="sonde-ko" style="margin:0">Température et charge indisponibles —
-       elles viennent de <code>nvidia-smi</code>, absent sur cette machine.</p>`;
-  box.innerHTML = `<div class="sondes">
-    ${jauge('VRAM', d.vram.utilisee, d.vram.total, g && g.nom ? g.nom : '')}
-    ${jauge('RAM', d.ram.utilisee, d.ram.total, '')}
-    ${releves}
-  </div>`;
-  majBoutonDecharger(true);
-}
-
-function majBoutonDecharger(actif){
+/* Decharger n'a de sens que si ComfyUI repond, et jamais sous une production.
+   L'etat vient de sondes.js — une seule source pour l'affichage et pour ce que
+   le bouton autorise. */
+function majBoutonDecharger(){
   const b = $('#btnComfyUnload');
   if (!b) return;
+  const d = dernierEtat();
   const occupe = isRunning();
-  b.disabled = !actif || occupe;
-  b.title = occupe ? 'une production est en cours' : '';
+  b.disabled = !(d && d.en_ligne) || occupe;
+  b.title = occupe ? 'une production est en cours'
+          : (d && d.en_ligne) ? '' : 'ComfyUI ne répond pas';
 }
 
 setInterval(() => { if ($('#appli')?.classList.contains('on')) majEtatComfy(); }, 2000);

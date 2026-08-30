@@ -13,6 +13,19 @@
 
    Le test LIT et tape dans un champ de lancement, il ne clique JAMAIS sur
    Generer : aucune trace dans les donnees reelles. */
+/* `#btnRun` est desactive tant que ComfyUI ne repond pas (poller.js : `!s.comfy`
+   entre dans la condition). Une assertion « le bouton est actif » teste donc en
+   realite la presence de ComfyUI, pas ce qu'elle croit tester — et le test
+   virait au rouge sur une machine ou il est simplement eteint. On sonde, et on
+   dit ce qu'on verifie vraiment. Meme convention que test_pose_extraction. */
+const _http = require('http');
+const comfyUp = () => new Promise(r => {
+  const req = _http.get('http://127.0.0.1:8188/system_stats',
+                        res => { res.resume(); r(res.statusCode === 200); });
+  req.on('error', () => r(false));
+  req.setTimeout(3000, () => { req.destroy(); r(false); });
+});
+
 let chromium;
 try { ({ chromium } = require('playwright')); }
 catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'); process.exit(0); }
@@ -78,7 +91,10 @@ catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'
   dire(await page.isVisible('#sceneOverride'),
        'le champ amende reste visible et relisible');
   await ta.fill(''); await page.waitForTimeout(900);
-  dire(!(await page.isDisabled('#btnRun')), 'vider l amendement relance le plan');
+  const comfy2 = await comfyUp();
+  dire(comfy2 ? !(await page.isDisabled('#btnRun')) : await page.isDisabled('#btnRun'),
+       comfy2 ? 'vider l amendement relance le plan'
+              : 'ComfyUI eteint : le bouton reste desactive quel que soit l amendement');
 
   console.log('\n  erreurs JS : ' + (err.length ? err.join(' | ') : 'aucune'));
   if (err.length) ko++;

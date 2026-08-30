@@ -94,6 +94,24 @@ header{display:flex;align-items:center;gap:20px;padding:0 20px;height:56px;
   padding:1px 6px;margin-left:auto;color:var(--txt)}
 .tabs button.on .n{background:var(--acc);color:var(--on-acc)}
 .status{margin-left:auto;display:flex;align-items:center;gap:9px;font-size:13px;color:var(--dim)}
+/* Le trait qui separe l'etat du TABLEAU DE BORD de celui de la MACHINE. Deux
+   natures d'information dans la meme zone : sans lui, « prêt » et « 45 % » se
+   lisent comme une seule phrase. */
+.status-sep{width:1px;height:18px;background:var(--line2);margin:0 3px;flex:none}
+.sondes-hd{display:flex;align-items:center;gap:14px}
+/* Icone + valeur, rien d'autre : ce que la sonde mesure est dans l'infobulle.
+   `tabindex=0` parce que hints.js montre la bulle au focus aussi — une donnee
+   qui n'existe qu'au survol serait perdue pour qui navigue au clavier. */
+.sonde-hd{display:flex;align-items:center;gap:5px;color:var(--dim);
+  font-size:12.5px;line-height:1;border-radius:6px;padding:3px 2px;cursor:default}
+.sonde-hd b{color:var(--txt);font-weight:600;font-variant-numeric:tabular-nums}
+.sonde-hd-ic{width:15px;height:15px;flex:none;opacity:.85}
+.sonde-hd:focus-visible{outline:2px solid var(--focus);outline-offset:0}
+/* Memes paliers que les jauges de l'ecran Application : au-dela, une generation
+   peut echouer faute de memoire, ou la carte throttle. La couleur ne porte pas
+   l'information seule — la valeur chiffree est a cote (frontend.md). */
+.sonde-hd.mid b{color:var(--warn)}
+.sonde-hd.haut b{color:var(--bad)}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--bad)}
 /* halo derive de --ok : la valeur etait une copie figee de l'ancien accent
    vert, qui restait vert-Lena sous une autre palette */

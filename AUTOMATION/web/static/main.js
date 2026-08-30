@@ -11,6 +11,10 @@ import './health.js';
 import './nav.js';
 import './advanced.js';
 import './appli.js';
+// sondes memoire / thermique du bandeau : cadence propre (5 s), en pause quand
+// l'onglet est cache. Surtout PAS branchees au tick de production (1,5 s) —
+// elles sondent en HTTP et lancent un sous-processus.
+import './sondes.js';
 import './editor.js';
 // infobulles : delegation au document, posee au chargement. Apres le chrome —
 // elle n'a besoin d'aucun ecran, seulement d'un document.
@@ -26,6 +30,7 @@ import {loadCreative} from './taxonomy.js';
 import {loadScenes} from './scenes-store.js';
 import {nsfwTick, estEdition} from './create.js';
 import {tick} from './poller.js';
+import {majSondes} from './sondes.js';
 
 // personnage courant reflete dans l'en-tete avant tout le reste : un
 // rechargement en ?character=<x> doit se voir, pas seulement passer dans /api/*
@@ -42,7 +47,7 @@ Promise.all([loadConfig(), loadCreative()]).then(() => {
   // registre, pas la production d'un personnage par defaut. Un lien
   // ?character=<id> (ou #hash) reste honore.
   go(characterIsExplicit() ? (location.hash.slice(1) || 'creer') : 'registre', true);
-  loadScenes(); tick(); nsfwTick();
+  loadScenes(); tick(); nsfwTick(); majSondes();
   // le rail lit le pack DU personnage courant : sans ?character=, l'appel n'a
   // pas de sujet — et le rail est de toute facon masque sur le sas d'entree
   if (characterIsExplicit()) loadRail();

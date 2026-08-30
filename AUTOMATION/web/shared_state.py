@@ -512,11 +512,22 @@ async def comfy_alive():
     2005 ms. Le meme gel arrivait en production des que ComfyUI, occupe a generer,
     tardait a repondre. La sonde part donc dans un thread, et son resultat est
     garde une seconde.
+
+    L'HORODATAGE SE POSE APRES LA SONDE, pas avant (30/08/2026). Estampille au
+    debut, le cache naissait PERIME des que la sonde durait plus que son TTL —
+    exactement le cas qu'il existe pour couvrir : ComfyUI arrete, urlopen va au
+    bout de ses 1,5 s, TTL de 1 s, donc `now` a deja 1,5 s en rentrant. Le cache
+    ne resservait alors JAMAIS, et chaque /api/state repayait la sonde entiere.
+
+    Ce que ca coutait, mesure serveur seul, sans navigateur : /api/state a
+    1,50-1,52 s a CHAQUE appel, pendant que le studio l'interroge toutes les
+    1,5 s — le tableau de bord n'avait plus une seule requete au repos des que
+    ComfyUI etait eteint. Apres correction : 1,5 s de temps en temps, ~1 ms le
+    reste du temps.
     """
-    now = time.monotonic()
-    if now - COMFY_PROBE["at"] < 1.0:
+    if time.monotonic() - COMFY_PROBE["at"] < 1.0:
         return COMFY_PROBE["ok"]
     ok = await asyncio.get_running_loop().run_in_executor(
         None, _probe_comfy, cfg()["comfy_url"])
-    COMFY_PROBE.update(ok=ok, at=now)
+    COMFY_PROBE.update(ok=ok, at=time.monotonic())
     return ok

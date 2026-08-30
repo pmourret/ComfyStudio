@@ -36,9 +36,22 @@
 
   <!-- zone SANTE : ComfyUI joignable ou non (#dot) + progression du batch en
        cours (#stTxt), tels quels depuis /api/state via poller.js. Une file de
-       jobs en attente n'existe pas encore cote serveur — vague 2. -->
+       jobs en attente n'existe pas encore cote serveur — vague 2.
+
+       Puis les SONDES (30/08/2026), apres un separateur : elles disent l'etat
+       de la MACHINE, pas celui du tableau de bord — deux natures d'information
+       dans la meme zone, le trait dit qu'on change de sujet. Ordre : ce qui
+       repond « puis-je produire ? » (Comfy), puis ce qui repond « dans quelles
+       conditions ? » (RAM, VRAM, temperature).
+
+       Une icone et une valeur, le reste en infobulle : un bandeau de 56 px n'a
+       pas la place de trois libelles, et trois libelles y feraient du bruit.
+       Peintes par sondes.js, qui a sa propre cadence — surtout pas celle du
+       tick de production. -->
   <div class="status"><span class="status-lab">Comfy</span>
-    <span class="dot" id="dot"></span><span id="stTxt">connexion…</span></div>
+    <span class="dot" id="dot"></span><span id="stTxt">connexion…</span>
+    <span class="status-sep" aria-hidden="true"></span>
+    <div class="sondes-hd" id="sondesHd"></div></div>
 </header>
 
 <!-- BARRE D'INTENSITE — hors de <main> pour ne pas defiler, mais PAS du chrome

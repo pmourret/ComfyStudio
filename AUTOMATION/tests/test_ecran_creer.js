@@ -25,6 +25,20 @@ catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'
 // nomme donc lena explicitement (comme le ferait un lien du registre).
 const B = (process.env.DASHBOARD_URL || 'http://127.0.0.1:8199') + '/?character=lena';
 
+/* `#btnRun` est desactive tant que ComfyUI ne repond pas (poller.js : `!s.comfy`
+   entre dans la condition). Une assertion « le bouton est actif » teste donc en
+   realite la presence de ComfyUI, pas ce qu'elle croit tester — et le test
+   virait au rouge sur une machine ou il est simplement eteint. On sonde, et on
+   dit ce qu'on verifie vraiment. Meme convention que test_pose_extraction. */
+const _http = require('http');
+const comfyUp = () => new Promise(r => {
+  const req = _http.get('http://127.0.0.1:8188/system_stats',
+                        res => { res.resume(); r(res.statusCode === 200); });
+  req.on('error', () => r(false));
+  req.setTimeout(3000, () => { req.destroy(); r(false); });
+});
+
+
 (async () => {
   const nav = await chromium.launch();
   const page = await nav.newPage();
@@ -149,7 +163,10 @@ const B = (process.env.DASHBOARD_URL || 'http://127.0.0.1:8199') + '/?character=
   const som = (await page.textContent('#sumT')).trim();
   dire(/Éditer/.test(lib), `le bouton dit « ${lib} »`);
   console.log('      resume : ' + som);
-  dire(!(await page.isDisabled('#btnRun')), 'bouton actif une fois source + instruction');
+  const comfy1 = await comfyUp();
+  dire(comfy1 ? !(await page.isDisabled('#btnRun')) : await page.isDisabled('#btnRun'),
+       comfy1 ? 'bouton actif une fois source + instruction'
+              : 'ComfyUI eteint : le bouton reste desactive, bonne reponse');
 
   console.log('\n[7] retour au cran SFW');
   await page.click('#intSel button[data-lv="0"]');
