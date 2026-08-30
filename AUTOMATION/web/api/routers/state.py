@@ -22,7 +22,6 @@ import sys
 import time
 
 from fastapi import APIRouter, Query, Response
-from fastapi.responses import FileResponse
 
 import base_portrait
 import comfy_server
@@ -61,13 +60,6 @@ def seconds_per_image():
     if tier and tier.get("pipeline") == "flux+edit":
         base += ss._moyenne_duree(nsfw_batch.journal_path(cid), 60.0)
     return base
-
-
-@router.get("/", include_in_schema=False)
-async def index():
-    """The single-document SPA. `include_in_schema=False`: it is a page, and
-    listing it next to the API in /docs would be noise."""
-    return FileResponse(ss.HERE / "static" / "index.html")
 
 
 @router.get("/api/state", response_model=SystemStateResponse,

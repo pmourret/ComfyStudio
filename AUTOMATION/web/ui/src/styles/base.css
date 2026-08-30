@@ -1,0 +1,86 @@
+/* base.css — reset, typography, form and button primitives.
+
+   Ported from `static/base.css`, rule order unchanged. References only tokens
+   from tokens.css, never a hard-coded value that would encode a style choice
+   (.claude/rules/frontend.md). */
+html,body{height:100%}
+
+/* ------------------------------------------------------- scrollbars
+   Painted everywhere, in one rule. The studio tokenised everything BUT them:
+   a dozen scrolling areas showed the system bar, light and wide, on a dark cold
+   palette.
+
+   THE TWO MECHANISMS DO NOT COEXIST. Declaring `scrollbar-width` switches the
+   engine onto the standard path and makes it IGNORE every `::-webkit-scrollbar`
+   — measured on 30/08: the bar dropped to 0 px while `--sb-l` was 10. Writing
+   both "to be safe" therefore applied only the poorer of the two. The standard
+   fallback is locked inside an `@supports` and serves only where the other does
+   not exist.
+
+   The track stays TRANSPARENT and the thumb keeps its gutter: a bar floating
+   over the content would mask the end of labels on hover, and a painted track
+   would draw a permanent column along every panel. */
+::-webkit-scrollbar{width:var(--sb-l);height:var(--sb-l)}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--sb);border-radius:8px;
+  /* the transparent border thins the thumb without shrinking its hit area */
+  border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:var(--sb-h);background-clip:padding-box}
+/* the corner between a vertical and a horizontal bar: with no rule it keeps the
+   system theme and leaves a light pill at the bottom right */
+::-webkit-scrollbar-corner{background:transparent}
+@supports not selector(::-webkit-scrollbar){
+  *{scrollbar-width:thin;scrollbar-color:var(--sb) transparent}
+}
+
+body{margin:0;background:var(--bg);color:var(--txt);overflow:hidden;
+     font:var(--font);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+
+/* Honours the system « reduce motion » setting (WCAG 2.2) — covers every
+   transition and animation of the studio at once. */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+
+/* ---------------------------------------------------------------- structure */
+.app{display:flex;flex-direction:column;height:100%}
+
+/* `.shell`: the band under the header and the fault banner — rail on the left,
+   content on the right. `min-height:0` on a flex column child, otherwise the
+   band refuses to go below the height of its content and it is the PAGE that
+   would scroll, not <main>. */
+.shell{flex:1;display:flex;min-height:0}
+/* `min-width:0` for the same reason on the horizontal axis: without it a wide
+   grid would push <main> past the room left by the navbar, and the page would
+   take a horizontal scroll. */
+main{flex:1;min-width:0;overflow:auto;position:relative}
+
+/* A screen is simply what the router mounted: no `.on` class, no sibling to
+   switch off. `display:none` on inactive screens was the vanilla frontend's way
+   of routing — React Router mounts one and unmounts the others. */
+.screen{height:100%}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:24px 20px 120px}
+
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);
+   margin:0 0 12px;font-weight:600}
+.muted{color:var(--dim);font-size:13px}
+.tiny{font-size:12px;color:var(--dim2)}
+
+/* ------------------------------------------------------------------ buttons */
+.btn{background:var(--panel2);border:1px solid var(--line2);border-radius:8px;
+     padding:9px 16px;cursor:pointer;font-size:14px;
+     /* the placeholder screens use `.btn` on an <a>, which does not inherit
+        these two from the UA stylesheet */
+     display:inline-block;color:inherit;text-decoration:none}
+.btn:hover{border-color:var(--dim2)}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:var(--on-acc);font-weight:600}
+.btn.primary:hover{background:var(--acc-d);border-color:var(--acc-d)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.sm{padding:6px 11px;font-size:13px}
+.btn:focus-visible,button:focus-visible,a:focus-visible{
+  outline:2px solid var(--focus);outline-offset:2px}
+.link{background:none;border:0;color:var(--acc);cursor:pointer;font-size:13px;
+      padding:0;text-decoration:underline}

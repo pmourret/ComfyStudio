@@ -10,7 +10,11 @@ is the enforcement, not just a convention.
 
 OPENAPI. /docs (Swagger) and /openapi.json are served in development. This is
 the first time the API contract exists as something machine-readable: it used
-to live in docstrings and in the JS that consumed it (AUDIT §7.8).
+to live in docstrings and in the JS that consumed it (AUDIT §7.8). The React
+frontend generates its TypeScript types from that document
+(AUTOMATION/tools/dump_openapi.py), so no payload shape is written by hand twice.
+
+FRONTENDS. Two are served while the React migration runs — see api/spa.py.
 """
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -20,6 +24,7 @@ import shared_state as ss
 from .errors import install_error_handlers
 from .routers import bank, images, production, review, state
 from .security import BodySizeLimitMiddleware, LocalOriginGuardMiddleware
+from .spa import mount_frontends
 
 DESCRIPTION = """
 Backend local du studio Soulglade. Aucune authentification : le serveur
@@ -67,9 +72,15 @@ def create_app() -> FastAPI:
     app.include_router(review.router)
 
     # `/static` was mounted in web/app.py under aiohttp; it belongs to the
-    # assembly either way. No build step, no bundler — the files are served
-    # exactly as they are written (.claude/rules/frontend.md).
+    # assembly either way. These files are still served exactly as they are
+    # written: the legacy frontend has no build step, and it keeps serving the
+    # screens the React migration has not reached yet.
     app.mount("/static", StaticFiles(directory=ss.HERE / "static"), name="static")
+
+    # LAST. `mount_frontends` registers a catch-all for the React router's deep
+    # links, so everything that owns a real path must already be declared above
+    # it — routers first, then /static, then the fallback.
+    mount_frontends(app)
     return app
 
 

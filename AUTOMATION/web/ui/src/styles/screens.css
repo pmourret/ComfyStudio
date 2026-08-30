@@ -1,0 +1,39 @@
+/* screens.css — the shared pieces screens are built from: segmented controls,
+   view selectors, tables, empty states. Ported from `static/components.css` and
+   `static/screens.css`.
+
+   Nothing here is specific to one screen. A screen that needs a component of its
+   own gets it next to its own file; what several screens share lives here. */
+
+/* -------------------------------------------------------- view selector */
+.viewsel{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+
+/* -------------------------------------------------- segmented control */
+.seg{display:inline-flex;background:var(--panel2);border:1px solid var(--line);
+     border-radius:8px;overflow:hidden}
+.seg button{background:none;border:0;padding:8px 15px;cursor:pointer;
+            color:var(--dim);font-size:13.5px}
+.seg button.on{background:var(--acc);color:var(--on-acc);font-weight:600}
+.seg button:disabled{opacity:.35;cursor:not-allowed}
+/* The ring sits INSIDE the control: an outline-offset would fall on the
+   neighbouring segment, which shares the border. */
+.seg button:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.seg button .n{font-size:11px;opacity:.65;margin-left:5px;
+               font-variant-numeric:tabular-nums}
+
+/* ------------------------------------------------------------- tables */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+th{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+td.num{font-variant-numeric:tabular-nums}
+/* A long table is read by running along a row; without this the eye loses the
+   line on the wide columns. Hover only — it is a reading aid, not a selection. */
+tbody tr:hover td{background:var(--panel)}
+
+/* -------------------------------------------------------- empty states */
+.empty{text-align:center;color:var(--dim);padding:60px 20px}
+.empty b{display:block;color:var(--txt);font-size:16px;margin-bottom:6px}
+/* Inside a table the empty state is a cell: it must not take the 60 px of
+   padding a full-screen one does, or a two-line table would be taller than the
+   window. */
+td.empty{padding:34px 20px}
