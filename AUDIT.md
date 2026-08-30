@@ -204,6 +204,65 @@ protège ce contrat.
 | `nsfw_batch.py` | graphe d'édition **du pack** (`universe.json/edit_workflow`) |
 | `mcp_server.py` | `/object_info`, `/system_stats` — **lecture seule** (ADR-0007) |
 
+### 2.4 L'interpréteur du studio : `python_embeded`, jamais un venv
+
+*Ajouté le 30/08/2026, après la migration FastAPI (Phase 2) — postérieur au
+reste de ce document, qui décrivait l'état d'avant.*
+
+Le studio **doit** tourner sous l'interpréteur embarqué de ComfyUI
+(`<COMFYUI_ROOT>/../python_embeded/python.exe`, résolu par
+[`env_config.comfyui_python()`](AUTOMATION/env_config.py#L62), ADR-0008), pas
+sous un venv classique. Ce n'est pas une préférence d'installation :
+`insightface`, `cv2`, `onnxruntime` et `torch` ne vivent que là, avec les
+modèles et les nœuds custom qui les chargent. Un venv dédié ne les a pas, et
+les lui donner reviendrait à dupliquer toute la pile GPU de ComfyUI.
+
+Constaté en Phase 2, en essayant : lancé depuis `.venv`, le serveur démarre,
+`/docs` répond, les écrans s'affichent — puis `lb.make_checker` lève
+`No module named 'cv2'` au premier contrôle d'identité. Le chargement du QC
+est paresseux
+([`shared_state.checker_partage()`](AUTOMATION/web/shared_state.py#L105)),
+donc la panne **ne se voit pas au démarrage** : le studio est consultable et
+pas productif. C'est le pire mode d'échec possible pour cette contrainte, et
+la raison pour laquelle elle est écrite ici plutôt que laissée à redécouvrir.
+
+**Conséquence sur les dépendances de la migration.** `fastapi` et `uvicorn`
+sont installés **dans `python_embeded`**, à côté des dépendances ComfyUI
+existantes — pas dans un environnement isolé à part ; `pydantic` 2.x y était
+déjà. Aucun environnement séparé n'a été créé pour le serveur web.
+[run_web.bat](AUTOMATION/run_web.bat) résout cet interpréteur, y vérifie la
+présence de `fastapi` et `uvicorn` avant de lancer quoi que ce soit, et le dit
+clairement plutôt que de laisser sortir un `ModuleNotFoundError` dans une
+fenêtre qui se referme. Paquets et commandes d'installation :
+[requirements.txt](requirements.txt).
+
+État constaté le 30/08/2026 sur le poste de développement :
+
+| | `python_embeded` | `.venv` (racine du repo) |
+|---|---|---|
+| Python | 3.13.12 | 3.12.3 |
+| `fastapi` / `uvicorn` | 0.141.1 / 0.52.4 | 0.141.1 / 0.52.4 |
+| `pydantic` | 2.13.4 | 2.13.5 |
+| `torch`, `insightface`, `cv2` | présents | **absents** |
+| `aiohttp` | présent (fourni par ComfyUI) | absent |
+
+L'écart de `pydantic` est un patch, pas une majeure : `requirements.txt`
+épingle 2.13.5 pour que les deux ne divergent pas sans qu'on le voie, et cette
+épingle n'a pas été réappliquée à `python_embeded`.
+
+**Le venv garde un usage : les tests.** Vérifié le 30/08/2026 — les 24 tests
+Python donnent le même résultat sous `.venv` que sous `python_embeded`. Les 12
+fumigations navigateur, elles, démarrent un vrai studio
+([run_browser_tests.py](AUTOMATION/tests/run_browser_tests.py)) et héritent
+donc de la contrainte ci-dessus : elles se lancent sous `python_embeded`.
+
+**À ne pas supposer en Phase 3, ni par un futur contributeur** : qu'un venv
+suffit à faire tourner le serveur web. « Ça démarre » n'y veut pas dire « ça
+produit ». Toute dépendance ajoutée au serveur devra s'installer dans
+`python_embeded` et donc cohabiter avec la pile de ComfyUI (`numpy`,
+`pillow`, `pydantic`, `torch`) — le coût réel d'une dépendance tierce ici
+n'est pas son poids, c'est ce risque de collision.
+
 ---
 
 ## 3 · Pages / vues HTML
@@ -515,9 +574,13 @@ dictionnaire en dur**). Aucune règle applicable → `UnresolvedPackError`,
 
 ### 6.5 Contraintes non-fonctionnelles héritées
 
-- **Zéro dépendance à installer** aujourd'hui : le dépôt tourne sur
-  l'interpréteur embarqué de ComfyUI (aiohttp, PIL, psutil y sont déjà).
-  Playwright est installé **hors du repo** (`~/.soulglade-pw`).
+- ~~**Zéro dépendance à installer** aujourd'hui : le dépôt tourne sur
+  l'interpréteur embarqué de ComfyUI (aiohttp, PIL, psutil y sont déjà).~~ —
+  **levé le 30/08/2026 par la migration FastAPI** : `fastapi` et `uvicorn`
+  sont les premières dépendances tierces du dépôt, installées **dans
+  `python_embeded`** (§2.4). Ce qui reste vrai : **un seul interpréteur**,
+  celui de ComfyUI. Playwright est installé **hors du repo**
+  (`~/.soulglade-pw`).
 - **Aucune étape de build** côté frontend (`.claude/rules/frontend.md`).
 - **Une erreur backend se dit à l'écran** — jamais un échec silencieux, un
   spinner infini ou une erreur en console seule.
