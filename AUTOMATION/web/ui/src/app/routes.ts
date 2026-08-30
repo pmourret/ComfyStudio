@@ -89,7 +89,7 @@ export const DESTINATIONS: Destination[] = [
     path: PATHS.review,
     icon: 'review',
     legacyHash: 'trier',
-    migrated: false,
+    migrated: true,
     badge: true,
   },
   {
@@ -98,7 +98,7 @@ export const DESTINATIONS: Destination[] = [
     path: PATHS.gallery,
     icon: 'gallery',
     legacyHash: 'galerie',
-    migrated: false,
+    migrated: true,
   },
   {
     key: 'bank',

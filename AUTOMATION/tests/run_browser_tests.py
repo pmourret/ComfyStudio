@@ -18,6 +18,12 @@ DEUX SUITES pendant la migration React.
           jusqu'a ce que sa version React les remplace. `--legacy` les lance
           quand meme, pour lire ce qu'elles verifiaient.
 
+QUEL INTERPRETEUR. Le studio tourne sous `python_embeded`, celui de ComfyUI
+(AUDIT §2.4), et c'est LUI qu'il faut employer ici : le venv de developpement
+n'a pas `cv2`, donc /api/mesurer y repond 500 et la fumigation de la Revue
+echoue pour une raison qui n'a rien a voir avec le frontend. Le lanceur le
+verifie au demarrage et le DIT.
+
 CHAINE D'OUTILS PORTABLE. Playwright et son chromium vivent DANS le depot
 (.toolchain/, git-ignore), installes par AUTOMATION/tools/toolchain.py — rien
 sous %APPDATA%. Les deux variables qui le disent sont posees ici pour les tests.
@@ -57,6 +63,8 @@ TESTS = [
     "test_application",   # cycle de vie, sondes, contenu adulte (ecran 3)
     "test_wizard",        # creation d'un personnage : parcours et gating (ecran 4)
     "test_bank",          # banque de scenes + poses + rail d'outils (ecran 5)
+    "test_review",        # Revue et Galerie, pieges `v` et /api/mesurer (ecran 6)
+    "test_editor",        # editeur photo : recadrage, copie, ecrasement (ecran 6)
     "test_pose_extract",  # ComfyUI requis (s'ignore sinon) : extraction reelle
 ]
 
@@ -162,6 +170,16 @@ def main(argv):
     if not shutil.which("node"):
         print("node introuvable dans le PATH — impossible de lancer les fumigations navigateur")
         return 2
+    # Avertissement, pas un refus : la plupart des fumigations n'ont pas besoin
+    # d'InsightFace. Seule celle de la Revue en depend (/api/mesurer), et sans
+    # ce mot elle echouerait sur un 500 dont la cause est l'interpreteur.
+    try:
+        import cv2  # noqa: F401
+    except ImportError:
+        print(f"!! {PY} n'a pas cv2 : /api/mesurer repondra 500,",
+              "et test_review echouera pour une raison qui n'est pas le frontend.",
+              "Lancer avec le python de ComfyUI (python_embeded), celui du studio.",
+              flush=True)
     if not (Path(a.pw) / "playwright").is_dir():
         print(f"playwright introuvable sous {a.pw}\n"
               f"  l'installer HORS du repo :  mkdir ~/.soulglade-pw && cd ~/.soulglade-pw\n"

@@ -22,7 +22,10 @@ import { ToastProvider } from '../chrome/ToastContext'
 import { ScenesStoreProvider } from '../state/ScenesStoreContext'
 import { ServerLogProvider } from '../state/ServerLogContext'
 import { TaxonomyProvider } from '../state/TaxonomyContext'
+import { ConfigProvider } from '../state/ConfigContext'
+import { LightboxProvider } from '../chrome/LightboxContext'
 import { BankPosesScreen, BankScenesScreen } from '../screens/bank/BankScreen'
+import { GalleryRoute, ReviewRoute } from '../screens/review/ReviewScreen'
 import { ApplicationScreen } from '../screens/ApplicationScreen'
 import { CharactersScreen } from '../screens/CharactersScreen'
 import { WizardScreen } from '../screens/WizardScreen'
@@ -54,7 +57,9 @@ export function App() {
               <ConfirmProvider>
               <ServerLogProvider>
               <TaxonomyProvider>
+              <ConfigProvider>
               <ScenesStoreProvider>
+              <LightboxProvider>
               <Routes>
                 <Route element={<Shell />}>
                   <Route path="/" element={<HomeRedirect />} />
@@ -71,19 +76,16 @@ export function App() {
                       always meant « sub-view of », and now the router says it. */}
                   <Route path={PATHS.bankScenes} element={<BankScenesScreen />} />
                   <Route path={PATHS.bankPoses} element={<BankPosesScreen />} />
+                  {/* The second screen the legacy chrome switched by attribute:
+                      `#trier[data-metier]` becomes two routes. `:name?` is the
+                      image aimed at (F1.3), the shape `#trier/<nom>` carried. */}
+                  <Route path={`${PATHS.review}/:name?`} element={<ReviewRoute />} />
+                  <Route path={`${PATHS.gallery}/:name?`} element={<GalleryRoute />} />
 
                   {/* --- still served by the legacy frontend */}
                   <Route
                     path={PATHS.produce}
                     element={<PendingScreen title="Produire" legacyHash="creer" />}
-                  />
-                  <Route
-                    path={`${PATHS.review}/:name?`}
-                    element={<PendingScreen title="Revue" legacyHash="trier" />}
-                  />
-                  <Route
-                    path={`${PATHS.gallery}/:name?`}
-                    element={<PendingScreen title="Galerie" legacyHash="galerie" />}
                   />
 
                   {/* An unknown path is not a screen: it goes back to the entry
@@ -91,7 +93,9 @@ export function App() {
                   <Route path="*" element={<HomeRedirect />} />
                 </Route>
               </Routes>
+              </LightboxProvider>
               </ScenesStoreProvider>
+              </ConfigProvider>
               </TaxonomyProvider>
               </ServerLogProvider>
               </ConfirmProvider>
