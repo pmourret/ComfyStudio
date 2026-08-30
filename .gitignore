@@ -47,3 +47,13 @@ __pycache__/
 
 # venv de developpement (la production tourne sur le python embarque de ComfyUI)
 /.venv/
+
+# ---------------------------------------------------------------------------
+# Chaîne d'outils Node du frontend React (migration/react-frontend).
+# Le dépôt est PORTABLE : tout ce que npm et Playwright téléchargent vit ici,
+# jamais sous %APPDATA% / %LOCALAPPDATA% — voir AUTOMATION/tools/toolchain.py.
+# Rien de tout cela n'est une source du projet : ça se reconstruit.
+# ---------------------------------------------------------------------------
+/.toolchain/
+node_modules/
+/AUTOMATION/web/ui/dist/

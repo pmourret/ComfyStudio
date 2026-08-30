@@ -1,0 +1,5400 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Soulglade — API du studio",
+    "description": "\nBackend local du studio Soulglade. Aucune authentification : le serveur\nn'accepte que ce qui vient de lui-même (voir `api/security.py`).\n\n**Conventions transverses**\n\n* presque toute route lit `?character=<id>` et le valide avant de toucher au\n  disque ; `/img` l'exige (pas de repli sur un personnage par défaut) ;\n* toute réponse porte un corps JSON, succès comme échec. Une erreur a la forme\n  `{\"ok\": false, \"erreur\": \"<texte français destiné à l'écran>\"}` ;\n* les uploads voyagent en base64 dans un corps JSON, jamais en\n  `multipart/form-data` — conséquence voulue du garde d'origine.\n",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/state": {
+      "get": {
+        "summary": "État du système et compteurs de buckets",
+        "description": "System state + bucket counts OF THE REQUESTED CHARACTER.\n\nThe counts are those of one precise `PROD/<CID>/` tree: without the\ncharacter, the Review bucket selector announced Léna's figures above\nsomebody else's images.\n\n┌── COUPLING TO PRESERVE — migration brief §4.3, AUDIT §5.6.3 ────────────┐\n│ TWO CLIENT-SIDE TIMERS WRITE `#btnRun.disabled`, and this route feeds   │\n│ one of them.                                                            │\n│                                                                         │\n│   poller.tick()          -> s.running || !s.comfy || !nbSelection()     │\n│                             || !planOk()                                │\n│   create.refreshPlan()   -> p.total === 0 || isRunning() || dot off     │\n│                                                                         │\n│ `planOk()` (create.js) is the COMMON SOURCE that stops the two from     │\n│ fighting over the button — one re-enabling what the other just cut.     │\n│ The server side of that contract is exactly two fields of this          │\n│ response, `running` and `comfy`, plus `total`/`erreur` on /api/plan     │\n│ (see routers/production.py, same box).                                  │\n│                                                                         │\n│ Neither field may be renamed, made optional, folded into a nested       │\n│ object, or pushed instead of polled. A React rewrite (Phase 3) that     │\n│ moves this into one shared store REMOVES THE GUARD BY CONSTRUCTION —    │\n│ and with it the bug it covers. Read this box before touching it.        │\n└─────────────────────────────────────────────────────────────────────────┘",
+        "operationId": "get_system_state_api_state_get",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config": {
+      "get": {
+        "summary": "config.json du personnage",
+        "description": "The character's measured settings: QC thresholds, preset, formats,\nexport.\n\nReturned verbatim, with NO response model on purpose. CLAUDE.md §8.4 — no\nhard-coded threshold, everything is read from `config.json` through this\nAPI — means the frontend reads keys this layer must not get to choose. A\nmodel here would be a second, silently diverging copy of that file's shape.\n\nThere is no POST counterpart: it was removed on 30/08/2026 for want of any\ncaller. The Réglages screen planned by ADR-0012 writes `identity` and the\n`measured` marker, both outside that old route's allow-list — it will need\na new write route, not this one resurrected.",
+        "operationId": "get_character_config_api_config_get",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Character Config Api Config Get"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/character": {
+      "get": {
+        "summary": "Fiche du personnage courant",
+        "description": "Current character, for the header (registry J4; type + world J7bis) and\nfor its SHEET (F1.2, 30/08/2026).\n\nThe `current_character` dependency already guaranteed the character has a\ncoherent character.json (real pack, (type, style) resolving to it,\ncompatible world) — no extra error handling here.\n\nThe sheet reads everything HERE, in ONE call already bound to the\ncharacter: adding `base` and `nsfw_tool` to this response costs two\nregistry reads, where a second route would have duplicated the pack\nresolution and the isolation that goes with it. Nothing new is computed —\n`edit_tool_state` is the one the Application screen already displays.",
+        "operationId": "get_character_api_character_get",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CharacterSheet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/characters": {
+      "get": {
+        "summary": "Registre des personnages",
+        "description": "Character registry, for the entry gate (J7bis).\n\nListing only: the strict validation stays in the `current_character`\ndependency, at the moment a character is actually selected. An unreadable\nsheet is skipped rather than failing the whole list.",
+        "operationId": "list_characters_api_characters_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CharacterListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Créer un personnage (wizard)",
+        "description": "Writes a new character (wizard J7bis). `base_gelee` must already have\nbeen produced (upload or freeze). Any invalid choice -> 400, never a\nhalf-written folder (`create_character` rolls back).",
+        "operationId": "create_character_api_characters_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCharacterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateCharacterResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wizard/options": {
+      "get": {
+        "summary": "Choix offerts par le wizard « nouveau personnage »",
+        "description": "One entry per character type, with its styles (of the resolved pack) and\nits worlds (of the pack's model family). Everything comes from the\nregistries — never a hard-coded `if` (CLAUDE.md §8.7).",
+        "operationId": "get_wizard_options_api_wizard_options_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WizardOptionsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/characters/base/upload": {
+      "post": {
+        "summary": "Base d'identité fournie",
+        "description": "Wizard « nouveau personnage » (J7bis) — identity base PROVIDED.\n\nDrops the image into ComfyUI/input/ (the only folder `LoadImage` reads) and\nreturns the file name to put in config.json/base_gelee. The character does\nnot exist yet; we only refuse an already-taken cid, so as not to overwrite\nan existing character's base.",
+        "operationId": "upload_identity_base_api_characters_base_upload_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BaseUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseNameResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/characters/base/generate": {
+      "post": {
+        "summary": "Base d'identité générée (verrou bypassé)",
+        "description": "Wizard (J7bis) — identity base GENERATED: queues N base portraits\n(identity lock bypassed, no reference exists yet). Answers immediately; the\nfrontend follows through /api/characters/base/candidates. GPU required.",
+        "operationId": "generate_identity_base_api_characters_base_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BaseGenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseGenerateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/characters/base/candidates": {
+      "post": {
+        "summary": "État des portraits de base en cours",
+        "description": "State of the base portraits in flight (pending / ready+file / error).",
+        "operationId": "get_identity_base_candidates_api_characters_base_candidates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BaseCandidatesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseCandidatesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/characters/base/image": {
+      "get": {
+        "summary": "Aperçu d'un candidat de base",
+        "description": "Preview of a candidate (a file under ComfyUI/output/, path bounded).",
+        "operationId": "get_identity_base_image_api_characters_base_image_get",
+        "parameters": [
+          {
+            "name": "file",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Chemin relatif sous ComfyUI/output/",
+              "default": "",
+              "title": "File"
+            },
+            "description": "Chemin relatif sous ComfyUI/output/"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Octets du candidat",
+            "content": {
+              "image/png": {}
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/characters/base/freeze": {
+      "post": {
+        "summary": "Geler le candidat choisi",
+        "description": "Freezes the chosen candidate -> ComfyUI/input/<CID>_BASE.<ext>. Returns\nthe name to write into config.json/base_gelee.",
+        "operationId": "freeze_identity_base_api_characters_base_freeze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BaseFreezeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseNameResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/universe/tools": {
+      "get": {
+        "summary": "Panel d'outils de l'univers du personnage",
+        "description": "Tool panel declared for the character's universe (tools.json, CLAUDE.md\n§5).\n\nExposed since J4; the screen that consumes it arrives with the first\ndedicated tool (J5+). Here so the panel is never a hard-coded\n`if character == \"lena\"` the day a second character exists (§8.7).",
+        "operationId": "get_universe_tools_api_universe_tools_get",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UniverseToolsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/journal": {
+      "get": {
+        "summary": "Journal de production du personnage",
+        "description": "Production journal, filtered on the requested character.\n\nTruncated to the last 300 rows, newest first, with no pagination — same as\nbefore (AUDIT §7.9). The CSV is a single file for the whole platform; the\nfilter is here, because without it one of Léna's rows illustrates another\ncharacter's image as soon as two file names collide.",
+        "operationId": "get_journal_api_journal_get",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JournalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/nsfw/state": {
+      "get": {
+        "summary": "État de la branche NSFW du personnage",
+        "operationId": "get_nsfw_state_api_nsfw_state_get",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NsfwStateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/app/stop": {
+      "post": {
+        "summary": "Arrêter le tableau de bord",
+        "description": "Stops THIS web server. Answers first, exits after — otherwise the\nbrowser never receives the confirmation.",
+        "operationId": "stop_dashboard_api_app_stop_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/app/restart": {
+      "post": {
+        "summary": "Redémarrer le tableau de bord",
+        "description": "Restarts THIS server (os.execv): same process ID, same window, code and\nconfig re-read cold. A real restart, not a data reload — the only way to\npick up a code change without going back to run_web.bat by hand.\n\nSurvives the move to uvicorn because web/app.py is still the entry point:\n`sys.argv` is its own, so re-executing it relaunches the same command line.",
+        "operationId": "restart_dashboard_api_app_restart_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/app/comfy/stop": {
+      "post": {
+        "summary": "Arrêter ComfyUI",
+        "operationId": "stop_comfy_api_app_comfy_stop_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ComfyUI ne tournait pas"
+          }
+        }
+      }
+    },
+    "/api/app/comfy/stats": {
+      "get": {
+        "summary": "RAM / VRAM / thermique",
+        "description": "Machine memory and thermals, for the banner and the Application screen.\n\nBoth probes go into a THREAD: `comfy_alive` cost a 2005 ms event-loop\nfreeze on 24/08 for having probed while blocking, and we are not replaying\nthat. The result is kept for a second and a half.\n\nTWO TRAPS, both observed on 30/08 with ComfyUI stopped — the case where the\nprobe is SLOW (urlopen waiting on a dead port, ~2 s):\n\n  1. The timestamp is set AFTER the work, not before. Stamped at the start\n     of the request, a probe longer than the TTL made the cache stale at\n     birth: it NEVER served anything again, and every call re-ran\n     nvidia-smi and the wait. Measured: 2087 ms on a call meant to come out\n     of the cache.\n  2. A lock, otherwise two concurrent calls both do the work. The second\n     waits for the first and reads its result.",
+        "operationId": "get_comfy_stats_api_app_comfy_stats_get",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComfyStatsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/app/comfy/unload": {
+      "post": {
+        "summary": "Décharger la VRAM",
+        "description": "Unloads models and VRAM. Explicit gesture, never automatic.\n\nRefused during a batch: unloading under a running job would make it fail,\nand the user would lose a production to gain some VRAM.",
+        "operationId": "unload_comfy_api_app_comfy_unload_post",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Une production est en cours"
+          },
+          "502": {
+            "description": "Le déchargement a échoué"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/app/comfy/restart": {
+      "post": {
+        "summary": "Redémarrer ComfyUI",
+        "description": "Stops then restarts ComfyUI. Fire-and-forget: the recovery already shows\non the header's green dot (it polls /api/state in a loop), no need for one\nmore dedicated state to maintain.",
+        "operationId": "restart_comfy_api_app_comfy_restart_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scenes": {
+      "get": {
+        "summary": "Banque de scènes du personnage",
+        "description": "The bank, plus everything the Créer screen's cards need in ONE call.",
+        "operationId": "get_scene_bank_api_scenes_get",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneBankResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Enregistrer la banque de scènes",
+        "description": "Writes scenes.json after validation, with a .bak rotation over three\ngenerations.\n\nThe server no longer trusts the frontend on the shape of the bank: that is\nthe check that was missing on 25/08/2026 when an interface-side rebuild\nwiped the creative journey from all 16 scenes with nothing to stop it. It\nwrites a file `build_jobs` will be able to read, or it refuses.",
+        "operationId": "save_scene_bank_api_scenes_post",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SceneBankSaveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Banque refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneBankRejected"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/creative": {
+      "get": {
+        "summary": "Taxonomie du parcours créatif",
+        "description": "Journey taxonomy: intentions, tones, intensity scale.",
+        "operationId": "get_creative_taxonomy_api_creative_get",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/compose": {
+      "post": {
+        "summary": "Composer des scènes depuis une intention en français",
+        "description": "Turns a French intention into scenes ready to be reviewed.\n\nGoes through the local LLM served by ComfyUI, in an executor: `composer`\ntalks to it with blocking urllib and a /history poll, exactly like the\nproduction runner. Nothing is written to the bank here — the proposal comes\nback for review, and the user saves it through POST /api/scenes.",
+        "operationId": "compose_scenes_api_compose_post",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComposeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComposeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Le composeur a échoué"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/img": {
+      "get": {
+        "summary": "Octets d'une image de tri",
+        "description": "Bytes of an image from a sorting bucket. `character=` is MANDATORY here.\n\nThis route serves character data: leaving it a default means serving Léna's\nimages to whoever did not ask for them — which is exactly what happened\nbefore 29/08/2026, where Abyssiaelle's Review screen displayed Léna's\ngallery. A name that is not in the requested character's tree comes out as\n404, never through a fallback onto another tree.\n\n┌── COUPLING TO PRESERVE — migration brief §4.1, AUDIT §5.6.1 ────────────┐\n│ `v` IS DECLARED SO THAT IT IS IGNORED, AND THAT IS THE WHOLE POINT.     │\n│                                                                         │\n│ `v` is the mtime of the bytes, produced by /api/gallery (see            │\n│ routers/review.py, same box) and appended to the URL by the single      │\n│ image-URL builder of the frontend, `imgUrl()` in static/api.js. The     │\n│ server has never read it and must never start: it exists solely to      │\n│ make the URL change when the bytes change.                              │\n│                                                                         │\n│ WHY IT EXISTS. Since the editor learned to overwrite its source         │\n│ (`/api/edit/save?remplacer`, F3.3), one file name can designate two     │\n│ different images. Without `v` in the URL the browser re-serves its      │\n│ cached copy and the screen shows the image from before, on a file that  │\n│ has changed.                                                            │\n│                                                                         │\n│ THREE WAYS TO BREAK IT, all silent — no error, just a stale image:      │\n│   - rejecting the parameter as unknown (a strict query model would);    │\n│   - reading it, and serving from a cache keyed on it;                   │\n│   - changing its format, or emitting it where /api/gallery does not     │\n│     (STATE.recent carries no `v`, and `imgUrl` then omits it — the URL  │\n│     stays character-for-character the one from before).                 │\n│                                                                         │\n│ It is declared here rather than left implicit so /docs states the       │\n│ contract, and so nobody \"cleans up\" an undeclared parameter.            │\n└─────────────────────────────────────────────────────────────────────────┘",
+        "operationId": "serve_image_img_get",
+        "parameters": [
+          {
+            "name": "bucket",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "OK, A_REVOIR, REJET, SANS_VISAGE, ARCHIVE",
+              "default": "OK",
+              "title": "Bucket"
+            },
+            "description": "OK, A_REVOIR, REJET, SANS_VISAGE, ARCHIVE"
+          },
+          {
+            "name": "space",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "sfw (défaut) ou nsfw",
+              "title": "Space"
+            },
+            "description": "sfw (défaut) ou nsfw"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Nom de fichier, motif SAFE_NAME",
+              "default": "",
+              "title": "Name"
+            },
+            "description": "Nom de fichier, motif SAFE_NAME"
+          },
+          {
+            "name": "thumb",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Non vide : servir la vignette 420×560 au lieu de l'original. N'importe quelle valeur non vide compte, « 0 » y compris.",
+              "title": "Thumb"
+            },
+            "description": "Non vide : servir la vignette 420×560 au lieu de l'original. N'importe quelle valeur non vide compte, « 0 » y compris."
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Jeton de cache, IGNORÉ par le serveur. Voir la note dans le code : il ne sert qu'à l'URL.",
+              "title": "V"
+            },
+            "description": "Jeton de cache, IGNORÉ par le serveur. Voir la note dans le code : il ne sert qu'à l'URL."
+          },
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Octets de l'image",
+            "content": {
+              "image/png": {},
+              "image/jpeg": {}
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absente de l'arbre du personnage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageNotFound"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/img/pose": {
+      "get": {
+        "summary": "Squelette de pose",
+        "description": "Thumbnail of a skeleton from INPUTS/POSE/, for the scene card's pose\npicker. No bucket here — it is a flat folder, not a sorting tree — so not\nthe same path as `serve_image`. Files are small (~50 KB, transparent\nbackground): no resized thumbnail needed.\n\nNo `character=` either, and that is not an oversight: the pose bank is\nshared by every character, like INPUTS/REALISME/ (AUDIT §5.2 lists the two\nglobal remainders).",
+        "operationId": "serve_pose_img_pose_get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Nom de fichier, motif SAFE_NAME",
+              "default": "",
+              "title": "Name"
+            },
+            "description": "Nom de fichier, motif SAFE_NAME"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Octets de l'image",
+            "content": {
+              "image/png": {},
+              "image/jpeg": {}
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absente de l'arbre du personnage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageNotFound"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pose/extract": {
+      "post": {
+        "summary": "Photo -> squelette OpenPose",
+        "description": "A photo sent by the user -> an OpenPose skeleton, into INPUTS/POSE/.\n\nThe only web entry point where a real photograph of a third party can\narrive — see AUTOMATION/pose_tools.py, which guarantees it is never\npersisted.\n\nThe extraction runs in an executor: `pose_tools.extraire` talks to ComfyUI\nwith blocking urllib, and a blocking call in an async handler freezes the\nwhole server (the 2005 ms measured on 24/08, see `comfy_alive`).",
+        "operationId": "extract_pose_api_pose_extract_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PoseExtractRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoseExtractResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ComfyUI hors ligne"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pose/delete": {
+      "post": {
+        "summary": "Retirer un squelette",
+        "operationId": "delete_pose_api_pose_delete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PoseDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Squelette introuvable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/plan": {
+      "post": {
+        "summary": "Plan à blanc du lancement",
+        "description": "Dry run of /api/run: how many images, which jobs, and what the prompt\nwill really say.\n\n┌── COUPLING TO PRESERVE — migration brief §4.2 and §4.3, AUDIT §5.6 ─────┐\n│ TWO THINGS AT ONCE, AND BOTH ARE CONTRACTS.                             │\n│                                                                         │\n│ 1. THIS ROUTE IS REPLAYED ON EVERY KEYSTROKE (debounced 220 ms in       │\n│    create.refreshPlan). It carries the count, the prompt preview AND    │\n│    the instruction alerts in one answer, on purpose: three routes would │\n│    mean three round-trips per keystroke. Do not split it, do not cache  │\n│    it, do not turn it into a subscription.                              │\n│                                                                         │\n│ 2. IT ANSWERS 200 EVEN WHEN THE GUARD REFUSES. `{total: 0, jobs: [],    │\n│    erreur, alertes}` with a 200 status — never a 4xx. This is the       │\n│    server side of the `#btnRun.disabled` rule, whose other half is      │\n│    `running`/`comfy` on /api/state (see routers/state.py, same box):    │\n│                                                                         │\n│      poller.tick()        -> s.running || !s.comfy || !nbSelection()    │\n│                              || !planOk()                               │\n│      create.refreshPlan() -> p.total === 0 || isRunning() || dot off    │\n│                              and sets PLAN_OK = p.total > 0             │\n│                                                                         │\n│    `planOk()` is the COMMON SOURCE that stops the two timers from       │\n│    fighting over the button. `refreshPlan` reads `p.erreur` and         │\n│    `p.total` out of the BODY; it never looks at the status. Returning   │\n│    403 here would leave PLAN_OK stale and let the other timer re-enable │\n│    a button that must stay dead.                                        │\n│                                                                         │\n│ `alertes` comes back even on refusal — the edit screen would otherwise  │\n│ show nothing while the instruction is still empty, which is exactly     │\n│ when it is being written.                                               │\n│                                                                         │\n│ A React rewrite (Phase 3) that folds this into one shared store REMOVES │\n│ THE GUARD BY CONSTRUCTION — and with it the bug it covers. Read this    │\n│ box before touching it.                                                 │\n└─────────────────────────────────────────────────────────────────────────┘",
+        "operationId": "build_plan_api_plan_post",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/decline": {
+      "post": {
+        "summary": "Repartir d'une image déjà produite",
+        "description": "Short loop: start again from an image already produced.\n\n`dry` only returns what each mode would produce, so the interface shows\nonly the declensions that make sense on this image.",
+        "operationId": "decline_image_api_decline_post",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeclineRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch lancé, ou — si `dry` — ce que chaque mode donnerait",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunStartedResponse",
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RunStartedResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DeclineDryResponse"
+                    }
+                  ],
+                  "title": "Response 200 Decline Image Api Decline Post"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Image absente du journal"
+          },
+          "409": {
+            "description": "Un batch tourne déjà"
+          },
+          "403": {
+            "description": "Un verrou du curseur s'y oppose"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/run": {
+      "post": {
+        "summary": "Lancer une production ou une édition",
+        "description": "Launches a batch. TWO MODES ON A SINGLE ENTRY POINT: generation, or\nediting images already validated.\n\nTHE BODY IS READ BEFORE THE GUARD, AND THAT ORDER MATTERS. Under aiohttp\nthe handler had to `await request.json()` first on purpose: `await` hands\ncontrol back to the loop, so testing STATE before reading let two concurrent\nrequests both pass the test and launch two batches on the same GPU. FastAPI\nnow parses the body before the handler is even entered, so the order holds\nby construction — but only as long as NO `await` is introduced between the\n`STATE[\"running\"]` test below and the call to `start_batch`. Everything in\nbetween is deliberately synchronous.",
+        "operationId": "run_batch_api_run_post",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunStartedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Un batch tourne déjà"
+          },
+          "403": {
+            "description": "Un verrou du curseur s'y oppose"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stop": {
+      "post": {
+        "summary": "Arrêter le batch en cours",
+        "operationId": "stop_batch_api_stop_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Aucun batch en cours"
+          }
+        }
+      }
+    },
+    "/api/nsfw/instructions": {
+      "get": {
+        "summary": "Préambule réel du graphe + instructions déjà employées",
+        "description": "The graph's REAL preamble plus the instructions already used.\n\nThe preamble used to be described by a sentence in the interface (« la pose\net le décor sont déjà protégés ») without ever being shown. Measured\nresult: 5 of the 16 instructions written after the redesign rewrote `same\npose`. We show the text and stop paraphrasing it.",
+        "operationId": "get_nsfw_instructions_api_nsfw_instructions_get",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NsfwInstructionsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/nsfw/arm": {
+      "post": {
+        "summary": "Armer / désarmer le contenu adulte du personnage",
+        "description": "Explicit arming: the exact word has to be retyped, not merely clicked.\n\nWrites the switch into the character registry (character.json, key `nsfw`)\nsince J4 (ADR-0010) — no longer into config.json, which keeps only the NSFW\nworkflow settings. It is the switch of the CURRENT CHARACTER: there is no\nglobal one, because nothing holds true for every character at once\n(CLAUDE.md §6).",
+        "operationId": "arm_nsfw_api_nsfw_arm_post",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NsfwArmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NsfwArmResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/gallery": {
+      "get": {
+        "summary": "Contenu d'un dossier de tri",
+        "description": "Content of one sorting folder — of THIS character, and of it alone.\n\n┌── COUPLING TO PRESERVE — migration brief §4.1, AUDIT §5.6.1 ────────────┐\n│ THIS IS WHERE THE `v` TOKEN IS BORN. `\"v\": int(f.stat().st_mtime)` on   │\n│ every item, and nowhere else in the API.                                │\n│                                                                         │\n│ The frontend's single image-URL builder — `imgUrl()` in static/api.js — │\n│ appends it to /img, which ACCEPTS AND IGNORES it (see routers/images.py,│\n│ same box). It is pure cache-busting: since the editor learned to        │\n│ overwrite its source (/api/edit/save?remplacer, F3.3), one file name    │\n│ can designate two different images, and without a changing URL the      │\n│ browser re-serves the old bytes from its cache.                         │\n│                                                                         │\n│ THE FORMAT IS PART OF THE CONTRACT: an INTEGER, the mtime in seconds.   │\n│ Not a float, not an ISO date, not a hash. Emitting it under another     │\n│ name, another type, or dropping it, breaks the cache silently — no      │\n│ error anywhere, just a stale image on screen after an overwrite.        │\n│                                                                         │\n│ Note it is deliberately ABSENT from STATE.recent (routers/production.py)│\n│ — `imgUrl` then omits it and the URL stays character-for-character the  │\n│ one from before. Do not \"harmonise\" that.                               │\n└─────────────────────────────────────────────────────────────────────────┘",
+        "operationId": "get_gallery_api_gallery_get",
+        "parameters": [
+          {
+            "name": "bucket",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "OK",
+              "title": "Bucket"
+            }
+          },
+          {
+            "name": "space",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Space"
+            }
+          },
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GalleryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/flag": {
+      "post": {
+        "summary": "Jugement humain de réalisme",
+        "description": "Human judgement on realism. Independent of sorting: it moves nothing.",
+        "operationId": "set_flag_api_flag_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlagRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mesurer": {
+      "post": {
+        "summary": "Rattraper les mesures manquantes, par paquets",
+        "description": "Catches up a folder's missing measurements.\n\n┌── COUPLING TO PRESERVE — migration brief §4.2, AUDIT §5.6.4 ────────────┐\n│ THE BATCHED CONTRACT THAT MAKES THE FRONTEND CALL BACK IN A LOOP.       │\n│                                                                         │\n│ One InsightFace pass costs ~190 ms; measuring 200 images in a single    │\n│ request would time out. So this route does at most `lot` images (40     │\n│ hard ceiling) and returns `{ok, faites, restant}`. THE LOOP LIVES IN    │\n│ THE CLIENT: review.js calls again while `restant > 0`, with its own     │\n│ guard of 40 iterations, and repaints the button label each round.       │\n│                                                                         │\n│ DO NOT TURN THIS INTO AN EVENT-DRIVEN MODEL. It is tempting — a         │\n│ background task with progress pushed over SSE would read better. It     │\n│ would also be a different contract: the client would no longer drive    │\n│ the pace, `restant` would stop being the loop's exit condition, and     │\n│ there is no push infrastructure anywhere in this application (AUDIT     │\n│ §1.3: no WebSocket, no SSE, no long-polling — production tracking       │\n│ itself is a 1.5 s REST poll).                                           │\n│                                                                         │\n│ Three things are load-bearing and must not move:                        │\n│   - `restant` is what REMAINS AFTER this call, computed on the whole    │\n│     folder — not a percentage, not a total;                             │\n│   - `{ok: true, faites: 0, restant: 0}` on an empty or finished folder, │\n│     which is what ends the loop on the first call;                      │\n│   - the 409 while a batch runs, which the client shows as a toast and   │\n│     treats as a loop exit (`if (!r.ok) break`).                         │\n└─────────────────────────────────────────────────────────────────────────┘\n\nEverything runs in a thread — an async handler must never block the loop\n(see the comment on `comfy_alive`).",
+        "operationId": "measure_batch_api_mesurer_post",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeasureRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasureResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Une production tourne"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/action": {
+      "post": {
+        "summary": "Trier une image",
+        "operationId": "sort_image_api_action_post",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SortRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SortResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Fichier introuvable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/delete": {
+      "post": {
+        "summary": "Suppression définitive",
+        "description": "DEFINITIVE removal — not a sort, not in UNDO, no way back.\n\nRemoves the file, its thumbnail and its export copy. `journal_batch.csv`,\n`mesures.json` and `PROD/soulglade.db` stay intact: they are append-only\nhistories elsewhere in the project (same reason the human judgement does\nnot live in the journal), not an index of what exists on disk — a row\npointing at a vanished file remains a true fact: that image existed, was\nscored, and was deleted.",
+        "operationId": "delete_image_api_delete_post",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Fichier introuvable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/edit/save": {
+      "post": {
+        "summary": "Enregistrer une retouche navigateur",
+        "description": "Saves a retouch (crop / colour / grain, browser-side).\n\nBy default a NEW file `<name>_edit`, in the same bucket as the original:\nthat is the normal gesture, the original stays comparable and separately\ndeletable through `delete_image`. Neither measurement nor export happens\nautomatically on that path — it is not a generation, and `measure_batch`\nis still there to score the copy.\n\n`remplacer: true` overwrites the source (F3.3, 30/08/2026). The frontend\nonly sends it after an explicit confirmation, and it is never its primary\nbutton. Three consequences are handled HERE, without which the interface\nwould be lying about a file that changed under it:\n\n  - the realism MEASUREMENTS were about the old pixels: erased\n    (`mes.demesurer`), the image becomes « unmeasured » again. The human\n    judgement, however, is kept;\n  - the publishable export (OK/sfw) is redone from the new bytes, otherwise\n    the distributed JPEG stays the image from before;\n  - the thumbnail is forgotten. Its timestamp would be enough to redo it,\n    but `oublier_vignette` makes it certain even if the disk clock is\n    coarser than the gesture.\n\nThe generation's JOURNAL ROW is not touched: it says what the pipeline\nproduced, which stays true — the file simply no longer illustrates it\nexactly. The frontend says so in its confirmation.",
+        "operationId": "save_edit_api_edit_save_post",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditSaveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditSaveResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Image d'origine introuvable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/undo": {
+      "post": {
+        "summary": "Annuler le dernier tri de ce personnage",
+        "description": "Undoes THIS CHARACTER's last sort: puts the image back in its original\nfolder.\n\nThe stack stays single (one shared state, like STATE), but we only take\nback this character's actions: without that, « annuler » from one\ncharacter's Review moved another one's file, in a tree we are not even\nlooking at.",
+        "operationId": "undo_sort_api_undo_post",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UndoResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Rien à annuler"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ActionResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "erreur": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erreur"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "title": "ActionResponse",
+        "description": "The universal answer of an action route, `{ok: bool, erreur?: str}`.\n\nAUDIT §5.4: the convention holds on 4xx and 5xx too — `api.js` reads a JSON\nbody on every response, whatever the status.\n\nALWAYS DECLARE IT WITH `response_model_exclude_unset=True`. The old handlers\nreturned `{\"ok\": true}` and nothing else on success; a plain response_model\nwould add `\"erreur\": null` to every one of them. Harmless to `erreurDe()`,\nwhich only tests `ok === false` — but this migration is meant to keep the\nbodies identical, and a shape that drifts once drifts twice."
+      },
+      "BaseCandidate": {
+        "properties": {
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "prompt_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Id"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "BaseCandidate",
+        "description": "One queued portrait: its seed and its ComfyUI prompt_id."
+      },
+      "BaseCandidateState": {
+        "properties": {
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "prompt_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Id"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "state"
+        ],
+        "title": "BaseCandidateState",
+        "description": "pending / ready (+file) / error (+detail)."
+      },
+      "BaseCandidatesRequest": {
+        "properties": {
+          "pack": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "title": "BaseCandidatesRequest"
+      },
+      "BaseCandidatesResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/BaseCandidateState"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "results"
+        ],
+        "title": "BaseCandidatesResponse"
+      },
+      "BaseFreezeRequest": {
+        "properties": {
+          "cid": {
+            "type": "string",
+            "title": "Cid",
+            "default": ""
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "title": "BaseFreezeRequest",
+        "description": "Freezes the chosen candidate to ComfyUI/input/<CID>_BASE.<ext>."
+      },
+      "BaseGenerateRequest": {
+        "properties": {
+          "cid": {
+            "type": "string",
+            "title": "Cid",
+            "default": ""
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "style": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style"
+          },
+          "world": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "World"
+          },
+          "n": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "N"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          }
+        },
+        "type": "object",
+        "title": "BaseGenerateRequest",
+        "description": "Identity base GENERATED: queues N base portraits, identity lock\nBYPASSED — no reference exists yet (CLAUDE.md §4)."
+      },
+      "BaseGenerateResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "pack": {
+            "type": "string",
+            "title": "Pack"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "format": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/BaseCandidate"
+            },
+            "type": "array",
+            "title": "Candidates"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "ok",
+          "pack"
+        ],
+        "title": "BaseGenerateResponse"
+      },
+      "BaseNameResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "base_gelee": {
+            "type": "string",
+            "title": "Base Gelee"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "base_gelee"
+        ],
+        "title": "BaseNameResponse",
+        "description": "Name to write into `config.json / base_gelee`. The bytes live in\nComfyUI/input/, the only folder a `LoadImage` reads."
+      },
+      "BaseUploadRequest": {
+        "properties": {
+          "cid": {
+            "type": "string",
+            "title": "Cid",
+            "default": ""
+          },
+          "image_base64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Base64"
+          }
+        },
+        "type": "object",
+        "title": "BaseUploadRequest",
+        "description": "Identity base PROVIDED by the user. base64 inside a JSON body, never\nmultipart — see api/security.py for why that is deliberate."
+      },
+      "BatchError": {
+        "properties": {
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Msg"
+          }
+        },
+        "type": "object",
+        "required": [
+          "at",
+          "msg"
+        ],
+        "title": "BatchError",
+        "description": "Last batch error, `{at, msg}`. Set at BATCH level, not per job, and\ncleared when the next one starts: the chrome shows it even after the user\nhas left the Créer screen (J7bis, honest chrome)."
+      },
+      "CharacterListResponse": {
+        "properties": {
+          "characters": {
+            "items": {
+              "$ref": "#/components/schemas/CharacterRow"
+            },
+            "type": "array",
+            "title": "Characters"
+          }
+        },
+        "type": "object",
+        "required": [
+          "characters"
+        ],
+        "title": "CharacterListResponse"
+      },
+      "CharacterRow": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "world": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorldBrief"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nsfw": {
+            "type": "boolean",
+            "title": "Nsfw"
+          },
+          "content_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Content Types"
+          },
+          "known_universe": {
+            "type": "boolean",
+            "title": "Known Universe"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "type",
+          "nsfw",
+          "known_universe"
+        ],
+        "title": "CharacterRow",
+        "description": "One line of the registry, for the entry gate (J7bis)."
+      },
+      "CharacterSheet": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "world": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorldBrief"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "output_style": {
+            "type": "string",
+            "title": "Output Style"
+          },
+          "universe": {
+            "$ref": "#/components/schemas/UniverseBrief"
+          },
+          "content_types": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Content Types"
+          },
+          "nsfw": {
+            "type": "boolean",
+            "title": "Nsfw"
+          },
+          "base": {
+            "$ref": "#/components/schemas/FrozenBaseBrief"
+          },
+          "nsfw_tool": {
+            "$ref": "#/components/schemas/EditToolState"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "type",
+          "output_style",
+          "universe",
+          "nsfw",
+          "base",
+          "nsfw_tool"
+        ],
+        "title": "CharacterSheet",
+        "description": "The current character, for the chrome and for its sheet (F1.2)."
+      },
+      "ComfyStatsResponse": {
+        "properties": {
+          "en_ligne": {
+            "type": "boolean",
+            "title": "En Ligne"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
+          "ram": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MemoryUsage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "vram": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VramUsage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gpu": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "en_ligne"
+        ],
+        "title": "ComfyStatsResponse",
+        "description": "RAM / VRAM / thermals. Always a dict, never an exception: it feeds a\ndisplay, not a decision. `en_ligne` says whether ComfyUI answered."
+      },
+      "ComposeRequest": {
+        "properties": {
+          "intention": {
+            "type": "string",
+            "title": "Intention",
+            "default": ""
+          },
+          "intention_cible": {
+            "type": "string",
+            "title": "Intention Cible",
+            "default": ""
+          },
+          "category": {
+            "type": "string",
+            "title": "Category",
+            "default": ""
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "ComposeRequest",
+        "description": "`intention` is the free French text describing what is wanted;\n`intention_cible` is the taxonomy KEY being imposed. Confusing the two put\nthe French sentence into the scenes' intention field. `category` is the old\nname of `intention_cible`, still accepted."
+      },
+      "ComposeResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "scenes": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Scenes"
+          },
+          "brut": {
+            "type": "string",
+            "title": "Brut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "scenes",
+          "brut"
+        ],
+        "title": "ComposeResponse",
+        "description": "Proposed scenes, ready to be reviewed — never written to the bank on\ntheir own. `brut` is the LLM's raw answer, truncated to 2000 characters, so\na disappointing proposal can be diagnosed."
+      },
+      "CreateCharacterRequest": {
+        "properties": {
+          "cid": {
+            "type": "string",
+            "title": "Cid",
+            "default": ""
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "style": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style"
+          },
+          "world": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "World"
+          },
+          "base_gelee": {
+            "type": "string",
+            "title": "Base Gelee",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "CreateCharacterRequest",
+        "description": "The wizard's write. The three frozen axes (character type, output style,\nworld) are set HERE and never again — changing one is creating another\ncharacter (CLAUDE.md §3, §8.8). The pack is NOT in this payload: it is\nderived from (type, style) by `universe.resolve()`, never chosen by hand."
+      },
+      "CreateCharacterResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "id"
+        ],
+        "title": "CreateCharacterResponse"
+      },
+      "CreativeIntention": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "CreativeIntention"
+      },
+      "CreativeResponse": {
+        "properties": {
+          "intentions": {
+            "items": {
+              "$ref": "#/components/schemas/CreativeIntention"
+            },
+            "type": "array",
+            "title": "Intentions"
+          },
+          "tones": {
+            "items": {
+              "$ref": "#/components/schemas/CreativeTone"
+            },
+            "type": "array",
+            "title": "Tones"
+          },
+          "intensity": {
+            "items": {
+              "$ref": "#/components/schemas/IntensityTier"
+            },
+            "type": "array",
+            "title": "Intensity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "intentions",
+          "tones",
+          "intensity"
+        ],
+        "title": "CreativeResponse"
+      },
+      "CreativeTone": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "CreativeTone"
+      },
+      "DeclineDryResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "modes": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Modes"
+          },
+          "scene": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scene"
+          },
+          "intensite": {
+            "type": "integer",
+            "title": "Intensite"
+          },
+          "ton": {
+            "type": "string",
+            "title": "Ton",
+            "default": ""
+          },
+          "niveau_suivant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Niveau Suivant"
+          },
+          "suivant_requires": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suivant Requires"
+          },
+          "suivant_verrouille": {
+            "type": "boolean",
+            "title": "Suivant Verrouille"
+          },
+          "edition_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edition Label"
+          },
+          "edition_verrouillee": {
+            "type": "boolean",
+            "title": "Edition Verrouillee"
+          },
+          "edition_raison": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edition Raison"
+          },
+          "suivant_instruction": {
+            "type": "boolean",
+            "title": "Suivant Instruction"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "ok",
+          "modes",
+          "intensite",
+          "suivant_verrouille",
+          "edition_verrouillee",
+          "suivant_instruction"
+        ],
+        "title": "DeclineDryResponse",
+        "description": "What is available on this image, and under which locks.\n\n`suivant_verrouille` and `edition_verrouillee` mirror the SAME locks as the\nmain intensity slider: a confirmation to show, an arming to offer, rather\nthan letting the user click and fail on a generic toast."
+      },
+      "DeclineRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          },
+          "dry": {
+            "type": "boolean",
+            "title": "Dry",
+            "default": false
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "n": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "N"
+          },
+          "tone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tone"
+          },
+          "confirm_intensity": {
+            "type": "boolean",
+            "title": "Confirm Intensity",
+            "default": false
+          },
+          "edit_instruction": {
+            "type": "string",
+            "title": "Edit Instruction",
+            "default": ""
+          },
+          "no_qc": {
+            "type": "boolean",
+            "title": "No Qc",
+            "default": false
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "DeclineRequest",
+        "description": "Short loop: start again from an image already produced.\n\n`dry` only returns what each mode WOULD produce, so the interface shows\nonly the declensions that make sense on this image."
+      },
+      "DeleteRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          },
+          "bucket": {
+            "type": "string",
+            "title": "Bucket",
+            "default": ""
+          },
+          "space": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Space"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "DeleteRequest",
+        "description": "DEFINITIVE removal — not a sort, not in UNDO, no way back.\n\nRemoves the file, its thumbnail and its export copy. `journal_batch.csv`,\n`mesures.json` and `PROD/soulglade.db` stay intact on purpose: they are\nappend-only histories, not an index of what exists on disk. A row pointing\nat a vanished file remains a true fact — that image existed, was scored,\nand was deleted."
+      },
+      "EditSaveRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          },
+          "bucket": {
+            "type": "string",
+            "title": "Bucket",
+            "default": ""
+          },
+          "space": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Space"
+          },
+          "remplacer": {
+            "type": "boolean",
+            "title": "Remplacer",
+            "default": false
+          },
+          "data_base64": {
+            "type": "string",
+            "title": "Data Base64",
+            "default": ""
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "EditSaveRequest",
+        "description": "Saves a browser-side retouch (crop / colour / grain).\n\nBy default a NEW file `<name>_edit`, in the same bucket as the original.\n`remplacer: true` overwrites the source (F3.3, 30/08/2026) — the frontend\nonly sends it after an explicit confirmation, and it is never its primary\nbutton."
+      },
+      "EditSaveResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "remplace": {
+            "type": "boolean",
+            "title": "Remplace"
+          },
+          "export": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Export"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "ok",
+          "name",
+          "remplace"
+        ],
+        "title": "EditSaveResponse",
+        "description": "`remplace` tells the two paths apart: a copy under a new name, or the\nsource overwritten. `export` is only filled on the overwrite path, where\nthe published JPEG had to be redone from the new bytes."
+      },
+      "EditToolState": {
+        "properties": {
+          "armed": {
+            "type": "boolean",
+            "title": "Armed"
+          },
+          "pack": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack"
+          },
+          "has_graph": {
+            "type": "boolean",
+            "title": "Has Graph"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "armed",
+          "has_graph",
+          "available"
+        ],
+        "title": "EditToolState",
+        "description": "`nsfw_batch.edit_tool_state()`. Two conditions, never one (J7): the\ncharacter's registry is armed AND its pack declares an edit graph.\n`reason` is the text the interface shows instead of the missing step."
+      },
+      "ErrorResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": false
+          },
+          "erreur": {
+            "type": "string",
+            "title": "Erreur"
+          }
+        },
+        "type": "object",
+        "required": [
+          "erreur"
+        ],
+        "title": "ErrorResponse",
+        "description": "What every rejection looks like. `erreur` is French: it is displayed to\nthe user verbatim (AUDIT §5.5)."
+      },
+      "FlagRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          },
+          "flag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flag"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "FlagRequest",
+        "description": "Human judgement on realism. Independent of sorting: it moves nothing.\n`flag` is \"ok\", \"ia\", or null to clear it."
+      },
+      "FlagResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "flag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flag"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "title": "FlagResponse"
+      },
+      "FrozenBaseBrief": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "present": {
+            "type": "boolean",
+            "title": "Present"
+          }
+        },
+        "type": "object",
+        "required": [
+          "present"
+        ],
+        "title": "FrozenBaseBrief",
+        "description": "The character's frozen identity base: present or not, and under which\nname. Only whether the file is there — no route serves those bytes, and\ninventing one that reads ComfyUI/input/ without a character_id bound would\nreopen the leak closed on 29/08/2026."
+      },
+      "GalleryItem": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "bucket": {
+            "type": "string",
+            "title": "Bucket"
+          },
+          "space": {
+            "type": "string",
+            "title": "Space"
+          },
+          "score": {
+            "type": "string",
+            "title": "Score"
+          },
+          "scene": {
+            "type": "string",
+            "title": "Scene"
+          },
+          "categorie": {
+            "type": "string",
+            "title": "Categorie"
+          },
+          "format": {
+            "type": "string",
+            "title": "Format"
+          },
+          "seed": {
+            "type": "string",
+            "title": "Seed"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "v": {
+            "type": "integer",
+            "title": "V"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "nettete": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nettete"
+          },
+          "texture": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Texture"
+          },
+          "fond": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fond"
+          },
+          "flag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flag"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "name",
+          "bucket",
+          "space",
+          "score",
+          "scene",
+          "categorie",
+          "format",
+          "seed",
+          "date",
+          "v",
+          "prompt"
+        ],
+        "title": "GalleryItem",
+        "description": "One image of a bucket, as the Review and Galerie grids read it.\n\n`score` is a STRING, not a float: it comes straight from the journal column\nwhen there is one, and falls back to a `%.3f` of the measured identity\notherwise. The screen displays it as-is; typing it as a float here would\nturn the empty case into a null the grid would have to special-case."
+      },
+      "GalleryResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GalleryItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "sans_mesure": {
+            "type": "integer",
+            "title": "Sans Mesure"
+          },
+          "references": {
+            "$ref": "#/components/schemas/ReferenceCount"
+          },
+          "bandes": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Bandes"
+          },
+          "juges": {
+            "type": "integer",
+            "title": "Juges"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "items",
+          "sans_mesure",
+          "references",
+          "bandes",
+          "juges"
+        ],
+        "title": "GalleryResponse",
+        "description": "Content of one sorting folder — of THIS character, and of it alone.\n\n`sans_mesure` is counted over the WHOLE folder, not over the 200 items\ndisplayed: the button announces what /api/mesurer will really have to do,\nand that one walks everything. The two figures contradicted each other as\nsoon as a folder went past 200 images."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ImageNotFound": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": false
+          },
+          "erreur": {
+            "type": "string",
+            "title": "Erreur"
+          }
+        },
+        "type": "object",
+        "required": [
+          "erreur"
+        ],
+        "title": "ImageNotFound",
+        "description": "404 of a byte-serving route.\n\nA blunt 404 on purpose: the file is not in THIS character's tree. Never a\nlookup in another tree, even if the name exists there — that fallback was\nthe isolation bug of 29/08/2026.\n\nUnder aiohttp this came out as bare text (`raise web.HTTPNotFound()`); it is\nJSON now, like every other response (AUDIT §5.4). Nothing reads it: these\nURLs sit in `<img src>`."
+      },
+      "InstructionRow": {
+        "properties": {
+          "texte": {
+            "type": "string",
+            "title": "Texte"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "identite": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identite"
+          },
+          "alertes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Alertes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "texte",
+          "n"
+        ],
+        "title": "InstructionRow",
+        "description": "An instruction already used, and what it yielded. Sorted by the mean\nidentity obtained — the only comparable measure available on an\ninstruction. The ones without a score come last: they never led to one."
+      },
+      "IntensityTier": {
+        "properties": {
+          "level": {
+            "type": "integer",
+            "title": "Level"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "pipeline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pipeline"
+          },
+          "wardrobe": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wardrobe"
+          },
+          "prompt_add": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Add"
+          },
+          "export": {
+            "type": "boolean",
+            "title": "Export",
+            "default": true
+          },
+          "requires": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requires"
+          },
+          "base_level": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Level"
+          },
+          "destination": {
+            "type": "string",
+            "title": "Destination"
+          },
+          "besoin_instruction": {
+            "type": "boolean",
+            "title": "Besoin Instruction"
+          },
+          "unite": {
+            "type": "string",
+            "title": "Unite"
+          },
+          "scenes": {
+            "type": "integer",
+            "title": "Scenes"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "level",
+          "label",
+          "destination",
+          "besoin_instruction",
+          "unite",
+          "scenes"
+        ],
+        "title": "IntensityTier",
+        "description": "One notch of the intensity slider, as the interface rebuilds it.\n\nA tier requiring arming that does not have it IS NOT EMITTED at all — the\nnotch is absent from the interface, not greyed out (ADR-0003: NSFW is off by\ndefault, and a greyed notch is still an invitation). So the frontend has\nnothing to filter, and nothing to filter BY CHARACTER NAME (CLAUDE.md §8.7).\n`guard_intensity` remains the server lock: hiding never replaces the guard.\n\nEverything from creative.json passes through (`extra=\"allow\"`); the four\nfields the route computes are `destination`, `besoin_instruction`, `unite`\nand `scenes`."
+      },
+      "JournalResponse": {
+        "properties": {
+          "rows": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rows"
+        ],
+        "title": "JournalResponse",
+        "description": "Last 300 production rows, filtered on the character, reverse order.\nRows are raw CSV records — the column set varies with journal migrations,\nhence the free dict rather than a fixed model."
+      },
+      "MeasureRequest": {
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "title": "Bucket",
+            "default": "OK"
+          },
+          "space": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Space"
+          },
+          "lot": {
+            "title": "Lot"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "MeasureRequest",
+        "description": "Catches up the missing realism measurements of a folder, IN BATCHES.\n\n`lot` is clamped server-side to [1, 40] — it CLAMPS, it does not reject, so\nno `ge`/`le` here (same rule as the numbers of the production module)."
+      },
+      "MeasureResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "faites": {
+            "type": "integer",
+            "title": "Faites"
+          },
+          "restant": {
+            "type": "integer",
+            "title": "Restant"
+          },
+          "erreur": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erreur"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "faites",
+          "restant"
+        ],
+        "title": "MeasureResponse",
+        "description": "COUPLING — see the box on `measure_batch` in routers/review.py.\n\n`restant` is what makes the frontend call again. It is the whole contract:\nthe loop lives in the client, and this response is the only thing that ends\nit."
+      },
+      "MemoryUsage": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "libre": {
+            "type": "integer",
+            "title": "Libre"
+          },
+          "utilisee": {
+            "type": "integer",
+            "title": "Utilisee"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "total",
+          "libre",
+          "utilisee"
+        ],
+        "title": "MemoryUsage"
+      },
+      "NsfwArmRequest": {
+        "properties": {
+          "arm": {
+            "type": "boolean",
+            "title": "Arm",
+            "default": false
+          },
+          "confirm": {
+            "type": "string",
+            "title": "Confirm",
+            "default": ""
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "NsfwArmRequest",
+        "description": "Explicit arming: the exact word must be retyped, not merely clicked.\n\nWrites the switch into the character registry (`character.json` / `nsfw`)\nsince J4 (ADR-0010) — no longer into config.json, which keeps only the NSFW\nworkflow settings. There is no global switch: nothing holds true for every\ncharacter at once (CLAUDE.md §6)."
+      },
+      "NsfwArmResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "armed": {
+            "type": "boolean",
+            "title": "Armed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "armed"
+        ],
+        "title": "NsfwArmResponse"
+      },
+      "NsfwInstructionsResponse": {
+        "properties": {
+          "preambule": {
+            "type": "string",
+            "title": "Preambule"
+          },
+          "historique": {
+            "items": {
+              "$ref": "#/components/schemas/InstructionRow"
+            },
+            "type": "array",
+            "title": "Historique"
+          }
+        },
+        "type": "object",
+        "required": [
+          "preambule",
+          "historique"
+        ],
+        "title": "NsfwInstructionsResponse",
+        "description": "The graph's REAL preamble plus the instructions already used.\n\nThe preamble used to be described by a sentence in the interface (« la pose\net le décor sont déjà protégés ») without ever being shown. Measured result:\n5 of the 16 instructions written after the redesign rewrote `same pose`. We\nshow the text and stop paraphrasing it."
+      },
+      "NsfwSourceImage": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "bucket": {
+            "type": "string",
+            "title": "Bucket"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "bucket"
+        ],
+        "title": "NsfwSourceImage",
+        "description": "The bucket travels with the name: the source grid must be able to say\nwhere each image comes from, and /img needs it to find it back."
+      },
+      "NsfwStateResponse": {
+        "properties": {
+          "armed": {
+            "type": "boolean",
+            "title": "Armed"
+          },
+          "outil": {
+            "$ref": "#/components/schemas/EditToolState"
+          },
+          "nom": {
+            "type": "string",
+            "title": "Nom"
+          },
+          "sortie": {
+            "type": "string",
+            "title": "Sortie"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/NsfwSourceImage"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "armed",
+          "outil",
+          "nom",
+          "sortie",
+          "counts",
+          "sources"
+        ],
+        "title": "NsfwStateResponse"
+      },
+      "PlanResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/PlannedJob"
+            },
+            "type": "array",
+            "title": "Jobs"
+          },
+          "alertes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Alertes"
+          },
+          "apercu": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PromptPreview"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "erreur": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erreur"
+          },
+          "edition": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edition"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "total"
+        ],
+        "title": "PlanResponse",
+        "description": "Dry run. ALWAYS 200, even when the guard refuses — see the box on\n`build_plan` in routers/production.py: `total` and `erreur` are the server\nside of the `#btnRun.disabled` contract, and a 4xx would change what the\ntwo client timers read.\n\n`alertes` comes back even on refusal: the edit screen would otherwise show\nnothing while the instruction is empty — which is precisely when it is\nbeing written."
+      },
+      "PlannedJob": {
+        "properties": {
+          "scene": {
+            "type": "string",
+            "title": "Scene"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          },
+          "variant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variant"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "intensity": {
+            "type": "integer",
+            "title": "Intensity"
+          },
+          "outfit": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outfit"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "scene",
+          "prompt",
+          "intensity"
+        ],
+        "title": "PlannedJob",
+        "description": "One image of the plan. Same fields `build_jobs` produced — the route\nprojects them, it does not invent any."
+      },
+      "PoseDeleteRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "PoseDeleteRequest",
+        "description": "Removes a skeleton from the bank. Touches nothing else: a scene still\nreferencing it loses it silently at file level — `validate_scene_bank` will\nreport it on the next save of scenes.json (« squelette introuvable »)."
+      },
+      "PoseExtractRequest": {
+        "properties": {
+          "data_base64": {
+            "type": "string",
+            "title": "Data Base64",
+            "default": ""
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename",
+            "default": "photo.png"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "PoseExtractRequest",
+        "description": "A photo sent by the user, to be turned into an OpenPose skeleton.\n\nTHE ONLY WEB ENTRY POINT WHERE A REAL PHOTOGRAPH OF A THIRD PARTY CAN\nARRIVE. `AUTOMATION/pose_tools.py` guarantees it is never persisted: only\nthe skeleton reaches the disk.\n\nbase64 inside a JSON body, never `multipart/form-data` — see api/security.py\nfor why that is a consequence of the origin guard and not an oversight. The\nceiling is `ss.TAILLE_MAX_PHOTO` (20 MB before encoding)."
+      },
+      "PoseExtractResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "name"
+        ],
+        "title": "PoseExtractResponse",
+        "description": "`name` is the skeleton written to INPUTS/POSE/, which a scene may then\nreference by that file name."
+      },
+      "PromptEcho": {
+        "properties": {
+          "mot": {
+            "type": "string",
+            "title": "Mot"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mot",
+          "sources"
+        ],
+        "title": "PromptEcho",
+        "description": "A background word appearing in SEVERAL fragments. Neither a wall nor a\njudgement: an observation. Two fragments talking about the same subject\nfight each other — the tone saying « close intimate framing » against the\nintention's « full figure in frame ». The human decides between a useful\nrepetition and a contradiction."
+      },
+      "PromptFragment": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "texte": {
+            "type": "string",
+            "title": "Texte"
+          },
+          "part": {
+            "type": "integer",
+            "title": "Part"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "source",
+          "texte",
+          "part"
+        ],
+        "title": "PromptFragment",
+        "description": "One piece of the final prompt, and the share of it that it represents.\n\nOn a typical scene, 69 % of the final prompt is assembled out of sight of\nwhoever wrote the scene (measured 26/08/2026: 179 characters written out of\n578). Until that was displayed, a failed result could not be diagnosed."
+      },
+      "PromptPreview": {
+        "properties": {
+          "total_car": {
+            "type": "integer",
+            "title": "Total Car"
+          },
+          "n_jobs": {
+            "type": "integer",
+            "title": "N Jobs"
+          },
+          "scene": {
+            "type": "string",
+            "title": "Scene"
+          },
+          "fragments": {
+            "items": {
+              "$ref": "#/components/schemas/PromptFragment"
+            },
+            "type": "array",
+            "title": "Fragments"
+          },
+          "echos": {
+            "items": {
+              "$ref": "#/components/schemas/PromptEcho"
+            },
+            "type": "array",
+            "title": "Echos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_car",
+          "n_jobs",
+          "scene",
+          "fragments",
+          "echos"
+        ],
+        "title": "PromptPreview",
+        "description": "What actually goes out, shown before launching."
+      },
+      "RecentImage": {
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "title": "Bucket"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "scene": {
+            "type": "string",
+            "title": "Scene"
+          },
+          "space": {
+            "type": "string",
+            "title": "Space"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "bucket",
+          "name",
+          "scene",
+          "space"
+        ],
+        "title": "RecentImage",
+        "description": "One entry of `STATE.recent`, the live strip of the batch in flight."
+      },
+      "ReferenceCount": {
+        "properties": {
+          "mesurees": {
+            "type": "integer",
+            "title": "Mesurees"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mesurees",
+          "total"
+        ],
+        "title": "ReferenceCount",
+        "description": "How much of the reference corpus has been measured. Without it the\ncalibration bands have no scale."
+      },
+      "RunPayload": {
+        "properties": {
+          "scenes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scenes"
+          },
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "no_variants": {
+            "type": "boolean",
+            "title": "No Variants",
+            "default": false
+          },
+          "no_qc": {
+            "type": "boolean",
+            "title": "No Qc",
+            "default": false
+          },
+          "preset": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Preset"
+          },
+          "nsfw": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Nsfw"
+          },
+          "intensity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intensity"
+          },
+          "confirm_intensity": {
+            "type": "boolean",
+            "title": "Confirm Intensity",
+            "default": false
+          },
+          "tone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tone"
+          },
+          "intention": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intention"
+          },
+          "edit_instruction": {
+            "type": "string",
+            "title": "Edit Instruction",
+            "default": ""
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "generer_avant": {
+            "type": "boolean",
+            "title": "Generer Avant",
+            "default": false
+          },
+          "scene_override": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scene Override"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "RunPayload",
+        "description": "The launch payload — ONE shape for /api/plan and /api/run.\n\nNot a catch-all: it is genuinely the same object the frontend builds once\nin `create.js payload()` and posts to both routes. `/api/plan` is the dry\nrun of `/api/run`, replayed on every keystroke; giving them two schemas\nwould let them drift apart, which is exactly what the preview exists to\nprevent."
+      },
+      "RunStartedResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "batch_id": {
+            "type": "string",
+            "title": "Batch Id"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "edition": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edition"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "libelle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Libelle"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "ok",
+          "batch_id",
+          "total"
+        ],
+        "title": "RunStartedResponse",
+        "description": "A batch is on its way. `batch_id` is the timestamp the journal and the\nlive strip carry; the frontend follows it through /api/state."
+      },
+      "SceneBankRejected": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": false
+          },
+          "erreur": {
+            "type": "string",
+            "title": "Erreur"
+          },
+          "problemes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Problemes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "erreur"
+        ],
+        "title": "SceneBankRejected",
+        "description": "400 of a refused save. `erreur` is the first problem — what the screen\nshows; `problemes` is the whole list, for the details panel."
+      },
+      "SceneBankResponse": {
+        "properties": {
+          "data": {
+            "title": "Data"
+          },
+          "categories": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "scene_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scene Ids"
+          },
+          "previews": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ScenePreview"
+            },
+            "type": "object",
+            "title": "Previews"
+          },
+          "meta": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SceneMeta"
+            },
+            "type": "object",
+            "title": "Meta"
+          },
+          "stats": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SceneStats"
+            },
+            "type": "object",
+            "title": "Stats"
+          },
+          "avg_duration": {
+            "type": "integer",
+            "title": "Avg Duration"
+          },
+          "poses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Poses"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "data",
+          "categories",
+          "scene_ids",
+          "previews",
+          "meta",
+          "stats",
+          "avg_duration",
+          "poses"
+        ],
+        "title": "SceneBankResponse",
+        "description": "`data` is scenes.json VERBATIM — the file belongs to the character, not\nto this layer, so it is relayed untouched and unmodelled."
+      },
+      "SceneBankSaveRequest": {
+        "properties": {
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "autoriser_pertes": {
+            "type": "boolean",
+            "title": "Autoriser Pertes",
+            "default": false
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "SceneBankSaveRequest",
+        "description": "Two accepted forms, `text` (a JSON string) or `data` (the object), and a\ndeliberate escape hatch.\n\n`autoriser_pertes` disarms the batch-erasure guard for ONE save. It is the\npayload key, French, because it is part of the wire contract — renaming it\nwould silently disable the guard for any client still sending the old name.\nNothing in the frontend sends it today; it exists for a deliberate mass\nedit made by hand."
+      },
+      "SceneMeta": {
+        "properties": {
+          "intention": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intention"
+          },
+          "band": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Band"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "tones": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tones"
+          },
+          "pose": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pose"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "band"
+        ],
+        "title": "SceneMeta",
+        "description": "What the SERVER computes about a scene so the frontend does not have to\nreimplement the runner's compatibility defaults (`scene_intention`,\n`scene_band`). Not the scene itself — that travels raw in `data`."
+      },
+      "ScenePreview": {
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "title": "Bucket"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bucket",
+          "name"
+        ],
+        "title": "ScenePreview",
+        "description": "Last image produced BY THIS CHARACTER for that scene, to illustrate the\nscene cards. Without the character, the Créer screen illustrated every\ncard with Léna's images whatever character was open."
+      },
+      "SceneStats": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "ok": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ok"
+          },
+          "avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "n"
+        ],
+        "title": "SceneStats",
+        "description": "Per scene: how many images were produced, how many the HUMAN validated,\nand the mean identity score. `ok` counts the human sort, not the QC verdict\n(base.stats_par_scene). `avg` is null while no image carries a score."
+      },
+      "SortRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          },
+          "bucket": {
+            "type": "string",
+            "title": "Bucket",
+            "default": ""
+          },
+          "action": {
+            "type": "string",
+            "title": "Action",
+            "default": ""
+          },
+          "space": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Space"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "SortRequest",
+        "description": "A human sorting gesture. `action` is the wire contract, in French:\nvalider / revoir / rejeter / archiver."
+      },
+      "SortResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "bucket": {
+            "type": "string",
+            "title": "Bucket"
+          },
+          "export": {
+            "type": "string",
+            "title": "Export"
+          },
+          "undo": {
+            "type": "integer",
+            "title": "Undo"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "ok",
+          "bucket",
+          "export",
+          "undo"
+        ],
+        "title": "SortResponse",
+        "description": "`export` is the name of the published JPEG when the gesture produced\none, \"\" otherwise. `undo` is the depth of the undo stack FOR THIS\nCHARACTER — the stack is shared, the reading is scoped."
+      },
+      "SystemStateResponse": {
+        "properties": {
+          "running": {
+            "type": "boolean",
+            "title": "Running"
+          },
+          "batch_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
+          "index": {
+            "type": "integer",
+            "title": "Index",
+            "default": 0
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "default": 0
+          },
+          "current": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current"
+          },
+          "log": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Log"
+          },
+          "stats": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Stats"
+          },
+          "stop": {
+            "type": "boolean",
+            "title": "Stop",
+            "default": false
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/RecentImage"
+            },
+            "type": "array",
+            "title": "Recent"
+          },
+          "intensity": {
+            "type": "integer",
+            "title": "Intensity",
+            "default": 0
+          },
+          "edition": {
+            "type": "boolean",
+            "title": "Edition",
+            "default": false
+          },
+          "character": {
+            "type": "string",
+            "title": "Character"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BatchError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "comfy": {
+            "type": "boolean",
+            "title": "Comfy"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "nsfw_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Nsfw Counts"
+          },
+          "eta": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta"
+          },
+          "undo": {
+            "type": "integer",
+            "title": "Undo"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "running",
+          "character",
+          "comfy",
+          "counts",
+          "nsfw_counts",
+          "undo"
+        ],
+        "title": "SystemStateResponse",
+        "description": "`STATE` + bucket counts + ETA + undo depth. Polled every 1.5 s.\n\nEvery key of the `STATE` dict is named here, plus the five the route adds.\n`extra=\"allow\"` keeps the response honest if `STATE` ever grows a key:\ndropping one silently would break the frontend far from the change.\n\nCOUPLING — DO NOT BREAK (migration brief §4.3). `running` and `comfy` are\ntwo of the four inputs of the `#btnRun.disabled` rule; see the note on\n`get_system_state` in routers/state.py."
+      },
+      "UndoResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "bucket": {
+            "type": "string",
+            "title": "Bucket"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "export": {
+            "type": "string",
+            "title": "Export"
+          },
+          "undo": {
+            "type": "integer",
+            "title": "Undo"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "ok",
+          "bucket",
+          "name",
+          "export",
+          "undo"
+        ],
+        "title": "UndoResponse"
+      },
+      "UniverseBrief": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "model_family": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Family"
+          },
+          "output_styles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Output Styles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "UniverseBrief",
+        "description": "The RESOLVED PACK — machine-level information, secondary in the chrome\nsince ADR-0012. Never chosen by hand: `universe.resolve(type, style)`."
+      },
+      "UniverseToolsResponse": {
+        "properties": {
+          "universe": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Universe"
+          },
+          "tools": {
+            "title": "Tools"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "tools"
+        ],
+        "title": "UniverseToolsResponse",
+        "description": "The tool panel declared by the character's pack (tools.json, CLAUDE.md\n§5). Never an `if character == \"lena\"` in the frontend (§8.7)."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VramUsage": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "libre": {
+            "type": "integer",
+            "title": "Libre"
+          },
+          "utilisee": {
+            "type": "integer",
+            "title": "Utilisee"
+          },
+          "nom": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nom"
+          },
+          "torch_reserve": {
+            "type": "integer",
+            "title": "Torch Reserve",
+            "default": 0
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "total",
+          "libre",
+          "utilisee"
+        ],
+        "title": "VramUsage"
+      },
+      "WizardOptionsResponse": {
+        "properties": {
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/WizardType"
+            },
+            "type": "array",
+            "title": "Types"
+          }
+        },
+        "type": "object",
+        "required": [
+          "types"
+        ],
+        "title": "WizardOptionsResponse"
+      },
+      "WizardType": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "family": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Family"
+          },
+          "styles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Styles"
+          },
+          "worlds": {
+            "items": {
+              "$ref": "#/components/schemas/WizardWorld"
+            },
+            "type": "array",
+            "title": "Worlds"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "WizardType",
+        "description": "One character type, with the styles of its resolved pack and the worlds\nof that pack's model family. Everything comes from the registries — never a\nhard-coded `if` (CLAUDE.md §8.7)."
+      },
+      "WizardWorld": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "tone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tone"
+          },
+          "suggested_styles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Suggested Styles"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "WizardWorld"
+      },
+      "WorldBrief": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "WorldBrief",
+        "description": "`{id, label}` of a world, or null."
+      }
+    }
+  }
+}
