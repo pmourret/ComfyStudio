@@ -88,13 +88,43 @@ def _world_brief(wid):
     return None
 
 
+def _base_brief(cid):
+    """Base gelee du personnage : presente ou non, et sous quel nom.
+
+    Le nom vient de `config.json / base_gelee` ; les octets vivent dans
+    `ComfyUI/input/` (un `LoadImage` ne lit que la), donc HORS de PROD/. On dit
+    seulement si le fichier est la — aucune route ne sert cette image, et en
+    inventer une qui lise ce dossier sans borne character_id rouvrirait la
+    fuite fermee le 29/08/2026. La fiche affiche donc l'initiale, comme le
+    chrome (F6 : portrait de base, plus tard).
+    """
+    try:
+        name = (ss.cfg(cid) or {}).get("base_gelee") or ""
+    except (OSError, ValueError):
+        return {"name": None, "present": False}
+    if not name:
+        return {"name": None, "present": False}
+    try:
+        present = (base_portrait.COMFY_INPUT / name).exists()
+    except OSError:
+        present = False
+    return {"name": name, "present": present}
+
+
 @routes.get("/api/character")
 async def api_character(request):
-    """Personnage courant, pour l'en-tete (registre J4 ; type + monde J7bis).
+    """Personnage courant, pour l'en-tete (registre J4 ; type + monde J7bis)
+    et pour sa FICHE (F1.2, 30/08/2026).
 
     `character(request)` a deja garanti que le personnage a un character.json
     coherent (univers reel, (type, style) qui resout le pack, world compatible)
     — pas de gestion d'erreur en plus ici.
+
+    La fiche lit tout ici, en UN appel deja borne au personnage : ajouter
+    `base` et `nsfw_tool` a cette reponse coute deux lectures de registre, la
+    ou une seconde route aurait duplique la resolution du pack et l'isolation
+    qui va avec. Rien de nouveau n'est calcule — `edit_tool_state` est celui
+    que l'ecran Application affiche deja.
     """
     cid = ss.character(request)
     reg = lb.load_character(cid)
@@ -113,6 +143,11 @@ async def api_character(request):
                      "output_styles": universe.style_names(uid)},
         "content_types": reg.get("content_types", {}),
         "nsfw": bool(reg.get("nsfw")),
+        # base gelee et outil d'edition : LECTURE seule, pour la fiche (F1.2).
+        # L'armement, lui, ne se prend qu'a un seul endroit — la section
+        # « Contenu adulte » de l'ecran Application (J7, ADR-0010).
+        "base": _base_brief(cid),
+        "nsfw_tool": nsfw_batch.edit_tool_state(cid),
     })
 
 

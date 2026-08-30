@@ -144,12 +144,20 @@
      Sas d'entree (J7bis) : l'app s'ouvre ici quand aucun ?character= n'est
      donne dans l'URL. Choisir un personnage = recharger en ?character=<id>
      (rechargement simple, V1). Pas une landing : une liste dense. -->
-<div class="screen" id="registre">
+<div class="screen" id="registre" data-vue="sas">
   <div class="wrap">
-    <h2>Registre des personnages</h2>
-    <p class="tiny" style="margin:6px 0 18px">Ouvrir un personnage recharge le
-      studio sur sa production. Son type et son monde sont figés à sa création.</p>
-    <div class="charGrid" id="charGrid"></div>
+    <!-- DEUX VUES, un ecran (30/08/2026, F1.2). `data-vue` est ecrit par
+         registre.js depuis nav.go : sans ?character= c'est le SAS (la grille de
+         choix, ci-dessous) ; avec, c'est la FICHE du personnage charge. Choisir
+         un personnage reste le geste du menu identite, dans l'en-tete — cette
+         entree de navbar sert a LIRE celui qui est ouvert. -->
+    <div class="reg-sas">
+      <h2>Registre des personnages</h2>
+      <p class="tiny" style="margin:6px 0 18px">Ouvrir un personnage recharge le
+        studio sur sa production. Son type et son monde sont figés à sa création.</p>
+      <div class="charGrid" id="charGrid"></div>
+    </div>
+    <div class="fiche" id="fiche"></div>
   </div>
 </div>
 

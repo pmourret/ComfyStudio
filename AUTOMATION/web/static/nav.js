@@ -18,7 +18,7 @@ import {loadJournal, setBankView} from './advanced.js';
 import {majEtatComfy} from './appli.js';
 import {majContenuAdulte} from './nsfw-arm.js';
 import {estEdition, nsfwTick} from './create.js';
-import {loadRegistre} from './registre.js';
+import {openRegistre} from './registre.js';
 import {loadWizard} from './wizard.js';
 import {closeIdMenu} from './character.js';
 import {inspectorEnter} from './inspector.js';
@@ -73,7 +73,10 @@ export function go(name, skipHash, opts){
   // au passage precedent, qui ne serait ecrite nulle part dans l'URL
   if (screen === 'scenes') setBankView((route && route.vue) || 'scenes');
   if (route && route.bucket) loadItems();
-  if (name === 'registre') loadRegistre();
+  // l'entree « registre » ouvre DEUX choses selon ce que l'URL revendique :
+  // la fiche du personnage charge, ou le sas de choix. registre.js tranche —
+  // nav n'a pas a connaitre la regle, seulement la destination (F1.2).
+  if (name === 'registre') openRegistre();
   if (name === 'wizard') loadWizard();
   if (name === 'journal') loadJournal();
   if (name === 'appli'){ majEtatComfy(); majContenuAdulte(); }

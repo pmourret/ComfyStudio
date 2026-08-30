@@ -1,7 +1,17 @@
-/* Fumigation NAVIGATEUR du sas d'entree (#registre, J7bis). Charge la page
-   pour de vrai : sans ?character= l'app doit s'ouvrir sur le registre, pas sur
-   la production d'un personnage. Verifie les cartes, la carte « + Nouveau
-   personnage », et qu'un ?character= explicite court-circuite le sas.
+/* Fumigation NAVIGATEUR de l'ecran #registre — ses DEUX vues.
+
+     [sas]    sans ?character= : la grille de choix (J7bis). L'app s'ouvre la,
+              la navbar du studio est absente, aucun personnage n'est
+              revendique.
+     [fiche]  avec ?character= : la FICHE du personnage charge (F1.2,
+              30/08/2026). Elle LIT — nom, id, type, monde, pack, base gelee,
+              etat du contenu adulte — et n'arme rien : le seul geste
+              d'armement vit dans l'ecran Application (J7, ADR-0010).
+
+   Ce que le test verrouille en plus : `data-s="registre"` ne bouge pas (c'est
+   le contrat de navigation), la fiche ne rejoue PAS une grille de choix, et
+   « Tous les personnages » rouvre le menu de l'en-tete — un seul endroit ou
+   l'on change de personnage.
 
    Le test LIT seulement : il ne crée aucun personnage, ne mute rien.
 
@@ -25,7 +35,7 @@ const ORIGIN = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   const dire = (ok, txt) => { console.log(`  ${ok ? 'ok  ' : 'KO  '}${txt}`); if (!ok) ko++; };
   const vu = s => page.isVisible(s);
 
-  console.log('\n[1] sans ?character= : l\'app s\'ouvre sur le registre');
+  console.log('\n[1] [sas] sans ?character= : l\'app s\'ouvre sur le registre');
   await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' });
   await page.waitForTimeout(1000);
   dire(erreurs.length === 0, `aucune erreur JS (${erreurs.length})`);
@@ -34,8 +44,19 @@ const ORIGIN = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   dire(!(await vu('#creer')), 'l\'ecran #creer n\'est PAS affiche au demarrage');
   dire(/Studio/.test((await page.textContent('.brand')).trim()),
        'l\'en-tete est neutre (« Studio »), aucun personnage revendique');
+  dire((await page.getAttribute('#registre', 'data-vue')) === 'sas',
+       'l\'ecran est en vue « sas »');
+  dire(await vu('#charGrid'), 'la grille de choix est la');
+  dire(!(await vu('#fiche')), 'et la fiche d\'un personnage charge ne l\'est pas');
+  // la navbar ENTIERE est masquee sur le sas (body.no-character) : le sas ne
+  // propose aucune destination, il fait entrer
+  dire(await page.evaluate(() => document.body.classList.contains('no-character')),
+       'body.no-character posé');
+  const ongletsSas = await page.$$eval('.tabs button',
+    e => e.filter(b => b.offsetParent !== null).length);
+  dire(ongletsSas === 0, `aucun onglet de studio visible sur le sas (${ongletsSas})`);
 
-  console.log('\n[2] les cartes du registre');
+  console.log('\n[2] [sas] les cartes du registre');
   const cartes = await page.$$eval('#charGrid .char-card:not(.char-card--new)',
     els => els.map(a => ({
       href: a.getAttribute('href'),
@@ -49,7 +70,7 @@ const ORIGIN = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
        && lena.tags.some(t => /slow life/i.test(t)),
        `carte lena porte type + monde : ${lena ? lena.tags.join(' | ') : '(absente)'}`);
 
-  console.log('\n[3] la carte « + Nouveau personnage »');
+  console.log('\n[3] [sas] la carte « + Nouveau personnage »');
   const neuve = page.locator('#charGrid .char-card--new');
   dire(await neuve.count() === 1, 'une seule carte « nouveau personnage »');
   dire(await neuve.getAttribute('href') === '#wizard', 'elle pointe vers #wizard');
@@ -62,7 +83,7 @@ const ORIGIN = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
      `.launch` pour le noyer, d'ou la capture. On verifie la BANDE, pas le seul
      coupable connu : n'importe quelle surface fixed qui percerait demain
      tomberait ici aussi. */
-  console.log('\n[3b] les 48 px bas du sas sont vides (29/08/2026)');
+  console.log('\n[3b] [sas] les 48 px bas sont vides (29/08/2026)');
   const intrus = await page.evaluate(() => {
     const H = innerHeight, SEUIL = H - 48, sas = document.querySelector('#registre');
     const out = [];
@@ -98,7 +119,7 @@ const ORIGIN = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   dire(repos.v === 'hidden' && repos.p === 'none',
        `#toast au repos : visibility=${repos.v} pointer-events=${repos.p}`);
 
-  console.log('\n[4] ?character= explicite : le sas est court-circuite');
+  console.log('\n[4] [fiche] ?character= explicite : le sas est court-circuite');
   await page.goto(ORIGIN + '/?character=abyssiaelle', { waitUntil: 'networkidle' });
   await page.waitForTimeout(1000);
   dire(await vu('#creer'), 'avec ?character=abyssiaelle, on ouvre directement #creer');
@@ -106,7 +127,78 @@ const ORIGIN = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   const brand = (await page.textContent('.brand')).replace(/\s+/g, ' ').trim();
   dire(/Abyssiaelle/.test(brand), `en-tete = « ${brand} »`);
 
-  console.log('\n[5] depuis une carte : navigation vers le personnage');
+  /* [4b] LA FICHE (F1.2). L'entree de navbar ouvrait le meme ecran que le sas :
+     une seconde porte pour CHOISIR, alors que le menu identite de l'en-tete le
+     fait deja — et aucune porte pour LIRE le personnage ouvert. On verifie donc
+     les deux moities : ce que la fiche montre, et ce qu'elle ne rejoue pas. */
+  console.log('\n[4b] [fiche] la navbar mene a la fiche du personnage charge');
+  const libFiche = (await page.textContent('.tabs button[data-s="registre"]')).trim();
+  dire(libFiche === 'Fiche', `l'entree de navbar dit « ${libFiche} »`);
+  await page.click('.tabs button[data-s="registre"]');
+  await page.waitForTimeout(1200);
+  dire(await vu('#registre'), 'elle ouvre l\'ecran #registre');
+  dire((await page.getAttribute('#registre', 'data-vue')) === 'fiche',
+       'en vue « fiche »');
+  dire(await vu('#fiche'), 'la fiche est peinte');
+  dire(!(await vu('#charGrid')),
+       'et la grille de choix N\'EST PAS rejouee dans la fiche');
+  dire(await page.evaluate(() => location.hash) === '#registre',
+       'hash #registre — `data-s` inchange, c\'est le contrat de navigation');
+
+  const fiche = (await page.textContent('#fiche')).replace(/\s+/g, ' ').trim();
+  const dit = re => re.test(fiche);
+  dire(dit(/Abyssiaelle/) && dit(/abyssiaelle/), 'elle porte le nom et l\'id');
+  dire(dit(/rpg-personnage/), 'le type');
+  dire(dit(/Terres sauvages/), 'le monde');
+  dire(dit(/RPG \/ personnage/) && dit(/sdxl/), 'le pack et sa famille de modele');
+  dire(dit(/Base gelée/) && dit(/présente|absente|introuvable/), 'l\'etat de la base gelée');
+  // pas de portrait : aucune route ne sert les octets de la base gelée (elle
+  // vit hors de PROD/, cote entrees ComfyUI) — la fiche montre l'initiale
+  dire((await page.$$('#fiche img')).length === 0,
+       'aucune image : la pastille est l\'initiale, comme dans l\'en-tete');
+  dire((await page.textContent('#fiche .fiche-av')).trim() === 'A',
+       'la pastille porte l\'initiale du nom');
+
+  console.log('\n[4c] [fiche] contenu adulte : LU, jamais armé depuis ici');
+  dire(dit(/Contenu adulte/) && dit(/désactivé/),
+       `l'etat est affiche : ${(fiche.match(/État : [^·]+/) || ['(absent)'])[0].trim()}`);
+  dire(dit(/n’existe pas encore pour ce pack|n'existe pas encore pour ce pack/),
+       'et la raison quand le pack n\'a pas l\'outil');
+  dire(dit(/Application → Contenu adulte/),
+       'la fiche dit OU se prend la decision, sans la proposer');
+  const boutonsFiche = await page.$$eval('#fiche button',
+    e => e.map(b => (b.textContent || '').replace(/\s+/g, ' ').trim()));
+  dire(!boutonsFiche.some(t => /Activer|Désactiver/i.test(t)),
+       `aucun bouton d'armement dans la fiche : ${boutonsFiche.join(' | ') || '(aucun)'}`);
+  dire(await page.evaluate(() => !document.querySelector('#armBox').open),
+       '#armBox reste fermee');
+
+  console.log('\n[4d] [fiche] « Tous les personnages » rouvre le menu de l\'en-tete');
+  await page.click('#ficheAutres');
+  await page.waitForTimeout(500);
+  dire(await page.evaluate(() => document.getElementById('idMenu').classList.contains('on')),
+       'le menu d\'identite du chrome est ouvert');
+  dire(!(await vu('#charGrid')), 'toujours pas de seconde grille dans l\'ecran');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+
+  console.log('\n[4e] [fiche] l\'autre personnage, meme structure, ses valeurs');
+  await page.goto(ORIGIN + '/?character=lena#registre', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1400);
+  dire((await page.getAttribute('#registre', 'data-vue')) === 'fiche',
+       'la fiche s\'ouvre directement depuis le hash');
+  const fl = (await page.textContent('#fiche')).replace(/\s+/g, ' ').trim();
+  dire(/Léna/.test(fl) && /instagram-influenceur/.test(fl) && /Slow life/.test(fl),
+       'nom, type et monde sont ceux de lena');
+  dire(/Instagram \/ influenceur/.test(fl) && /flux/.test(fl),
+       'son pack est celui de sa famille de modele, pas celui d\'abyssiaelle');
+  dire(!/rpg-personnage|Terres sauvages|Abyssiaelle/.test(fl),
+       'et rien de l\'autre personnage n\'y traine');
+  dire(/activé/.test(fl), 'sa branche adulte est lue comme activée');
+  dire((await page.textContent('#fiche .fiche-av')).trim() === 'L',
+       'la pastille suit le personnage');
+
+  console.log('\n[5] [sas] depuis une carte : navigation vers le personnage');
   await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' });
   await page.waitForTimeout(800);
   await Promise.all([

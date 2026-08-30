@@ -164,4 +164,5 @@ documenté ci-dessus.
   hérite de l'ordre de `/api/gallery` et du filtre par bande de score.
 - « Poster sur Instagram » attend une décision produit, pas du code : rien n'est
   amorcé côté serveur.
-- Prochaine session prévue : **F1.2**, fiche personnage ≠ registre.
+- Prochaine session prévue : **F1.2**, fiche personnage ≠ registre —
+  faite le jour meme, voir [2026-08-30-f1-fiche.md](2026-08-30-f1-fiche.md).

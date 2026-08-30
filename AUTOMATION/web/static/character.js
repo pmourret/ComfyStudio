@@ -102,7 +102,10 @@ function wireIdMenu(){
   });
 }
 
-function openIdMenu(){
+/* Exporte (F1.2) : la fiche du personnage porte un renvoi « Tous les
+   personnages » qui rouvre CE menu, plutot que de rejouer une grille de choix
+   dans l'ecran. Un seul endroit ou l'on change de personnage. */
+export function openIdMenu(){
   const btn = document.getElementById('btnId');
   const menu = document.getElementById('idMenu');
   if (!btn || !menu) return;
