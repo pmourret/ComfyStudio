@@ -49,6 +49,10 @@ export type ScreenKey =
 export type Destination = {
   key: ScreenKey
   label: string
+  /* Label to use when a character is loaded, when the entry then opens
+     something else. « Personnages » leads to the entry gate; once a character
+     is open the same entry reads its SHEET, and says so. */
+  labelWhenClaimed?: string
   path: string
   icon: string
   legacyHash: string
@@ -65,10 +69,11 @@ export const DESTINATIONS: Destination[] = [
   {
     key: 'character',
     label: 'Personnages',
+    labelWhenClaimed: 'Fiche',
     path: PATHS.character,
     icon: 'character',
     legacyHash: 'registre',
-    migrated: false,
+    migrated: true,
   },
   {
     key: 'produce',

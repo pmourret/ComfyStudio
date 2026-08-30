@@ -42,7 +42,7 @@ function DestinationLink({
   path: string
   badge: React.ReactNode
 }) {
-  const { claimed } = useCharacter()
+  const { claimed, isClaimed } = useCharacter()
   const { pathname } = useLocation()
   /* Active state is computed from the path, NOT taken from NavLink: a
      destination still served by the legacy frontend is a plain <a>, and it must
@@ -55,7 +55,9 @@ function DestinationLink({
   const content = (
     <>
       <Icon name={destination.icon} className="nav-ic" />
-      <span className="nav-lab">{destination.label}</span>
+      <span className="nav-lab">
+        {(isClaimed && destination.labelWhenClaimed) || destination.label}
+      </span>
       {badge}
     </>
   )

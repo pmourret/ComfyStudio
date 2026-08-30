@@ -50,6 +50,13 @@ function writeFlag(key: string, value: boolean): void {
 }
 
 type ChromeContextValue = {
+  /* The identity menu lives in the header, but the character sheet reopens it
+     from inside the screen: « Tous les personnages » must lead to the ONE place
+     a character is changed, not replay a choice grid of its own (F1.2). Its
+     open state therefore belongs to the chrome, not to the header component. */
+  identityMenuOpen: boolean
+  openIdentityMenu: () => void
+  closeIdentityMenu: () => void
   navCollapsed: boolean
   railCollapsed: boolean
   focus: boolean
@@ -71,6 +78,10 @@ export function ChromeProvider({ children }: { children: ReactNode }) {
   const [railCollapsed, setRailCollapsed] = useState(() => readFlag(RAIL_KEY))
   const [focus, setFocus] = useState(false)
   const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW).matches)
+  const [identityMenuOpen, setIdentityMenuOpen] = useState(false)
+
+  const openIdentityMenu = useCallback(() => setIdentityMenuOpen(true), [])
+  const closeIdentityMenu = useCallback(() => setIdentityMenuOpen(false), [])
 
   useEffect(() => {
     const query = window.matchMedia(NARROW)
@@ -108,15 +119,22 @@ export function ChromeProvider({ children }: { children: ReactNode }) {
       if (target && /input|textarea|select/i.test(target.tagName)) return
       if (target?.isContentEditable) return
       if (document.querySelector('dialog[open]')) return
+      /* The identity menu lives IN the header: entering focus would make it
+         vanish mid-interaction, leaving it open in the DOM. We do nothing —
+         Escape closes first, then « f » finds its meaning back. */
+      if (identityMenuOpen) return
       event.preventDefault()
       toggleFocus()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [toggleFocus])
+  }, [toggleFocus, identityMenuOpen])
 
   const value = useMemo<ChromeContextValue>(
     () => ({
+      identityMenuOpen,
+      openIdentityMenu,
+      closeIdentityMenu,
       navCollapsed,
       railCollapsed,
       focus,
@@ -125,7 +143,18 @@ export function ChromeProvider({ children }: { children: ReactNode }) {
       toggleRail,
       toggleFocus,
     }),
-    [navCollapsed, railCollapsed, focus, narrow, toggleNav, toggleRail, toggleFocus],
+    [
+      identityMenuOpen,
+      openIdentityMenu,
+      closeIdentityMenu,
+      navCollapsed,
+      railCollapsed,
+      focus,
+      narrow,
+      toggleNav,
+      toggleRail,
+      toggleFocus,
+    ],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

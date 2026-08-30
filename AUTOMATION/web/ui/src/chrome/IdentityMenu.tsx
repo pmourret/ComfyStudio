@@ -8,33 +8,47 @@
 
    role=menu, so arrows / Home / End move the focus and Escape closes, exactly as
    the legacy handler did. */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 import { useCharacter } from '../character/CharacterContext'
-import { PATHS } from '../app/routes'
+import { characterPath, PATHS } from '../app/routes'
+import { useChrome } from './ChromeContext'
 
 /* `children` is the brand block. The menu is positioned against `.idwrap`,
    which wraps the character card AND the trigger — so the popup opens under the
    name, not under the little chevron alone. Same markup as the legacy chrome. */
 export function IdentityMenu({ children }: { children?: ReactNode }) {
-  const { claimed, roster, rosterError, loadRoster, selectCharacter } = useCharacter()
-  const [open, setOpen] = useState(false)
+  const { claimed, isClaimed, roster, rosterError, loadRoster, selectCharacter } = useCharacter()
+  /* Open state lives in the chrome context, not here: the character sheet
+     reopens this menu from inside the screen (F1.2 — one door to change
+     character, and it is this one). */
+  const { identityMenuOpen: open, openIdentityMenu, closeIdentityMenu } = useChrome()
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
   const buttonRef = useRef<HTMLButtonElement | null>(null)
 
-  const close = useCallback((giveFocusBack = false) => {
-    setOpen(false)
-    if (giveFocusBack) buttonRef.current?.focus()
-  }, [])
+  const close = useCallback(
+    (giveFocusBack = false) => {
+      closeIdentityMenu()
+      if (giveFocusBack) buttonRef.current?.focus()
+    },
+    [closeIdentityMenu],
+  )
 
   const toggle = useCallback(() => {
-    setOpen((current) => {
-      if (!current) loadRoster()
-      return !current
-    })
-  }, [loadRoster])
+    if (open) close()
+    else {
+      loadRoster()
+      openIdentityMenu()
+    }
+  }, [open, close, loadRoster, openIdentityMenu])
+
+  /* Opened from elsewhere (the sheet's « Tous les personnages »): the roster
+     still has to be there, and the focus still has to land in the menu. */
+  useEffect(() => {
+    if (open) loadRoster()
+  }, [open, loadRoster])
 
   // outside click and Escape close it — the chrome's overlay behaviour
   useEffect(() => {
@@ -136,8 +150,13 @@ export function IdentityMenu({ children }: { children?: ReactNode }) {
           )}
         </div>
         <div className="sep" role="separator" />
-        <Link to={PATHS.characters} role="menuitem" tabIndex={-1} onClick={() => close()}>
-          Registre des personnages
+        {/* Leads to the sheet of the loaded character, or to the entry gate
+            when none is claimed — the destination the navbar entry has. The
+            LABEL follows it: calling it « registre » while it opens a sheet was
+            a mismatch the legacy chrome carried because both lived on one
+            screen switched by attribute. */}
+        <Link to={characterPath(isClaimed)} role="menuitem" tabIndex={-1} onClick={() => close()}>
+          {isClaimed ? 'Fiche du personnage' : 'Registre des personnages'}
         </Link>
         <Link to={PATHS.wizard} role="menuitem" tabIndex={-1} onClick={() => close()}>
           + Nouveau personnage

@@ -25,7 +25,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { apiFetch, errorOf, type CharacterId, type Schema } from '../api/client'
 
@@ -45,14 +45,20 @@ type CharacterContextValue = {
   roster: CharacterRow[] | null
   rosterError: string | null
   loadRoster: () => void
-  /** Switch character WITHOUT reloading the page. */
-  selectCharacter: (id: string) => void
+  /* Switch character WITHOUT reloading the page.
+
+     `to` moves to another screen IN THE SAME UPDATE. It is not a convenience:
+     selecting and then navigating separately makes the second write win, and a
+     `navigate('/produce')` carries no query — so `?character=` was set on the
+     screen being left and dropped on arrival. One update, one URL. */
+  selectCharacter: (id: string, options?: { to?: string }) => void
 }
 
 const Ctx = createContext<CharacterContextValue | null>(null)
 
 export function CharacterProvider({ children }: { children: ReactNode }) {
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   const fromUrl = searchParams.get('character')
 
   const [claimed, setClaimed] = useState<CharacterId>(fromUrl)
@@ -62,28 +68,47 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
   const [rosterError, setRosterError] = useState<string | null>(null)
   const rosterRequested = useRef(false)
 
-  /* URL -> state, for a navigation the user made: back, forward, a pasted link.
-     `selectCharacter` writes both at once, so by the time this runs after a
-     switch the two already agree and nothing happens. */
+  /* THE MIRROR. State is authoritative; `?character=` is a reflection of it that
+     the provider maintains. Two directions, and which one applies depends on
+     whether the URL names anybody:
+
+       - it NAMES someone, and it is not who we hold -> the user navigated
+         (back, forward, a pasted link). Adopt it.
+       - it names NOBODY while a character is loaded -> an internal navigation
+         dropped the query. Every `<Link to="/character">` does exactly that,
+         and making each one carry the parameter would be the same discipline
+         this migration removed everywhere else. The state stands, the URL
+         catches up.
+
+     `replace: true` on the catch-up: rewriting the mirror is not a navigation,
+     and pushing an entry for it would put a duplicate in history each time. */
   useEffect(() => {
-    setClaimed((current) => (current === fromUrl ? current : fromUrl))
-  }, [fromUrl])
+    if (fromUrl !== null) {
+      if (fromUrl !== claimed) setClaimed(fromUrl)
+      return
+    }
+    if (claimed === null) return
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous)
+        next.set('character', claimed)
+        return next
+      },
+      { replace: true },
+    )
+  }, [fromUrl, claimed, setSearchParams])
 
   /* state -> URL. `replace: false` keeps the switch in history, so Back returns
      to the character you came from — which is what a shareable URL implies. */
   const selectCharacter = useCallback(
-    (id: string) => {
+    (id: string, options?: { to?: string }) => {
       setClaimed(id)
-      setSearchParams(
-        (previous) => {
-          const next = new URLSearchParams(previous)
-          next.set('character', id)
-          return next
-        },
-        { replace: false },
-      )
+      const next = new URLSearchParams(searchParams)
+      next.set('character', id)
+      if (options?.to) navigate({ pathname: options.to, search: next.toString() })
+      else setSearchParams(next, { replace: false })
     },
-    [setSearchParams],
+    [navigate, searchParams, setSearchParams],
   )
 
   /* The sheet follows the claimed id. An aborted flight cannot paint over a

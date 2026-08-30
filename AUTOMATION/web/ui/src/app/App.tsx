@@ -17,6 +17,8 @@ import { Shell } from '../chrome/Shell'
 import { ComfyStatsProvider } from '../state/ComfyStatsContext'
 import { FaultsProvider } from '../state/FaultsContext'
 import { SystemStateProvider } from '../state/SystemStateContext'
+import { CharactersScreen } from '../screens/CharactersScreen'
+import { CharacterSheetScreen } from '../screens/CharacterSheetScreen'
 import { JournalScreen } from '../screens/JournalScreen'
 import { PendingScreen } from '../screens/PendingScreen'
 import { PATHS } from './routes'
@@ -42,16 +44,12 @@ export function App() {
 
                   {/* --- migrated */}
                   <Route path={PATHS.journal} element={<JournalScreen />} />
+                  {/* The two halves of the legacy `#registre`, switched by a
+                      `data-vue` attribute, are two routes now. */}
+                  <Route path={PATHS.characters} element={<CharactersScreen />} />
+                  <Route path={PATHS.character} element={<CharacterSheetScreen />} />
 
                   {/* --- still served by the legacy frontend */}
-                  <Route
-                    path={PATHS.characters}
-                    element={<PendingScreen title="Registre des personnages" legacyHash="registre" />}
-                  />
-                  <Route
-                    path={PATHS.character}
-                    element={<PendingScreen title="Fiche du personnage" legacyHash="registre" />}
-                  />
                   <Route
                     path={PATHS.wizard}
                     element={<PendingScreen title="Nouveau personnage" legacyHash="wizard" />}
