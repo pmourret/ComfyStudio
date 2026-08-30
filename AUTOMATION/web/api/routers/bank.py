@@ -214,13 +214,40 @@ def scene_previews(character):
     return {k: {"bucket": v["bucket"], "name": v["name"]} for k, v in best.items()}
 
 
+def _category_order(category):
+    """Sort key for the bank's intentions, tolerant of a missing one.
+
+    `lb.scene_intention()` returns None for a scene that declares neither
+    `intention` nor `category` — an unmigrated bank, or one written by hand.
+    A bare `sorted()` over a set holding both None and strings raises
+    `TypeError: '<' not supported between instances of 'str' and 'NoneType'`,
+    and the WHOLE bank came out as a 400 — the error handler catches TypeError —
+    far from the scene that caused it. The Créer screen then had no scenes, no
+    cards and no taxonomy at all.
+
+    Two-part key so the fix changes ONLY the case that crashed:
+      - scenes that HAVE an intention keep exactly their previous order, since
+        they all share the same first component and fall back to comparing the
+        strings, as `sorted()` did;
+      - the absent one sorts last, once, and is emitted as `null` — which is
+        what `/api/scenes` already returned in `meta[].intention` and what
+        `SceneBankResponse.categories` already declares.
+
+    Found while migrating to FastAPI (30/08/2026): the response model made it
+    visible, but the bug predates the migration — `routes/banque.py` had the
+    same line.
+    """
+    return (category is None, category or "")
+
+
 @router.get("/api/scenes", response_model=SceneBankResponse,
             summary="Banque de scènes du personnage")
 async def get_scene_bank(character_id: CharacterId):
     """The bank, plus everything the Créer screen's cards need in ONE call."""
     cid = character_id
     data = ss.scenes_data(cid)
-    categories = sorted({lb.scene_intention(s) for s in data["scenes"]})
+    categories = sorted({lb.scene_intention(s) for s in data["scenes"]},
+                        key=_category_order)
     # journey metadata, computed here so the frontend does not have to
     # reimplement the runner's compatibility defaults
     meta = {s["id"]: {"intention": lb.scene_intention(s),
