@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 /* Build output lands in `ui/dist` and is served by FastAPI (api/main.py).
    It is git-ignored: a bundle in the tree would be a second copy of the source,
@@ -13,7 +14,7 @@ const BACKEND = 'http://127.0.0.1:8189'
 const proxied = ['/api', '/img', '/static', '/legacy', '/docs', '/openapi.json']
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
     proxy: Object.fromEntries(

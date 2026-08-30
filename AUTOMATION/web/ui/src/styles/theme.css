@@ -1,0 +1,84 @@
+/* theme.css — the bridge between tokens.css and Tailwind's utility namespaces.
+
+   IT DECLARES NO VALUE OF ITS OWN. Every entry below maps a Tailwind theme
+   namespace onto a custom property that `tokens.css` already owns. That is the
+   whole point: `tokens.css` stays THE single visual identity layer
+   (.claude/rules/frontend.md), so a universe that redefines it reskins every
+   utility in the studio without touching this file and without a rebuild of the
+   theme. Writing `#1a1d23` here instead of `var(--panel)` would put the palette
+   in two places and silently freeze the utilities on the studio's own skin.
+
+   NO PREFLIGHT — deliberate. Tailwind's reset is not imported: `base.css` is
+   already this project's reset, hand-tuned against the UA stylesheet (margins of
+   <dd>/<p> inside dialogs, list padding, button primitives, painted
+   scrollbars). Stacking a second reset on top of it would move type and spacing
+   on every screen at once — the exact opposite of a migration meant to be
+   invisible. One reset, and it is ours. */
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/* Explicit rather than inferred: the scan root is the app source, not whatever
+   directory Tailwind walks up to from this file. */
+@source '../';
+
+@theme {
+  /* --- palette: grounds, lines, texts ------------------------------------ */
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel2: var(--panel2);
+  --color-line: var(--line);
+  --color-line2: var(--line2);
+  --color-txt: var(--txt);
+  --color-dim: var(--dim);
+  --color-dim2: var(--dim2);
+
+  /* accent, and the text laid ON a flat of accent */
+  --color-acc: var(--acc);
+  --color-acc-d: var(--acc-d);
+  --color-on-acc: var(--on-acc);
+
+  /* verdicts / states. `--none` is tokenised for completeness; no rule used it
+     at migration time (the « none » pill paints itself from --line2). */
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-high: var(--high);
+  --color-verdict-none: var(--none);
+
+  /* banner families */
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-line: var(--warn-line);
+  --color-warn-txt: var(--warn-txt);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-line: var(--danger-line);
+  --color-danger-txt: var(--danger-txt);
+  --color-mes-bg: var(--mes-bg);
+  --color-mes-line: var(--mes-line);
+
+  /* depth and focus */
+  --color-scrim: var(--scrim);
+  --color-focus: var(--focus);
+
+  /* --- depth ------------------------------------------------------------- */
+  /* The one elevation of every surface that FLOATS above content. */
+  --shadow-elev: var(--elev);
+
+  /* --- shape ------------------------------------------------------------- */
+  /* `--radius-card` and not `--radius-r`: the latter would generate `rounded-r`,
+     which is already Tailwind's « round the right side » utility. The token it
+     reads is still `--r` — only the utility name differs. */
+  --radius-card: var(--r);
+
+  /* Max width of centred content. Named `wrap` after the `.wrap` box it serves,
+     for the same collision reason: `max-w-maxw` reads like a stutter. */
+  --container-wrap: var(--maxw);
+
+  /* --- typography -------------------------------------------------------- */
+  /* `--font-code` and NOT `--font-mono`: `tokens.css` already owns the name
+     `--font-mono`, and there it is a `font` SHORTHAND that carries a size
+     (`12px ui-monospace,monospace`). A Tailwind theme entry of the same name
+     would emit a family-only value into the same `:root` and break every
+     `font:var(--font-mono)` shorthand that depends on the size being there. */
+  --font-code: ui-monospace, monospace;
+}
