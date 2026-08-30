@@ -14,9 +14,14 @@ Verifie :
     d'autre (le journal et les mesures restent intacts, par design) ;
   - api_delete refuse un nom qui n'existe pas, un nom mal forme ;
   - api_edit_save ecrit une COPIE (jamais un ecrasement), nommee via nom_libre
-    en cas de collision, et refuse une image mal encodee ou trop lourde.
+    en cas de collision, et refuse une image mal encodee ou trop lourde ;
+  - la copie s'INSCRIT EN BASE (30/08/2026) : aucune generation ne passera
+    jamais derriere elle pour le faire, et une image presente sur le disque
+    mais absente de la base fait mentir tout ce qui lit la base (CLAUDE.md 7).
 
-Rien n'est simule : ce sont les vraies fonctions, sur un faux PROD/.
+Rien n'est simule : ce sont les vraies fonctions, sur un faux PROD/ ET une
+fausse base : `base.FICHIER` est redirige comme `ss.OFM`. Sans les deux, un
+test qui touche au tri ecrit dans PROD/soulglade.db pour de vrai.
 
 Lancer :  python_embeded\\python.exe AUTOMATION\\tests\\test_suppression_edition.py
 """
@@ -32,6 +37,7 @@ OFM = HERE.parents[1]
 sys.path.insert(0, str(OFM / "AUTOMATION" / "web"))
 sys.path.insert(0, str(OFM / "AUTOMATION"))
 
+import base as db             # noqa: E402
 import shared_state as ss      # noqa: E402
 from routes import tri        # noqa: E402
 from PIL import Image         # noqa: E402
@@ -82,6 +88,10 @@ ss.THUMBS = racine / "PROD" / ".thumbs"
 
 for b in ("OK", "A_REVOIR", "REJET", "ARCHIVE"):
     (racine / "PROD" / "LENA" / b).mkdir(parents=True, exist_ok=True)
+# `noter_bucket` ouvre la base par `base.FICHIER`, pas par `ss.OFM` : rediriger
+# l'arbre seul laissait le test ecrire ses `scene_01_edit.png` dans la vraie
+# PROD/soulglade.db. Meme geste que test_tri_export.py.
+db.FICHIER = racine / "PROD" / "soulglade.db"
 (racine / "PROD" / "EXPORT" / "lena" / "lifestyle").mkdir(parents=True, exist_ok=True)
 
 print("=" * 70)
@@ -126,6 +136,19 @@ verifie((racine / "PROD" / "LENA" / "A_REVOIR" / "scene_01_edit.png").exists(),
         "la copie existe sur le disque")
 verifie((racine / "PROD" / "LENA" / "A_REVOIR" / "scene_01.png").exists(),
         "l'ORIGINAL existe toujours — jamais un écrasement")
+
+with db.ouvrir() as cx:
+    ligne = cx.execute(
+        "SELECT bucket, espace, source FROM image "
+        "WHERE character_id = ? AND fichier = ?",
+        ("lena", "scene_01_edit.png")).fetchone()
+verifie(ligne is not None, "la copie a sa ligne en base — pas seulement sur le disque")
+if ligne is not None:
+    verifie(ligne["bucket"] == "A_REVOIR" and ligne["espace"] == "lena",
+            f"la ligne porte le bucket et l'espace de la copie "
+            f"({ligne['bucket']} / {ligne['espace']})")
+    verifie(ligne["source"] == "scene_01.png",
+            f"la ligne dit de quelle image elle dérive (source={ligne['source']!r})")
 
 print("\n[4] copie éditée — collision de nom")
 r2, code = appeler(tri.api_edit_save, {

@@ -41,7 +41,7 @@ def nsfw_journal_index(character_id):
     return out
 
 
-def noter_bucket(nom, bucket, space, character_id, ancien_nom=None):
+def noter_bucket(nom, bucket, space, character_id, ancien_nom=None, **champs):
     """Reporte le TRI HUMAIN dans la base, sur la ligne du BON personnage.
 
     `image.bucket` n'etait ecrit qu'a la generation, avec le verdict du QC. Or
@@ -55,6 +55,11 @@ def noter_bucket(nom, bucket, space, character_id, ancien_nom=None):
     dans la seule base — la base restait propre uniquement parce que personne
     n'avait encore trie un autre personnage depuis l'interface.
 
+    `champs` passe tel quel a `base.enregistrer_image` : un fichier qui ARRIVE
+    dans un bucket sans passer par une generation (la copie `_edit` de
+    l'editeur) n'a aucune autre occasion de s'inscrire, et doit pouvoir poser
+    son `source` au meme moment que son bucket.
+
     Ne doit jamais faire echouer un tri : le fichier, lui, a deja bouge.
     """
     try:
@@ -63,7 +68,8 @@ def noter_bucket(nom, bucket, space, character_id, ancien_nom=None):
             if ancien_nom and ancien_nom != nom:
                 db.renommer(cx, ancien_nom, nom, character_id=character_id)
             db.enregistrer_image(cx, nom, character_id=character_id,
-                                 bucket=bucket, espace=ss.espace_db(space))
+                                 bucket=bucket, espace=ss.espace_db(space),
+                                 **champs)
             cx.commit()
     except Exception as e:
         ss.push_log(f"base : bucket non mis a jour pour {nom} — "
@@ -391,6 +397,11 @@ async def api_edit_save(request):
                                   "export": exporte})
     final = lb.nom_libre(f"{Path(name).stem}_edit", dest_dir.parent)
     (dest_dir / final).write_bytes(data)
+    # La copie est un fichier NEUF dans un bucket : aucune generation ne
+    # l'inscrira jamais en base, et sans cette ligne elle n'existe que sur le
+    # disque — `test_coherence_base` la voyait comme une image orpheline.
+    # `source` dit de quelle image elle derive, comme pour la branche NSFW.
+    noter_bucket(final, bucket, space, cid, source=name)
     ss.push_log(f"{final} enregistrée (édition de {name})")
     return web.json_response({"ok": True, "name": final, "remplace": False})
 
