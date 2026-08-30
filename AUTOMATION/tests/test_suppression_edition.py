@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
-"""Suppression definitive et copie editee : api_delete / api_edit_save, sur
+"""Suppression definitive et copie editee : /api/delete et /api/edit/save, sur
 une arborescence jetable.
 
 POURQUOI CE TEST EXISTE. Deux handlers du 26/08/2026, tous deux irreversibles
-ou presque : api_delete efface un fichier pour de bon (pas dans UNDO), et
-api_edit_save ecrit une copie sur le disque depuis du base64 fourni par le
+ou presque : /api/delete efface un fichier pour de bon (pas dans UNDO), et
+/api/edit/save ecrit une copie sur le disque depuis du base64 fourni par le
 navigateur. Ni l'un ni l'autre n'avait de couverture avant ce fichier — les
 verifier sur de vraies images du disque aurait ete le genre d'erreur que ce
 projet essaie justement d'eviter.
 
 Verifie :
-  - api_delete retire le fichier, sa vignette, sa copie d'export — et RIEN
+  - /api/delete retire le fichier, sa vignette, sa copie d'export — et RIEN
     d'autre (le journal et les mesures restent intacts, par design) ;
-  - api_delete refuse un nom qui n'existe pas, un nom mal forme ;
-  - api_edit_save ecrit une COPIE (jamais un ecrasement), nommee via nom_libre
+  - /api/delete refuse un nom qui n'existe pas, un nom mal forme ;
+  - /api/edit/save ecrit une COPIE (jamais un ecrasement), nommee via nom_libre
     en cas de collision, et refuse une image mal encodee ou trop lourde ;
   - la copie s'INSCRIT EN BASE (30/08/2026) : aucune generation ne passera
     jamais derriere elle pour le faire, et une image presente sur le disque
@@ -25,7 +25,6 @@ test qui touche au tri ecrit dans PROD/soulglade.db pour de vrai.
 
 Lancer :  python_embeded\\python.exe AUTOMATION\\tests\\test_suppression_edition.py
 """
-import asyncio
 import base64
 import io
 import sys
@@ -39,7 +38,8 @@ sys.path.insert(0, str(OFM / "AUTOMATION"))
 
 import base as db             # noqa: E402
 import shared_state as ss      # noqa: E402
-from routes import tri        # noqa: E402
+from api.main import app       # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 from PIL import Image         # noqa: E402
 
 KO = 0
@@ -52,22 +52,23 @@ def verifie(ok, texte):
         KO += 1
 
 
-class FausseRequete:
-    def __init__(self, corps, character="lena"):
-        self._corps = corps
-        self.method = "POST"
-        # les handlers de tri resolvent le personnage AVANT de toucher au
-        # disque (`ss.character`) : sans ?character=, il n'y a pas d'arbre
-        self.query = {"character": character} if character else {}
-
-    async def json(self):
-        return self._corps
+# On passe par la VRAIE pile HTTP depuis la migration FastAPI : les handlers
+# ne prennent plus une requete mais des parametres types. Le TestClient
+# traverse en prime le garde d'origine et les gestionnaires d'erreur — ce que
+# ce test ne voyait pas avant. `base_url` en 127.0.0.1 : sans lui le client
+# envoie `Host: testserver`, que le garde refuse en 403, a juste titre.
+CLIENT = TestClient(app, base_url="http://127.0.0.1")
 
 
-def appeler(handler, corps=None, character="lena"):
-    reponse = asyncio.run(handler(FausseRequete(corps or {}, character)))
-    import json as _json
-    return _json.loads(reponse.text), reponse.status
+def appeler(route, corps=None, character="lena"):
+    """POST sur une route de revue. Rend (corps JSON, statut), comme avant.
+
+    `?character=` est porte explicitement : les routes de revue resolvent le
+    personnage AVANT de toucher au disque, et sans arbre il n'y a rien a
+    supprimer ni a editer."""
+    url = f"{route}?character={character}" if character else route
+    r = CLIENT.post(url, json=corps or {})
+    return r.json(), r.status_code
 
 
 def png_base64(couleur=(90, 70, 60), taille=(64, 64)):
@@ -106,7 +107,7 @@ ss.THUMBS.mkdir(parents=True, exist_ok=True)
 (ss.THUMBS / "lena" / "sfw" / "OK").mkdir(parents=True, exist_ok=True)
 (ss.THUMBS / "lena" / "sfw" / "OK" / "gardee.jpg").write_bytes(b"\x00")
 
-r, code = appeler(tri.api_delete, {"name": "gardee.png", "bucket": "OK", "space": "sfw"})
+r, code = appeler("/api/delete", {"name": "gardee.png", "bucket": "OK", "space": "sfw"})
 verifie(r.get("ok") is True, "réponse ok")
 verifie(not (racine / "PROD" / "LENA" / "OK" / "gardee.png").exists(),
         "le fichier a disparu du disque")
@@ -116,18 +117,17 @@ verifie(not (ss.THUMBS / "lena" / "sfw" / "OK" / "gardee.jpg").exists(),
         "la vignette a disparu")
 
 print("\n[2] suppression — garde-fous")
-r, code = appeler(tri.api_delete, {"name": "absente.png", "bucket": "OK", "space": "sfw"})
+r, code = appeler("/api/delete", {"name": "absente.png", "bucket": "OK", "space": "sfw"})
 verifie(code == 404, f"fichier introuvable -> 404 ({code})")
-try:
-    appeler(tri.api_delete, {"name": "../../etc/passwd", "bucket": "OK", "space": "sfw"})
-    verifie(False, "un nom hors motif aurait dû lever bad_request")
-except Exception:
-    verifie(True, "un nom de fichier invalide est refusé (chemin hors motif)")
+r, code = appeler("/api/delete", {"name": "../../etc/passwd", "bucket": "OK",
+                                  "space": "sfw"})
+verifie(code == 400 and r.get("ok") is False,
+        f"un nom de fichier invalide est refusé en 400 JSON ({code})")
 
 # =========================================================== api_edit_save
 print("\n[3] copie éditée — cas nominal")
 image(racine / "PROD" / "LENA" / "A_REVOIR" / "scene_01.png")
-r, code = appeler(tri.api_edit_save, {
+r, code = appeler("/api/edit/save", {
     "name": "scene_01.png", "bucket": "A_REVOIR", "space": "sfw",
     "data_base64": png_base64()})
 verifie(r.get("ok") is True, "réponse ok")
@@ -151,7 +151,7 @@ if ligne is not None:
             f"la ligne dit de quelle image elle dérive (source={ligne['source']!r})")
 
 print("\n[4] copie éditée — collision de nom")
-r2, code = appeler(tri.api_edit_save, {
+r2, code = appeler("/api/edit/save", {
     "name": "scene_01.png", "bucket": "A_REVOIR", "space": "sfw",
     "data_base64": png_base64((10, 10, 10))})
 verifie(r2.get("name") == "scene_01_edit_2.png",
@@ -160,23 +160,23 @@ verifie((racine / "PROD" / "LENA" / "A_REVOIR" / "scene_01_edit.png").exists(),
         "la première copie n'a pas été écrasée par la seconde")
 
 print("\n[5] copie éditée — garde-fous")
-r, code = appeler(tri.api_edit_save, {
+r, code = appeler("/api/edit/save", {
     "name": "absente.png", "bucket": "A_REVOIR", "space": "sfw",
     "data_base64": png_base64()})
 verifie(code == 404, f"original introuvable -> 404 ({code})")
 
-r, code = appeler(tri.api_edit_save, {
+r, code = appeler("/api/edit/save", {
     "name": "scene_01.png", "bucket": "A_REVOIR", "space": "sfw",
     "data_base64": "ceci n'est pas du base64 valide !!"})
 verifie(code == 400, f"base64 mal formé -> 400 ({code})")
 
-r, code = appeler(tri.api_edit_save, {
+r, code = appeler("/api/edit/save", {
     "name": "scene_01.png", "bucket": "A_REVOIR", "space": "sfw",
     "data_base64": ""})
 verifie(code == 400, f"image vide -> 400 ({code})")
 
 gros = base64.b64encode(b"\x00" * (ss.TAILLE_MAX_PHOTO + 1)).decode()
-r, code = appeler(tri.api_edit_save, {
+r, code = appeler("/api/edit/save", {
     "name": "scene_01.png", "bucket": "A_REVOIR", "space": "sfw",
     "data_base64": gros})
 verifie(code == 400, f"image trop lourde -> 400 ({code})")

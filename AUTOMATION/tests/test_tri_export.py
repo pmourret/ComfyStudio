@@ -20,7 +20,6 @@ Rien n'est simule : ce sont les vraies fonctions, sur un faux PROD/.
 
 Lancer :  python_embeded\\python.exe AUTOMATION\\tests\\test_tri_export.py
 """
-import asyncio
 import csv
 import shutil
 import sys
@@ -33,10 +32,12 @@ sys.path.insert(0, str(OFM / "AUTOMATION" / "web"))
 sys.path.insert(0, str(OFM / "AUTOMATION"))
 
 import shared_state as ss      # noqa: E402
-from routes import tri        # noqa: E402
 import runner as lb            # noqa: E402
 import base as db             # noqa: E402
 import mesures as mes         # noqa: E402
+from api.exceptions import BadRequest  # noqa: E402
+from api.main import app       # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 from PIL import Image         # noqa: E402
 
 KO = 0
@@ -49,24 +50,18 @@ def verifie(ok, texte):
         KO += 1
 
 
-class FausseRequete:
-    """Juste ce qu'un handler lit : le corps JSON et la methode."""
-
-    def __init__(self, corps):
-        self._corps = corps
-        self.method = "POST"
-        self.path = "/test"
-        self.query = {}
-        self.headers = {"Content-Type": "application/json", "Host": "127.0.0.1"}
-
-    async def json(self):
-        return self._corps
+# On passe par la VRAIE pile HTTP depuis la migration FastAPI : les handlers
+# ne prennent plus une requete mais des parametres types, et la fausse requete
+# n'aurait plus rien a imiter. Le TestClient traverse en prime le garde
+# d'origine et les gestionnaires d'erreur — ce que ce test ne voyait pas avant.
+# `base_url` en 127.0.0.1 : sans lui le client envoie `Host: testserver`, que le
+# garde refuse en 403, a juste titre.
+CLIENT = TestClient(app, base_url="http://127.0.0.1")
 
 
-def appeler(handler, corps=None):
-    reponse = asyncio.run(handler(FausseRequete(corps or {})))
-    import json as _json
-    return _json.loads(reponse.text)
+def appeler(route, corps=None):
+    """POST sur une route de tri. Rend le corps JSON, comme avant."""
+    return CLIENT.post(route, json=corps or {}).json()
 
 
 def image(chemin, taille=(896, 1120)):
@@ -103,7 +98,7 @@ print("tri et export - tests")
 print("=" * 70)
 
 print("\n[1] valider : l'export prend la categorie et le format du journal")
-r = appeler(tri.api_action, {"name": "voyage_rando_01.png", "bucket": "A_REVOIR",
+r = appeler("/api/action", {"name": "voyage_rando_01.png", "bucket": "A_REVOIR",
                              "action": "valider", "space": "sfw"})
 verifie(r["ok"] and r["bucket"] == "OK", "l'image passe en OK")
 exp = racine / "PROD" / "EXPORT" / "lena" / "voyage" / "voyage_rando_01.jpg"
@@ -114,13 +109,13 @@ if exp.exists():
         verifie(im.size == attendu, f"export a la taille du 9:16 {im.size} == {attendu}")
 
 print("\n[2] rejeter : l'image sort aussi de la publication")
-r = appeler(tri.api_action, {"name": "voyage_rando_01.png", "bucket": "OK",
+r = appeler("/api/action", {"name": "voyage_rando_01.png", "bucket": "OK",
                              "action": "rejeter", "space": "sfw"})
 verifie(r["ok"] and r["bucket"] == "REJET", "l'image passe en REJET")
 verifie(not exp.exists(), "le JPEG est retire de l'export")
 
 print("\n[3] annuler un rejet : l'image ET son export reviennent")
-r = appeler(tri.api_undo, {})
+r = appeler("/api/undo", {})
 verifie(r["ok"] and r["bucket"] == "OK", "l'image revient dans OK")
 verifie((racine / "PROD" / "LENA" / "OK" / "voyage_rando_01.png").exists(),
         "le fichier est bien dans OK")
@@ -128,12 +123,12 @@ verifie(exp.exists(), "l'export est REFAIT (il restait supprime avant le correct
 
 print("\n[4] annuler ne doit jamais ecraser un homonyme")
 # on refait le chemin : rejet, puis on place une AUTRE image du meme nom dans OK
-appeler(tri.api_action, {"name": "voyage_rando_01.png", "bucket": "OK",
+appeler("/api/action", {"name": "voyage_rando_01.png", "bucket": "OK",
                          "action": "rejeter", "space": "sfw"})
 intruse = racine / "PROD" / "LENA" / "OK" / "voyage_rando_01.png"
 image(intruse, taille=(64, 64))          # image DIFFERENTE, meme nom
 avant = intruse.stat().st_size
-r = appeler(tri.api_undo, {})
+r = appeler("/api/undo", {})
 verifie(intruse.exists() and intruse.stat().st_size == avant,
         "l'image deja presente dans OK n'a pas ete ecrasee")
 verifie(r["name"] != "voyage_rando_01.png",
@@ -152,13 +147,11 @@ verifie(not (racine / "PROD" / "EXPORT" / "lena" / "divers").exists(),
         "aucun export n'a atterri dans « divers »")
 
 print("\n[6] une action inconnue est refusee proprement")
-try:
-    appeler(tri.api_action, {"name": "voyage_rando_01.png", "bucket": "OK",
-                             "action": "supprimer_tout", "space": "sfw"})
-    verifie(False, "une action inconnue doit lever une erreur HTTP")
-except Exception as e:
-    verifie(type(e).__name__ == "HTTPBadRequest",
-            f"action inconnue : 400 propre ({type(e).__name__})")
+r6 = CLIENT.post("/api/action", json={"name": "voyage_rando_01.png",
+                                      "bucket": "OK", "action": "supprimer_tout",
+                                      "space": "sfw"})
+verifie(r6.status_code == 400 and r6.json().get("ok") is False,
+        f"action inconnue : 400 propre, en JSON ({r6.status_code})")
 
 print("\n[7] les vignettes ne survivent pas au deplacement")
 # une vignette est rangee par espace/bucket : l'image qui change de dossier
@@ -167,7 +160,7 @@ tdir = ss.THUMBS / "lena" / "sfw" / "OK"
 tdir.mkdir(parents=True, exist_ok=True)
 vignette = tdir / (Path(renomme).stem + ".jpg")
 image(vignette, taille=(64, 64))
-appeler(tri.api_action, {"name": renomme, "bucket": "OK",
+appeler("/api/action", {"name": renomme, "bucket": "OK",
                          "action": "archiver", "space": "sfw"})
 verifie(not vignette.exists(), "la vignette du dossier quitte est retiree")
 
@@ -204,9 +197,9 @@ verifie(ss.bucket_dir("OK", "nsfw", "lena")
 try:
     ss.bucket_dir("OK", "sfw", None)
     verifie(False, "bucket_dir sans personnage doit etre refuse")
-except Exception as e:
-    verifie(type(e).__name__ == "HTTPBadRequest",
-            f"bucket_dir sans personnage : refus propre ({type(e).__name__})")
+except BadRequest as e:
+    verifie(e.status_code == 400 and e.detail.get("ok") is False,
+            f"bucket_dir sans personnage : refus propre ({e.detail})")
 
 shutil.rmtree(racine, ignore_errors=True)
 print()
