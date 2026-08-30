@@ -301,7 +301,7 @@ async def api_delete(request):
     """Suppression DEFINITIVE — pas un tri, pas dans UNDO, pas de retour.
 
     Retire le fichier, sa vignette et sa copie d'export. `journal_batch.csv`,
-    `mesures.json` et `PROD/comfystudio.db` restent intacts : ce sont des historiques
+    `mesures.json` et `PROD/soulglade.db` restent intacts : ce sont des historiques
     append-only ailleurs dans le projet (meme raison que le jugement humain ne
     vit pas dans le journal), pas un index de ce qui existe sur le disque — une
     ligne qui pointe vers un fichier disparu reste un fait vrai : cette image a

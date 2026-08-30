@@ -1,4 +1,4 @@
-"""Peuple PROD/comfystudio.db depuis les fichiers existants. Idempotent.
+"""Peuple PROD/soulglade.db depuis les fichiers existants. Idempotent.
 
     !! SCRIPT HISTORIQUE (J1), ANTERIEUR A L'ISOLATION DISQUE (29/08/2026) !!
     Il ecrit character_id="lena" partout et lit l'ancienne disposition

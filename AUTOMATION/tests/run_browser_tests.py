@@ -11,7 +11,7 @@ test, sur un port dedie, tue apres. NODE_PATH pointe sur le playwright installe
 HORS du repo (le repo n'a aucune dependance).
 
     python_embeded\\python.exe AUTOMATION\\tests\\run_browser_tests.py
-    ... --pw  C:\\chemin\\vers\\node_modules   (defaut : ~/.comfystudio-pw/node_modules)
+    ... --pw  C:\\chemin\\vers\\node_modules   (defaut : ~/.soulglade-pw/node_modules)
     ... --only test_ecran_wizard,test_ecran_registre
     ... --port-base 8260
 
@@ -112,7 +112,7 @@ def run_one(name, port, node_path):
 
 def main(argv):
     ap = argparse.ArgumentParser(description="Fumigations navigateur, un dashboard neuf par test")
-    ap.add_argument("--pw", default=str(Path.home() / ".comfystudio-pw" / "node_modules"),
+    ap.add_argument("--pw", default=str(Path.home() / ".soulglade-pw" / "node_modules"),
                     help="node_modules contenant playwright (installe hors du repo)")
     ap.add_argument("--only", default="", help="liste separee par des virgules")
     ap.add_argument("--port-base", type=int, default=8260)
@@ -124,7 +124,7 @@ def main(argv):
         return 2
     if not (Path(a.pw) / "playwright").is_dir():
         print(f"playwright introuvable sous {a.pw}\n"
-              f"  l'installer HORS du repo :  mkdir ~/.comfystudio-pw && cd ~/.comfystudio-pw\n"
+              f"  l'installer HORS du repo :  mkdir ~/.soulglade-pw && cd ~/.soulglade-pw\n"
               f"  npm init -y && npm i playwright && npx playwright install chromium\n"
               f"  (ou passer --pw <chemin>)")
         return 2

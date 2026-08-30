@@ -83,7 +83,7 @@ couleurs cohérent à l'œil peut très bien passer sous le seuil.
 
 Depuis le 29/08/2026 le header ne porte plus la navigation : les cinq
 destinations sont passées dans la **navbar latérale** (ci-dessous). Il ne garde
-que ce qui répond à « où suis-je » — **`ComfyStudio · <personnage>`** et la
+que ce qui répond à « où suis-je » — **`Soulglade · <personnage>`** et la
 sonde ComfyUI.
 
 Le header n'hérite pas de `--font` : ses zones ont des tailles propres

@@ -113,7 +113,7 @@ Il **disparaissait dès qu'un personnage était chargé** : `paintNeutral()`
 carte du personnage. On ne savait plus dans quel outil on était, seulement chez
 qui.
 
-> **ComfyStudio · L** *Léna* `lena` [instagram-influenceur] [Slow life]
+> **Soulglade · L** *Léna* `lena` [instagram-influenceur] [Slow life]
 
 L'application d'abord, le personnage ensuite. Sous 820 px le nom de
 l'application cède **avant** celui du personnage : savoir chez QUI on est prime
@@ -124,10 +124,10 @@ alors sur savoir dans quel outil, la navbar restant à l'écran pour le dire.
 | Fichier | Quoi |
 |---|---|
 | `studio.js` | **neuf** — repli, focus, persistance, raccourci `f` |
-| `index.html` | navbar dans `.shell`, header allégé, titre `ComfyStudio` |
+| `index.html` | navbar dans `.shell`, header allégé, titre `Soulglade` |
 | `components.css` | `.sidenav`, mode icônes, mode focus, `--nav` ; `.launch` franchit les deux colonnes |
 | `base.css` | `.tabs` en colonne, `.brand-app` |
-| `character.js` | `ComfyStudio` dans les deux états |
+| `character.js` | `Soulglade` dans les deux états |
 | `screens.css` | repli du header réécrit (les onglets n'y sont plus) |
 | `main.js` | import de `studio.js` |
 | `DESIGN.md` | section navbar, header, inventaire des classes |

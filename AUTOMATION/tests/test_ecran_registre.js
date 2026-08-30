@@ -42,8 +42,8 @@ const ORIGIN = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   erreurs.forEach(e => console.log('      ' + e.slice(0, 150)));
   dire(await vu('#registre'), 'l\'ecran #registre est visible');
   dire(!(await vu('#creer')), 'l\'ecran #creer n\'est PAS affiche au demarrage');
-  dire(/Studio/.test((await page.textContent('.brand')).trim()),
-       'l\'en-tete est neutre (« Studio »), aucun personnage revendique');
+  dire(/Soulglade/.test((await page.textContent('.brand')).trim()),
+       'l\'en-tete est neutre (« Soulglade »), aucun personnage revendique');
   dire((await page.getAttribute('#registre', 'data-vue')) === 'sas',
        'l\'ecran est en vue « sas »');
   dire(await vu('#charGrid'), 'la grille de choix est la');

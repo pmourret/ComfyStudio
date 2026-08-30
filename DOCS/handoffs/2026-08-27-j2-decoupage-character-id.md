@@ -34,8 +34,8 @@ aucune fonction généralisée ne suppose qu'un seul personnage peut exister.
   explicite de l'utilisateur, hors plan initial) : `lena_batch.py` →
   `runner.py`, `mcp_lena.py` → `mcp_server.py`, fonctions MCP
   `lena_etat`/`lena_scenes`/`lena_plan`/`lena_mesures` → `etat`/`scenes`/
-  `plan`/`mesures`, `PROD/lena.db` → `PROD/comfystudio.db`, serveur MCP
-  `"lena"` → `"comfystudio"` (choix validés par l'utilisateur via
+  `plan`/`mesures`, `PROD/lena.db` → `PROD/soulglade.db`, serveur MCP
+  `"lena"` → `"soulglade"` (choix validés par l'utilisateur via
   AskUserQuestion). Volontairement **non renommé** : la valeur de donnée
   `character_id="lena"`, les fichiers `WORKFLOWS/*/lena_*.json` (risque
   ComfyUI), les préfixes de namespace `_LENA_EXPR_`/`_LENA_NSFW_SRC_`/

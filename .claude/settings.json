@@ -39,7 +39,7 @@
       "Bash(curl -s -w \" [HTTP %{http_code}]\" \"http://127.0.0.1:8210/api/character?character=bogus\")",
       "Bash(curl -s \"http://127.0.0.1:8210/\")",
       "Bash(kill %1)",
-      "Read(//c/Users/PIERRE~1/AppData/Local/Temp/claude/d--Projects-Python-ComfyStudio/**)",
+      "Read(//c/Users/PIERRE~1/AppData/Local/Temp/claude/d--Projects-Python-SoulGlade/**)",
       "Bash(node -e \"try{require.resolve\\('playwright'\\);console.log\\('found in cwd'\\)}catch\\(e\\){console.log\\('not in cwd'\\)}\")",
       "Read(//c/Users/Pierre Mourret/AppData/Local/ms-playwright/**)",
       "Bash(npm init *)",

@@ -112,7 +112,7 @@ def retirer_fixture():
     shutil.rmtree(PROD_PROBE, ignore_errors=True)
     shutil.rmtree(THUMBS_PROBE, ignore_errors=True)
     # le tri ecrit en base : on ne laisse pas de ligne 'probe' dans l'historique
-    db = OFM / "PROD" / "comfystudio.db"
+    db = OFM / "PROD" / "soulglade.db"
     if db.exists():
         cx = sqlite3.connect(db)
         try:

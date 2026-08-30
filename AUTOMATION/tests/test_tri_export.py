@@ -79,7 +79,7 @@ racine = Path(tempfile.mkdtemp(prefix="tri_"))
 ss.OFM = racine
 ss.THUMBS = racine / "PROD" / ".thumbs"
 mes.FICHIER = racine / "PROD" / "mesures.json"
-db.FICHIER = racine / "PROD" / "comfystudio.db"
+db.FICHIER = racine / "PROD" / "soulglade.db"
 ss.UNDO.clear()
 
 for b in ("OK", "A_REVOIR", "REJET", "ARCHIVE"):

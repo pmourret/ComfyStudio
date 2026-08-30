@@ -41,7 +41,7 @@ import runner as lb      # noqa: E402
 
 PROD = OFM / "PROD"
 JOURNAL = PROD / "journal_batch.csv"
-BASE = PROD / "comfystudio.db"
+BASE = PROD / "soulglade.db"
 
 # Le NSFW global etait, de fait, celui de Lena : elle est le seul personnage a
 # avoir produit avant que l'arbre par personnage existe (J6). Ecrit ici plutot

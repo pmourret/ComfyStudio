@@ -1,4 +1,4 @@
-"""Serveur MCP de la plateforme ComfyStudio — sans aucune dependance.
+"""Serveur MCP de la plateforme Soulglade — sans aucune dependance.
 
     python_embeded\\python.exe AUTOMATION\\mcp_server.py
 
@@ -41,7 +41,7 @@ OFM = HERE.parent
 sys.path.insert(0, str(HERE))
 
 PROTOCOLE = "2024-11-05"
-SERVEUR = {"name": "comfystudio", "version": "1.0.0"}
+SERVEUR = {"name": "soulglade", "version": "1.0.0"}
 
 
 # --------------------------------------------------------------------- outils

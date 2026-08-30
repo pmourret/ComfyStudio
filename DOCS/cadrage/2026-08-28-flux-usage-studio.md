@@ -1,4 +1,4 @@
-# Flux d’usage global — ComfyStudio
+# Flux d’usage global — Soulglade
 
 Document de cadrage produit. Ce n’est pas `CLAUDE.md` (règles) ni `ROADMAP.md` (jalons) : c’est ce que l’humain *fait* dans le studio.
 

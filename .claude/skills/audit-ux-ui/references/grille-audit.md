@@ -1,4 +1,4 @@
-# Grille d'audit ComfyStudio
+# Grille d'audit Soulglade
 
 ## A · Bugs de parcours
 - Personnage affiché ≠ `character_id` réel après `?character=`

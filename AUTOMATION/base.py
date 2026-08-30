@@ -33,7 +33,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 OFM = HERE.parent
-FICHIER = OFM / "PROD" / "comfystudio.db"
+FICHIER = OFM / "PROD" / "soulglade.db"
 
 SCHEMA = """
 PRAGMA journal_mode = WAL;

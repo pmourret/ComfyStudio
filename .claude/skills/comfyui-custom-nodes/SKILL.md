@@ -47,13 +47,13 @@ from typing_extensions import override
 from comfy_api.latest import ComfyExtension, io
 
 
-class CSExample(io.ComfyNode):
+class SGExample(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
         return io.Schema(
-            node_id="CSExample",           # cle du mapping = "type" dans le JSON du workflow
-            display_name="CS Example",
-            category="ComfyStudio/utils",
+            node_id="SGExample",           # cle du mapping = "type" dans le JSON du workflow
+            display_name="SG Example",
+            category="Soulglade/utils",
             description="What the node does (tooltip).",
             inputs=[
                 io.Image.Input("image", tooltip="Input image."),
@@ -71,17 +71,17 @@ class CSExample(io.ComfyNode):
         return io.NodeOutput(out)
 
 
-class CSExtension(ComfyExtension):
+class SGExtension(ComfyExtension):
     @override
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
-        return [CSExample]
+        return [SGExample]
 
 
-async def comfy_entrypoint() -> CSExtension:
-    return CSExtension()
+async def comfy_entrypoint() -> SGExtension:
+    return SGExtension()
 ```
 
-Le préfixe `CS` est la convention de ce projet : `schema.node_id` devient la
+Le préfixe `SG` est la convention de ce projet : `schema.node_id` devient la
 clé de `NODE_CLASS_MAPPINGS`, donc le champ `type` dans les JSON de
 workflow, et il doit être **globalement unique** sur l'installation. Sans
 préfixe, une collision avec un pack tiers installé plus tard renomme
@@ -136,7 +136,7 @@ python -c "
 import sys; sys.path.insert(0,'AUTOMATION')
 import ui_to_api
 obj = ui_to_api.fetch_object_info('http://127.0.0.1:8188')
-print('CSExample' in obj)
+print('SGExample' in obj)
 "
 ```
 

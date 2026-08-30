@@ -1,4 +1,4 @@
-# ComfyStudio
+# Soulglade
 
 > Studio de création de personnages IA construit au-dessus de ComfyUI —
 > orchestration multi-personnage et multi-univers, pensée comme une couche

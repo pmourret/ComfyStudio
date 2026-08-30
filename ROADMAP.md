@@ -22,7 +22,7 @@ prouvent la généralisation — pas juste Léna renommée.
   expression`, jamais lu par le tri), juste pas formalisé. Décision écrite
   dans `DOCS/adr/0009-score-identite-genres-distincts.md`, vérifiée par
   `test_coherence_base.py` (23/23 sur les deux `genre`)
-- Opérationnel pour `J1` : `PROD/comfystudio.db` est git-ignoré, ne voyage pas
+- Opérationnel pour `J1` : `PROD/soulglade.db` est git-ignoré, ne voyage pas
   avec le repo — un fork doit régénérer la base via `migrer_base.py`,
   pas copier le fichier
 
@@ -62,7 +62,7 @@ prouvent la généralisation — pas juste Léna renommée.
   avant de poursuivre J2. `lena_batch.py` → `runner.py`, `mcp_lena.py` →
   `mcp_server.py`, outils MCP `lena_etat/lena_scenes/lena_plan/lena_mesures`
   → `etat/scenes/plan/mesures`, serveur MCP et base SQLite renommés
-  `comfystudio` (`.mcp.json`, `PROD/comfystudio.db`). Restent nommés
+  `soulglade` (`.mcp.json`, `PROD/soulglade.db`). Restent nommés
   d'après Léna, volontairement : la valeur `character_id="lena"` elle-même
   (c'est le bon identifiant, pas un nom à généraliser), les fichiers de
   workflow ComfyUI (`WORKFLOWS/*/lena_*.json` — renommage risqué et propre
@@ -72,7 +72,7 @@ prouvent la généralisation — pas juste Léna renommée.
 - Embeddings/centroïde non régénérés ici (`backfill_embeddings.py`
   demande le GPU) — à lancer une fois qu'une génération réelle démarre
   dans ce repo
-- Audit des skills Léna vs ComfyStudio fait, puis porté : `workflow-comfyui`
+- Audit des skills Léna vs Soulglade fait, puis porté : `workflow-comfyui`
   enrichi (141 lignes + 2 références écrites contre `ui_to_api.py` réel,
   pas contre la doc — a trouvé 3 faits non documentés même côté Léna),
   `comfyui-custom-nodes` et `image-realism-check` créés et vérifiés contre
