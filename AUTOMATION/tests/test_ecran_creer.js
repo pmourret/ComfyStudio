@@ -102,6 +102,31 @@ const comfyUp = () => new Promise(r => {
   const prov = (await page.textContent('#insSrc')).trim();
   dire(prov.length > 0, `#insSrc garde la provenance a cote : « ${prov} »`);
 
+  /* [1e] F1.3 — l'inspecteur sait OUVRIR l'image qu'il montre. Le lien vise un
+     nom de fichier, et sa destination depend du bucket : une validee se lit en
+     Galerie, tout le reste se juge en Revue. On asserte la PRESENCE du lien et
+     la forme du hash — pas le GPU, pas un rendu. */
+  console.log(`
+[1e] l'inspecteur ouvre l'image montree (30/08/2026)`);
+  dire(await vu('#insVoir'), 'le lien « voir cette image » est la');
+  const bucketIns = await page.evaluate(() => {
+    const dd = [...document.querySelectorAll('#insMeta dt')]
+      .find(d => d.textContent.trim() === 'Tri');
+    return dd ? dd.nextElementSibling.textContent.trim() : '';
+  });
+  await page.click('#insVoir');
+  await page.waitForTimeout(900);
+  const hIns = decodeURIComponent(await page.evaluate(() => location.hash));
+  const attendu = bucketIns === 'validées' ? '#galerie/' : '#trier/';
+  dire(hIns.startsWith(attendu),
+       `« ${bucketIns} » -> ${hIns.slice(0, 60)} (attendu ${attendu}<nom>)`);
+  dire(await vu('#trier'), `il ouvre bien l'ecran de consultation`);
+  const metierIns = await page.getAttribute('#trier', 'data-metier');
+  dire(metierIns === (bucketIns === 'validées' ? 'galerie' : 'revue'),
+       `metier de l'ecran : ${metierIns}`);
+  await page.click('.tabs button[data-s="creer"]');
+  await page.waitForTimeout(700);
+
   // Etat vide REEL, pas simule : on vide la banque, et /api/state arrive deja
   // avec recent:[] hors batch — l'inspecteur tombe donc sur son propre vide.
   const pv = await nav.newPage();

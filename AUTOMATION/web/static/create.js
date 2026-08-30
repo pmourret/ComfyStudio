@@ -5,7 +5,7 @@
    bus. */
 import {$, $$, esc, mmss} from './dom.js';
 import {api, post, imgUrl} from './api.js';
-import {VERDICT_LABEL} from './constants.js';
+import {VERDICT_LABEL, hashPourImage} from './constants.js';
 import {on} from './bus.js';
 import {toast} from './toast.js';
 import {confirmer} from './modal.js';
@@ -16,7 +16,6 @@ import {qc, presetRef, nsfwRef} from './config.js';
 import {scenes} from './scenes-store.js';
 import {isRunning, markRunning} from './poller.js';
 import {updateInspector} from './inspector.js';
-import {setTriageEntry} from './review.js';
 import {brancher} from './hints.js';
 
 /* --- etat de l'ecran Creer, prive au module --------------------------- */
@@ -1048,6 +1047,12 @@ export function renderRun(s){
   // NSFW recompose deux outils globaux, il n'en ajoute aucun). On nomme le
   // chemin plutot que d'ouvrir une route qui sauterait par-dessus la Revue.
   const finiEnEdition = !s.running && !!s.edition && !!s.total;
+  // La derniere sortie du lot, pour NOMMER la destination du renvoi : le lot
+  // d'edition range ses images selon leur verdict (OK ou A_REVOIR), donc tantot
+  // en Galerie tantot en Revue. On lit le bucket plutot que de le supposer —
+  // supposer OK envoyait sur un dossier ou l'image n'etait pas.
+  const derniere = (s.recent || [])[(s.recent || []).length - 1] || null;
+  const ouRetoucher = derniere && derniere.bucket === 'OK' ? 'Galerie' : 'Revue';
   // pendant la generation, l'image en cours n'est pas encore acquise
   const doneN = Math.max(0, s.index - (s.running ? 1 : 0));
   const pct = s.total ? Math.round(100 * doneN / s.total) : 0;
@@ -1072,8 +1077,9 @@ export function renderRun(s){
       <div class="bar"><div style="width:${pct}%"></div></div>
       <div class="strip">${strip}</div>
       ${finiEnEdition ? `<p class="tiny" style="margin:8px 0 0">
-        Retouche : <b>Revue, espace NSFW</b> → l'image → <b>Éditer</b>.
-        <button class="link" id="btnGoNsfw">ouvrir la Revue en NSFW</button></p>` : ''}
+        Retouche : <b>${ouRetoucher}, espace NSFW</b> → l'image → <b>Éditer</b>.
+        <button class="link" id="btnGoNsfw">ouvrir ${derniere
+          ? 'cette image' : 'la ' + ouRetoucher} en NSFW</button></p>` : ''}
       <details class="adv" style="margin-top:6px;border:0;padding:0" ${wasOpen ? 'open' : ''}>
         <summary>journal technique</summary>
         <pre class="log">${esc((s.log || []).slice(-40).join('\n'))}</pre>
@@ -1090,9 +1096,16 @@ export function renderRun(s){
     p.style.display = 'none';
     RUN_SIG = null;
   };
+  /* Le seul geste de l'application qui entre en espace NSFW par la navigation :
+     il SAIT de quel espace sort le lot (J7 — jamais un onglet du chrome). Il
+     nomme aussi le fichier (#galerie/<nom>), pour ouvrir sur l'image qu'on
+     vient de produire plutot que sur un dossier ou la retrouver.
+     Poser l'entree de tri AVANT `go` ne suffisait pas : la route la repose en
+     arrivant, et l'espace demande etait perdu — il passe donc par `go`, qui le
+     tient de l'appelant. */
   const gn = $('#btnGoNsfw'); if (gn) gn.onclick = () => {
-    setTriageEntry('OK', 'nsfw');           // le lot vient d'y ranger ses sorties
-    go('trier');
+    if (derniere) return go(hashPourImage(derniere), false, {space: 'nsfw'});
+    go(ouRetoucher === 'Galerie' ? 'galerie' : 'trier', false, {space: 'nsfw'});
   };
   p.querySelectorAll('.strip img').forEach(im => im.onclick = () => openLight(im.dataset.full));
 }

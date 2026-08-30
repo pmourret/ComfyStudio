@@ -24,7 +24,8 @@ import {$, esc} from './dom.js';
 import {api, imgUrl, erreurDe} from './api.js';
 import {currentCharacter} from './character.js';
 import {openLight} from './lightbox.js';
-import {VERDICT_LABEL} from './constants.js';
+import {emit} from './bus.js';
+import {VERDICT_LABEL, hashPourImage} from './constants.js';
 
 let META = null;            // /api/character : nom, style, monde, pack
 let FALLBACK = null;        // dernier OK de la banque, si aucun batch a montrer
@@ -32,6 +33,7 @@ let FALLBACK_DONE = false;  // la banque n'est lue qu'une fois (rejouable si KO)
 let FROM_STATE = null;      // derniere entree retenue de STATE.recent
 let SIG = null;             // signature du dernier peint : le tick est a 1,5 s
 let FULL = null;            // URL pleine taille de l'image montree (loupe)
+let MONTREE = null;         // l'item peint, pour le renvoi « voir cette image »
 
 /* --- entrees du module ------------------------------------------------ */
 
@@ -103,8 +105,18 @@ function ensureShell(){
       <img class="ins-layer cur" id="insImg" alt="">
       <p class="ins-void" id="insVoid"></p>
     </div>
-    <dl class="meta ins-meta" id="insMeta"></dl>`;
+    <dl class="meta ins-meta" id="insMeta"></dl>
+    <p class="tiny ins-voir" id="insVoirLigne" hidden>
+      <button class="link" id="insVoir">voir cette image</button></p>`;
   $('#insImg').onclick = () => { if (FULL) openLight(FULL); };
+  /* La loupe montre les octets ; ce lien mene a l'ECRAN ou l'image se travaille,
+     et c'est son bucket qui decide lequel — une validee en Galerie, tout le
+     reste en Revue (hashPourImage). On emet plutot que d'importer nav.js : ce
+     module est deja importe PAR nav.js (inspectorEnter), l'importer en retour
+     fermerait un cycle. */
+  $('#insVoir').onclick = () => {
+    if (MONTREE) emit('nav:go', {name: hashPourImage(MONTREE)});
+  };
   return box;
 }
 
@@ -119,7 +131,10 @@ function render(){
                               META && META.name, META && META.output_style]);
   if (sig === SIG) return;
   SIG = sig;
+  MONTREE = item;
   $('#insSrc').textContent = src;
+  // pas d'image montree = rien a aller voir : le lien part, il ne se grise pas
+  $('#insVoirLigne').hidden = !item;
   setShot(item);
   $('#insMeta').innerHTML = metaRows(item)
     .map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');

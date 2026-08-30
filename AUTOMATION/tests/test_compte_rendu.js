@@ -139,9 +139,41 @@ try {
   const revenu = await lire();
   dire(revenu.txt === deplie.txt, `le compteur est inchangé : « ${revenu.txt} »`);
 
-  console.log('\n[6] aucune erreur JS sur tout le parcours');
-  dire(erreurs.length === 0, `${erreurs.length} erreur(s)`);
-  erreurs.forEach(e => console.log('      ' + e.slice(0, 150)));
+  /* [6] Le renvoi de fin de lot d'EDITION est le seul geste de navigation qui
+     entre en espace NSFW — parce qu'il NOMME cet espace (contrat J7 : aucun
+     onglet du chrome n'y entre tout seul). Depuis F1.3 il nomme aussi le
+     FICHIER, et sa destination suit le verdict du lot : une sortie validée se
+     retouche en Galerie, une sortie à revoir en Revue. */
+  console.log('\n[6] fin de lot d\'édition : le renvoi ouvre CETTE image, en NSFW');
+  // L'état est FABRIQUÉ : « edit_temoin.png » n'a pas d'octets sur le disque,
+  // /img répond donc 404 à la vignette et à la galerie NSFW. Ce 404 vient du
+  // stub, pas du code testé — on note le point de départ pour ne pas le
+  // compter en [7], et on garde toutes les autres erreurs.
+  const avantEdit = erreurs.length;
+  const lotEdit = {...lot('20260830_120000', false), edition: true,
+    stats: {OK: 1}, recent: [{bucket: 'OK', name: 'edit_temoin.png',
+                              space: 'nsfw', scene: 'retouche', score: 0.91}]};
+  await peindre(lotEdit);
+  await page.waitForTimeout(300);
+  dire(await page.isVisible('#btnGoNsfw'), 'le lien de retouche est proposé');
+  const phrase = ((await page.textContent('#runPanel p.tiny')) || '')
+    .replace(/\s+/g, ' ').trim();
+  dire(/Galerie, espace NSFW/.test(phrase), `il nomme la destination : « ${phrase} »`);
+  await page.click('#btnGoNsfw');
+  await page.waitForTimeout(1200);
+  const h = decodeURIComponent(await page.evaluate(() => location.hash));
+  dire(h === '#galerie/edit_temoin.png', `hash visé : ${h}`);
+  dire((await page.$eval('#spaceSel button.on', b => b.dataset.sp)) === 'nsfw',
+       'et il a bien demandé l\'espace NSFW');
+  dire((await page.getAttribute('#trier', 'data-metier')) === 'galerie',
+       'sur le métier Galerie — la sortie du lot est une validée');
+
+  console.log('\n[7] aucune erreur JS sur tout le parcours');
+  const inattendues = erreurs.filter((e, i) => i < avantEdit || !/404/.test(e));
+  dire(inattendues.length === 0, `${inattendues.length} erreur(s)`
+       + (erreurs.length > inattendues.length
+          ? ` (${erreurs.length - inattendues.length} 404 attendus : le fichier du lot fabriqué n'existe pas)` : ''));
+  inattendues.forEach(e => console.log('      ' + e.slice(0, 150)));
 
   console.log('\n' + '='.repeat(70));
   console.log(ko ? `${ko} ECHEC(S)` : 'tout est vert');
