@@ -8,6 +8,6 @@ enregistree nulle part : web/app.py sert desormais l'application FastAPI de
     routes/etat.py       -> api/routers/state.py     (migre)
     routes/banque.py     -> api/routers/bank.py      (migre)
     routes/vignettes.py  -> api/routers/images.py    (migre)
-    routes/production.py -> api/routers/production.py
+    routes/production.py -> api/routers/production.py (migre)
     routes/tri.py        -> api/routers/review.py
 """
