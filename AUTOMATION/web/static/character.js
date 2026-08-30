@@ -31,9 +31,9 @@ export function reflectCharacter(){
 
 /* Le nom de l'APPLICATION, present dans les deux etats. Il manquait des qu'un
    personnage etait charge : `paint()` remplacait tout `.brand` par la carte du
-   personnage, et « ComfyStudio » disparaissait de l'ecran — on ne savait plus
+   personnage, et « Soulglade » disparaissait de l'ecran — on ne savait plus
    dans quel outil on se trouvait, seulement chez qui. */
-const APP = 'ComfyStudio';
+const APP = 'Soulglade';
 
 function paintNeutral(){
   const brand = document.querySelector('.brand');
@@ -49,7 +49,7 @@ function paint(d){
     // de PROD/, cote entrees ComfyUI) et en inventer une qui lise ce dossier
     // sans borne character_id rouvrirait la fuite que l'isolation du
     // 29/08/2026 vient de fermer. Reporte, pas oublie.
-    // l'application d'abord, le personnage ensuite : on lit « ComfyStudio,
+    // l'application d'abord, le personnage ensuite : on lit « Soulglade,
     // Léna » et pas l'inverse. Le point mediant est un separateur VISUEL, donc
     // aria-hidden — un lecteur d'ecran a deja la respiration du balisage.
     const parts = [`<span class="brand-app">${APP}</span>`,
