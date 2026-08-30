@@ -13,10 +13,26 @@ DEUX SUITES pendant la migration React.
           de la migration. C'est ce qui tourne par defaut.
   LEGACY  les 14 fumigations de l'ancien frontend. Elles s'accrochent aux ids
           du DOM vanilla ET a l'ancienne racine `/`, qui sert desormais le
-          studio React : elles ne passent plus, c'est attendu, et elles sont
-          conservees comme CAHIER DES CHARGES de l'ecran qu'elles couvrent
-          jusqu'a ce que sa version React les remplace. `--legacy` les lance
-          quand meme, pour lire ce qu'elles verifiaient.
+          studio React : elles ne passent plus, c'est attendu. Les SEPT ecrans
+          etant migres, chacune a desormais son equivalent React (voir la
+          colonne ci-dessous) ; elles restent la jusqu'a la depose de
+          `/legacy`, comme trace de ce qui etait verifie. `--legacy` les lance
+          quand meme, pour le lire.
+
+            test_ecran_registre ............ test_characters
+            test_ecran_wizard .............. test_wizard
+            test_ecran_creer ............... test_produce
+            test_panneau_reglages .......... test_produce
+            test_apercu_prompt ............. test_produce
+            test_compte_rendu .............. test_produce
+            test_galerie ................... test_review
+            test_contenu_adulte ............ test_application
+            test_sondes_comfy .............. test_application
+            test_application_suppression_editeur  test_application + test_editor
+            test_rail_repli ................ test_bank
+            test_scenes_aller_retour ....... test_bank
+            test_pose_scene_card ........... test_bank
+            test_pose_extraction ........... test_pose_extract
 
 QUEL INTERPRETEUR. Le studio tourne sous `python_embeded`, celui de ComfyUI
 (AUDIT §2.4), et c'est LUI qu'il faut employer ici : le venv de developpement
@@ -65,6 +81,7 @@ TESTS = [
     "test_bank",          # banque de scenes + poses + rail d'outils (ecran 5)
     "test_review",        # Revue et Galerie, pieges `v` et /api/mesurer (ecran 6)
     "test_editor",        # editeur photo : recadrage, copie, ecrasement (ecran 6)
+    "test_produce",       # Produire : pieges /api/plan et #btnRun (ecran 7)
     "test_pose_extract",  # ComfyUI requis (s'ignore sinon) : extraction reelle
 ]
 

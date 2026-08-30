@@ -57,6 +57,11 @@ type ChromeContextValue = {
   identityMenuOpen: boolean
   openIdentityMenu: () => void
   closeIdentityMenu: () => void
+  /* The generation settings panel. It lives here because TWO buttons open it —
+     the gear of the launch bar and the one of the tool rail — and they must
+     share ONE state: a second settings surface could drift from this one. */
+  gearOpen: boolean
+  toggleGear: () => void
   navCollapsed: boolean
   railCollapsed: boolean
   focus: boolean
@@ -80,8 +85,11 @@ export function ChromeProvider({ children }: { children: ReactNode }) {
   const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW).matches)
   const [identityMenuOpen, setIdentityMenuOpen] = useState(false)
 
+  const [gearOpen, setGearOpen] = useState(false)
+
   const openIdentityMenu = useCallback(() => setIdentityMenuOpen(true), [])
   const closeIdentityMenu = useCallback(() => setIdentityMenuOpen(false), [])
+  const toggleGear = useCallback(() => setGearOpen((current) => !current), [])
 
   useEffect(() => {
     const query = window.matchMedia(NARROW)
@@ -135,6 +143,8 @@ export function ChromeProvider({ children }: { children: ReactNode }) {
       identityMenuOpen,
       openIdentityMenu,
       closeIdentityMenu,
+      gearOpen,
+      toggleGear,
       navCollapsed,
       railCollapsed,
       focus,
@@ -147,6 +157,8 @@ export function ChromeProvider({ children }: { children: ReactNode }) {
       identityMenuOpen,
       openIdentityMenu,
       closeIdentityMenu,
+      gearOpen,
+      toggleGear,
       navCollapsed,
       railCollapsed,
       focus,

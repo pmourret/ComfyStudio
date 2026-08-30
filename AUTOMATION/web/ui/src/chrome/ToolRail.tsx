@@ -98,7 +98,7 @@ function RailItem({
 export function ToolRail() {
   const api = useApi()
   const { claimed } = useCharacter()
-  const { railCollapsed, toggleRail } = useChrome()
+  const { railCollapsed, toggleRail, toggleGear } = useChrome()
   const { pathname } = useLocation()
   const visible = useRailVisible()
   const [tools, setTools] = useState<Tool[] | null>(null)
@@ -178,9 +178,22 @@ export function ToolRail() {
 
       <div className="rail-foot">
         {/* Generation settings belong to Produire: elsewhere the panel is on a
-            screen that is not mounted, so the button says so instead of lying.
-            It stays inert until Produire is migrated. */}
-        <button className="rail-it" id="railGear" disabled data-hint-text="depuis Produire">
+            screen that is not mounted, so the button SAYS so instead of lying.
+            Same panel as the gear of the launch bar — two buttons, ONE state,
+            never a second settings surface that could drift from this one. */}
+        <button
+          className="rail-it"
+          id="railGear"
+          disabled={pathname !== PATHS.produce}
+          title={pathname === PATHS.produce ? 'réglages de génération' : 'depuis Produire'}
+          data-hint-text={pathname === PATHS.produce ? undefined : 'depuis Produire'}
+          onClick={(event) => {
+            // same guard as the identity menu: the outside-click closer must not
+            // fire on the very click that opens the panel
+            event.stopPropagation()
+            toggleGear()
+          }}
+        >
           <Icon name="gear" className="rail-ic" />
           <span className="rail-lab-it">Réglages de génération</span>
         </button>

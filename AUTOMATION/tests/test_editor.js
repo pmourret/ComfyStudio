@@ -33,12 +33,31 @@ catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'
 
 const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
 
+/* GARDE DE DESTRUCTION. Cette fumigation touche des DONNEES REELLES : elle ne
+   doit jamais supprimer une image qu'elle n'a pas creee elle-meme. Le filet
+   n'est pas une relecture de code — il intercepte les requetes : tout
+   /api/delete dont le nom n'est pas dans `jetables` fait ECHOUER le test,
+   immediatement et bruyamment, au lieu de passer inapercu derriere un compteur
+   qui retombe juste.
+
+   Ecrit apres un incident du 30/08/2026 : une image de production a disparu
+   pendant une campagne de fumigations sans qu'aucune assertion ne le voie. */
+const jetables = new Set();
+const volsDeDonnees = [];
+
+
 (async () => {
   const nav = await chromium.launch();
   const page = await nav.newPage({ viewport: { width: 1600, height: 1000 } });
   const erreurs = [];
   page.on('pageerror', e => erreurs.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') erreurs.push('console: ' + m.text()); });
+  page.on('request', r => {
+    if (r.method() !== 'POST' || !r.url().includes('/api/delete')) return;
+    const nom = (r.postDataJSON() || {}).name;
+    if (!jetables.has(nom)) volsDeDonnees.push(nom);
+  });
+
 
   let ko = 0;
   const dire = (bon, quoi) => { console.log(`   ${bon ? 'ok  ' : 'ECHEC'} ${quoi}`); if (!bon) ko++; };
@@ -198,6 +217,9 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
        'le marqueur d edition est retire');
   const apres = await noms();
   const copie = apres.find(n => !nomsAvant.includes(n));
+  // la copie que CE test vient de creer : le seul fichier qu'il a le droit
+  // d'effacer. La garde du haut refuse tout le reste.
+  if (copie) jetables.add(copie);
   dire(Boolean(copie), `une copie est apparue : ${copie}`);
   dire(Boolean(copie) && copie.includes('_edit'), 'son nom porte bien `_edit`');
   dire(apres.includes(nomsAvant[0]), "et la SOURCE est intacte, elle n'a pas ete remplacee");
@@ -224,6 +246,12 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   console.log('\n[12] aucune erreur JS sur tout le parcours');
   dire(erreurs.length === 0, `${erreurs.length} erreur(s)`);
   erreurs.forEach(e => console.log('      ' + e.slice(0, 150)));
+
+  console.log('\n' + '[garde] aucune image reelle supprimee');
+  dire(volsDeDonnees.length === 0,
+       volsDeDonnees.length
+         ? 'SUPPRESSION NON PREVUE : ' + volsDeDonnees.join(', ')
+         : 'aucun /api/delete hors des fichiers crees par le test');
 
   console.log('\n' + '='.repeat(70));
   console.log(ko ? `${ko} ECHEC(S)` : 'tout est vert');

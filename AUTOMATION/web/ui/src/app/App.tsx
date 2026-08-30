@@ -26,12 +26,12 @@ import { ConfigProvider } from '../state/ConfigContext'
 import { LightboxProvider } from '../chrome/LightboxContext'
 import { BankPosesScreen, BankScenesScreen } from '../screens/bank/BankScreen'
 import { GalleryRoute, ReviewRoute } from '../screens/review/ReviewScreen'
+import { ProduceScreen } from '../screens/produce/ProduceScreen'
 import { ApplicationScreen } from '../screens/ApplicationScreen'
 import { CharactersScreen } from '../screens/CharactersScreen'
 import { WizardScreen } from '../screens/WizardScreen'
 import { CharacterSheetScreen } from '../screens/CharacterSheetScreen'
 import { JournalScreen } from '../screens/JournalScreen'
-import { PendingScreen } from '../screens/PendingScreen'
 import { PATHS } from './routes'
 
 /* The entry gate (J7bis): with no `?character=` the studio opens on the
@@ -81,12 +81,8 @@ export function App() {
                       image aimed at (F1.3), the shape `#trier/<nom>` carried. */}
                   <Route path={`${PATHS.review}/:name?`} element={<ReviewRoute />} />
                   <Route path={`${PATHS.gallery}/:name?`} element={<GalleryRoute />} />
+                  <Route path={PATHS.produce} element={<ProduceScreen />} />
 
-                  {/* --- still served by the legacy frontend */}
-                  <Route
-                    path={PATHS.produce}
-                    element={<PendingScreen title="Produire" legacyHash="creer" />}
-                  />
 
                   {/* An unknown path is not a screen: it goes back to the entry
                       point rather than leaving a blank studio. */}

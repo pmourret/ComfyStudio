@@ -81,7 +81,7 @@ export const DESTINATIONS: Destination[] = [
     path: PATHS.produce,
     icon: 'produce',
     legacyHash: 'creer',
-    migrated: false,
+    migrated: true,
   },
   {
     key: 'review',
@@ -118,6 +118,16 @@ export const DESTINATIONS: Destination[] = [
     migrated: true,
   },
 ]
+
+/* THE shareable form of ONE image, built in ONE place: the bucket decides the
+   destination — a validated one is read in the Galerie, everything else is
+   judged in the Revue. The callers (inspector, end of batch) do not have to
+   guess it. Ported from `hashPourImage` in `static/constants.js`; the shape
+   changed from a hash to a path, the rule did not. */
+export function screenForImage(bucket: string | null | undefined, name: string): string {
+  const base = bucket === 'OK' ? PATHS.gallery : PATHS.review
+  return `${base}/${encodeURIComponent(name)}`
+}
 
 /* Where the legacy frontend lives while the migration runs. It keeps its own
    `?character=` contract — it reads the id once at load, so the link has to

@@ -32,12 +32,34 @@ catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'
 
 const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
 
+/* GARDE DE DESTRUCTION. Cette fumigation touche des DONNEES REELLES : elle ne
+   doit jamais supprimer une image qu'elle n'a pas creee elle-meme. Le filet
+   n'est pas une relecture de code — il intercepte les requetes : tout
+   /api/delete dont le nom n'est pas dans `jetables` fait ECHOUER le test,
+   immediatement et bruyamment, au lieu de passer inapercu derriere un compteur
+   qui retombe juste.
+
+   Ecrit apres un incident du 30/08/2026 : une image de production a disparu
+   pendant une campagne de fumigations sans qu'aucune assertion ne le voie. */
+const jetables = new Set();
+const volsDeDonnees = [];
+/* Cette fumigation ne cree aucun fichier : `jetables` reste VIDE, donc toute
+   suppression, quelle qu'elle soit, la fait echouer. Sa confirmation de
+   suppression est ouverte puis systematiquement annulee. */
+
+
 (async () => {
   const nav = await chromium.launch();
   const page = await nav.newPage({ viewport: { width: 1600, height: 1000 } });
   const erreurs = [];
   page.on('pageerror', e => erreurs.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') erreurs.push('console: ' + m.text()); });
+  page.on('request', r => {
+    if (r.method() !== 'POST' || !r.url().includes('/api/delete')) return;
+    const nom = (r.postDataJSON() || {}).name;
+    if (!jetables.has(nom)) volsDeDonnees.push(nom);
+  });
+
   let mesures = 0;
   page.on('request', r => { if (r.url().includes('/api/mesurer')) mesures++; });
 
@@ -270,6 +292,12 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   console.log('\n[14] aucune erreur JS sur tout le parcours');
   dire(erreurs.length === 0, `${erreurs.length} erreur(s)`);
   erreurs.forEach(e => console.log('      ' + e.slice(0, 150)));
+
+  console.log('\n' + '[garde] aucune image reelle supprimee');
+  dire(volsDeDonnees.length === 0,
+       volsDeDonnees.length
+         ? 'SUPPRESSION NON PREVUE : ' + volsDeDonnees.join(', ')
+         : 'aucun /api/delete hors des fichiers crees par le test');
 
   console.log('\n' + '='.repeat(70));
   console.log(ko ? `${ko} ECHEC(S)` : 'tout est vert');
