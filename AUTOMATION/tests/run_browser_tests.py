@@ -1,19 +1,32 @@
 # -*- coding: utf-8 -*-
-"""Lance les fumigations navigateur (tests/test_ecran_*.js, test_pose_*.js,
-test_apercu_prompt.js, test_contenu_adulte.js,
-test_application_suppression_editeur.js) chacune contre un tableau de bord NEUF.
+"""Lance les fumigations navigateur, chacune contre un tableau de bord NEUF.
 
 Pourquoi un lanceur. Ces tests mutent l'etat (creent des images, extraient des
 poses, enregistrent scenes.json puis reviennent en arriere). Enchaines sur un
 meme dashboard, ils se contaminaient (constate : test_pose_scene_card echouait
 en batch, vert en isolation). Ici : un `app.py --no-comfy --no-browser` par
-test, sur un port dedie, tue apres. NODE_PATH pointe sur le playwright installe
-HORS du repo (le repo n'a aucune dependance).
+test, sur un port dedie, tue apres.
 
-    python_embeded\\python.exe AUTOMATION\\tests\\run_browser_tests.py
-    ... --pw  C:\\chemin\\vers\\node_modules   (defaut : ~/.soulglade-pw/node_modules)
-    ... --only test_ecran_wizard,test_ecran_registre
+DEUX SUITES pendant la migration React.
+
+  REACT   les fumigations du nouveau frontend, recreees ECRAN PAR ECRAN au fil
+          de la migration. C'est ce qui tourne par defaut.
+  LEGACY  les 14 fumigations de l'ancien frontend. Elles s'accrochent aux ids
+          du DOM vanilla ET a l'ancienne racine `/`, qui sert desormais le
+          studio React : elles ne passent plus, c'est attendu, et elles sont
+          conservees comme CAHIER DES CHARGES de l'ecran qu'elles couvrent
+          jusqu'a ce que sa version React les remplace. `--legacy` les lance
+          quand meme, pour lire ce qu'elles verifiaient.
+
+CHAINE D'OUTILS PORTABLE. Playwright et son chromium vivent DANS le depot
+(.toolchain/, git-ignore), installes par AUTOMATION/tools/toolchain.py — rien
+sous %APPDATA%. Les deux variables qui le disent sont posees ici pour les tests.
+
+    python_embeded/python.exe AUTOMATION/tests/run_browser_tests.py
+    ... --legacy                 lance aussi l'ancienne suite
+    ... --only test_journal
     ... --port-base 8260
+    ... --pw <chemin vers un node_modules>   (defaut : celui du repo)
 
 Un test qui ne trouve pas ses prerequis (playwright, ComfyUI, image source)
 s'auto-ignore proprement (IGNORE) et ne compte pas comme un echec.
@@ -32,8 +45,20 @@ HERE = Path(__file__).resolve().parent
 OFM = HERE.parents[1]
 APP = OFM / "AUTOMATION" / "web" / "app.py"
 PY = sys.executable
+# Chaine d'outils portable : tout ce que npm et Playwright telechargent vit
+# dans le depot (voir AUTOMATION/tools/toolchain.py).
+UI_MODULES = OFM / "AUTOMATION" / "web" / "ui" / "node_modules"
+BROWSERS = OFM / ".toolchain" / "playwright-browsers"
 
+# Fumigations du frontend React, dans l'ordre ou les ecrans sont migres.
 TESTS = [
+    "test_journal",                               # coquille + Journal (ecran 1)
+]
+
+# Fumigations de l'ancien frontend. Elles visent `/` et les ids du DOM vanilla ;
+# depuis la bascule, `/` sert le studio React et l'ancien vit sous `/legacy`.
+# Conservees comme cahier des charges de leur ecran jusqu'a sa migration.
+LEGACY_TESTS = [
     "test_ecran_registre",
     "test_ecran_wizard",
     "test_ecran_creer",
@@ -43,6 +68,8 @@ TESTS = [
     "test_galerie",
     "test_compte_rendu",
     "test_apercu_prompt",
+    "test_panneau_reglages",
+    "test_scenes_aller_retour",
     "test_pose_scene_card",
     "test_pose_extraction",                       # ComfyUI requis (s'ignore sinon)
     "test_application_suppression_editeur",       # image source requise (s'ignore sinon)
@@ -94,6 +121,8 @@ def run_one(name, port, node_path):
         env = {**os.environ,
                "DASHBOARD_URL": f"http://127.0.0.1:{port}",
                "NODE_PATH": node_path,
+               # chromium vit dans le depot, jamais sous %LOCALAPPDATA%
+               "PLAYWRIGHT_BROWSERS_PATH": str(BROWSERS),
                # un test qui doit nettoyer derriere lui en base appelle Python ;
                # sans ca il tomberait sur le `python` du PATH, qui n'est pas
                # forcement celui-la (ADR-0008).
@@ -116,9 +145,11 @@ def run_one(name, port, node_path):
 
 def main(argv):
     ap = argparse.ArgumentParser(description="Fumigations navigateur, un dashboard neuf par test")
-    ap.add_argument("--pw", default=str(Path.home() / ".soulglade-pw" / "node_modules"),
-                    help="node_modules contenant playwright (installe hors du repo)")
+    ap.add_argument("--pw", default=str(UI_MODULES),
+                    help="node_modules contenant playwright (defaut : celui du repo)")
     ap.add_argument("--only", default="", help="liste separee par des virgules")
+    ap.add_argument("--legacy", action="store_true",
+                    help="lancer aussi les fumigations de l'ancien frontend")
     ap.add_argument("--port-base", type=int, default=8260)
     ap.add_argument("--verbose", action="store_true", help="sortie complete de chaque test")
     a = ap.parse_args(argv)

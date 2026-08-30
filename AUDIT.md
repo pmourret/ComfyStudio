@@ -456,10 +456,13 @@ embedding, reference_set, reference_member`, toutes avec `character_id`,
 ### 5.5 Conventions de nommage
 
 - **Le code est en anglais** (noms, docstrings) — mais **pas dans
-  `AUTOMATION/web/`**, où identifiants, fonctions et commentaires sont **en
-  français** (`demarrer`, `valider_banque`, `bucket_dir`, `oublier_vignette`,
-  `renderScenes`, `signalerPanne`). Divergence réelle avec CLAUDE.md §2, à
-  trancher explicitement avant la migration plutôt qu'à la volée.
+  `AUTOMATION/web/static/`**, où identifiants, fonctions et commentaires sont
+  **en français** (`demarrer`, `renderScenes`, `signalerPanne`). Divergence
+  réelle avec CLAUDE.md §2, **tranchée le 30/08/2026** : tout code neuf est en
+  anglais (le backend FastAPI l'est déjà, `web/ui/` l'est) ; les **libellés
+  d'interface** et les **messages d'erreur remontés à l'écran** restent en
+  français, ce sont des données. L'ancien frontend n'est pas traduit — il est
+  remplacé écran par écran, et la dette s'éteint avec lui.
 - Les **messages d'erreur sont en français**, destinés à l'écran tel quel.
 - Buckets : `OK, A_REVOIR, REJET, SANS_VISAGE, ARCHIVE` (`ss.BUCKETS`).
 - Actions de tri : `valider→OK, revoir→A_REVOIR, rejeter→REJET, archiver→ARCHIVE`.
@@ -581,7 +584,13 @@ dictionnaire en dur**). Aucune règle applicable → `UnresolvedPackError`,
   `python_embeded`** (§2.4). Ce qui reste vrai : **un seul interpréteur**,
   celui de ComfyUI. Playwright est installé **hors du repo**
   (`~/.soulglade-pw`).
-- **Aucune étape de build** côté frontend (`.claude/rules/frontend.md`).
+- ~~**Aucune étape de build** côté frontend~~ — **levée le 30/08/2026 par
+  la migration React** : `web/ui/` est un projet Vite + TypeScript, dont le
+  bundle (`web/ui/dist/`, git-ignoré) est servi par FastAPI. Ce qui la
+  remplace est plus fort : **l'application est portable**. Tout ce que npm
+  et Playwright téléchargent vit dans `<dépôt>/.toolchain/`, jamais sous
+  `%APPDATA%` — imposé par `AUTOMATION/tools/toolchain.py`, seul point
+  d'entrée de la chaîne d'outils. Node est le seul prérequis manuel.
 - **Une erreur backend se dit à l'écran** — jamais un échec silencieux, un
   spinner infini ou une erreur en console seule.
 - **WCAG 2.2 AA visé** : HTML sémantique avant ARIA, focus visible, Escape
@@ -611,12 +620,18 @@ Constats factuels, sans préconisation :
    `fusion_validee`, `guard_intensity`, `entier`, `SAFE_NAME`,
    `NSFW_SURCHARGEABLES`, `space_id`, `ss.character`). Chacune porte un incident
    daté en commentaire ; aucune n'est déclarative.
-5. **Le frontend est en français, le reste du code en anglais** — divergence
-   avec CLAUDE.md §2 à trancher.
-6. **`backend.md` annonce Flask, la réalité est aiohttp** — à corriger.
+5. ~~**Le frontend est en français, le reste du code en anglais**~~ —
+   **tranché le 30/08/2026** (§5.5) : anglais pour tout code neuf, français
+   pour les libellés et les messages destinés à l'écran. L'ancien frontend
+   n'est pas traduit, il est remplacé.
+6. ~~**`backend.md` annonce Flask, la réalité est aiohttp**~~ — corrigé :
+   `backend.md` décrit FastAPI + uvicorn, `frontend.md` décrit React + Vite.
 7. **14 tests Playwright s'accrochent au DOM actuel** ; les 22 tests Python
    testent l'API et survivraient à un changement de framework si les contrats
-   sont préservés.
+   sont préservés. *Suite du 30/08/2026 : les 22 tests Python passent sur
+   FastAPI. Les 14 fumigations navigateur sont recréées **écran par écran** au
+   fil de la migration React et conservées entre-temps comme cahier des charges
+   de l'écran qu'elles couvrent (`run_browser_tests.py`, suite LEGACY).*
 8. **Aucun schéma d'API n'existe** : le contrat n'est écrit nulle part sous
    forme exploitable, il se lit dans les docstrings et dans le JS qui consomme.
 9. **`/api/gallery` (200) et `/api/journal` (300) tronquent sans pagination** ;
