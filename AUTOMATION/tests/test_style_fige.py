@@ -27,7 +27,7 @@ sys.path.insert(0, str(AUTOMATION))
 import runner as lb          # noqa: E402
 import universe              # noqa: E402
 import shared_state as ss    # noqa: E402
-from aiohttp import web      # noqa: E402
+from api.exceptions import BadRequest    # noqa: E402
 
 PROBE = OFM / "CHARACTERS" / "probe-style"
 KO = 0
@@ -40,24 +40,15 @@ def verifie(ok, texte):
         KO += 1
 
 
-class FakeReq:
-    def __init__(self, cid):
-        self._q = {} if cid is None else {"character": cid}
-
-    @property
-    def query(self):
-        return self
-
-    def get(self, key, default=None):
-        return self._q.get(key, default)
-
-
+# `character()` prend l'identifiant brut depuis la migration FastAPI (la
+# lecture de `?character=` vit dans web/api/dependencies.py). La validation
+# testee ici est inchangee.
 def char_refuse(cid):
     try:
-        ss.character(FakeReq(cid))
+        ss.character(cid)
         return None
-    except web.HTTPBadRequest as e:
-        return e.text
+    except BadRequest as e:
+        return e.detail["erreur"]
 
 
 def poser(universe_id, style):
@@ -101,7 +92,7 @@ try:
     # ---------------------------------------------- [3] character() valide le style
     print("\n[3] character(request) refuse un style hors de l'univers")
     poser("instagram-influenceur", "realiste")
-    verifie(ss.character(FakeReq("probe-style")) == "probe-style",
+    verifie(ss.character("probe-style") == "probe-style",
             "style valide pour l'univers -> accepte")
     poser("instagram-influenceur", "manga")
     msg = char_refuse("probe-style")

@@ -2,8 +2,25 @@
 
 Un seul etat d'execution (STATE), un seul verrou de tri (UNDO), un seul QC
 d'identite en cache (CHECKER) — jamais duplique par module de route, exactement
-comme avant le decoupage. Tout module de `routes/` importe ce module plutot que
-de redefinir sa propre copie.
+comme avant le decoupage. Tout module de `api/routers/` importe ce module
+plutot que de redefinir sa propre copie.
+
+PROCESS UNIQUE, UN SEUL WORKER (migration FastAPI, 30/08/2026). STATE, UNDO,
+CHECKER (~1 Go d'InsightFace) et les caches COMFY_PROBE / _STATS sont des
+globales de PROCESS. Lancer uvicorn avec --workers > 1 en donnerait une copie
+par worker : le suivi de production sauterait d'un etat a l'autre au gre du
+worker qui repond, « annuler » ne verrait pas le tri fait par un autre, et le
+modele d'identite serait charge autant de fois qu'il y a de workers. Ce n'est
+pas une limite a contourner : un seul GPU, un seul batch (AUDIT §4.5). Le
+lanceur (web/app.py) passe donc l'application en objet a `uvicorn.run`, ce qui
+interdit techniquement le mode multi-worker.
+
+Ce module ne connait plus le framework HTTP : il ne lit pas de `Request` et
+n'ecrit pas de reponse. Ce qui en dependait est parti dans `api/` — les gardes
+dans `api/security.py` et `api/errors.py`, la resolution du personnage depuis
+la query dans `api/dependencies.py`. `bad_request` reste ici, parce que les
+fonctions de ce module refusent elles-memes (voir `character`, `space_id`,
+`bucket_dir`).
 """
 import asyncio
 import json
@@ -15,7 +32,7 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-from aiohttp import web
+from api.exceptions import BadRequest
 
 HERE = Path(__file__).resolve().parent      # AUTOMATION/web/
 AUTOMATION = HERE.parent
@@ -42,92 +59,11 @@ TAILLE_MAX_PHOTO = 20 * 1024 * 1024
 def bad_request(msg):
     """400 en JSON, pas en texte brut : le front (core.js api()/post()) attend
     un corps JSON sur toute reponse, succes ou echec, pour afficher un toast
-    au lieu de planter sur un rejet de promesse non gere."""
-    raise web.HTTPBadRequest(text=json.dumps({"ok": False, "erreur": msg}),
-                             content_type="application/json")
+    au lieu de planter sur un rejet de promesse non gere.
 
-
-# ------------------------------------------------------------------ garde-fous
-# Le tableau de bord n'a aucune authentification : il se protege en n'acceptant
-# que ce qui vient de lui-meme.
-HOTES_LOCAUX = {"127.0.0.1", "localhost", "[::1]", "::1"}
-RESEAU_OUVERT = False          # passe a True par --host autre que 127.0.0.1 (main())
-
-
-def _hote(valeur):
-    """Nom d'hote d'un en-tete Host ou Origin, sans le schema ni le port."""
-    v = (valeur or "").strip().split("//")[-1]
-    if v.startswith("["):                       # IPv6 litteral : [::1]:8189
-        return v.split("]")[0] + "]"
-    return v.split("/")[0].split(":")[0]
-
-
-@web.middleware
-async def garde_origine(request, handler):
-    """Refuse ce qui ne vient pas du tableau de bord lui-meme.
-
-    Il n'y a aucune authentification, et `request.json()` d'aiohttp ne regarde
-    pas le Content-Type (verifie sur 3.13.5 : il fait `loads(await text())`).
-    Sans ce garde, n'importe quelle page ouverte dans le navigateur peut poster
-    ici en `text/plain` — une requete « simple », donc sans preflight CORS — et
-    armer la branche NSFW, lancer une production ou reecrire scenes.json. La
-    reponse reste cachee a l'attaquant, mais l'effet de bord, lui, a lieu.
-
-    Trois verrous, tous sur les seules methodes qui ecrivent :
-      - le Host doit etre local, contre le DNS rebinding ;
-      - une Origin presente doit etre locale (un navigateur en envoie toujours
-        une sur une requete inter-site ; son ABSENCE signale un outil en ligne
-        de commande, pas une page web, d'ou la tolerance) ;
-      - le Content-Type doit etre du JSON, ce qui suffit a interdire la requete
-        « simple » : ce type declenche un preflight auquel on ne repond pas.
-
-    `--host 0.0.0.0` releve les deux premiers : c'est le mode « valider depuis
-    le telephone », un choix explicite deja signale au demarrage.
-    """
-    if request.method == "GET":
-        return await handler(request)
-    if not RESEAU_OUVERT:
-        if _hote(request.headers.get("Host")) not in HOTES_LOCAUX:
-            return web.json_response({"ok": False, "erreur": "hôte non autorisé"},
-                                     status=403)
-        origine = request.headers.get("Origin")
-        if origine and _hote(origine) not in HOTES_LOCAUX:
-            return web.json_response({"ok": False, "erreur": "origine refusée"},
-                                     status=403)
-    type_envoye = (request.headers.get("Content-Type") or "").split(";")[0].strip()
-    if type_envoye != "application/json":
-        return web.json_response(
-            {"ok": False, "erreur": "Content-Type application/json requis"},
-            status=415)
-    return await handler(request)
-
-
-@web.middleware
-async def garde_erreurs(request, handler):
-    """Toute exception sort en JSON, jamais en page HTML.
-
-    Le front attend un corps JSON sur chaque reponse (core.js api()). Une
-    exception non interceptee rendait un 500 en HTML, et l'ecran affichait
-    « reponse invalide du serveur (500) » — un message qui ne dit rien. Les cas
-    atteignables ne manquaient pas : une action inconnue dans /api/action, un
-    `count` non numerique, ou une scene decrivant le visage qui fait lever
-    FaceInPromptError a build_jobs.
-    """
-    try:
-        return await handler(request)
-    except web.HTTPException:
-        raise                                   # 400/404 deliberes : deja formes
-    except json.JSONDecodeError:
-        return web.json_response({"ok": False, "erreur": "corps JSON invalide"},
-                                 status=400)
-    except (KeyError, ValueError, TypeError) as e:
-        push_log(f"{request.path} : {type(e).__name__} — {e}")
-        return web.json_response({"ok": False, "erreur": f"requête invalide : {e}"},
-                                 status=400)
-    except Exception as e:
-        push_log(f"{request.path} : {type(e).__name__} — {e}")
-        return web.json_response({"ok": False,
-                                  "erreur": f"{type(e).__name__} : {e}"}, status=500)
+    Leve `BadRequest` (api/exceptions.py) depuis la migration FastAPI ; le corps
+    JSON rendu est identique a celui que produisait web.HTTPBadRequest."""
+    raise BadRequest(msg)
 
 
 STATE = {
@@ -183,12 +119,13 @@ def push_log(msg):
 
 # ------------------------------------------------------------------ ressources
 # Selecteur de personnage (J3 etape 4). Le front passe ?character=<id> a chaque
-# requete /api/* (api.js) ; les handlers resolvent l'id par `character(request)`
-# et le passent explicitement (regle backend : jamais un contextvar cache). Le
+# requete /api/* (api.js) ; les handlers recoivent l'id resolu par la dependance
+# `current_character` (api/dependencies.py) et le passent explicitement (regle
+# backend : jamais un contextvar cache). Le
 # defaut "lena" reste la seule valeur en dur, aux frontieres — pas un
 # `if character == "lena"` (CLAUDE.md §8.7).
 #
-# J4 : `character(request)` valide aussi que le personnage a un character.json
+# J4 : `character()` valide aussi que le personnage a un character.json
 # (registre) pointant vers un univers existant. J7bis (ADR-0012) : il valide en
 # plus que (type, style) resolvent bien le pack ecrit dans `universe`, et que le
 # monde, s'il est declare, existe et est compatible avec la famille du pack.
@@ -202,13 +139,18 @@ def push_log(msg):
 _CHARACTER_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 
 
-def character(request, requis=False):
+def character(character_id, required=False):
     """character_id de la requete, valide AVANT de toucher au disque.
 
-    `requis=True` : l'absence du parametre est elle-meme une erreur, au lieu de
-    retomber sur le defaut. Reserve aux routes qui servent des OCTETS d'un arbre
-    de personnage (/img) : y laisser un defaut, c'est rendre les images de Lena
-    a qui ne les a pas demandees — le bug d'isolation du 29/08/2026.
+    Prend l'IDENTIFIANT BRUT plutot qu'une requete : lire `?character=` est
+    l'affaire du framework et vit dans `api/dependencies.py` depuis la
+    migration FastAPI. La validation, elle, n'a jamais rien eu a voir avec
+    HTTP — c'est ce qui reste ici, inchange.
+
+    `required=True` : l'absence du parametre est elle-meme une erreur, au lieu
+    de retomber sur le defaut. Reserve aux routes qui servent des OCTETS d'un
+    arbre de personnage (/img) : y laisser un defaut, c'est rendre les images de
+    Lena a qui ne les a pas demandees — le bug d'isolation du 29/08/2026.
 
     Rejette en 400 JSON (jamais un 500, jamais un chemin) :
       - un parametre absent quand `requis` ;
@@ -222,9 +164,9 @@ def character(request, requis=False):
         est casse) ;
       - un `world` inconnu, ou incompatible avec la famille du pack (J7bis).
     """
-    cid = request.query.get("character")
+    cid = character_id
     if cid is None:
-        if requis:
+        if required:
             bad_request("parametre character= obligatoire sur cette route")
         cid = "lena"
     if not _CHARACTER_RE.match(cid):

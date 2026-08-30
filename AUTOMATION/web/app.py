@@ -1,10 +1,10 @@
 """Tableau de bord local pour la production.
 
-Serveur aiohttp (deja fourni par ComfyUI, aucune dependance a installer) qui
-pilote le meme coeur que la CLI : runner.execute_jobs.
+Serveur FastAPI + uvicorn qui pilote le meme coeur que la CLI :
+runner.execute_jobs.
 
     python_embeded\\python.exe AUTOMATION\\web\\app.py
-    -> http://127.0.0.1:8189
+    -> http://127.0.0.1:8189   ·   documentation d'API : /docs
 
 Ecoute sur 127.0.0.1 par defaut. --host 0.0.0.0 l'expose au reseau local (utile
 pour valider les images depuis le telephone) : a ne faire que sur un reseau de
@@ -14,17 +14,25 @@ Au demarrage, si un tableau de bord fantome tient deja le port (run precedent
 mal ferme), il est arrete et on repart sur du propre — voir reclaim_port().
 Jamais ComfyUI, jamais un process tiers.
 
-STRUCTURE (J2 etape 4). Ce fichier ne fait plus que l'assemblage : middlewares,
-enregistrement des routes, demarrage du serveur. Chaque responsabilite vit dans
-son propre module (.claude/rules/backend.md) :
+MONO-WORKER, SANS DISCUSSION. `uvicorn.run` recoit l'OBJET application, pas une
+chaine "module:app" — c'est ce qui rend le mode multi-worker techniquement
+indisponible, et c'est voulu : STATE, UNDO et le modele d'identite en cache
+sont des globales de process (shared_state.py). Un seul GPU, un seul batch.
 
-    shared_state.py   STATE, UNDO, CHECKER, cfg()/scenes_data(), bucket_dir(),
-                       middlewares — importe par tous les modules de routes
-    routes/etat.py       etat du systeme, health-check, config, cycle de vie
-    routes/banque.py     banque de scenes, taxonomie creative, composeur
-    routes/vignettes.py  images, miniatures, poses
-    routes/production.py lancement de generation, file de jobs, declinaisons
-    routes/tri.py         QC, revue, jugements, export
+STRUCTURE. Ce fichier ne fait que le DEMARRAGE : arguments, reprise du port,
+ComfyUI, purge des vignettes, uvicorn. L'assemblage de l'application (gardes,
+routers, statique) vit dans api/main.py ; chaque responsabilite metier dans son
+propre module (.claude/rules/backend.md) :
+
+    shared_state.py        STATE, UNDO, CHECKER, cfg()/scenes_data(), bucket_dir()
+    api/main.py            assemblage de l'application FastAPI
+    api/security.py        garde d'origine (le substitut d'authentification)
+    api/errors.py          toute reponse sort en JSON, jamais en HTML
+    api/routers/state      etat du systeme, registres, config, cycle de vie
+    api/routers/bank       banque de scenes, taxonomie creative, composeur
+    api/routers/images     images, miniatures, poses
+    api/routers/production lancement de generation, file de jobs, declinaisons
+    api/routers/review     QC, revue, jugements, export
 """
 import argparse
 import os
@@ -33,7 +41,7 @@ import sys
 import time
 from pathlib import Path
 
-from aiohttp import web
+import uvicorn
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -42,7 +50,8 @@ sys.path.insert(0, str(AUTOMATION))
 
 import comfy_server  # noqa: E402
 import shared_state as ss  # noqa: E402
-from routes import etat, banque, vignettes, production, tri  # noqa: E402
+from api import security  # noqa: E402
+from api.main import app  # noqa: E402
 
 
 def _port_libre(port, host="127.0.0.1"):
@@ -57,7 +66,7 @@ def reclaim_port(port):
 
     Le fantome vient d'un run precedent mal ferme (fenetre console fermee sans
     Ctrl-C, fumigation HTTP interrompue, redemarrage brutal) : sous Windows le
-    socket reste tenu par le process orphelin et un second `web.run_app` echoue
+    socket reste tenu par le process orphelin et un second `uvicorn.run` echoue
     en [WinError 10048]. Plutot que de refuser de demarrer, on reprend la place.
 
     Ne tue QUE un process dont la ligne de commande est notre propre
@@ -72,7 +81,7 @@ def reclaim_port(port):
         import psutil
     except ImportError:
         print("!! port occupe et psutil absent : demarrage tel quel "
-              "(web.run_app dira si le port est pris).", flush=True)
+              "(uvicorn dira si le port est pris).", flush=True)
         return
 
     moi = os.getpid()
@@ -102,7 +111,7 @@ def reclaim_port(port):
     else:
         print(f"!! port {port} occupe, mais par aucun tableau de bord "
               f"identifiable (service tiers ou socket orphelin) : on n'y touche "
-              f"pas, web.run_app rendra son message.", flush=True)
+              f"pas, uvicorn rendra son message.", flush=True)
         return
 
     for _ in range(24):                  # laisser le socket se liberer (Windows)
@@ -142,30 +151,25 @@ def main():
     if retirees:
         print(f"{retirees} vignette(s) orpheline(s) retiree(s)", flush=True)
 
-    # limite par defaut d'aiohttp : 1 Mo, trop court pour une photo encodee en
-    # base64 (TAILLE_MAX_PHOTO=20 Mo, +33 % d'encodage). Relevee ici plutot que
-    # sur la route : c'est le corps JSON entier qui est concerne, avant meme
-    # que le handler puisse lire body["data_base64"].
-    app = web.Application(middlewares=[ss.garde_erreurs, ss.garde_origine],
-                          client_max_size=28 * 1024 * 1024)
-    app.add_routes(etat.routes)
-    app.add_routes(banque.routes)
-    app.add_routes(vignettes.routes)
-    app.add_routes(production.routes)
-    app.add_routes(tri.routes)
-    app.add_routes([web.static("/static", HERE / "static")])
-
     if args.host != "127.0.0.1":
-        ss.RESEAU_OUVERT = True     # leve les gardes Host/Origin : choix explicite
+        security.open_to_network()  # leve les gardes Host/Origin : choix explicite
         print("!! expose sur le reseau local, sans authentification. "
               "A n'utiliser que sur un reseau de confiance.", flush=True)
     url = f"http://{'127.0.0.1' if args.host == '0.0.0.0' else args.host}:{args.port}"
     print(f"Tableau de bord  ->  {url}", flush=True)
+    print(f"Documentation d'API  ->  {url}/docs", flush=True)
     if not args.no_browser:
         import webbrowser
         webbrowser.open(url)
     try:
-        web.run_app(app, host=args.host, port=args.port, print=None)
+        # L'OBJET `app`, jamais "api.main:app" : passer une chaine autoriserait
+        # `workers=`, que cette application ne supporte pas (etat de process
+        # unique, voir shared_state.py). `log_level="warning"` garde la console
+        # aussi silencieuse qu'avec l'ancien `run_app(..., print=None)` : le journal
+        # utile est celui du studio (STATE["log"]), pas une ligne par requete —
+        # le front interroge /api/state toutes les 1,5 s.
+        uvicorn.run(app, host=args.host, port=args.port, log_level="warning",
+                    access_log=False)
     except OSError as e:
         # reclaim_port n'a pas libere la place : port tenu par un process tiers
         # (pas notre tableau de bord) ou socket encore en cours de liberation.

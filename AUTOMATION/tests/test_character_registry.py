@@ -27,7 +27,7 @@ sys.path.insert(0, str(AUTOMATION))
 import runner as lb          # noqa: E402
 import shared_state as ss    # noqa: E402
 import nsfw_batch            # noqa: E402
-from aiohttp import web      # noqa: E402
+from api.exceptions import BadRequest    # noqa: E402
 
 PROBE = OFM / "CHARACTERS" / "probe"
 PROBE_BADU = OFM / "CHARACTERS" / "probe-badu"
@@ -41,29 +41,28 @@ def verifie(ok, texte):
         KO += 1
 
 
-class FakeReq:
-    """`character(request)` ne lit que request.query.get('character', ...)."""
-    def __init__(self, cid):
-        self._q = {} if cid is None else {"character": cid}
-
-    @property
-    def query(self):
-        return self
-
-    def get(self, key, default=None):
-        return self._q.get(key, default)
-
-
+# `character()` prend l'identifiant brut depuis la migration FastAPI : lire
+# `?character=` est l'affaire de la dependance `current_character`
+# (web/api/dependencies.py), la validation reste ici et n'a pas bouge. Plus de
+# fausse requete a fabriquer — c'est la meme fonction qui est testee.
 def char_ok(cid):
-    return ss.character(FakeReq(cid))
+    return ss.character(cid)
 
 
 def char_refuse(cid):
+    """Message du refus, ou None si le personnage est accepte."""
+    d = char_refuse_detail(cid)
+    return None if d is None else d["erreur"]
+
+
+def char_refuse_detail(cid):
+    """Corps JSON complet du refus. `BadRequest.detail` EST le corps rendu :
+    api/errors.py le passe tel quel, sans le reformer."""
     try:
-        ss.character(FakeReq(cid))
+        ss.character(cid)
         return None
-    except web.HTTPBadRequest as e:
-        return e.text
+    except BadRequest as e:
+        return e.detail
 
 
 def poser(dossier, character_json):
@@ -136,9 +135,9 @@ try:
     msg = char_refuse("probe-badu")
     verifie(msg is not None and "univers inconnu" in msg,
             f"univers inexistant -> 400 « univers inconnu » ({msg})")
-    verifie('"ok": false' in (msg or "").lower().replace(" ", "") or
-            '"ok":false' in (msg or "").replace(" ", ""),
-            "la reponse 400 est bien du JSON {ok:false}")
+    corps = char_refuse_detail("probe-badu")
+    verifie(corps == {"ok": False, "erreur": msg},
+            f"la reponse 400 est bien du JSON {{ok:false, erreur}} ({corps})")
 
     # personnage sans character.json du tout
     sans = OFM / "CHARACTERS" / "probe-sans"

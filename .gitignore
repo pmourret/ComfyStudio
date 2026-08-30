@@ -44,3 +44,6 @@ __pycache__/
 
 # Espace de travail de l'outil de design, pas une source du projet.
 .kombai/
+
+# venv de developpement (la production tourne sur le python embarque de ComfyUI)
+/.venv/

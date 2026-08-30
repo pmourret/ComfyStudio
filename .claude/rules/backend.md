@@ -7,9 +7,29 @@ paths:
 
 ## Stack — et ce qu'on n'utilise volontairement pas
 
-Flask, SQLite en accès direct (AUTOMATION/base.py). Pas d'ORM
-(SQLAlchemy ou autre), pas de couche de validation type Pydantic.
-Requêtes SQL paramétrées à la main, pas de query builder.
+FastAPI + uvicorn (migration du 30/08/2026 ; c'était aiohttp avant, et
+ce fichier annonçait Flask — voir AUDIT §0 et §7.6). SQLite en accès
+direct (AUTOMATION/base.py). Pas d'ORM (SQLAlchemy ou autre), requêtes
+SQL paramétrées à la main, pas de query builder.
+
+Pydantic **est** utilisé, et seulement là où il a un sens : un schéma
+par forme de payload réellement échangée, à la frontière HTTP. Pas de
+schéma fourre-tout, et rien de déclaratif dans le cœur métier —
+`AUTOMATION/runner/`, `identity/`, `base.py` ne connaissent ni HTTP ni
+Pydantic. Deux règles qui ne se devinent pas :
+
+- une réponse qui relaie un fichier que cette couche ne possède pas
+  (`config.json`, une ligne de journal, un palier de `creative.json`)
+  se déclare `extra="allow"` ou sans `response_model` : tronquer une
+  clé inconnue casserait le front loin du changement ;
+- une borne serveur qui **écrête** (`count`, `limit`, `lot`) ne devient
+  jamais une contrainte `ge`/`le`. `count=9999` doit continuer à rendre
+  200 avec un plan de 24 images, pas un refus.
+
+**Un seul worker uvicorn.** `STATE`, `UNDO` et le QC d'identité en
+cache sont des globales de process (`web/shared_state.py`). Le lanceur
+passe l'objet application à `uvicorn.run`, ce qui rend `--workers > 1`
+techniquement indisponible : un seul GPU, un seul batch.
 
 ## Frontière des modules
 
@@ -18,13 +38,17 @@ logique métier de graphe ComfyUI — les réglages vivent dans
 CHARACTERS/<nom>/config.json, les scènes dans scenes.json, jamais en dur
 dans le code (invariant CLAUDE.md §8.4).
 
-Découpage cible du backend web (ROADMAP.md, J2) — une nouvelle route
-rejoint le module qui correspond à sa responsabilité :
-- routes/etat — état du système, health-check
-- routes/banque — banque de scènes, taxonomie
-- routes/vignettes — miniatures, assets
-- routes/production — lancement de génération, file de jobs
-- routes/tri — QC, revue, jugements
+Découpage du backend web (ROADMAP.md, J2 ; inchangé par la migration
+FastAPI) — une nouvelle route rejoint le router qui correspond à sa
+responsabilité :
+- api/routers/state — état du système, registres, config, cycle de vie
+- api/routers/bank — banque de scènes, taxonomie, composeur
+- api/routers/images — images, miniatures, poses
+- api/routers/production — lancement de génération, file de jobs
+- api/routers/review — QC, revue, jugements, export
+
+`web/app.py` ne fait que le démarrage ; l'assemblage vit dans
+`api/main.py`, les gardes dans `api/security.py` et `api/errors.py`.
 
 Même logique côté runner batch : prompt / comfy / sortie / cli.
 
@@ -44,6 +68,12 @@ CHARACTERS/<nom>/config.json via l'API (CLAUDE.md §8.4).
 
 Logs structurés plutôt que print() épars. Une erreur remontée au frontend
 explicitement plutôt qu'un échec silencieux ou un code 500 nu.
+
+Toute réponse porte un corps JSON, succès comme échec — le front lit du
+JSON sur chaque réponse quel que soit le statut. Une erreur a la forme
+`{"ok": false, "erreur": "<texte français destiné à l'écran>"}` ;
+`ss.bad_request()` est le point de passage. Les messages d'erreur restent
+en français (ils s'affichent tels quels), le code reste en anglais.
 
 ## Tests
 
