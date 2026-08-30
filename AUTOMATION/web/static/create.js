@@ -6,7 +6,7 @@
 import {$, $$, esc, mmss} from './dom.js';
 import {api, post, imgUrl} from './api.js';
 import {VERDICT_LABEL, hashPourImage} from './constants.js';
-import {on} from './bus.js';
+import {on, emit} from './bus.js';
 import {toast} from './toast.js';
 import {confirmer} from './modal.js';
 import {openLight} from './lightbox.js';
@@ -265,13 +265,16 @@ function renderIntentions(){
 
 /* Emmene au composeur avec l'intention deja choisie. Ce que faisait deja la
    carte « + creer une scene » en fin de grille — porte ici, la ou le manque se
-   constate. */
+   constate.
+
+   Depuis F2.1 (30/08/2026) le composeur est replie derriere « Proposer » : on
+   ne peut plus se contenter de pointer #intention, il faut d'abord OUVRIR le
+   pli. C'est advanced.js qui possede cet etat, et on l'atteint par le bus —
+   il importe deja renderScenes d'ici, l'importer en retour fermerait un cycle
+   entre les deux fichiers. */
 function composerPour(key){
   go('scenes');
-  const sel = $('#cmpCat');
-  if (sel && key && key !== '*') sel.value = key;
-  $('#intention').focus();
-  $('#intention').scrollIntoView({behavior: 'smooth', block: 'center'});
+  emit('bank:composer', {key});
 }
 
 function setIntent(key){

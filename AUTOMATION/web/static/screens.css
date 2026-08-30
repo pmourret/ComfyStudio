@@ -3,12 +3,60 @@
    ce qui doit primer sur un composomant y est. Extrait de app.css en J3
    etape 3, ordre des regles inchange. */
 /* ------------------------------------------------------------------ scenes */
+/* La banque de scenes a DEUX etats (F2.1, 30/08/2026) : #bankGrille et
+   #bankFiche, exclusifs, tous deux dans #bankScenes. Le marqueur
+   `[data-vue-scene]` dit lequel porte — il ne pilote AUCUNE regle ici : le
+   basculement passe par `hidden`, et une classe de plus qui dirait la meme
+   chose serait une seconde source de verite. */
+
+/* --- l'entete des deux etats --- */
+.bankhead{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.bankhead h2{margin:0}
+
+/* --- etat GRILLE : une carte par scene --- */
+.bankgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+/* Carte SCOPEE a sa grille, comme `.scenes .sc` et `.srcgrid .src` : `bankcard`
+   n'a pas d'homonyme aujourd'hui, mais la regle du 29/08/2026 vaut d'avance
+   (DESIGN.md, « la carte est scopee a sa grille »). */
+.bankgrid .bankcard{position:relative;background:var(--panel);
+    border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
+    transition:border-color .12s}
+.bankgrid .bankcard:hover{border-color:var(--line2)}
+/* `:focus-within` et pas `:focus` : la cible du clavier est le bouton du titre,
+   l'anneau doit se voir sur la CARTE, qui est ce qu'on ouvre. */
+.bankgrid .bankcard:focus-within{border-color:var(--acc)}
+.bankcard .ph{aspect-ratio:4/5;background:var(--panel2) center/cover}
+.bankcard .ph.empty::after{content:'aucune image';display:flex;height:100%;
+  align-items:center;justify-content:center;color:var(--dim2);font-size:12px}
+.bankcard .info{padding:9px 11px;display:flex;flex-direction:column;gap:2px}
+/* Le titre EST le bouton d'ouverture, etale sur toute la carte : un <button>
+   dans un <button> serait invalide, et une carte non focalisable au clavier
+   sortirait la banque du contrat d'accessibilite (frontend.md). */
+.bankcard .ouvrir{background:none;border:0;padding:0;margin:0;text-align:left;
+    font:inherit;color:inherit;cursor:pointer}
+.bankcard .ouvrir::after{content:'';position:absolute;inset:0}
+.bankcard .ouvrir:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.bankcard .ouvrir b{display:block;font-size:13px;font-weight:600;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bankcard .info span{font-size:11.5px;color:var(--dim)}
+/* La pose liee se lit au TEXTE, pas a une pastille de couleur (frontend.md :
+   statut jamais par la couleur seule). */
+.bankcard .posetxt{color:var(--dim2)}
+.bankcard .posetxt.liee{color:var(--dim)}
+/* la corbeille passe AU-DESSUS du lien etale, sinon elle serait injoignable */
+.bankcard .del{position:absolute;top:4px;right:6px;z-index:1;
+    background:var(--scrim);border-radius:6px;line-height:1;padding:2px 6px}
+
+/* --- etat FICHE : l'editeur d'UNE scene --- */
 .sceneCard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
            padding:16px;margin-bottom:14px}
-.sceneCard .top{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+.sceneCard .top{display:flex;gap:12px;align-items:flex-end;margin-bottom:12px}
 .sceneCard .top input.id{font-weight:600;max-width:230px}
 .sceneCard textarea{min-height:78px;resize:vertical}
 .sceneCard .rowf{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:12px}
+/* le pli de la fiche n'est pas le pli de l'atelier : il vit DANS une carte,
+   il ne prend donc pas la barre de separation de haut de section */
+.sceneCard details.fadv{margin-top:18px}
 .del{margin-left:auto;background:none;border:0;color:var(--dim2);cursor:pointer;font-size:18px}
 .del:hover{color:var(--bad)}
 

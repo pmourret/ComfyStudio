@@ -371,42 +371,80 @@
               data-hint="bank.poses">Poses</button>
     </div>
 
+   <!-- Deux ETATS, pas deux ecrans (F2.1, 30/08/2026). La banque montrait le
+        composeur, la note de direction, l'ancre, toutes les scenes depliees et
+        le JSON brut sur UNE page : un dump de document, ou l'on faisait defiler
+        pour editer un champ. Ici, `#bankGrille` (defaut) et `#bankFiche` (une
+        scene) s'excluent, et `#bankScenes[data-vue-scene]` dit lequel porte.
+        Le SOUS-ETAT N'EST PAS DANS L'URL : voir advanced.js, ouvrirFiche(). -->
    <div id="bankScenes">
-    <div class="compose">
-      <h2 style="margin-bottom:10px">Décrire une intention · le modèle local écrit les scènes</h2>
-      <textarea id="intention" placeholder="ex : Léna aime passer du temps dans son jardin, elle y bouture ses plantes le matin"></textarea>
-      <div class="grid4" style="margin-top:12px">
-        <label class="f"><span>intention imposée (optionnel)</span>
-          <select id="cmpCat"><option value="">— le modèle choisit —</option></select></label>
-        <label class="f"><span>nombre de scènes</span>
-          <input id="cmpN" type="number" min="1" max="6" value="3"></label>
-        <div style="display:flex;align-items:flex-end">
-          <button class="btn primary" id="btnCompose">Proposer des scènes</button></div>
-        <div style="display:flex;align-items:flex-end"><span class="tiny" id="cmpMsg"></span></div>
-      </div>
-      <div id="props"></div>
-    </div>
+    <div id="bankGrille">
+     <div class="bankhead">
+       <h2>Scènes <span class="tiny" id="nScenes"></span></h2>
+       <div class="spacer"></div>
+       <button class="btn" id="btnAddScene">+ Nouvelle scène</button>
+       <!-- Le composeur EXISTE et ne bouge pas d'un octet (/api/compose,
+            #btnCompose, les propositions, « Ajouter »). Ce qui change, c'est la
+            PORTE : il n'est plus le premier ecran de la banque, c'est un geste
+            de la grille. Rien n'entre dans scenes.json sans le clic « Ajouter ». -->
+       <button class="btn" id="btnProposer" aria-expanded="false"
+               aria-controls="composeur">Proposer</button>
+     </div>
 
-    <h2>Note de direction — ajoutée à la fin de tous les prompts</h2>
-    <input id="direction" placeholder="ex : autumn palette, softer light — laisser vide si aucune">
-    <p class="tiny" style="margin:6px 0 22px">Sert à donner une intention de série sans
-      réécrire chaque scène. Se vide aussi vite qu'elle se met.</p>
+     <div class="compose" id="composeur" hidden>
+       <h2 style="margin-bottom:10px">Décrire une intention · le modèle local écrit les scènes</h2>
+       <textarea id="intention" placeholder="ex : Léna aime passer du temps dans son jardin, elle y bouture ses plantes le matin"></textarea>
+       <div class="grid4" style="margin-top:12px">
+         <label class="f"><span>intention imposée (optionnel)</span>
+           <select id="cmpCat"><option value="">— le modèle choisit —</option></select></label>
+         <label class="f"><span>nombre de scènes</span>
+           <input id="cmpN" type="number" min="1" max="6" value="3"></label>
+         <div style="display:flex;align-items:flex-end">
+           <button class="btn primary" id="btnCompose">Proposer des scènes</button></div>
+         <div style="display:flex;align-items:flex-end"><span class="tiny" id="cmpMsg"></span></div>
+       </div>
+     </div>
+     <!-- Les propositions se posent EN TETE de grille : une scene proposee et une
+          scene de la banque se lisent au meme endroit, et « Ajouter » fait
+          passer la premiere dans la seconde. -->
+     <div id="props"></div>
 
-    <h2>Ancre d'identité — ajoutée à toutes les scènes</h2>
-    <textarea id="anchor" style="min-height:64px"></textarea>
-    <p class="tiny" style="margin:6px 0 22px">Ne décris jamais le visage dans une scène :
-      PuLID le porte. Ici on ne met que ce que PuLID ne transporte pas (cheveux, yeux,
-      taches de rousseur).</p>
+     <div class="bankgrid" id="sceneBankGrid"></div>
 
-    <h2>Scènes <span class="tiny" id="nScenes"></span></h2>
-    <div id="sceneCards"></div>
-    <button class="btn" id="btnAddScene">+ Ajouter une scène</button>
+     <!-- L'atelier : ce qui vaut pour TOUTE la banque, et le document brut. Ce
+          n'etait pas le premier ecran a montrer pour editer une scene -- mais ca
+          reste editable, au pli pres. -->
+     <details class="adv" id="bankAtelier">
+       <summary>Atelier de la banque — note de direction, ancre d’identité, JSON brut</summary>
 
-    <details class="adv" style="margin-top:24px">
-      <summary>JSON brut</summary>
-      <textarea id="rawJson" spellcheck="false" style="margin-top:12px;min-height:320px"></textarea>
-      <button class="btn sm" id="btnRawApply" style="margin-top:10px">Appliquer le JSON</button>
-    </details>
+       <h2 style="margin-top:16px">Note de direction — ajoutée à la fin de tous les prompts</h2>
+       <input id="direction" placeholder="ex : autumn palette, softer light — laisser vide si aucune">
+       <p class="tiny" style="margin:6px 0 22px">Sert à donner une intention de série sans
+         réécrire chaque scène. Se vide aussi vite qu’elle se met.</p>
+
+       <h2>Ancre d’identité — ajoutée à toutes les scènes</h2>
+       <textarea id="anchor" style="min-height:64px"></textarea>
+       <p class="tiny" style="margin:6px 0 22px">Ne décris jamais le visage dans une scène :
+         PuLID le porte. Ici on ne met que ce que PuLID ne transporte pas (cheveux, yeux,
+         taches de rousseur).</p>
+
+       <h2>JSON brut — tout le document</h2>
+       <textarea id="rawJson" spellcheck="false" style="margin-top:12px;min-height:320px"></textarea>
+       <button class="btn sm" id="btnRawApply" style="margin-top:10px">Appliquer le JSON</button>
+     </details>
+    </div><!-- /#bankGrille -->
+
+    <div id="bankFiche" hidden>
+     <div class="bankhead">
+       <button class="btn sm" id="btnFicheRetour">← Toutes les scènes</button>
+       <div class="spacer"></div>
+       <span class="tiny" id="ficheMsg"></span>
+     </div>
+     <!-- UNE carte, jamais N. Le conteneur garde son nom : collectScenes()
+          fusionne « les cartes peintes » dans le document, et rien n'interdit
+          qu'il y en ait plusieurs un jour -- c'est la fiche qui n'en peint qu'une. -->
+     <div id="sceneCards"></div>
+    </div><!-- /#bankFiche -->
    </div><!-- /#bankScenes -->
 
    <div id="bankPoses" hidden>
