@@ -80,7 +80,10 @@ résolution (§4, ADR-0012).
   `config.json` aux défauts du pack (`UNIVERS/<pack>/character_defaults.json`),
   amorce la banque depuis le monde, et n'édite jamais un des trois axes
   figés. Les valeurs mesurées du personnage remplacent ensuite les défauts
-  dans Réglages (`measured: false` tant que ce n'est pas fait).
+  dans Réglages (`measured: false` tant que ce n'est pas fait). Cet écran
+  demandera une **route d'écriture conçue pour `identity` et le retrait du
+  marqueur** : l'ancienne `POST /api/config`, supprimée le 30/08/2026 faute
+  d'appelant, ne couvrait ni l'un ni l'autre — ne pas la ressusciter.
 - **Registre de création** : types de contenu actifs pour un personnage
   (image / vidéo / voix / mise en scène à plusieurs). Axe **transversal**,
   orthogonal aux quatre autres et **commun** à tous les packs — pas une
