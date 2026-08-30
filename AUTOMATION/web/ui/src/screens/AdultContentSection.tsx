@@ -77,7 +77,6 @@ export function AdultContentSection() {
     const ok = await confirm({
       title: 'Désactiver le contenu adulte ?',
       button: 'Désactiver',
-      danger: true,
       body: (
         <>
           <p>

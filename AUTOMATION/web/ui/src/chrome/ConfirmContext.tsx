@@ -25,8 +25,6 @@ export type ConfirmRequest = {
   body: ReactNode
   /** Label of the confirming button. Says the ACT, never « OK ». */
   button?: string
-  /** Marks the confirming button as destructive. */
-  danger?: boolean
 }
 
 type Pending = ConfirmRequest & { resolve: (value: boolean) => void }
@@ -83,11 +81,11 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             <h3>{pending.title}</h3>
             {pending.body}
             <div style={{ marginTop: 18, display: 'flex', gap: 12, alignItems: 'center' }}>
-              <button
-                className={`btn ${pending.danger ? 'danger' : 'primary'}`}
-                id="cfOui"
-                onClick={() => settle(true)}
-              >
+              {/* `primary` even for a destructive act, as the legacy confirm
+                  did: the box already SAYS the consequence, and the button is
+                  the action one came for. A CSS pass comes after the migration;
+                  the styling choice belongs there, not here. */}
+              <button className="btn primary" id="cfOui" onClick={() => settle(true)}>
                 {pending.button ?? 'Confirmer'}
               </button>
               <button className="link" id="cfNon" onClick={() => settle(false)}>

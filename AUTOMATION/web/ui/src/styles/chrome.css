@@ -85,6 +85,11 @@ header{display:flex;align-items:center;gap:20px;padding:0 20px;height:56px;
    there is no workshop to navigate: the registry takes the whole screen. */
 .app{--nav:0px}
 .app:not(.no-character){--nav:208px}
+/* The tool rail is not migrated yet (it lands with the Banque screen), but the
+   launch bar already offsets itself by both columns. Declared here at zero so
+   `calc(var(--nav) + var(--rail))` resolves instead of collapsing the bar to the
+   left edge. */
+.app{--rail:0px}
 .sidenav{display:none;width:var(--nav);flex:none;flex-direction:column;
      background:var(--panel);border-right:1px solid var(--line);
      padding:14px 10px;overflow-y:auto}

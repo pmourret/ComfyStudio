@@ -136,7 +136,6 @@ export function ApplicationScreen() {
     const ok = await confirm({
       title: 'Arrêter le tableau de bord ?',
       button: 'Arrêter',
-      danger: true,
       body: (
         <p>
           Coupe le serveur web local. Cette page ne répondra plus tant qu'il n'est
@@ -162,7 +161,6 @@ export function ApplicationScreen() {
     const ok = await confirm({
       title: 'Arrêter ComfyUI ?',
       button: 'Arrêter ComfyUI',
-      danger: true,
       body: (
         <p>
           {running && (

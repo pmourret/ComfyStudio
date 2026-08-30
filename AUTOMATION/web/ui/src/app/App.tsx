@@ -22,6 +22,7 @@ import { ToastProvider } from '../chrome/ToastContext'
 import { ServerLogProvider } from '../state/ServerLogContext'
 import { ApplicationScreen } from '../screens/ApplicationScreen'
 import { CharactersScreen } from '../screens/CharactersScreen'
+import { WizardScreen } from '../screens/WizardScreen'
 import { CharacterSheetScreen } from '../screens/CharacterSheetScreen'
 import { JournalScreen } from '../screens/JournalScreen'
 import { PendingScreen } from '../screens/PendingScreen'
@@ -60,12 +61,9 @@ export function App() {
                   <Route path={PATHS.characters} element={<CharactersScreen />} />
                   <Route path={PATHS.character} element={<CharacterSheetScreen />} />
                   <Route path={PATHS.application} element={<ApplicationScreen />} />
+                  <Route path={PATHS.wizard} element={<WizardScreen />} />
 
                   {/* --- still served by the legacy frontend */}
-                  <Route
-                    path={PATHS.wizard}
-                    element={<PendingScreen title="Nouveau personnage" legacyHash="wizard" />}
-                  />
                   <Route
                     path={PATHS.produce}
                     element={<PendingScreen title="Produire" legacyHash="creer" />}

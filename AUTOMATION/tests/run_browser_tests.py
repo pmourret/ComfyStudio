@@ -55,6 +55,7 @@ TESTS = [
     "test_journal",       # coquille + Journal (ecran 1)
     "test_characters",    # sas d'entree + fiche du personnage (ecran 2)
     "test_application",   # cycle de vie, sondes, contenu adulte (ecran 3)
+    "test_wizard",        # creation d'un personnage : parcours et gating (ecran 4)
 ]
 
 # Fumigations de l'ancien frontend. Elles visent `/` et les ids du DOM vanilla ;
