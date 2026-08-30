@@ -144,7 +144,7 @@ export function AdultContentSection() {
 
   return (
     <div id="nsfwBox">
-      <p className="tiny" style={{ margin: '6px 0 14px' }}>
+      <p className="tiny mt-[6px] mb-[14px]">
         Ajoute au curseur de Produire un cran qui <b>édite une image déjà validée</b>{' '}
         que tu choisis toi-même — il n'engendre jamais une scène à partir de rien.
         La retouche se fait ensuite dans l'éditeur photo, depuis la Revue.
@@ -154,13 +154,13 @@ export function AdultContentSection() {
           arming promises a step that will not appear. We do not forbid it for
           all that — arming is the character's decision, it stays takeable. */}
       {!tool.has_graph && (
-        <p className="tiny" style={{ margin: '0 0 14px' }} id="nsfwManque">
+        <p className="tiny mt-0 mb-[14px]" id="nsfwManque">
           {tool.reason || ''} L'activer ici est sans effet visible sur Produire
           tant que le pack n'aura pas son graphe d'édition.
         </p>
       )}
 
-      <p className="tiny" style={{ margin: '0 0 16px' }}>
+      <p className="tiny mt-0 mb-[16px]">
         État : <b>{armed ? 'activé' : 'désactivé'}</b>
         {armed && total > 0 && (
           <>
@@ -170,7 +170,7 @@ export function AdultContentSection() {
         )}
       </p>
 
-      <div className="appliActs">
+      <div className="mt-[14px] mb-[6px] flex gap-[12px]">
         {armed ? (
           <button className="btn danger" id="btnNsfwOff" onClick={disarm}>
             Désactiver
@@ -202,12 +202,12 @@ export function AdultContentSection() {
           <li>une image dont la passe d'identité sort de la bande n'est pas éditée</li>
           <li>réversible ici même, à tout moment</li>
         </ul>
-        <label className="f" style={{ marginTop: 14 }}>
+        <label className="f mt-[14px]">
           <span>pour activer, recopier le mot ARMER</span>
           <input
             id="armWord2"
             autoComplete="off"
-            style={{ maxWidth: 220 }}
+            className="max-w-[220px]"
             value={word}
             onChange={(event) => setWord(event.target.value)}
             onKeyDown={(event) => {
@@ -215,7 +215,7 @@ export function AdultContentSection() {
             }}
           />
         </label>
-        <div style={{ marginTop: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+        <div className="mt-[16px] flex items-center gap-[12px]">
           <button className="btn primary" id="btnArm2" onClick={arm}>
             Activer
           </button>

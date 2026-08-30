@@ -80,10 +80,14 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
     els.map(e => [/VRAM/.test(e.dataset.hintText) ? 'vram'
                 : /vive/.test(e.dataset.hintText) ? 'ram' : 'temp',
                   parseInt(e.querySelector('b').textContent, 10)])));
-  const pctJauge = await page.$$eval('.sondes > div', els => Object.fromEntries(
-    els.filter(e => e.querySelector('.sonde-v')).map(e => [
-      e.querySelector('.sonde-t span').textContent.split('·')[0].trim().toLowerCase(),
-      parseInt(e.querySelector('.sonde-v').textContent.split('·').pop(), 10)])));
+  /* Cible des attributs data-*, pas des classes : depuis la migration Tailwind le
+     style d'une jauge est porte par des utilitaires, et un nom de classe n'est
+     plus un point d'accroche stable. `[data-gauge]` ne designe QUE les jauges,
+     donc le filtre qui ecartait la ligne du pilote n'a plus lieu d'etre. */
+  const pctJauge = await page.$$eval('[data-gauge]', els => Object.fromEntries(
+    els.map(e => [
+      e.querySelector('[data-gauge-title]').textContent.split('·')[0].trim().toLowerCase(),
+      parseInt(e.querySelector('[data-gauge-value]').textContent.split('·').pop(), 10)])));
   const communes = Object.keys(pctJauge).filter(k => k in pctBandeau);
   if (communes.length){
     const ecart = Math.max(...communes.map(k => Math.abs(pctBandeau[k] - pctJauge[k])));

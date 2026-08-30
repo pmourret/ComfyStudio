@@ -37,19 +37,25 @@ function Gauge({
 }) {
   const p = percent(used, total)
   const level = memoryLevel(p)
+  /* Colour never carries the reading alone — the figure sits right next to the
+     bar. Same steps as the banner probes (ProbeStrip). */
+  const fill = level === 'haut' ? 'bg-bad' : level === 'mid' ? 'bg-warn' : 'bg-ok'
   return (
-    <div>
-      <div className="sonde-t">
-        <span>
+    <div data-gauge>
+      <div className="flex items-baseline justify-between text-[12.5px] text-dim mb-[5px]">
+        <span data-gauge-title>
           {title}
           {detail ? ` · ${detail}` : ''}
         </span>
-        <span className="sonde-v">
+        <span className="text-txt tabular-nums" data-gauge-value>
           {gb(used)} / {gb(total)} Go · {p}%
         </span>
       </div>
-      <div className={`sonde-b${level ? ' ' + level : ''}`}>
-        <i style={{ width: `${Math.min(100, p)}%` }} />
+      <div className="h-[8px] overflow-hidden rounded-[4px] bg-panel2">
+        <i
+          className={`block h-full rounded-[4px] transition-[width] duration-300 ease-[ease] ${fill}`}
+          style={{ width: `${Math.min(100, p)}%` }}
+        />
       </div>
     </div>
   )
@@ -59,20 +65,20 @@ function Gauge({
    nvidia-smi: the line disappears and the rest stands. */
 function DriverReadings({ gpu }: { gpu: GpuProbe }) {
   return (
-    <div className="sonde-gpu">
+    <div className="mt-[2px] flex flex-wrap gap-[18px] text-[12.5px] text-dim">
       {gpu.temperature != null && (
         <span>
-          température <b>{gpu.temperature} °C</b>
+          température <b className="font-semibold text-txt tabular-nums">{gpu.temperature} °C</b>
         </span>
       )}
       {gpu.charge != null && (
         <span>
-          charge <b>{gpu.charge} %</b>
+          charge <b className="font-semibold text-txt tabular-nums">{gpu.charge} %</b>
         </span>
       )}
       {gpu.puissance != null && (
         <span>
-          consommation <b>{gpu.puissance.toFixed(0)} W</b>
+          consommation <b className="font-semibold text-txt tabular-nums">{gpu.puissance.toFixed(0)} W</b>
         </span>
       )}
     </div>
@@ -93,12 +99,12 @@ export function ComfyGauges({ stats }: { stats: ComfyStats | null }) {
     const anything = vram || gpu
     return (
       <>
-        <p className="sonde-ko">
+        <p className="mt-[2px] mb-[18px] text-[12.5px] text-dim2">
           ComfyUI ne répond pas — la mémoire vive qu'il rapporte est donc inconnue.
           {anything ? ' Le reste vient du pilote.' : ''}
         </p>
         {anything && (
-          <div className="sondes" style={{ marginTop: 12 }}>
+          <div className="mt-[12px] mb-[18px] flex flex-col gap-[12px]" data-probes>
             {vram && <Gauge title="VRAM" used={vram.utilisee} total={vram.total} detail={gpu?.nom || ''} />}
             {gpu && <DriverReadings gpu={gpu} />}
           </div>
@@ -108,7 +114,7 @@ export function ComfyGauges({ stats }: { stats: ComfyStats | null }) {
   }
 
   return (
-    <div className="sondes" id="comfyStats">
+    <div className="mt-[2px] mb-[18px] flex flex-col gap-[12px]" id="comfyStats" data-probes>
       {stats.vram && (
         <Gauge
           title="VRAM"
@@ -121,7 +127,7 @@ export function ComfyGauges({ stats }: { stats: ComfyStats | null }) {
       {gpu ? (
         <DriverReadings gpu={gpu} />
       ) : (
-        <p className="sonde-ko" style={{ margin: 0 }}>
+        <p className="m-0 text-[12.5px] text-dim2">
           Température et charge indisponibles — elles viennent de{' '}
           <code>nvidia-smi</code>, absent sur cette machine.
         </p>

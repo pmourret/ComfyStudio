@@ -24,7 +24,6 @@ import { usePolling } from '../state/usePolling'
 import { PATHS } from '../app/routes'
 import { AdultContentSection } from './AdultContentSection'
 import { ComfyGauges } from './ComfyGauges'
-import './application.css'
 
 type ActionResponse = Schema<'ActionResponse'>
 
@@ -44,7 +43,11 @@ function Takeover({ children }: { children: React.ReactNode }) {
      portal does it without destroying the React tree that has to poll for the
      server coming back. */
   return createPortal(
-    <div className="takeover" role="status">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center
+                 bg-bg p-[40px] text-center text-txt [font:var(--font)]"
+      role="status"
+    >
       <div>{children}</div>
     </div>,
     document.body,
@@ -150,7 +153,7 @@ export function ApplicationScreen() {
       <>
         Tableau de bord arrêté.
         <br />
-        <span style={{ fontSize: 13 }}>
+        <span className="text-[13px]">
           Relance <code>run_web.bat</code> pour y revenir.
         </span>
       </>,
@@ -226,7 +229,7 @@ export function ApplicationScreen() {
     <div className="screen" id="appli">
       <div className="wrap">
         <h2>Application</h2>
-        <p className="tiny" style={{ margin: '6px 0 22px' }}>
+        <p className="tiny mt-[6px] mb-[22px]">
           Serveur local et ComfyUI. Les réglages d'une génération sont
           l'engrenage, sur Produire.
         </p>
@@ -236,10 +239,10 @@ export function ApplicationScreen() {
             has its own pair right after. Without it « Arrêter » would read as
             « stop the application » — the opposite of what it does. */}
         <h2>Serveur web local</h2>
-        <p className="tiny" style={{ margin: '6px 0 16px' }}>
+        <p className="tiny mt-[6px] mb-[16px]">
           Celui que tu utilises en ce moment.
         </p>
-        <div className="appliActs">
+        <div className="mt-[14px] mb-[6px] flex gap-[12px]">
           <button className="btn" id="btnAppRestart" onClick={onAppRestart}>
             Redémarrer
           </button>
@@ -248,20 +251,20 @@ export function ApplicationScreen() {
           </button>
         </div>
 
-        <h2 style={{ marginTop: 34 }}>
+        <h2 className="mt-[34px]">
           ComfyUI{' '}
           <span className="tiny" id="comfyEtat">
             {state === null ? '' : online ? '— en ligne' : '— hors ligne'}
           </span>
         </h2>
-        <p className="tiny" style={{ margin: '6px 0 16px' }}>
+        <p className="tiny mt-[6px] mb-[16px]">
           Le moteur de génération (GPU). <b>Windows ne permet pas un arrêt
           propre</b> : le processus est coupé net, sans le temps de finir un job
           en cours. Utile pour libérer la VRAM ou reprendre en compte un custom
           node mis à jour.
         </p>
         <ComfyGauges stats={stats} />
-        <div className="appliActs">
+        <div className="mt-[14px] mb-[6px] flex gap-[12px]">
           <button
             className="btn"
             id="btnComfyUnload"
@@ -284,7 +287,7 @@ export function ApplicationScreen() {
             the same for every character at once — and no gesture inside the
             production flow: Produire carries the decision out, it does not
             take it. */}
-        <h2 style={{ marginTop: 34 }}>
+        <h2 className="mt-[34px]">
           Contenu adulte{' '}
           <span className="tiny" id="nsfwQui">
             {sheet?.name ? `— ${sheet.name}` : ''}
@@ -292,16 +295,23 @@ export function ApplicationScreen() {
         </h2>
         <AdultContentSection />
 
-        <h2 style={{ marginTop: 34 }}>Journal des productions</h2>
-        <p className="tiny" style={{ margin: '6px 0 10px' }}>
+        <h2 className="mt-[34px]">Journal des productions</h2>
+        <p className="tiny mt-[6px] mb-[10px]">
           L'historique des batchs — date, scène, format, score, verdict, durée.{' '}
           <Link className="link" to={PATHS.journal}>
             Ouvrir le journal des productions
           </Link>
         </p>
 
-        <h2 style={{ marginTop: 34 }}>Journal du serveur</h2>
-        <pre className="log" id="appliLog" style={{ display: 'block', maxHeight: 220 }}>
+        <h2 className="mt-[34px]">Journal du serveur</h2>
+        <pre
+          className="mt-[10px] mb-0 block max-h-[220px] overflow-auto whitespace-pre-wrap
+                     rounded-[8px] border border-line bg-[#0e1014] p-[11px]
+                     text-[12px] text-dim
+                     empty:before:italic empty:before:text-dim2
+                     empty:before:content-['aucune_action_enregistrée_dans_cette_session']"
+          id="appliLog"
+        >
           {lines.join('\n')}
         </pre>
       </div>

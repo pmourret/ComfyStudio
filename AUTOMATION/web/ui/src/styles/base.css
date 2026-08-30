@@ -79,6 +79,16 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);
 .btn.primary{background:var(--acc);border-color:var(--acc);color:var(--on-acc);font-weight:600}
 .btn.primary:hover{background:var(--acc-d);border-color:var(--acc-d)}
 .btn:disabled{opacity:.4;cursor:not-allowed}
+/* A destructive action is OUTLINED, never filled: it must read as available and
+   as serious, not as the thing to click. The fill comes on hover, when the
+   pointer is already there.
+
+   It lives here, beside `.primary` and `.sm`, because it is a button PRIMITIVE —
+   DESIGN.md always listed it as one. It had drifted into `screens/application.css`
+   while being used by the adult-content section too; the Tailwind migration
+   removed that sheet and put the rule back where its siblings are. */
+.btn.danger{background:transparent;border-color:var(--danger-line);color:var(--danger-txt)}
+.btn.danger:hover{background:var(--danger-bg);border-color:var(--danger-line)}
 .btn.sm{padding:6px 11px;font-size:13px}
 .btn:focus-visible,button:focus-visible,a:focus-visible{
   outline:2px solid var(--focus);outline-offset:2px}

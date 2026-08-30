@@ -175,7 +175,13 @@ export function RunPanel({ state }: { state: SystemState | null }) {
           onToggle={(e) => setLogOpen((e.target as HTMLDetailsElement).open)}
         >
           <summary>journal technique</summary>
-          <pre className="log">{(state.log ?? []).slice(-40).join('\n')}</pre>
+          <pre
+            className="mt-[10px] mb-0 max-h-[190px] overflow-auto whitespace-pre-wrap
+                       rounded-[8px] border border-line bg-[#0e1014] p-[11px]
+                       text-[12px] text-dim
+                       empty:before:italic empty:before:text-dim2
+                       empty:before:content-['aucune_action_enregistrée_dans_cette_session']"
+          >{(state.log ?? []).slice(-40).join('\n')}</pre>
         </details>
       </div>
     </div>

@@ -14,9 +14,42 @@
    scrollbars). Stacking a second reset on top of it would move type and spacing
    on every screen at once — the exact opposite of a migration meant to be
    invisible. One reset, and it is ours. */
-@layer theme, base, components, utilities;
+/* WHERE THIS SHEET SITS IN THE CASCADE, AND WHY IT IS LAST.
+
+   An unlayered rule beats a layered one whatever the specificity — that is the
+   cascade-layer rule, not a detail. Tailwind ships its utilities inside
+   `@layer utilities`, and every hand-written sheet of the studio is unlayered.
+   Left that way, EVERY existing rule silently beat EVERY utility: `base.css`'s
+   `h2{margin:0 0 12px}` won over a `mt-[34px]` written on that same element, and
+   no amount of specificity on the utility side would have changed it.
+
+   So the utilities are imported UNLAYERED, and `main.tsx` imports this file
+   LAST. They then compete on the ordinary rules — a utility is a single class,
+   which beats the element selectors of `base.css`, and ties with the shared
+   component classes, where coming last decides.
+
+   WHAT THIS DELIBERATELY DOES NOT DO is re-order the existing sheets. Putting
+   them into a layer was tried and rejected: it promoted the screen sheets (which
+   are imported by their screen, hence unlayered) ABOVE `chrome.css` and
+   `screens.css`, and two screens that are not migrated yet changed colour —
+   `.ins-void` on Produire and `.wiz-ok` on the wizard, both of which currently
+   LOSE on specificity to a `chrome.css` rule. Measured, not guessed.
+
+   Note for whoever reads DESIGN.md next: it states that a screen sheet is loaded
+   AFTER the shared ones because the screen imports it. In the React build that
+   is FALSE — `main.tsx` imports `App` before it imports any CSS, so the whole
+   screen subtree, and every sheet it pulls, lands FIRST in the bundle. The real
+   order is: screen sheets, then tokens / base / chrome / screens, and now this
+   file. Nothing here depends on that quirk; it is written down so the next
+   person does not have to rediscover it.
+
+   Tailwind's own default theme goes into `layer(theme)` — weak on purpose. It
+   declares `--font-mono`, a name `tokens.css` also owns and where it is a `font`
+   SHORTHAND carrying a size; unlayered, Tailwind's family-only value would win
+   and break every `font:var(--font-mono)`. Layered, tokens.css keeps it. */
+@layer theme;
 @import 'tailwindcss/theme.css' layer(theme);
-@import 'tailwindcss/utilities.css' layer(utilities);
+@import 'tailwindcss/utilities.css';
 
 /* Explicit rather than inferred: the scan root is the app source, not whatever
    directory Tailwind walks up to from this file. */
