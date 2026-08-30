@@ -36,12 +36,12 @@ hole this guard closes. The +33 % encoding cost is negligible on localhost.
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
+from .exceptions import BodyTooLarge
+
 LOCAL_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
 
-# aiohttp enforced this as `client_max_size`; Starlette has no equivalent, so
-# the check moved in here. A photo encoded in base64 (TAILLE_MAX_PHOTO = 20 MB,
-# +33 %) has to fit. It is the whole JSON body that is concerned, before the
-# handler ever gets to read `data_base64`.
+# Ceiling of a request body. Enforced by BodySizeLimitMiddleware, on the bytes
+# actually received. See that class for why the header is not the authority.
 MAX_BODY_BYTES = 28 * 1024 * 1024
 
 # Flipped by `open_to_network()` when app.py is started on another host than
@@ -86,7 +86,78 @@ class LocalOriginGuardMiddleware(BaseHTTPMiddleware):
         sent_type = (request.headers.get("Content-Type") or "").split(";")[0].strip()
         if sent_type != "application/json":
             return _refuse("Content-Type application/json requis", 415)
-        length = request.headers.get("Content-Length")
-        if length and length.isdigit() and int(length) > MAX_BODY_BYTES:
-            return _refuse("corps de requête trop volumineux (28 Mo max)", 413)
+        # The body-size ceiling is NOT enforced here: a `Content-Length` check
+        # is a promise the client makes, and a chunked request makes none at
+        # all. It lives in BodySizeLimitMiddleware below, on the bytes actually
+        # received.
         return await call_next(request)
+
+
+class BodySizeLimitMiddleware:
+    """Caps the request body on the BYTES RECEIVED, not on a declared header.
+
+    aiohttp enforced this as `client_max_size = 28 MB`; Starlette has no
+    equivalent, so it is rebuilt here. The ceiling has to fit a photo encoded in
+    base64 (`TAILLE_MAX_PHOTO` = 20 MB, +33 % of encoding): it is the whole JSON
+    body that is concerned, before the handler ever gets to read `data_base64`.
+
+    WHY NOT `Content-Length`. That header is a CLAIM. A client sending
+    `Transfer-Encoding: chunked` sends no length at all, and one sending a false
+    length is not obliged to be honest either. Trusting it left a hole exactly
+    the size of the limit it pretended to enforce — flagged at the end of the
+    FastAPI migration, closed here. The header is still used, but only as a
+    cheap early-out that can REFUSE, never as the thing that accepts.
+
+    PURE ASGI, NOT `BaseHTTPMiddleware`. The count has to happen as the stream
+    is consumed, which means wrapping the `receive` callable itself — something
+    only a raw ASGI middleware can do. Nothing is buffered here: bytes are
+    counted as they pass, and `BodyTooLarge` is raised on the message that
+    crosses the line, so an oversized upload is cut short instead of being read
+    to the end.
+
+    The exception is raised INSIDE `receive()`, i.e. deep under the endpoint
+    that awaited the body. It travels back up to Starlette's exception
+    middleware, which routes it to the handler in api/errors.py — hence the
+    studio's `{ok, erreur}` shape and a 413, like every other rejection.
+    """
+
+    def __init__(self, app, max_bytes=MAX_BODY_BYTES):
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+
+        # Early-out, refusal only: a client that announces too much is turned
+        # away without reading a byte. A client that announces nothing, or
+        # lies, still gets counted below.
+        #
+        # It ANSWERS instead of raising, unlike `counting_receive`. Here we are
+        # still ABOVE Starlette's exception middleware — nothing would catch a
+        # raise, and the outermost error handler would dress it as a 500. Down
+        # in `counting_receive` we are below it, and raising is the only option
+        # anyway: there is no `send` to answer with from inside a receive.
+        declared = None
+        for name, value in scope.get("headers", ()):
+            if name == b"content-length":
+                declared = value
+                break
+        if declared is not None and declared.isdigit() \
+                and int(declared) > self.max_bytes:
+            refusal = BodyTooLarge(self.max_bytes)
+            response = JSONResponse(refusal.detail, status_code=refusal.status_code)
+            return await response(scope, receive, send)
+
+        received = 0
+
+        async def counting_receive():
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > self.max_bytes:
+                    raise BodyTooLarge(self.max_bytes)
+            return message
+
+        await self.app(scope, counting_receive, send)

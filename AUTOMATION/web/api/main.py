@@ -19,7 +19,7 @@ import shared_state as ss
 
 from .errors import install_error_handlers
 from .routers import bank, images, production, review, state
-from .security import LocalOriginGuardMiddleware
+from .security import BodySizeLimitMiddleware, LocalOriginGuardMiddleware
 
 DESCRIPTION = """
 Backend local du studio Soulglade. Aucune authentification : le serveur
@@ -52,6 +52,11 @@ def create_app() -> FastAPI:
     # which already wrap everything below, so only the guard is registered as a
     # middleware. It must stay the outermost user middleware: it has to answer
     # 415 BEFORE FastAPI reads and validates any body.
+    # Registration order is INVERTED at runtime: the last one added is the
+    # outermost. So the origin guard runs first — a text/plain body is turned
+    # away with 415 before a single byte of it is read — and the size limit
+    # wraps everything below it, where the body actually gets consumed.
+    app.add_middleware(BodySizeLimitMiddleware)
     app.add_middleware(LocalOriginGuardMiddleware)
     install_error_handlers(app)
 
