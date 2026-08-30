@@ -62,9 +62,7 @@ python AUTOMATION/tools/toolchain.py build     # bundle de l'interface
 python AUTOMATION/web/app.py                   # http://127.0.0.1:8189
 ```
 
-Documentation d'API (Swagger) sur `/docs`. L'interface est en cours de
-migration vers React : les écrans pas encore portés restent servis par
-l'ancien frontend sous `/legacy`, et le studio y renvoie tout seul.
+Documentation d'API (Swagger) sur `/docs`.
 
 ## Documentation
 

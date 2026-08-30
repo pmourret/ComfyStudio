@@ -37,15 +37,10 @@ export type ScreenKey =
 
 /* The six destinations of the studio navbar, in their order on screen.
 
-   `key` is written to `data-s` on the button, exactly as the legacy frontend
-   did: the navigation contract stays an explicit attribute rather than an
-   assumption about markup. The VALUES are the new English screen keys, since
-   the routes they designate changed name in this migration.
-
-   `legacyHash` is what the same destination answers to in the old frontend,
-   served in parallel at /legacy. A screen still marked `migrated: false` sends
-   the user there instead of silently disappearing — nothing becomes
-   unreachable while the migration runs. */
+   `key` is written to `data-s` on the entry, exactly as the legacy frontend did:
+   the navigation contract stays an explicit attribute rather than an assumption
+   about markup. The VALUES are the new English screen keys, since the routes
+   they designate changed name in this migration. */
 export type Destination = {
   key: ScreenKey
   label: string
@@ -55,8 +50,6 @@ export type Destination = {
   labelWhenClaimed?: string
   path: string
   icon: string
-  legacyHash: string
-  migrated: boolean
   /** Shows the count of work WAITING (the A_REVOIR queue). Review only. */
   badge?: boolean
   /* Path prefix that lights this entry, when it is wider than the destination
@@ -72,24 +65,18 @@ export const DESTINATIONS: Destination[] = [
     labelWhenClaimed: 'Fiche',
     path: PATHS.character,
     icon: 'character',
-    legacyHash: 'registre',
-    migrated: true,
   },
   {
     key: 'produce',
     label: 'Produire',
     path: PATHS.produce,
     icon: 'produce',
-    legacyHash: 'creer',
-    migrated: true,
   },
   {
     key: 'review',
     label: 'Revue',
     path: PATHS.review,
     icon: 'review',
-    legacyHash: 'trier',
-    migrated: true,
     badge: true,
   },
   {
@@ -97,16 +84,12 @@ export const DESTINATIONS: Destination[] = [
     label: 'Galerie',
     path: PATHS.gallery,
     icon: 'gallery',
-    legacyHash: 'galerie',
-    migrated: true,
   },
   {
     key: 'bank',
     label: 'Banque',
     path: PATHS.bankScenes,
     icon: 'bank',
-    legacyHash: 'scenes',
-    migrated: true,
     activePrefix: '/bank',
   },
   {
@@ -114,8 +97,6 @@ export const DESTINATIONS: Destination[] = [
     label: 'Application',
     path: PATHS.application,
     icon: 'application',
-    legacyHash: 'appli',
-    migrated: true,
   },
 ]
 
@@ -129,23 +110,12 @@ export function screenForImage(bucket: string | null | undefined, name: string):
   return `${base}/${encodeURIComponent(name)}`
 }
 
-/* Where the legacy frontend lives while the migration runs. It keeps its own
-   `?character=` contract — it reads the id once at load, so the link has to
-   carry it (that is precisely what point 1 fixes on the React side). */
-export function legacyUrl(hash: string, characterId: string | null): string {
-  const query = characterId ? `?character=${encodeURIComponent(characterId)}` : ''
-  return `/legacy${query}#${hash}`
-}
-
 /* Is this destination the one currently open?
 
    A plain `startsWith` would light « Personnages » (/character) on the entry
    gate (/characters) as well — one path is a prefix of the other as a STRING,
-   not as a route. Matching on the segment boundary is what separates them.
-
-   Computed here rather than left to NavLink, because a destination not migrated
-   yet is a plain <a> out of the SPA: /app/journal is React while /app is still
-   legacy, and the Application entry must light up all the same. */
+   not as a route. Matching on the segment boundary is what separates them, and
+   it is also what lights Application on /app/journal, its sub-screen. */
 export function isDestinationActive(destination: Destination, pathname: string): boolean {
   const base = destination.activePrefix ?? destination.path
   return pathname === base || pathname.startsWith(base + '/')

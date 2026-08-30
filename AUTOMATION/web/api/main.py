@@ -14,17 +14,15 @@ to live in docstrings and in the JS that consumed it (AUDIT §7.8). The React
 frontend generates its TypeScript types from that document
 (AUTOMATION/tools/dump_openapi.py), so no payload shape is written by hand twice.
 
-FRONTENDS. Two are served while the React migration runs — see api/spa.py.
+FRONTEND. React + TypeScript, built by AUTOMATION/tools/toolchain.py and served
+by api/spa.py — which also carries the SPA fallback for the router's deep links.
 """
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-
-import shared_state as ss
 
 from .errors import install_error_handlers
 from .routers import bank, images, production, review, state
 from .security import BodySizeLimitMiddleware, LocalOriginGuardMiddleware
-from .spa import mount_frontends
+from .spa import mount_frontend
 
 DESCRIPTION = """
 Backend local du studio Soulglade. Aucune authentification : le serveur
@@ -71,16 +69,14 @@ def create_app() -> FastAPI:
     app.include_router(production.router)
     app.include_router(review.router)
 
-    # `/static` was mounted in web/app.py under aiohttp; it belongs to the
-    # assembly either way. These files are still served exactly as they are
-    # written: the legacy frontend has no build step, and it keeps serving the
-    # screens the React migration has not reached yet.
-    app.mount("/static", StaticFiles(directory=ss.HERE / "static"), name="static")
-
-    # LAST. `mount_frontends` registers a catch-all for the React router's deep
+    # LAST. `mount_frontend` registers a catch-all for the React router's deep
     # links, so everything that owns a real path must already be declared above
-    # it — routers first, then /static, then the fallback.
-    mount_frontends(app)
+    # it — the routers first, then the fallback.
+    #
+    # `/static` used to be mounted here for the vanilla frontend. That tree is
+    # gone (30/08/2026): the studio's assets are the Vite bundle, mounted on
+    # /assets by mount_frontend and named by content hash.
+    mount_frontend(app)
     return app
 
 

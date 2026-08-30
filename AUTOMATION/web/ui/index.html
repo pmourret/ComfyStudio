@@ -4,14 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Soulglade</title>
-<!-- THE identity layer, loaded from the legacy tree ON PURPOSE.
-
-     tokens.css is the single skin of the studio (palette, typography, shape);
-     base/chrome/screens only ever reference it through var(). Copying it into
-     the React bundle would create a second palette that drifts from the first
-     while both frontends are served side by side. It moves into ui/src/styles/
-     the day the legacy tree is retired, and not before. -->
-<link rel="stylesheet" href="/static/tokens.css">
 </head>
 <body>
 <div id="root"></div>

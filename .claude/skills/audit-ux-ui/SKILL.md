@@ -7,7 +7,7 @@ description: A utiliser pour auditer ou corriger l'UX/UI du studio (Dashboard, b
 
 ## Quand charger ce skill
 
-- Revue d'un écran ou d'un module `AUTOMATION/web/static/`
+- Revue d'un écran ou d'un composant `AUTOMATION/web/ui/src/`
 - Ajout d'écran dans le skill `nouvel-outil` (contrat frontend)
 - J3 (modules ES, design system minimal, sélecteur `?character=`)
 - L'utilisateur parle de navigation, clavier, clarté, fatigue, look

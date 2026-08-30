@@ -92,8 +92,13 @@ try:
             "/api/state le compte")
     code, _ = appel("/api/gallery?bucket=SANS_VISAGE&space=sfw&character=lena")
     verifie(code == 200, f"/api/gallery le sert ({code})")
-    page = urllib.request.urlopen(BASE + "/static/index.html", timeout=10).read()
-    verifie(b'data-b="SANS_VISAGE"' in page, "le bouton est dans la page")
+    # Le bouton lui-meme se verifie dans la fumigation navigateur (test_review) :
+    # depuis le passage a React, la page servie est un squelette et les
+    # destinations sont peintes par le bundle. Ce qui reste verifiable ICI, et
+    # qui est le vrai contrat de cette route, c'est que le dossier est SERVI —
+    # la ligne ci-dessus.
+    verifie(urllib.request.urlopen(BASE + "/", timeout=10).status == 200,
+            "le studio est servi a la racine")
 
     # ============================================================== E1
     print("\n[E1] la banque de scenes est validee cote serveur")

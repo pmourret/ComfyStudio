@@ -7,33 +7,6 @@ meme dashboard, ils se contaminaient (constate : test_pose_scene_card echouait
 en batch, vert en isolation). Ici : un `app.py --no-comfy --no-browser` par
 test, sur un port dedie, tue apres.
 
-DEUX SUITES pendant la migration React.
-
-  REACT   les fumigations du nouveau frontend, recreees ECRAN PAR ECRAN au fil
-          de la migration. C'est ce qui tourne par defaut.
-  LEGACY  les 14 fumigations de l'ancien frontend. Elles s'accrochent aux ids
-          du DOM vanilla ET a l'ancienne racine `/`, qui sert desormais le
-          studio React : elles ne passent plus, c'est attendu. Les SEPT ecrans
-          etant migres, chacune a desormais son equivalent React (voir la
-          colonne ci-dessous) ; elles restent la jusqu'a la depose de
-          `/legacy`, comme trace de ce qui etait verifie. `--legacy` les lance
-          quand meme, pour le lire.
-
-            test_ecran_registre ............ test_characters
-            test_ecran_wizard .............. test_wizard
-            test_ecran_creer ............... test_produce
-            test_panneau_reglages .......... test_produce
-            test_apercu_prompt ............. test_produce
-            test_compte_rendu .............. test_produce
-            test_galerie ................... test_review
-            test_contenu_adulte ............ test_application
-            test_sondes_comfy .............. test_application
-            test_application_suppression_editeur  test_application + test_editor
-            test_rail_repli ................ test_bank
-            test_scenes_aller_retour ....... test_bank
-            test_pose_scene_card ........... test_bank
-            test_pose_extraction ........... test_pose_extract
-
 QUEL INTERPRETEUR. Le studio tourne sous `python_embeded`, celui de ComfyUI
 (AUDIT §2.4), et c'est LUI qu'il faut employer ici : le venv de developpement
 n'a pas `cv2`, donc /api/mesurer y repond 500 et la fumigation de la Revue
@@ -45,7 +18,6 @@ CHAINE D'OUTILS PORTABLE. Playwright et son chromium vivent DANS le depot
 sous %APPDATA%. Les deux variables qui le disent sont posees ici pour les tests.
 
     python_embeded/python.exe AUTOMATION/tests/run_browser_tests.py
-    ... --legacy                 lance aussi l'ancienne suite
     ... --only test_journal
     ... --port-base 8260
     ... --pw <chemin vers un node_modules>   (defaut : celui du repo)
@@ -72,7 +44,19 @@ PY = sys.executable
 UI_MODULES = OFM / "AUTOMATION" / "web" / "ui" / "node_modules"
 BROWSERS = OFM / ".toolchain" / "playwright-browsers"
 
-# Fumigations du frontend React, dans l'ordre ou les ecrans sont migres.
+# Les fumigations du studio, dans l'ordre des ecrans. Elles ont remplace une par
+# une les 14 de l'ancien frontend, retirees avec lui le 30/08/2026 :
+#
+#   test_characters .... ex-test_ecran_registre
+#   test_wizard ........ ex-test_ecran_wizard
+#   test_application ... ex-test_contenu_adulte, test_sondes_comfy
+#   test_bank .......... ex-test_rail_repli, test_scenes_aller_retour,
+#                        test_pose_scene_card
+#   test_review ........ ex-test_galerie
+#   test_editor ........ ex-test_application_suppression_editeur
+#   test_produce ....... ex-test_ecran_creer, test_panneau_reglages,
+#                        test_apercu_prompt, test_compte_rendu
+#   test_pose_extract .. ex-test_pose_extraction
 TESTS = [
     "test_journal",       # coquille + Journal (ecran 1)
     "test_characters",    # sas d'entree + fiche du personnage (ecran 2)
@@ -84,27 +68,6 @@ TESTS = [
     "test_produce",       # Produire : pieges /api/plan et #btnRun (ecran 7)
     "test_pose_extract",  # ComfyUI requis (s'ignore sinon) : extraction reelle
 ]
-
-# Fumigations de l'ancien frontend. Elles visent `/` et les ids du DOM vanilla ;
-# depuis la bascule, `/` sert le studio React et l'ancien vit sous `/legacy`.
-# Conservees comme cahier des charges de leur ecran jusqu'a sa migration.
-LEGACY_TESTS = [
-    "test_ecran_registre",
-    "test_ecran_wizard",
-    "test_ecran_creer",
-    "test_contenu_adulte",
-    "test_sondes_comfy",
-    "test_rail_repli",
-    "test_galerie",
-    "test_compte_rendu",
-    "test_apercu_prompt",
-    "test_panneau_reglages",
-    "test_scenes_aller_retour",
-    "test_pose_scene_card",
-    "test_pose_extraction",                       # ComfyUI requis (s'ignore sinon)
-    "test_application_suppression_editeur",       # image source requise (s'ignore sinon)
-]
-
 
 def _free_from(base):
     p = base
@@ -178,8 +141,6 @@ def main(argv):
     ap.add_argument("--pw", default=str(UI_MODULES),
                     help="node_modules contenant playwright (defaut : celui du repo)")
     ap.add_argument("--only", default="", help="liste separee par des virgules")
-    ap.add_argument("--legacy", action="store_true",
-                    help="lancer aussi les fumigations de l'ancien frontend")
     ap.add_argument("--port-base", type=int, default=8260)
     ap.add_argument("--verbose", action="store_true", help="sortie complete de chaque test")
     a = ap.parse_args(argv)

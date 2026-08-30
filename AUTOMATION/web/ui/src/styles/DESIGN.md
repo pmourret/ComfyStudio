@@ -4,13 +4,20 @@ Deux couches, deux responsabilités (`.claude/rules/frontend.md`) :
 
 | Fichier | Rôle | Change d'un univers à l'autre ? |
 |---|---|---|
-| `tokens.css` | **identité visuelle** : palette, typographie, forme | **oui** — c'est le seul fichier qu'un univers redéfinit |
-| `base.css` | reset, primitives de formulaire et de bouton | non |
-| `components.css` | composants (cartes, panneaux, grilles, modales, bandeaux) | non |
-| `screens.css` | mise en page par écran + adaptation mobile | non |
+| `styles/tokens.css` | **identité visuelle** : palette, typographie, forme | **oui** — c'est le seul fichier qu'un univers redéfinit |
+| `styles/base.css` | reset, barres de défilement, primitives de bouton | non |
+| `styles/chrome.css` | surfaces permanentes (en-tête, navbar, rail, bandeaux, modales) | non |
+| `styles/screens.css` | ce que plusieurs écrans partagent (segments, tables, vides) | non |
+| `screens/<écran>/*.css` | mise en page d'UN écran, à côté de son composant | non |
 
-Chargés dans cet ordre par `index.html`. `screens.css` en dernier : ce qui doit
-primer sur un composant y est.
+Les quatre premiers sont importés dans cet ordre par `src/main.tsx` ; la feuille
+d'un écran est importée par l'écran lui-même, donc chargée après — ce qui doit
+primer sur un composant partagé y est.
+
+> Migration React du 30/08/2026 : `components.css` et le `screens.css` unique de
+> l'ancien frontend ont été répartis entre `styles/chrome.css` (ce qui est
+> permanent) et les feuilles d'écran (ce qui ne l'est pas). Le contrat de tokens
+> ci-dessous n'a pas bougé — c'est lui qui rendait le découpage possible.
 
 ## Contrat de tokens
 

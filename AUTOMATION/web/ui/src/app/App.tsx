@@ -6,9 +6,9 @@
    wraps the pollers, which report into it.
 
    ROUTES — one per screen, plus distinct routes for the two screens the legacy
-   frontend switched by attribute (see app/routes.ts). Screens not migrated yet
-   render PendingScreen, which links to the legacy frontend: the URL exists, the
-   destination is honest, nothing is lost. */
+   frontend switched by attribute (see app/routes.ts): `#registre[data-vue]`
+   became /characters and /character, `#trier[data-metier]` became /review and
+   /gallery. */
 import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { CharacterProvider, useCharacter } from '../character/CharacterContext'
@@ -64,7 +64,6 @@ export function App() {
                 <Route element={<Shell />}>
                   <Route path="/" element={<HomeRedirect />} />
 
-                  {/* --- migrated */}
                   <Route path={PATHS.journal} element={<JournalScreen />} />
                   {/* The two halves of the legacy `#registre`, switched by a
                       `data-vue` attribute, are two routes now. */}

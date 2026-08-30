@@ -1,7 +1,6 @@
 ---
 paths:
   - "AUTOMATION/web/ui/**"
-  - "AUTOMATION/web/static/**"
 ---
 
 # Conventions frontend de la plateforme
@@ -16,10 +15,8 @@ Une forme de payload recopiée à la main est une deuxième copie du
 contrat, qui dérive en silence.
 
 L'ancien frontend (JavaScript vanilla, modules ES, sans étape de build)
-vit toujours dans `AUTOMATION/web/static/` et reste servi sous
-`/legacy` : il porte les écrans que la migration React n'a pas encore
-atteints. Il disparaît avec le dernier écran migré. **Ne rien y ajouter
-de neuf** — un écran non migré se corrige côté React.
+a été **déposé le 30/08/2026**, les sept écrans étant migrés et validés.
+`AUTOMATION/web/static/` n'existe plus, `/legacy` non plus.
 
 ## L'étape de build : assumée, et portable
 
@@ -60,9 +57,8 @@ de la donnée et pas du code :
 - les **messages d'erreur remontés par le backend** restent en français,
   ils s'affichent tels quels.
 
-L'ancien frontend est intégralement en français (identifiants compris) :
-c'est une dette connue, qui s'éteint avec lui — on ne le traduit pas,
-on le remplace.
+La dette de nommage français de l'ancien frontend s'est éteinte avec
+lui : il n'a pas été traduit, il a été remplacé.
 
 ## État
 
@@ -90,11 +86,11 @@ seulement déconseillé (isolation du 29/08/2026).
   générique) : palette, typographie, ambiance propres à chaque univers —
   voulu, différent d'un univers à l'autre (CLAUDE.md §5).
 
-`tokens.css` est **la seule** couche d'identité visuelle. Tant que les
-deux frontends coexistent il n'en existe qu'un exemplaire, dans
-`static/`, référencé par `ui/index.html` — dupliquer la palette la
-ferait diverger. Il rejoint `ui/src/styles/` avec la disparition de
-l'ancien.
+`tokens.css` est **la seule** couche d'identité visuelle, dans
+`ui/src/styles/`. `base`, `chrome` et les feuilles d'écran n'en
+dépendent que par `var()`, jamais par une valeur en dur qui encoderait
+un choix de style. Un univers qui veut sa propre ambiance redéfinit ce
+fichier ; le chrome commun ne bouge pas.
 
 ## Panel d'outils
 
@@ -134,11 +130,15 @@ jamais par `display:none` : il reste le nom accessible du contrôle.
 
 ## Tests
 
-Chaque écran migré arrive avec sa fumigation navigateur, recréée au
-moment de sa migration — pas en bloc à la fin
-(`AUTOMATION/tests/run_browser_tests.py`, suite REACT). Les fumigations
-de l'ancien frontend restent le cahier des charges de l'écran qu'elles
-couvrent jusqu'à ce que leur version React les remplace.
+Chaque écran a sa fumigation navigateur
+(`AUTOMATION/tests/run_browser_tests.py`), et un écran neuf arrive avec
+la sienne. Elles tournent sous `python_embeded`, celui de ComfyUI : le
+venv de développement n'a pas `cv2`, donc `/api/mesurer` y répond 500.
+
+Une fumigation qui touche des données réelles porte une **garde de
+destruction** : elle intercepte les requêtes et échoue si un
+`/api/delete` vise un fichier qu'elle n'a pas créé elle-même. Un
+compteur avant/après ne dit pas *quel* fichier a bougé.
 
 ## NSFW et identité
 

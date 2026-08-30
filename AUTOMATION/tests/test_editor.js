@@ -26,12 +26,58 @@
      8. The editor holds the studio's keyboard shortcuts at bay: V/X/A under the
         veil sort nothing.
 
+   IT WORKS ON ITS OWN IMAGE. The source is seeded as `_TEST_EDITEUR_temp.png`,
+   a copy of a real output, and removed at the end — on disk AND in the database,
+   where `/api/edit/save` writes a row that `/api/delete` deliberately keeps.
+   Exercising a destructive gesture on real data and checking a counter
+   afterwards is not a test, it is a hope: a counter that lands right does not
+   say WHICH file moved.
+
    PREREQUISITES: see test_journal.js — run_browser_tests.py does all of it. */
 let chromium;
 try { ({ chromium } = require('playwright')); }
 catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'); process.exit(0); }
 
+const fs = require('fs');
+const path = require('path');
+const { execFileSync } = require('child_process');
+
 const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
+const RACINE = path.resolve(__dirname, '..', '..');
+const OK_DIR = path.join(RACINE, 'PROD', 'LENA', 'OK');
+
+/* IL TRAVAILLE SUR SA PROPRE IMAGE. Le prefixe `_TEST_` est celui que le
+   nettoyeur de base accepte, et qu'aucune image de production ne porte : la
+   fumigation amorce sa source, l'edite, et efface les deux faces derriere elle.
+   Ouvrir l'editeur sur la premiere vignette venue reviendrait a exercer un
+   geste destructeur sur des donnees reelles pour se rassurer ensuite avec un
+   compteur — or un compteur qui retombe juste ne dit pas QUEL fichier a bouge. */
+const PREFIXE = '_TEST_EDITEUR_temp';
+const SOURCE = PREFIXE + '.png';
+
+/* NETTOYER LES DEUX FACES, pas seulement le disque. `/api/edit/save` inscrit la
+   copie en base ; `/api/delete` efface le fichier et GARDE la ligne — c'est une
+   decision, pas un oubli (voir sa docstring). Sans ce nettoyage la fumigation
+   laisse une ligne sans fichier, sans journal et sans mesure, et
+   test_coherence_base [4] la signale — a raison — comme une ecriture parasite.
+
+   L'interprete : n'importe lequel fait l'affaire (sqlite3 est standard, rien
+   ici ne touche au GPU). run_browser_tests.py passe le sien par
+   SOULGLADE_PYTHON ; en lancement manuel on retombe sur `python` du PATH. */
+const PY = process.env.SOULGLADE_PYTHON || 'python';
+const nettoyer = () => {
+  try {
+    for (const n of fs.readdirSync(OK_DIR))
+      if (n.startsWith(PREFIXE)) fs.rmSync(path.join(OK_DIR, n), { force: true });
+  } catch { /* dossier absent : rien a nettoyer */ }
+  try {
+    execFileSync(PY, [path.join('AUTOMATION', 'tests', 'nettoyer_artefacts_test.py'), PREFIXE],
+                 { cwd: RACINE, stdio: 'pipe' });
+  } catch (e) {
+    console.log('  note  lignes de test non effacees en base (' + PY + ' : '
+                + String(e.message).split(String.fromCharCode(10))[0].trim() + ')');
+  }
+};
 
 /* GARDE DE DESTRUCTION. Cette fumigation touche des DONNEES REELLES : elle ne
    doit jamais supprimer une image qu'elle n'a pas creee elle-meme. Le filet
@@ -42,9 +88,24 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
 
    Ecrit apres un incident du 30/08/2026 : une image de production a disparu
    pendant une campagne de fumigations sans qu'aucune assertion ne le voie. */
-const jetables = new Set();
+const jetables = new Set([SOURCE]);
 const volsDeDonnees = [];
 
+
+/* Amorce : une VRAIE sortie de production, recopiee sous le nom jetable — le
+   canvas et les controles de ratio ont besoin d'une image reelle, pas d'un
+   carre uni. Elle vit et meurt avec ce test. */
+const modeles = (() => { try { return fs.readdirSync(OK_DIR)
+    .filter(n => n.endsWith('.png') && !n.startsWith(PREFIXE)); } catch { return []; } })();
+if (!modeles.length){
+  console.log('  IGNORE — aucune image dans PROD/LENA/OK pour amorcer le test');
+  process.exit(0);
+}
+nettoyer();
+fs.copyFileSync(path.join(OK_DIR, modeles[0]), path.join(OK_DIR, SOURCE));
+// filet : [11] supprime par l'interface (c'est ce qu'il teste) ; ceci rattrape
+// un artefact laisse par un echec en cours de route, quoi qu'il arrive.
+process.on('exit', nettoyer);
 
 (async () => {
   const nav = await chromium.launch();
@@ -79,19 +140,20 @@ const volsDeDonnees = [];
     el.dispatchEvent(new Event('input', { bubbles: true }));
   }, valeur);
 
-  console.log('\n[0] etat de depart');
+  console.log('\n[0] amorce : le test travaille sur SA propre image');
   await page.goto(BASE + '/gallery?character=lena', { waitUntil: 'networkidle' });
   await page.waitForSelector('.tile');
   const depart = await compteurs();
   const nomsAvant = await noms();
-  if (!nomsAvant.length){
-    console.log('  IGNORE — aucune image validee pour servir de source');
-    process.exit(0);
-  }
-  console.log(`      ${nomsAvant.length} image(s) validee(s)`);
+  dire(nomsAvant.includes(SOURCE), `l'image jetable est en Galerie : ${SOURCE}`);
+  console.log(`      ${nomsAvant.length} image(s) validee(s), dont la jetable`);
 
-  console.log('\n[1] l editeur s ouvre depuis une vignette');
-  await page.click('.tile:first-child .tacts [data-e]');
+  console.log('\n[1] l editeur s ouvre sur ELLE, pas sur la premiere venue');
+  const kSource = await page.$$eval('.tile', (tiles, nom) =>
+    tiles.findIndex(t => (t.querySelector('img')?.src || '').includes(encodeURIComponent(nom))),
+    SOURCE);
+  dire(kSource >= 0, `elle est visible (tuile ${kSource})`);
+  await page.click(`.tile[data-k="${kSource}"] .tacts [data-e]`);
   await page.waitForSelector('#editorBox[open]');
   await page.waitForFunction(() => {
     const c = document.querySelector('#edCanvas');
@@ -222,7 +284,7 @@ const volsDeDonnees = [];
   if (copie) jetables.add(copie);
   dire(Boolean(copie), `une copie est apparue : ${copie}`);
   dire(Boolean(copie) && copie.includes('_edit'), 'son nom porte bien `_edit`');
-  dire(apres.includes(nomsAvant[0]), "et la SOURCE est intacte, elle n'a pas ete remplacee");
+  dire(apres.includes(SOURCE), "et la SOURCE est intacte, elle n'a pas ete remplacee");
 
   console.log('\n[11] NETTOYAGE : la copie est supprimee par l interface');
   await page.reload({ waitUntil: 'networkidle' });

@@ -19,20 +19,10 @@ import { NavLink, useLocation } from 'react-router-dom'
 
 import { useCharacter } from '../character/CharacterContext'
 import { useSystemState } from '../state/SystemStateContext'
-import {
-  DESTINATIONS,
-  characterPath,
-  isDestinationActive,
-  legacyUrl,
-  type Destination,
-} from '../app/routes'
+import { DESTINATIONS, characterPath, isDestinationActive, type Destination } from '../app/routes'
 import { useChrome } from './ChromeContext'
 import { Icon } from './Icon'
 
-/* A destination that has not been migrated yet still leads somewhere: the old
-   frontend, served in parallel at /legacy. Nothing disappears while the
-   migration runs — the entry is a plain link out of the SPA, so the browser
-   loads the legacy document instead of the router matching a stub. */
 function DestinationLink({
   destination,
   path,
@@ -42,49 +32,27 @@ function DestinationLink({
   path: string
   badge: React.ReactNode
 }) {
-  const { claimed, isClaimed } = useCharacter()
+  const { isClaimed } = useCharacter()
   const { pathname } = useLocation()
-  /* Active state is computed from the path, NOT taken from NavLink: a
-     destination still served by the legacy frontend is a plain <a>, and it must
-     light up all the same when a migrated sub-screen of it is open —
-     /app/journal is React while /app is not, and the chrome would otherwise
-     have no marker at all. */
+  /* Active state is computed from the PATH, not taken from NavLink's own
+     `isActive`: a destination lights up when a sub-screen of it is open, and
+     /app/journal is a sub-screen of /app that NavLink alone would not light
+     without an `end={false}` that also lights /characters on /character. One
+     rule, in the route table, for both cases. */
   const active = isDestinationActive(destination, pathname)
-  const className = `nav-item${active ? ' on' : ''}`
 
-  const content = (
-    <>
+  return (
+    <NavLink
+      className={`nav-item${active ? ' on' : ''}`}
+      data-s={destination.key}
+      aria-current={active ? 'page' : undefined}
+      to={path}
+    >
       <Icon name={destination.icon} className="nav-ic" />
       <span className="nav-lab">
         {(isClaimed && destination.labelWhenClaimed) || destination.label}
       </span>
       {badge}
-    </>
-  )
-
-  if (!destination.migrated) {
-    return (
-      <a
-        className={className}
-        data-s={destination.key}
-        data-migrated="false"
-        aria-current={active ? 'page' : undefined}
-        href={legacyUrl(destination.legacyHash, claimed)}
-      >
-        {content}
-      </a>
-    )
-  }
-
-  return (
-    <NavLink
-      className={className}
-      data-s={destination.key}
-      data-migrated="true"
-      aria-current={active ? 'page' : undefined}
-      to={path}
-    >
-      {content}
     </NavLink>
   )
 }

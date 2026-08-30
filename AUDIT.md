@@ -2,9 +2,16 @@
 
 **Date :** 30/08/2026 · **Branche :** `rename/soulglade` · **Réf. dépôt :** `e9e0e96`
 
-Document d'inventaire, **sans plan de migration** : il décrit ce qui existe
-aujourd'hui, pour que le plan se construise sur des faits. Aucun code n'a été
-modifié.
+Document d'inventaire, **sans plan de migration** : il décrit ce qui existait
+au moment de l'écrire, pour que le plan se construise sur des faits.
+
+> **Les deux migrations sont faites** (30/08/2026). Le backend est FastAPI,
+> le frontend est React + TypeScript dans `AUTOMATION/web/ui/`, et
+> `AUTOMATION/web/static/` — que ce document décrit longuement et vers lequel
+> il pointe encore — **n'existe plus**. Les chemins `static/*.js` cités ici
+> sont donc des références HISTORIQUES : ils disent d'où vient une règle, pas
+> où elle vit. Les décisions et les invariants relevés, eux, restent en
+> vigueur — c'est pour ça que ce fichier est gardé.
 
 Volume concerné : **~5 400 lignes de Python web** (`AUTOMATION/web/`) +
 **~4 900 lignes de JS** + **~1 400 lignes de CSS** + **670 lignes de HTML**
