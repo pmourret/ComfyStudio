@@ -490,6 +490,36 @@ pre.log{background:#0e1014;border:1px solid var(--line);border-radius:8px;paddin
 .tile.ia{opacity:.62}
 .tile.ia .chip{filter:saturate(.4)}
 
+/* ============================ METIER DE L'ECRAN #trier (30/08/2026, F1.1)
+   Revue et Galerie sont deux destinations du chrome sur UN ecran. Ce qui les
+   separe tient a l'attribut `data-metier`, ecrit par review.js depuis la route :
+   trois regles ici, plutot qu'une seconde grille et un second chargeur.
+
+   Ce qui est masque l'est parce que le geste n'existe pas dans ce metier — pas
+   parce qu'il serait indisponible : rien n'est grise. En Galerie on ne trie
+   pas ; en Revue les validees ne sont pas le sujet, elles ont leur onglet. */
+#trier[data-metier="galerie"] #bucketSel{display:none}
+#trier[data-metier="galerie"] #btnUndo{display:none}
+#trier[data-metier="revue"] #bucketSel button[data-b="OK"]{display:none}
+
+/* Le telechargement est un <a download> : le navigateur enregistre les octets
+   que /img sert deja. Il s'habille comme les boutons qui l'entourent — dans la
+   carte (.tacts) comme en plein cadre (.btn). */
+.tacts a.dl{flex:1;display:flex;align-items:center;justify-content:center;
+   border:1px solid transparent;border-radius:6px;color:var(--dim);
+   text-decoration:none;padding:5px 0;font-size:14px;line-height:1}
+.tacts a.dl:hover{background:var(--panel2);border-color:var(--line2);color:var(--txt)}
+a.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+   color:var(--txt);text-decoration:none}
+a.btn.primary{color:var(--on-acc)}
+/* « Poster sur Instagram » : inerte, et il DIT pourquoi sous son libelle —
+   un bouton desactive sans raison lisible se lit comme une panne. */
+.acts .btn .tiny{display:block;font-weight:400;margin-top:2px}
+
+/* Le nom vise par #galerie/<nom> ou #trier/<nom> n'est pas dans ce dossier :
+   un bandeau au-dessus du contenu, qui ne remplace pas la grille. */
+.empty.avis{margin-bottom:16px}
+
 /* declinaison / armement : <dialog> natif pilote par la primitive ui-dialog.js
    (focus piege, Echap natif, clic backdrop). La boite visible est .card ; le
    <dialog> ne porte que le centrage (UA) et le backdrop. */

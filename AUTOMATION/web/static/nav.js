@@ -1,14 +1,19 @@
 /* Navigation entre ecrans et onglets du chrome. Extrait de core.js en J3
    etape 2.
 
-   "galerie" et "trier" pointent tous deux sur l'ecran #trier (bucket/vue deja
-   filtrables sur place) : la difference n'est que le bucket d'entree. Depuis
-   le shell studio, seul "trier" (Revue) a un onglet ; "galerie" reste un hash
-   partageable (#galerie -> bucket OK) et le lien "voir la galerie" de Creer. */
+   "galerie" et "trier" partagent l'ecran #trier, mais sont deux DESTINATIONS du
+   chrome depuis le 30/08/2026 (F1.1) : chacune son onglet, son bucket d'entree
+   et son `metier` (ROUTES, constants.js). Revue juge la file A_REVOIR ; Galerie
+   consulte les validees, sans geste de tri.
+
+   Une route `nomme` accepte un suffixe `/<nomfichier>` — `#galerie/x.png`,
+   `#trier/x.png` — resolu par routeFor() : la destination est la meme, avec une
+   image visee en plus. Ce module ne construit jamais un hash a la main : la
+   forme vit dans constants.js (hashPourImage). */
 import {$, $$} from './dom.js';
-import {ROUTES} from './constants.js';
-import {emit} from './bus.js';
-import {loadItems, syncTriageUi, setTriageEntry} from './review.js';
+import {routeFor} from './constants.js';
+import {emit, on} from './bus.js';
+import {loadItems, syncTriageUi, setTriageEntry, setTriageFocus} from './review.js';
 import {loadJournal, setBankView} from './advanced.js';
 import {majEtatComfy} from './appli.js';
 import {majContenuAdulte} from './nsfw-arm.js';
@@ -20,8 +25,12 @@ import {inspectorEnter} from './inspector.js';
 
 $$('.tabs button').forEach(b => b.onclick = () => go(b.dataset.s));
 
-export function go(name, skipHash){
-  let route = ROUTES[name];
+/* `opts.space` : le SEUL moyen d'entrer en espace NSFW par la navigation, et il
+   n'est jamais passe par un onglet du chrome — seulement par un geste qui NOMME
+   l'espace (le renvoi de fin de lot d'edition, J7). Sans lui, toute destination
+   de tri retombe en SFW. */
+export function go(name, skipHash, opts){
+  let route = routeFor(name);
   let screen = route ? route.screen : name;
   // getElementById et PAS querySelector('#'+screen) : le hash est libre, et
   // depuis « scenes/poses » un nom peut contenir un slash — `#scenes/poses`
@@ -37,9 +46,13 @@ export function go(name, skipHash){
   // capture...) — la bascule NSFW dans l'ecran reste a un clic
   // `bucket` et pas `route` : depuis « scenes/poses », une route peut exister
   // sans etre une entree de tri — la remettre a undefined viderait la file
-  if (route && route.bucket){ setTriageEntry(route.bucket); syncTriageUi(); }
-  // le hash #galerie (bucket OK) partage l'ecran #trier : il allume Revue ;
-  // #scenes/poses allume Banque. Les deux le disent dans ROUTES, plus ici.
+  if (route && route.bucket){
+    setTriageEntry(route.bucket, opts && opts.space, route.metier);
+    setTriageFocus(route.focus || null);   // #trier/<nom> : l'image a viser
+    syncTriageUi();
+  }
+  // #galerie et #trier allument DEUX onglets differents sur le meme ecran ;
+  // #scenes/poses allume Banque. Tout cela se lit dans ROUTES, plus ici.
   const tabName = (route && route.tab) || name;
   $$('.tabs button').forEach(x => x.classList.toggle('on', x.dataset.s === tabName));
   // #journal est un sous-ecran d'Application : il n'a pas d'onglet propre, on
@@ -48,7 +61,13 @@ export function go(name, skipHash){
   // #wizard n'en a pas non plus (action transitoire du menu identité), assume.
   if (name === 'journal') $('.tabs button[data-s="appli"]').classList.add('on');
   $$('.screen').forEach(x => x.classList.toggle('on', x.id === screen));
-  if (!skipHash) location.hash = name;          // onglet partageable / bouton retour
+  // onglet partageable / bouton retour. On RETIENT ce qu'on ecrit : le
+  // navigateur repond a cette ligne par un `hashchange`, qui rappelait go()
+  // une seconde fois — sans les options de l'appelant. Une navigation qui
+  // demandait l'espace NSFW (fin de lot d'edition) le perdait donc aussitot,
+  // ecrasee par sa propre relecture d'URL, et tout clic d'onglet peignait son
+  // ecran deux fois.
+  if (!skipHash){ HASH_ECRIT = name; location.hash = name; }
   // la banque ouvre toujours sur la sous-vue que la route nomme — donc « scenes »
   // par defaut : arriver par l'onglet Banque ne doit pas rendre la vue laissee
   // au passage precedent, qui ne serait ecrite nulle part dans l'URL
@@ -70,7 +89,22 @@ export function go(name, skipHash){
   emit('screen:changed', {name, screen, vue: (route && route.vue) || null});
 }
 
-window.addEventListener('hashchange', () => go(location.hash.slice(1) || 'creer', true));
+/* Le hash qu'on vient d'ecrire soi-meme, en attente de son `hashchange`. Sert a
+   ne PAS rejouer la navigation qu'on est en train de faire ; une vraie
+   navigation par l'URL (lien colle, bouton retour, saisie a la main) ne
+   correspond jamais a cette valeur et passe. */
+let HASH_ECRIT = null;
+window.addEventListener('hashchange', () => {
+  const nom = location.hash.slice(1) || 'creer';
+  const propre = nom === HASH_ECRIT;
+  HASH_ECRIT = null;
+  if (!propre) go(nom, true);
+});
+
+/* Naviguer sans importer ce module. L'inspecteur de Creer est deja importe ICI
+   (inspectorEnter) : lui faire importer `go` en retour fermerait un cycle entre
+   les deux fichiers. Il emet, on route. */
+on('nav:go', d => go(d && d.name, false, d && d.opts));
 
 /* Le menu identité (#idMenu) est cable par character.js — il possede la zone.
    Ici : fermeture au clic hors du bloc, et a Echap (overlay du chrome). */

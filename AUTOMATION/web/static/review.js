@@ -1,8 +1,22 @@
-/* Ecran Revue : tri, sous-scores, jugement, declinaison, retouche.
+/* Ecran Revue ET Galerie : tri, sous-scores, jugement, declinaison, retouche.
    Bascule en modules ES le 27/08/2026 (J3). Depuis l'etape 2 : l'etat du tri
    (bucket / espace / vue / liste / curseur) est encapsule ici et expose par
    triageState() / setTriageEntry() ; les bandes de score viennent de
-   config.js. */
+   config.js.
+
+   DEUX METIERS, UN ECRAN (30/08/2026, F1.1). Le chrome a deux destinations —
+   Revue (juger la file A_REVOIR) et Galerie (consulter les validees) — servies
+   par le meme `loadItems` et le meme rendu de grille. Ce qui change est le
+   METIER, porte par `#trier[data-metier]` : en galerie, aucun geste de tri
+   n'est propose (ni bouton, ni raccourci), et les gestes de consultation
+   prennent leur place — voir, editer, telecharger. Dupliquer l'ecran aurait
+   donne deux grilles a maintenir et deux chargeurs a desynchroniser.
+
+   Une image peut aussi etre VISEE par son nom (F1.3) : `#galerie/<nom>` et
+   `#trier/<nom>` (constants.js) posent FOCUS, que le chargement suivant
+   consomme. Un nom absent de ce dossier — trie ailleurs, supprime, ou d'un
+   autre personnage — se dit a l'ecran ; il ne montre jamais une autre image a
+   la place. */
 import {$, $$, esc} from './dom.js';
 import {api, post, erreurDe, imgUrl} from './api.js';
 import {signalerPanne} from './health.js';
@@ -19,7 +33,10 @@ import {refreshCounts} from './poller.js';
 /* --- etat du tri, prive au module ---------------------------------- */
 let BUCKET = 'A_REVOIR';
 let SPACE = 'sfw';           // axe SFW/NSFW — un axe, PAS un personnage
+let METIER = 'revue';        // 'revue' (juger) ou 'galerie' (consulter)
 let VIEW = 'grille';
+let FOCUS = null;            // nom de fichier a viser au prochain chargement
+let INTROUVABLE = null;      // nom vise qui n'est pas dans ce dossier
 let ITEMS = [];              // liste du dossier courant
 let VITEMS = [];             // sous-ensemble affiche (filtre de score)
 let CUR = 0;
@@ -29,29 +46,45 @@ let JUGES = 0;
 let REFS = {mesurees: 0, total: 0};
 let ITEMS_SEQ = 0;           // jeton anti-reponse-perimee (loadItems)
 
-// bucket/espace/vue courants, pour poller.js (compteurs) et nav.js
-export const triageState = () => ({bucket: BUCKET, space: SPACE, view: VIEW});
-// point d'entree depuis un onglet (Galerie/Revue) : bucket impose, retour SFW
-// strict, vue grille — ouvrir sur du NSFW sans l'avoir choisi serait surprenant
-export function setTriageEntry(bucket, space){
+// bucket/espace/vue/metier courants, pour poller.js (compteurs) et nav.js
+export const triageState = () => ({bucket: BUCKET, space: SPACE, view: VIEW,
+                                   metier: METIER});
+// point d'entree depuis un onglet (Galerie/Revue) : bucket et metier imposes,
+// retour SFW strict, vue grille — ouvrir sur du NSFW sans l'avoir choisi serait
+// surprenant
+export function setTriageEntry(bucket, space, metier){
   // `space` par defaut 'sfw' : les onglets du chrome retombent toujours sur le
   // SFW (voir nav.go). Seul un geste qui NOMME le NSFW y entre — le renvoi de
   // fin de lot d'edition, qui sait de quel espace sort le lot (J7).
   BUCKET = bucket; SPACE = space || 'sfw'; VIEW = 'grille';
+  // `metier` par defaut 'revue' : un appelant qui ne le nomme pas demande la
+  // file a juger, comme avant F1.1 — jamais une galerie de consultation.
+  METIER = metier === 'galerie' ? 'galerie' : 'revue';
 }
 
-/* Reflete BUCKET/SPACE sur les boutons du selecteur de l'ecran #trier et sur
-   l'onglet Galerie/Revue correspondant — appelee depuis nav.go() (clic sur un
-   onglet) et depuis les selecteurs bucket/espace eux-memes, pour que les trois
-   entrees restent synchronisees. La mise en avant Galerie/Revue ne s'applique
-   qu'en espace Léna : le NSFW n'a pas d'onglet propre. */
+/* Image visee par son nom (#galerie/<nom>, #trier/<nom>). Posee AVANT le
+   chargement, consommee par lui : la liste n'est pas encore la au moment ou la
+   navigation se decide. */
+export function setTriageFocus(name){ FOCUS = name || null; }
+
+/* Reflete BUCKET/SPACE/VUE/METIER sur les selecteurs de l'ecran #trier et sur
+   l'onglet correspondant — appelee depuis nav.go() (clic sur un onglet) et
+   depuis les selecteurs eux-memes, pour que les entrees restent synchronisees.
+
+   `data-metier` sur l'ecran est le LEVIER : le CSS y accroche ce que chaque
+   metier montre et ce qu'il tait (components.css). Un seul attribut, plutot
+   qu'une classe posee bouton par bouton.
+
+   La mise en avant d'un onglet ne s'applique qu'en espace SFW : le NSFW n'a pas
+   d'onglet propre, et n'en aura pas — c'est le contrat J7. */
 export function syncTriageUi(){
+  $('#trier').dataset.metier = METIER;
   $$('#bucketSel button').forEach(x => x.classList.toggle('on', x.dataset.b === BUCKET));
   $$('#spaceSel button').forEach(x => x.classList.toggle('on', x.dataset.sp === SPACE));
-  // L'onglet Galerie a disparu du chrome : Revue (#trier) couvre tous les
-  // buckets SFW, le hash #galerie (bucket OK) compris. Le NSFW n'a pas d'onglet.
-  const surTrier = SPACE === 'sfw';
-  $$('.tabs button[data-s="trier"]').forEach(x => x.classList.toggle('on', surTrier));
+  $$('#viewSel button').forEach(x => x.classList.toggle('on', x.dataset.v === VIEW));
+  const onglet = SPACE === 'sfw' ? (METIER === 'galerie' ? 'galerie' : 'trier') : null;
+  $$('.tabs button[data-s="trier"], .tabs button[data-s="galerie"]').forEach(
+    x => x.classList.toggle('on', x.dataset.s === onglet));
 }
 
 /* ===================================================================== TRIER */
@@ -62,8 +95,7 @@ $$('#spaceSel button').forEach(b => b.onclick = () => {
   SPACE = b.dataset.sp; CUR = 0; syncTriageUi(); loadItems();
 });
 $$('#viewSel button').forEach(b => b.onclick = () => {
-  $$('#viewSel button').forEach(x => x.classList.remove('on'));
-  b.classList.add('on'); VIEW = b.dataset.v; renderTriage();
+  VIEW = b.dataset.v; syncTriageUi(); renderTriage();
 });
 $$('#scoreSel button').forEach(b => b.onclick = () => setScoreFilter(b.dataset.f));
 function setScoreFilter(f){ SFILTER = f; CUR = 0; renderTriage(); }
@@ -89,7 +121,43 @@ export async function loadItems(){
   b.style.display = d.sans_mesure ? '' : 'none';
   b.disabled = MESURE_EN_COURS;
   b.textContent = MESURE_EN_COURS ? 'mesure…' : `Mesurer (${d.sans_mesure})`;
+  viserFocus();                         // #trier/<nom> : l'image demandee
   renderTriage();                       // applyFilter() y recalcule VITEMS et CUR
+}
+
+/* Consomme le nom pose par la navigation. Il n'est cherche que dans le dossier
+   CHARGE — donc dans l'arbre du personnage ouvert, /api/gallery ne rendant que
+   le sien : un nom d'un autre personnage tombe ici en « introuvable », il ne
+   peut pas ramener ses octets. Absent aussi : un fichier trie ailleurs entre le
+   partage du lien et son ouverture. On le DIT (voir avisFocus), on ne vise pas
+   une autre image a la place. */
+function viserFocus(){
+  INTROUVABLE = null;
+  if (!FOCUS) return;
+  const cible = FOCUS;
+  FOCUS = null;
+  const k = ITEMS.findIndex(i => i.name === cible);
+  if (k < 0){ INTROUVABLE = cible; return; }
+  SFILTER = 'tout';    // un nom demande ne doit pas rester derriere un filtre
+  CUR = k;             // SFILTER='tout' : VITEMS suivra ITEMS, meme index
+  // la Revue ouvre l'image en grand — c'est la que l'on juge ; la Galerie reste
+  // en grille et se contente de mettre la vignette sous le curseur
+  VIEW = METIER === 'revue' ? 'revue' : 'grille';
+  syncTriageUi();
+}
+
+/* Le nom vise n'est pas la. Un bandeau, pas un ecran vide : le dossier a
+   peut-etre du contenu, et c'est la demande qui a echoue, pas le chargement. */
+const avisFocus = () => !INTROUVABLE ? '' : `<div class="empty avis">
+  <b>« ${esc(INTROUVABLE)} » n’est pas dans ce dossier.</b>
+  Le fichier a pu être trié ailleurs, supprimé, ou appartenir à un autre
+  personnage — la Revue et la Galerie ne montrent que l’arbre du personnage
+  ouvert.
+  <div style="margin-top:16px"><button class="btn" id="btnAvisFermer">Fermer</button></div></div>`;
+
+function cablerAvis(body){
+  const b = body.querySelector('#btnAvisFermer');
+  if (b) b.onclick = () => { INTROUVABLE = null; renderTriage(); };
 }
 
 /* Rattrapage des mesures de realisme, par paquets : une passe InsightFace coute
@@ -207,7 +275,7 @@ function renderTriage(){
     const done = {A_REVOIR:'Tout est trié.', OK:'Aucune image validée pour l’instant.',
                   REJET:'Aucun rejet.', ARCHIVE:'Aucune image archivée.',
                   SANS_VISAGE:'Aucune image sans visage détecté.'}[BUCKET];
-    body.innerHTML = `<div class="empty">
+    body.innerHTML = avisFocus() + `<div class="empty">
       <b>${vide ? done : 'Aucune image dans cette bande de score.'}</b>
       ${vide
         ? (BUCKET === 'A_REVOIR'
@@ -223,10 +291,11 @@ function renderTriage(){
     // global, il faut cabler apres coup
     $('#btnEmptyGo')?.addEventListener('click', () => go('creer'));
     $('#btnEmptyAll')?.addEventListener('click', () => setScoreFilter('tout'));
+    cablerAvis(body);
     return;
   }
   if (VIEW === 'grille'){
-    body.innerHTML = '<div class="grid">' + VITEMS.map((i, k) => `
+    body.innerHTML = avisFocus() + '<div class="grid">' + VITEMS.map((i, k) => `
       <div class="tile${i.flag === 'ia' ? ' ia' : ''}${k === CUR ? ' cur' : ''}" data-k="${k}">
         <button type="button" class="thumb" data-k="${k}" title="Ouvrir en grand">
           <img loading="lazy" src="${imgUrl({...i, thumb: 1})}"></button>
@@ -238,15 +307,7 @@ function renderTriage(){
               ${barre('net', i.nettete, 'nettete')}
               ${barre('peau', i.texture, 'texture_visage')}
               ${barre('fond', i.fond, 'bruit_fond')}</div>`}
-        <div class="tacts">
-          <button data-a="valider" title="Garder (V)">♥</button>
-          ${i.space === 'nsfw' ? '' : '<button data-d="1" title="Décliner (D)">⟳</button>'}
-          <button data-a="rejeter" title="Rejeter (X)">✕</button>
-          <button data-a="archiver" title="Archiver (A)">▣</button>
-          <span class="sep"></span>${flagBtns(i)}
-          <span class="sep"></span>
-          <button class="del" data-suppr="1" title="Supprimer définitivement — pas de retour">🗑</button>
-        </div>
+        <div class="tacts">${tuileActs(i)}</div>
       </div>`).join('') + '</div>';
     // Le curseur clavier doit se VOIR en grille. Avant, les raccourcis V/X/A
     // etaient actifs ici mais agissaient sur VITEMS[CUR] — soit la premiere
@@ -272,15 +333,17 @@ function renderTriage(){
       const k = +b.closest('.tile').dataset.k;
       if (b.dataset.d) ouvrirDeclinaison(k);
       else if (b.dataset.suppr) supprimerDefinitivement(k);
+      else if (b.dataset.e) ouvrirEditeur(VITEMS[k]);
       else if (b.dataset.a) act(b.dataset.a, k);
       else poserFlag(k, b.dataset.f);
     });
+    cablerAvis(body);
     return;
   }
   const i = VITEMS[CUR];
   const v = parseFloat(i.score || 0);
   const cls = scoreClass(i.score);
-  body.innerHTML = `<div class="triage">
+  body.innerHTML = avisFocus() + `<div class="triage">
     <div class="stage">
       <button class="nav prev">‹</button>
       <img src="${imgUrl(i)}" id="stageImg">
@@ -309,7 +372,8 @@ function renderTriage(){
         <div class="tiny" style="margin-top:7px">◉ convaincante <span class="kbd">C</span>
           · ◌ fait IA <span class="kbd">I</span></div>
       </div>
-      <div class="acts">${actionsFor(BUCKET, i.space)}</div>
+      <div class="acts">${METIER === 'galerie'
+        ? actionsGalerie(i) : actionsFor(BUCKET, i.space)}</div>
       <div class="secActs">
         <button class="btn sm" id="btnOuvrirEditeur">✎ Éditer</button>
         <button class="btn sm danger" id="btnSupprDef">🗑 Supprimer définitivement</button>
@@ -324,8 +388,48 @@ function renderTriage(){
   body.querySelector('#btnSupprDef').onclick = () => supprimerDefinitivement(CUR);
   const be = body.querySelector('#btnOuvrirEditeur');
   if (be) be.onclick = () => ouvrirEditeur(i);
-  body.querySelectorAll('.acts button').forEach(b => b.onclick = () => act(b.dataset.a));
+  body.querySelectorAll('.acts button[data-a]').forEach(b => b.onclick = () => act(b.dataset.a));
+  cablerAvis(body);
 }
+
+/* Ce que la carte d'une image propose SOUS la vignette, selon le metier.
+
+   En galerie, les quatre gestes de tri disparaissent — pas grises : ils n'ont
+   pas de sens sur une image deja gardee, et un bouton inerte ferait croire le
+   contraire. Restent le jugement de realisme (◉/◌), qui mesure et ne trie pas,
+   et la suppression definitive, qui n'a jamais ete un bucket de plus. */
+function tuileActs(i){
+  if (METIER === 'galerie') return `
+    <button data-e="1" title="Éditer cette image">✎</button>
+    <a class="dl" download href="${imgUrl(i)}"
+       title="Télécharger le fichier">⤓</a>
+    <span class="sep"></span>${flagBtns(i)}
+    <span class="sep"></span>
+    <button class="del" data-suppr="1" title="Supprimer définitivement — pas de retour">🗑</button>`;
+  return `
+    <button data-a="valider" title="Garder (V)">♥</button>
+    ${i.space === 'nsfw' ? '' : '<button data-d="1" title="Décliner (D)">⟳</button>'}
+    <button data-a="rejeter" title="Rejeter (X)">✕</button>
+    <button data-a="archiver" title="Archiver (A)">▣</button>
+    <span class="sep"></span>${flagBtns(i)}
+    <span class="sep"></span>
+    <button class="del" data-suppr="1" title="Supprimer définitivement — pas de retour">🗑</button>`;
+}
+
+/* Les gestes de la Galerie, en vue plein cadre. Le telechargement est un <a
+   download> sur /img — la route qui sert deja ces octets, bornee au personnage
+   (isolation du 29/08) : pas d'API neuve pour recopier un fichier que le
+   navigateur sait enregistrer seul.
+
+   « Poster sur Instagram » est INERTE et le dit : la destination existe dans le
+   metier de ce pack, pas encore dans le code. Un bouton absent laisserait croire
+   que la question n'est pas posee ; un bouton actif mentirait. */
+const actionsGalerie = i => `
+  <a class="btn primary wide dl" download href="${imgUrl(i)}">⤓ Télécharger</a>
+  <button class="btn wide" id="btnInsta" disabled
+    title="Poster sur Instagram — pas encore branché">Poster sur Instagram
+    <span class="tiny">pas encore branché</span></button>
+  <button class="btn wide" data-a="skip">Suivante <span class="kbd">→</span></button>`;
 function actionsFor(b, space){
   const B = {
     valider: '<button class="btn primary wide" data-a="valider">Valider <span class="kbd">V</span></button>',
@@ -570,7 +674,11 @@ document.addEventListener('keydown', e => {
     $$('#viewSel button').forEach(x => x.classList.toggle('on', x.dataset.v === 'revue'));
     renderTriage();
   }
-  else if (k === 'v') act('valider');
+  // En galerie, les raccourcis de tri n'existent pas non plus : cacher les
+  // boutons et laisser le clavier trier serait la pire des deux moities — on
+  // trierait a l'aveugle, sans rien a l'ecran qui l'annonce.
+  if (METIER === 'galerie' && 'vrxadu'.includes(k)) return;
+  if (k === 'v') act('valider');
   else if (k === 'r') act('revoir');
   else if (k === 'x') act('rejeter');
   else if (k === 'a') act('archiver');

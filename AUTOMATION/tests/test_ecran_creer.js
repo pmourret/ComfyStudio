@@ -223,7 +223,7 @@ const comfyUp = () => new Promise(r => {
   const libTabs = await page.$$eval('.tabs button', e => e.map(x => x.textContent.trim()));
   dire(!libTabs.some(t => /Réglages/.test(t)),
        `plus aucun onglet ne dit « Réglages » : ${libTabs.join(' | ')}`);
-  dire(navTabs.join(',') === 'registre,creer,trier,scenes,appli',
+  dire(navTabs.join(',') === 'registre,creer,trier,galerie,scenes,appli',
        `les data-s n'ont pas bouge : ${navTabs.join(', ')}`);
   await page.click('.tabs button[data-s="appli"]');
   await page.waitForTimeout(700);

@@ -43,8 +43,8 @@ export async function tick(){
     : 'prêt';
   $('#stTxt').textContent = s.comfy ? running : 'ComfyUI hors ligne';
   // les compteurs du selecteur de bucket suivent l'espace actif de l'ecran
-  // #trier ; les badges d'onglet Galerie/Revue, eux, restent toujours sur
-  // l'espace SFW puisque c'est ce sur quoi ils atterrissent
+  // #trier ; la pastille d'onglet, elle, reste toujours sur l'espace SFW
+  // puisque c'est ce sur quoi les onglets atterrissent
   const bcounts = triageState().space === 'nsfw' ? s.nsfw_counts : s.counts;
   ['OK', 'A_REVOIR', 'REJET', 'SANS_VISAGE', 'ARCHIVE'].forEach(b => {
     const el = $('#b' + b); if (el) el.textContent = (bcounts && bcounts[b]) ?? 0; });
@@ -55,9 +55,9 @@ export async function tick(){
   const aRevoir = s.counts.A_REVOIR ?? 0;
   nTri.textContent = aRevoir;
   nTri.dataset.zero = aRevoir ? '0' : '1';
-  // Galerie n'a plus d'onglet dans le shell studio (hash #galerie seulement) :
-  // le badge #nGal peut ne pas exister.
-  const nGal = $('#nGal'); if (nGal) nGal.textContent = s.counts.OK ?? 0;
+  // Galerie a son onglet depuis le 30/08/2026 (F1.1) mais PAS de pastille :
+  // un compteur annonce du travail en attente, et une image validee n'en
+  // attend aucun. Le nombre de validees se lit dans la Galerie elle-meme.
   $('#btnUndo').disabled = !s.undo;
   renderRun(s);
   // memes criteres que refreshPlan() (create.js), plus planOk() qu'elle seule
