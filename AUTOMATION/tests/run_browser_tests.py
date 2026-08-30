@@ -94,6 +94,10 @@ def run_one(name, port, node_path):
         env = {**os.environ,
                "DASHBOARD_URL": f"http://127.0.0.1:{port}",
                "NODE_PATH": node_path,
+               # un test qui doit nettoyer derriere lui en base appelle Python ;
+               # sans ca il tomberait sur le `python` du PATH, qui n'est pas
+               # forcement celui-la (ADR-0008).
+               "SOULGLADE_PYTHON": PY,
                "PYTHONIOENCODING": "utf-8"}
         res = subprocess.run(["node", str(script)], cwd=str(OFM), env=env,
                              capture_output=True, text=True,

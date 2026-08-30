@@ -9,7 +9,9 @@
    Cree une image jetable dans PROD/LENA/A_REVOIR/ (_TEST_EDITEUR_temp.png),
    l'edite via le vrai canvas, enregistre la copie, puis supprime les DEUX
    fichiers pour de bon via le bouton de suppression — rien ne doit rester sur
-   le disque a la fin, verifie en dernier.
+   le disque a la fin, verifie en dernier. NI EN BASE : la copie editee y a une
+   ligne que /api/delete garde volontairement, et c'est au test de la retirer
+   (nettoyer_artefacts_test.py, voir plus bas).
 
    PREREQUIS (hors du repo, qui n'a aucune dependance) :
      1. python web/app.py --no-comfy --no-browser
@@ -25,16 +27,44 @@ try { ({ chromium } = require('playwright')); }
 catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'); process.exit(0); }
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const B = process.env.DASHBOARD_URL || 'http://127.0.0.1:8189';
 const TEST_IMG = '_TEST_EDITEUR_temp.png';
+const PREFIXE = '_TEST_EDITEUR_temp';
 
 const A_REVOIR = path.resolve(__dirname, '../../PROD/LENA/A_REVOIR');
 const OK_DIR = path.resolve(__dirname, '../../PROD/LENA/OK');
+const RACINE = path.resolve(__dirname, '../..');
+
+/* NETTOYER LES DEUX FACES, pas seulement le disque. Depuis le 30/08/2026 la
+   copie editee existe AUSSI en base ; /api/delete efface le fichier et garde
+   la ligne, deliberement (voir sa docstring). Ce test laissait donc une ligne
+   sans fichier, sans journal et sans mesure, et test_coherence_base [4] la
+   signalait — a raison — comme une ecriture parasite : la suite navigateur
+   rendait rouge un test qui passait avant elle.
+
+   L'interprete : n'importe lequel fait l'affaire (sqlite3 est standard, rien
+   n'y touche au GPU). run_browser_tests.py passe le sien par
+   SOULGLADE_PYTHON ; en lancement manuel on retombe sur `python` du PATH. S'il
+   n'y en a aucun, on le DIT sans faire echouer le test : c'est du nettoyage,
+   pas ce qu'il verifie. */
+const PY = process.env.SOULGLADE_PYTHON || 'python';
+const nettoyerBase = () => {
+  try {
+    execFileSync(PY, [path.join('AUTOMATION', 'tests', 'nettoyer_artefacts_test.py'),
+                      PREFIXE], { cwd: RACINE, stdio: 'pipe' });
+  } catch (e) {
+    const dit = String(e.message).split('\n')[0].trim();
+    console.log(`  note  lignes de test non effacees en base (${PY} : ${dit})`);
+  }
+};
+
 const nettoyer = () => {
   try {
     for (const n of fs.readdirSync(A_REVOIR))
-      if (n.includes('_TEST_EDITEUR_temp')) fs.rmSync(path.join(A_REVOIR, n), { force: true });
+      if (n.includes(PREFIXE)) fs.rmSync(path.join(A_REVOIR, n), { force: true });
   } catch { /* dossier absent : rien a nettoyer */ }
+  nettoyerBase();
 };
 
 // amorce : une vraie image 4:5 (l'editeur canvas + les checks de ratio en ont besoin)
