@@ -1,13 +1,11 @@
 """Etat du systeme, health-check, configuration (.claude/rules/backend.md).
 
-/, /api/state, /api/config (GET/POST), /api/journal, /api/nsfw/state,
+/, /api/state, /api/config (GET), /api/journal, /api/nsfw/state,
 /api/app/* (cycle de vie du serveur et de ComfyUI).
 """
 import asyncio
 import csv
-import json
 import os
-import shutil
 import sys
 import time
 
@@ -302,52 +300,6 @@ async def api_universe_tools(request):
     dur le jour ou un second personnage existe (§8.7)."""
     uid = lb.character_universe(ss.character(request))
     return web.json_response({"universe": uid, "tools": universe.load_tools(uid)})
-
-
-def fusion_validee(actuel, envoye, ou):
-    """N'accepte que des cles DEJA presentes, et du meme type.
-
-    Cette route ecrivait config.json sans aucun controle. Une cle inconnue ne
-    pilote rien — l'accepter ferait croire a un reglage qui n'existe pas, ce que
-    le panneau se donne justement du mal a eviter (voir REGLAGES dans create.js).
-    """
-    def famille(v):
-        # `bool` est un `int` en Python : le tester en premier, sinon True
-        # passerait pour un nombre et guidance accepterait un booleen
-        if isinstance(v, bool):
-            return "booléen"
-        if isinstance(v, (int, float)):
-            return "nombre"
-        if isinstance(v, str):
-            return "texte"
-        return "valeur non scalaire"
-
-    garde = {}
-    for cle, v in (envoye or {}).items():
-        if cle not in actuel:
-            ss.bad_request(f"{ou} : réglage inconnu « {cle} »")
-        attendue, recue = famille(actuel[cle]), famille(v)
-        if attendue != recue:
-            ss.bad_request(f"{ou}.{cle} : {attendue} attendu, {recue} reçu")
-        garde[cle] = v
-    return garde
-
-
-@routes.post("/api/config")
-async def api_config_save(request):
-    body = await request.json()
-    cid = ss.character(request)
-    target = lb.config_path(cid)
-    current = ss.cfg(cid)
-    current["preset"].update(fusion_validee(current["preset"],
-                                            body.get("preset"), "preset"))
-    if "qc" in body:
-        current["qc"].update(fusion_validee(current["qc"], body["qc"], "qc"))
-    shutil.copy(target, target.with_suffix(".json.bak"))
-    target.write_text(json.dumps(current, ensure_ascii=False, indent=2),
-                      encoding="utf-8")
-    ss.push_log("config.json enregistre")
-    return web.json_response({"ok": True, "config": current})
 
 
 @routes.get("/api/journal")

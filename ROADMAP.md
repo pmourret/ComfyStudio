@@ -272,6 +272,12 @@ prouvent la généralisation — pas juste Léna renommée.
 - Wizard « nouveau personnage » : type → style → monde → base fournie ou
   générée → gel → écriture de la fiche. V1 honnête : seuils par défaut du
   pack, recalibrage plus tard dans Réglages
+  - *(2026-08-30)* L'ancienne route `POST /api/config` a été **supprimée** :
+    sans appelant depuis l'import initial, elle n'acceptait que `preset` et
+    `qc`, jamais `identity` ni le retrait du marqueur `measured: false` — soit
+    exactement ce que ce recalibrage doit écrire. Réglages demandera donc une
+    **nouvelle route conçue pour ce besoin**, pas la réactivation de
+    l'ancienne.
 - `CLAUDE.md` §3–§4 mis en cohérence ; `wf_check.py` privé de son repli
   `CHARACTERS/lena/`
 - Skills à réaligner en fin de jalon, quand le code aura figé le

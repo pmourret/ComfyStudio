@@ -204,25 +204,6 @@ try:
             f"/api/characters refuse un style hors pack ({code})")
     shutil.rmtree(OFM / "CHARACTERS" / "wizhttp2", ignore_errors=True)
 
-    # ============================================================== M8
-    # Cette route ECRIT config.json. On photographie le fichier avant, et on
-    # exige qu'il soit intact apres : la premiere version de ce test a fait
-    # ecrire guidance:"beaucoup" dans le vrai fichier, ce qui a d'ailleurs
-    # prouve que le controle de type etait trop laxiste.
-    print("\n[M8] /api/config n'accepte que des reglages qui existent")
-    fichier_config = OFM / "CHARACTERS" / "lena" / "config.json"
-    avant_config = fichier_config.read_text(encoding="utf-8")
-    code, corps = appel("/api/config", {"preset": {"reglage_invente": 1}})
-    verifie(code == 400 and b"inconnu" in corps, f"cle inconnue : refusee ({code})")
-    code, corps = appel("/api/config", {"preset": {"guidance": "beaucoup"}})
-    verifie(code == 400, f"texte pour un reglage numerique : refuse ({code})")
-    code, corps = appel("/api/config", {"preset": {"refiner": 3}})
-    verifie(code == 400, f"nombre pour un interrupteur : refuse ({code})")
-    code, corps = appel("/api/config", {"qc": {"threshold_ok": True}})
-    verifie(code == 400, f"booleen pour un seuil : refuse ({code})")
-    verifie(fichier_config.read_text(encoding="utf-8") == avant_config,
-            "config.json n'a pas ete touche par les requetes refusees")
-
     # ============================================================== F8
     print("\n[F8] arreter alors que rien ne tourne est refuse")
     code, _ = appel("/api/stop", {})
