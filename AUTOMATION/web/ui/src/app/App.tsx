@@ -17,6 +17,10 @@ import { Shell } from '../chrome/Shell'
 import { ComfyStatsProvider } from '../state/ComfyStatsContext'
 import { FaultsProvider } from '../state/FaultsContext'
 import { SystemStateProvider } from '../state/SystemStateContext'
+import { ConfirmProvider } from '../chrome/ConfirmContext'
+import { ToastProvider } from '../chrome/ToastContext'
+import { ServerLogProvider } from '../state/ServerLogContext'
+import { ApplicationScreen } from '../screens/ApplicationScreen'
 import { CharactersScreen } from '../screens/CharactersScreen'
 import { CharacterSheetScreen } from '../screens/CharacterSheetScreen'
 import { JournalScreen } from '../screens/JournalScreen'
@@ -38,6 +42,13 @@ export function App() {
         <SystemStateProvider>
           <ComfyStatsProvider>
             <ChromeProvider>
+              {/* Toast and Confirm are chrome surfaces every screen may reach
+                  for; ServerLog outlives the Application screen it belongs to,
+                  so lines survive navigating away and back — as they did when
+                  screens stayed in the DOM. */}
+              <ToastProvider>
+              <ConfirmProvider>
+              <ServerLogProvider>
               <Routes>
                 <Route element={<Shell />}>
                   <Route path="/" element={<HomeRedirect />} />
@@ -48,6 +59,7 @@ export function App() {
                       `data-vue` attribute, are two routes now. */}
                   <Route path={PATHS.characters} element={<CharactersScreen />} />
                   <Route path={PATHS.character} element={<CharacterSheetScreen />} />
+                  <Route path={PATHS.application} element={<ApplicationScreen />} />
 
                   {/* --- still served by the legacy frontend */}
                   <Route
@@ -74,16 +86,15 @@ export function App() {
                     path={PATHS.bankPoses}
                     element={<PendingScreen title="Banque de poses" legacyHash="scenes/poses" />}
                   />
-                  <Route
-                    path={PATHS.application}
-                    element={<PendingScreen title="Application" legacyHash="appli" />}
-                  />
 
                   {/* An unknown path is not a screen: it goes back to the entry
                       point rather than leaving a blank studio. */}
                   <Route path="*" element={<HomeRedirect />} />
                 </Route>
               </Routes>
+              </ServerLogProvider>
+              </ConfirmProvider>
+              </ToastProvider>
             </ChromeProvider>
           </ComfyStatsProvider>
         </SystemStateProvider>

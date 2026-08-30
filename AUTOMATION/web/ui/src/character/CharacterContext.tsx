@@ -41,6 +41,11 @@ type CharacterContextValue = {
   sheet: CharacterSheet | null
   /** Message to show when the sheet could not be read. Never a silent failure. */
   sheetError: string | null
+  /* Re-reads the sheet. Needed after a gesture that changes what it says without
+     changing the character — arming adult content, on the Application screen.
+     The legacy frontend cached the sheet until a page reload, so it kept showing
+     the state from before the switch. */
+  refreshSheet: () => void
   /** The registry, loaded on demand by the identity menu. */
   roster: CharacterRow[] | null
   rosterError: string | null
@@ -111,6 +116,10 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
     [navigate, searchParams, setSearchParams],
   )
 
+  /* Bumped to force a re-read of the sheet without changing character. */
+  const [sheetEpoch, setSheetEpoch] = useState(0)
+  const refreshSheet = useCallback(() => setSheetEpoch((current) => current + 1), [])
+
   /* The sheet follows the claimed id. An aborted flight cannot paint over a
      newer one: switching twice quickly used to be a race in any code that
      dropped this guard. */
@@ -121,7 +130,11 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
       return
     }
     let current = true
-    setSheet(null)
+    /* Drop the sheet only when it belongs to ANOTHER character. A refresh of the
+       same one keeps what is on screen until the new answer lands — blanking it
+       would flash the header and the sheet for no reason. A switch, on the other
+       hand, must not leave the previous character's name up. */
+    setSheet((shown) => (shown && shown.id === claimed ? shown : null))
     setSheetError(null)
     apiFetch<CharacterSheet>('/api/character', claimed)
       .then((response) => {
@@ -136,7 +149,7 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
     return () => {
       current = false
     }
-  }, [claimed])
+  }, [claimed, sheetEpoch])
 
   /* The registry powers the identity menu. Loaded once, on demand — the legacy
      `fillSwitcher`. A failure shows a message and RESETS the latch, so opening
@@ -167,12 +180,13 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
       isClaimed: claimed !== null,
       sheet,
       sheetError,
+      refreshSheet,
       roster,
       rosterError,
       loadRoster,
       selectCharacter,
     }),
-    [claimed, sheet, sheetError, roster, rosterError, loadRoster, selectCharacter],
+    [claimed, sheet, sheetError, refreshSheet, roster, rosterError, loadRoster, selectCharacter],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

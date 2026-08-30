@@ -115,7 +115,7 @@ export const DESTINATIONS: Destination[] = [
     path: PATHS.application,
     icon: 'application',
     legacyHash: 'appli',
-    migrated: false,
+    migrated: true,
   },
 ]
 
