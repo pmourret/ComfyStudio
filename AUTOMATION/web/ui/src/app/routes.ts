@@ -106,7 +106,7 @@ export const DESTINATIONS: Destination[] = [
     path: PATHS.bankScenes,
     icon: 'bank',
     legacyHash: 'scenes',
-    migrated: false,
+    migrated: true,
     activePrefix: '/bank',
   },
   {

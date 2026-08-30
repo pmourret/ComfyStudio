@@ -19,7 +19,10 @@ import { FaultsProvider } from '../state/FaultsContext'
 import { SystemStateProvider } from '../state/SystemStateContext'
 import { ConfirmProvider } from '../chrome/ConfirmContext'
 import { ToastProvider } from '../chrome/ToastContext'
+import { ScenesStoreProvider } from '../state/ScenesStoreContext'
 import { ServerLogProvider } from '../state/ServerLogContext'
+import { TaxonomyProvider } from '../state/TaxonomyContext'
+import { BankPosesScreen, BankScenesScreen } from '../screens/bank/BankScreen'
 import { ApplicationScreen } from '../screens/ApplicationScreen'
 import { CharactersScreen } from '../screens/CharactersScreen'
 import { WizardScreen } from '../screens/WizardScreen'
@@ -50,6 +53,8 @@ export function App() {
               <ToastProvider>
               <ConfirmProvider>
               <ServerLogProvider>
+              <TaxonomyProvider>
+              <ScenesStoreProvider>
               <Routes>
                 <Route element={<Shell />}>
                   <Route path="/" element={<HomeRedirect />} />
@@ -62,6 +67,10 @@ export function App() {
                   <Route path={PATHS.character} element={<CharacterSheetScreen />} />
                   <Route path={PATHS.application} element={<ApplicationScreen />} />
                   <Route path={PATHS.wizard} element={<WizardScreen />} />
+                  {/* `#scenes` and `#scenes/poses` become two routes: the slash
+                      always meant « sub-view of », and now the router says it. */}
+                  <Route path={PATHS.bankScenes} element={<BankScenesScreen />} />
+                  <Route path={PATHS.bankPoses} element={<BankPosesScreen />} />
 
                   {/* --- still served by the legacy frontend */}
                   <Route
@@ -76,20 +85,14 @@ export function App() {
                     path={`${PATHS.gallery}/:name?`}
                     element={<PendingScreen title="Galerie" legacyHash="galerie" />}
                   />
-                  <Route
-                    path={PATHS.bankScenes}
-                    element={<PendingScreen title="Banque de scènes" legacyHash="scenes" />}
-                  />
-                  <Route
-                    path={PATHS.bankPoses}
-                    element={<PendingScreen title="Banque de poses" legacyHash="scenes/poses" />}
-                  />
 
                   {/* An unknown path is not a screen: it goes back to the entry
                       point rather than leaving a blank studio. */}
                   <Route path="*" element={<HomeRedirect />} />
                 </Route>
               </Routes>
+              </ScenesStoreProvider>
+              </TaxonomyProvider>
               </ServerLogProvider>
               </ConfirmProvider>
               </ToastProvider>

@@ -56,6 +56,8 @@ TESTS = [
     "test_characters",    # sas d'entree + fiche du personnage (ecran 2)
     "test_application",   # cycle de vie, sondes, contenu adulte (ecran 3)
     "test_wizard",        # creation d'un personnage : parcours et gating (ecran 4)
+    "test_bank",          # banque de scenes + poses + rail d'outils (ecran 5)
+    "test_pose_extract",  # ComfyUI requis (s'ignore sinon) : extraction reelle
 ]
 
 # Fumigations de l'ancien frontend. Elles visent `/` et les ids du DOM vanilla ;
