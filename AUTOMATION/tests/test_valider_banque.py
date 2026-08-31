@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Garde serveur sur la banque de scenes (api.routers.bank.validate_scene_bank).
+"""Garde serveur sur la banque de scenes (api.services.bank.validate_scene_bank).
 
 POURQUOI CE TEST EXISTE. Le 25/08/2026, /api/scenes ne verifiait que deux choses :
 que `scenes` etait une liste, et que `anchor` n'etait pas vide. Une reconstruction
@@ -28,7 +28,7 @@ OFM = HERE.parents[1]
 sys.path.insert(0, str(OFM / "AUTOMATION" / "web"))
 sys.path.insert(0, str(OFM / "AUTOMATION"))
 
-from api.routers import bank  # noqa: E402
+from api.services import bank  # noqa: E402
 
 BANQUE = json.loads((OFM / "CHARACTERS" / "lena" / "scenes.json").read_text(encoding="utf-8"))
 

@@ -42,7 +42,7 @@ sys.path.insert(0, str(AUTOMATION / "web"))
 sys.path.insert(0, str(AUTOMATION))
 
 from api.main import app                      # noqa: E402
-from api.routers import bank                  # noqa: E402
+from api.services import bank                 # noqa: E402
 from fastapi.testclient import TestClient     # noqa: E402
 
 PROBE = OFM / "CHARACTERS" / "probe-cats"
@@ -141,12 +141,12 @@ try:
 
     # ============================================== [4] la cle de tri seule
     print("\n[4] la cle de tri, sans passer par HTTP")
-    verifie(bank._category_order(None) > bank._category_order("zzz"),
+    verifie(bank.category_order(None) > bank.category_order("zzz"),
             "l'absence trie apres n'importe quelle intention nommee")
-    verifie(bank._category_order("a") < bank._category_order("b"),
+    verifie(bank.category_order("a") < bank.category_order("b"),
             "deux intentions nommees se comparent comme des chaines")
     try:
-        sorted({"voyage", None}, key=bank._category_order)
+        sorted({"voyage", None}, key=bank.category_order)
         verifie(True, "sorted() sur un ensemble mixte ne leve plus TypeError")
     except TypeError as e:
         verifie(False, f"TypeError toujours la : {e}")
