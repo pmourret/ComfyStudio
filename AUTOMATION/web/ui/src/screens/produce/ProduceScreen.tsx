@@ -37,6 +37,9 @@ import { EditStep } from './EditStep'
 import { Inspector } from './Inspector'
 import { PromptPreview } from './PromptPreview'
 import { RunPanel } from './RunPanel'
+import { IntensityBar } from './IntensityBar'
+import { IntentCard, type Intention } from './IntentCard'
+import { NewSceneCard, SceneCard } from './SceneCard'
 import {
   SettingsPanel,
   initialValues,
@@ -48,49 +51,9 @@ import { isEditTier, usePlan, type IntensityTier, type Preview, type SourceImage
 
 type NsfwState = Schema<'NsfwStateResponse'>
 
-/* `CreativeIntention` only declares `key` and `label` in the Pydantic model,
-   with `extra="allow"`: creative.json belongs to the character, and that layer
-   relays it rather than freezing its shape. This is what the SCREEN reads —
-   declared where it is read, like the journal rows and config.json. */
-type Intention = {
-  key: string
-  label?: string | null
-  icon?: string
-  min_intensity?: number
-  defaults?: { tone?: string }
-}
-
 /* The source grid only refreshes while it is on screen: that is the only moment
    a newly validated image has to appear in it. */
 const NSFW_TICK_MS = 4000
-
-/* The scene card, and the state that is NOT selection. The border colour is out
-   of the base chain on purpose: two utilities setting the same property are
-   decided by their order in the GENERATED sheet, not by their order in the class
-   string, so a conditional appended after `border-line` would never win. Each
-   state names its own — and a hover that repaints the border belongs to the
-   state that has one to repaint. */
-const CARD =
-  'relative block w-full cursor-pointer overflow-hidden rounded-card border-2 bg-panel' +
-  ' [transition:border-color_.12s]'
-const CARD_IDLE = 'border-line hover:border-line2'
-
-/* The five `.lv*.on` rules of `produce.css`, as a table. FULL ESCALATION over
-   the tiers — before, only lv2/lv3 had a rule of their own and lv0/lv1 fell back
-   on the same accent as every other segmented control of the app. `lv1` is
-   absent here because its rule only restated that accent, and a tier the table
-   does not name keeps it.
-
-   `--bg` and not `--txt`: light text on the `--bad` fill falls to 3.0:1, under
-   AA. The tier that EDITS carries the hue of what it DOES, not of its rank: per
-   pack it can sit at level 1 as well as at level 3. */
-const TIER_TINT: Record<string, string> = {
-  lv0: 'bg-ok! text-bg!',
-  lv2: 'bg-warn!',
-  lv3: 'bg-bad! text-bg!',
-  lvedit: 'bg-bad! text-bg!',
-}
-const tierKey = (tier: IntensityTier) => (isEditTier(tier) ? 'lvedit' : `lv${tier.level}`)
 
 export function ProduceScreen() {
   const api = useApi()
@@ -612,21 +575,7 @@ export function ProduceScreen() {
                         onClick={() => toggleScene(scene.id)}
                       />
                     ))}
-                    {/* Creating a scene stays possible, but it is no longer the
-                        entry point: a card at the end of the grid. */}
-                    <button
-                      type="button"
-                      className={`${CARD} ${CARD_IDLE} flex min-h-[150px] items-center
-                                  justify-center border-dashed text-center`}
-                      data-scene-card
-                      data-new
-                      onClick={goCompose}
-                    >
-                      <div className="px-[11px] py-[9px]">
-                        <b className="block truncate text-[20px] font-semibold">+</b>
-                        <span className="text-[11.5px] text-dim">créer une scène</span>
-                      </div>
-                    </button>
+<NewSceneCard onClick={goCompose} />
                   </div>
                 </div>
               )}
@@ -744,223 +693,3 @@ export function ProduceScreen() {
    validated image instead of generating one. Empty and hidden at rest — the
    default case, generation, has nothing to announce, and a permanent badge would
    become decoration again. */
-function IntensityBar({
-  tiers,
-  level,
-  editing,
-  onPick,
-}: {
-  tiers: IntensityTier[]
-  level: number
-  editing: boolean
-  onPick: (level: number) => void
-}) {
-  const tier = tiers.find((t) => t.level === level) ?? null
-  /* `unite` comes from the server: the tier that edits counts SOURCE IMAGES, not
-     scenes — it picks none. Announcing « 16 scènes » there was false. */
-  const unit = tier?.unite || 'scène'
-  const plural = tier && tier.scenes > 1 ? 's' : ''
-
-  return (
-    <div
-      className="mx-[-20px] mt-[-24px] mb-[22px] flex-none border-b border-b-line bg-panel
-                 px-[20px] py-[9px]"
-    >
-      <div className="flex flex-wrap items-center gap-[14px]">
-        <span className="text-[12px] font-semibold uppercase tracking-[.9px] text-dim">
-          Intensité
-        </span>
-        <div className="seg" id="intSel">
-          {tiers.map((entry) => (
-            <button
-              key={entry.level}
-              data-lv={entry.level}
-              data-edit={isEditTier(entry) ? '1' : undefined}
-              /* `!` everywhere: `.seg button` and `.seg button.on` in
-                 `screens.css` are element + class selectors, which outweigh a
-                 plain utility. The tint comes from ONE class, chosen by the
-                 table — chaining a second background would be decided by the
-                 generated sheet, not by this string. */
-              className={`${entry.level === level ? 'on ' : ''}px-[16px]! py-[6px]! ${
-                entry.level === level ? TIER_TINT[tierKey(entry)] ?? '' : ''
-              }`}
-              title={entry.prompt_add || 'aucun ajout de prompt'}
-              data-hint-text={
-                isEditTier(entry)
-                  ? "N'engendre rien : reprend une image déjà validée."
-                  : 'Génère des images nouvelles à ce niveau.'
-              }
-              onClick={() => onPick(entry.level)}
-            >
-              {entry.label}
-              <span className="ml-[6px] text-[11px] tabular-nums opacity-60">{entry.scenes}</span>
-            </button>
-          ))}
-        </div>
-        <span className="tiny" id="intHint">
-          {tier
-            ? `${tier.export ? 'exportable' : 'hors export'} · ${tier.scenes} ${unit}${plural} ${unit === 'image' ? 'éditable' : 'disponible'}${plural}`
-            : ''}
-        </span>
-        {editing && (
-          <span
-            className="rounded-[999px] border border-warn-line bg-warn-bg px-[10px] py-[3px]
-                       text-[12px] leading-[1.35] text-warn-txt"
-            id="intMode"
-          >
-            Édition — n'engendre rien, reprend une image validée
-          </span>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function IntentCard({
-  entry,
-  count,
-  active,
-  onClick,
-}: {
-  entry: Intention
-  count: number
-  active: boolean
-  onClick: () => void
-}) {
-  /* `.it` stays a class: it belongs to `wizard.css`, which is not migrated yet.
-     What Produire ADDED to it is here — a card with no scene is dimmed, and lifts
-     on hover, which is how it says the click leads to the composer. A card with
-     no scene is exactly a card of the `#intentVides` grid, which is where the
-     sheet hung that rule. `!` on the text: `.it span` is a class + a type. */
-  const void_ = count === 0
-  return (
-    <button
-      type="button"
-      className={`it${active ? ' on' : ''}${
-        void_ ? ' opacity-[.72] hover:border-acc hover:opacity-100' : ''
-      }`}
-      data-k={entry.key}
-      data-void={void_ ? '1' : undefined}
-      onClick={onClick}
-    >
-      <span className={`mb-[9px] block text-[22px]! leading-none ${void_ ? 'text-dim2!' : ''}`}>
-        {entry.icon}
-      </span>
-      <b>{entry.label}</b>
-      <span className={void_ ? 'text-dim2!' : undefined}>
-        {count ? `${count} scène${count > 1 ? 's' : ''}` : 'en composer une'}
-      </span>
-    </button>
-  )
-}
-
-function SceneCard({
-  scene,
-  meta,
-  stats,
-  preview,
-  tone,
-  selected,
-  imageUrl,
-  onClick,
-}: {
-  scene: Scene
-  meta?: { tones?: string[]; tags?: string[]; pose?: string }
-  stats?: { avg: number | null; n: number }
-  preview?: { name: string; bucket: string; space?: string; v?: number }
-  tone: string
-  selected: boolean
-  imageUrl: (ref: Record<string, unknown>) => string
-  onClick: () => void
-}) {
-  const { qc } = useConfig()
-  const dot =
-    stats?.avg == null
-      ? 'var(--dim2)'
-      : stats.avg >= qc.high
-        ? 'var(--ok)'
-        : stats.avg >= qc.ok
-          ? 'var(--warn)'
-          : 'var(--bad)'
-  const suits = (meta?.tones ?? []).includes(tone)
-  const tags = (meta?.tags ?? []).slice(0, 3).join(' · ')
-
-  return (
-    <button
-      type="button"
-      className={`${CARD} text-left ${selected ? 'border-acc' : CARD_IDLE}`}
-      data-scene-card
-      data-on={selected ? '1' : undefined}
-      aria-pressed={selected}
-      onClick={onClick}
-    >
-      <div
-        className={`relative aspect-[4/5] bg-panel2 bg-cover bg-center ${
-          preview
-            ? ''
-            : "after:absolute after:inset-0 after:flex after:items-center" +
-              " after:justify-center after:text-[12px] after:text-dim2" +
-              " after:content-['aucune_image']"
-        }`}
-        data-void={preview ? undefined : '1'}
-        style={preview ? { backgroundImage: `url('${imageUrl({ ...preview, thumb: true })}')` } : undefined}
-      >
-        {suits && (
-          <div
-            className="absolute top-[8px] left-[8px] rounded-[10px] bg-scrim px-[7px] py-px
-                       text-[10.5px] font-bold text-acc"
-          >
-            ce ton
-          </div>
-        )}
-        {meta?.pose && (
-          /* imposed pose (ControlNet) */
-          <div
-            className="absolute top-[8px] right-[8px] rounded-[10px] bg-scrim px-[7px] py-px
-                       text-[10.5px] font-bold text-[#9fd8ff]"
-            title={`pose imposée : ${meta.pose}`}
-          >
-            ⛓ pose
-          </div>
-        )}
-        {/* a scene added and not yet saved exists in the grid but NOT in
-            scenes.json, which /api/plan reads */
-        !meta && (
-          <div
-            className="absolute bottom-[8px] left-[8px] rounded-[5px] border border-warn-line
-                       bg-warn-bg px-[6px] py-[2px] text-[10px] uppercase tracking-[.5px]
-                       text-warn"
-          >
-            non enregistrée
-          </div>
-        )}
-        <div
-          className={`absolute top-[8px] right-[8px] flex h-[22px] w-[22px] items-center
-                      justify-center rounded-[50%] border-[1.5px] text-[13px] ${
-                        selected
-                          ? 'border-acc bg-acc font-bold text-on-acc'
-                          : 'border-[#ffffff55] bg-scrim text-transparent'
-                      }`}
-        >
-          ✓
-        </div>
-      </div>
-      <div className="px-[11px] py-[9px]">
-        <b className="block truncate text-[13px] font-semibold">{scene.id}</b>
-        <span className="text-[11.5px] text-dim">
-          {scene.format || '4:5'} · {scene.count || 1} img
-          {(scene.variants ?? []).length ? ` +${(scene.variants ?? []).length} var.` : ''}
-        </span>
-        <div className="mt-[5px] flex items-center gap-[6px] text-[11.5px]">
-          <span className="h-[7px] w-[7px] flex-none rounded-[50%]" style={{ background: dot }} />
-          {stats ? (
-            `${stats.avg != null ? stats.avg.toFixed(2) : '—'} · ${stats.n} produite${stats.n > 1 ? 's' : ''}`
-          ) : (
-            <span className="text-[11.5px] text-dim2">jamais produite</span>
-          )}
-        </div>
-        {tags && <div className="mt-[5px] truncate text-[10.5px] text-dim2">{tags}</div>}
-      </div>
-    </button>
-  )
-}
