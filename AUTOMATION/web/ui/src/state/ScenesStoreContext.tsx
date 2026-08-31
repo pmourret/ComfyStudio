@@ -66,6 +66,12 @@ export type SceneDocument = {
 
 /** One card's form state. `base` is what the merge rests on. */
 export type SceneDraft = {
+  /* Stable identity of the DRAFT, never of the scene. `id` is edited keystroke
+     by keystroke and two scenes can briefly carry the same one, so it makes a
+     poor React key and a worse selection key: removing the third scene shifted
+     every following one onto its neighbour's DOM state. The workbench selects
+     on this. */
+  uid: string
   base: Scene
   id: string
   intention: string
@@ -155,9 +161,15 @@ export function bandOf(scene: { intensity?: number | number[]; wardrobe?: Scene[
   return [lo, Math.max(lo, hi)]
 }
 
+/* Draft identity, handed out in order. A counter and not a random id: it makes
+   the fumigation reproducible, and nothing outside this module reads it. */
+let uidCounter = 0
+const nextUid = () => `d${++uidCounter}`
+
 export function draftOf(scene: Scene): SceneDraft {
   const band = bandOf(scene)
   return {
+    uid: nextUid(),
     base: scene,
     id: scene.id ?? '',
     // `category` was a duplicate of the intention that doubled as the export
@@ -224,7 +236,8 @@ export function draftsToScenes(drafts: SceneDraft[]): Scene[] {
 
 /** A brand-new scene is born with the COMPLETE shape: without a band or an
     outfit it would exist only at level 0 and the intensity slider would have no
-    grip on it. */
+    grip on it. The world is NOT here — it belongs to the character, and
+    `stampWorld` puts it on at the moment the scene is added. */
 export const NEW_SCENE: Scene = {
   id: 'nouvelle_scene',
   intention: 'lifestyle',
@@ -236,6 +249,24 @@ export const NEW_SCENE: Scene = {
   prompt: '',
   wardrobe: { '0': 'everyday clothing' },
   variants: [],
+}
+
+/* Mirror of `stamp_world()` in api/services/bank.py (ADR-0014 §4). A scene is a
+   composition INSIDE the character's world, and one born in the browser has no
+   way to know it — the server accepts it untagged and stamps it, which is the
+   one tolerance of the lock. Stamping here too means the draft on screen says
+   what will be written, instead of the interface and the file disagreeing until
+   the next reload.
+
+   It only fills what is ABSENT: a scene that already carries a world keeps it,
+   and the save then refuses it if it is a foreign one. Repairing it silently
+   here would hide exactly what the lock exists to show. */
+export function stampWorld(scene: Scene, world: string | null): Scene {
+  if (!world) return scene
+  const stamped = { ...scene }
+  if (!stamped.world) stamped.world = world
+  if (!stamped.origin) stamped.origin = 'manual'
+  return stamped
 }
 
 type SaveResult = { ok: boolean; erreur?: string }
@@ -251,11 +282,19 @@ type ScenesStoreValue = {
   setAnchor: (value: string) => void
   setDirection: (value: string) => void
   patchDraft: (index: number, patch: Partial<SceneDraft>) => void
-  addScene: (scene?: Scene) => void
+  /** Adds a scene and returns its draft uid, so the caller can open it. */
+  addScene: (scene?: Scene) => string
   removeScene: (index: number) => void
   /** Replaces the whole document from the raw JSON panel. Throws on bad JSON. */
   applyRawJson: (text: string) => void
   rawJson: string
+  /** World of the CHARACTER, frozen at its creation. Null before the sheet lands. */
+  world: { id: string; label: string } | null
+  /* World the DOCUMENT on disk carries, which is normally the same one. They
+     part company on a bank predating ADR-0014 (none) or one pasted from another
+     character (a foreign one) — the banner says so rather than letting the save
+     be the first to mention it. */
+  documentWorld: string | null
   load: (guardEditor?: boolean) => Promise<void>
   save: () => Promise<SaveResult>
 }
@@ -264,7 +303,7 @@ const Ctx = createContext<ScenesStoreValue | null>(null)
 
 export function ScenesStoreProvider({ children }: { children: ReactNode }) {
   const api = useApi()
-  const { claimed } = useCharacter()
+  const { claimed, sheet } = useCharacter()
   const { report } = useFaults()
   const [bank, setBank] = useState<SceneBank | null>(null)
   const [drafts, setDrafts] = useState<SceneDraft[]>([])
@@ -277,7 +316,30 @@ export function ScenesStoreProvider({ children }: { children: ReactNode }) {
   const dirtyRef = useRef(false)
   dirtyRef.current = dirty
 
+  /* THE LIVE COPY, and why it exists. `save` is a `useCallback`: it closes over
+     the document of the render that built it. The composer adds a scene and
+     saves it IN THE SAME TICK — so it was posting the bank as it stood BEFORE
+     the addition, then reloading over the draft. The scene vanished while the
+     toast said « enregistrée dans scenes.json ».
+     Every mutation writes here as well as into state; `save` reads here. */
+  const draftsRef = useRef<SceneDraft[]>([])
+  const anchorRef = useRef('')
+  const directionRef = useRef('')
+
+  const putDrafts = useCallback(
+    (next: SceneDraft[] | ((current: SceneDraft[]) => SceneDraft[])) => {
+      const value = typeof next === 'function' ? next(draftsRef.current) : next
+      draftsRef.current = value
+      setDrafts(value)
+    },
+    [],
+  )
+
   const markDirty = useCallback(() => setDirty(true), [])
+
+  /* The character's world, frozen at its creation (ADR-0012 §4). Read, never
+     chosen: no screen writes a sheet. */
+  const world = (sheet?.world as { id: string; label: string } | null) ?? null
 
   const load = useCallback(
     async (guardEditor = false) => {
@@ -308,7 +370,9 @@ export function ScenesStoreProvider({ children }: { children: ReactNode }) {
       if (editing) return // never overwrite unsaved work
       const { scenes, anchor: a, direction: d, ...rest } = document_!
       extra.current = rest
-      setDrafts(scenes.map(draftOf))
+      putDrafts(scenes.map(draftOf))
+      anchorRef.current = a ?? ''
+      directionRef.current = d ?? ''
       setAnchorState(a ?? '')
       setDirectionState(d ?? '')
     },
@@ -324,10 +388,12 @@ export function ScenesStoreProvider({ children }: { children: ReactNode }) {
   }, [claimed])
 
   const setAnchor = useCallback((value: string) => {
+    anchorRef.current = value
     setAnchorState(value)
     setDirty(true)
   }, [])
   const setDirection = useCallback((value: string) => {
+    directionRef.current = value
     setDirectionState(value)
     setDirty(true)
   }, [])
@@ -335,21 +401,27 @@ export function ScenesStoreProvider({ children }: { children: ReactNode }) {
   /* Any keystroke in a scene card counts as an unsaved change — otherwise only
      adding and the raw JSON were protected, not editing an existing scene. */
   const patchDraft = useCallback((index: number, patch: Partial<SceneDraft>) => {
-    setDrafts((current) =>
+    putDrafts((current) =>
       current.map((draft, i) => (i === index ? { ...draft, ...patch } : draft)),
     )
     markDirty()
-  }, [markDirty])
+  }, [markDirty, putDrafts])
 
+  /* Adds and RETURNS the draft's uid: the workbench opens the new scene in the
+     inspector, and a scene created blind in a grid of twenty is not created.
+     The world is stamped here — a draft that says on screen what will be
+     written (ADR-0014 §4). */
   const addScene = useCallback((scene: Scene = NEW_SCENE) => {
-    setDrafts((current) => [...current, draftOf({ ...scene })])
+    const draft = draftOf(stampWorld({ ...scene }, world?.id ?? null))
+    putDrafts((current) => [...current, draft])
     markDirty()
-  }, [markDirty])
+    return draft.uid
+  }, [markDirty, putDrafts, world])
 
   const removeScene = useCallback((index: number) => {
-    setDrafts((current) => current.filter((_, i) => i !== index))
+    putDrafts((current) => current.filter((_, i) => i !== index))
     markDirty()
-  }, [markDirty])
+  }, [markDirty, putDrafts])
 
   const document_ = useMemo<SceneDocument>(
     () => ({ ...extra.current, anchor, direction, scenes: draftsToScenes(drafts) }),
@@ -361,14 +433,18 @@ export function ScenesStoreProvider({ children }: { children: ReactNode }) {
     if (!parsed || !Array.isArray(parsed.scenes)) throw new Error('pas de liste `scenes`')
     const { scenes, anchor: a, direction: d, ...rest } = parsed
     extra.current = rest
-    setDrafts(scenes.map(draftOf))
+    putDrafts(scenes.map(draftOf))
+    anchorRef.current = a ?? ''
+    directionRef.current = d ?? ''
     setAnchorState(a ?? '')
     setDirectionState(d ?? '')
     markDirty()
-  }, [markDirty])
+  }, [markDirty, putDrafts])
 
   const save = useCallback(async (): Promise<SaveResult> => {
-    const bad = invalidOutfits(drafts)
+    /* From the refs, not from this closure — see THE LIVE COPY above. */
+    const live = draftsRef.current
+    const bad = invalidOutfits(live)
     if (bad.length) {
       const message =
         'tenue sans niveau — ' +
@@ -377,13 +453,19 @@ export function ScenesStoreProvider({ children }: { children: ReactNode }) {
         ' · préfixe chaque ligne par « 0: » ou « 1: »'
       return { ok: false, erreur: message }
     }
-    const response = await api.post<ActionLike>('/api/scenes', { data: document_ })
+    const payload: SceneDocument = {
+      ...extra.current,
+      anchor: anchorRef.current,
+      direction: directionRef.current,
+      scenes: draftsToScenes(live),
+    }
+    const response = await api.post<ActionLike>('/api/scenes', { data: payload })
     const failure = errorOf(response)
     if (failure) return { ok: false, erreur: failure }
     setDirty(false)
     await load()
     return { ok: true }
-  }, [api, drafts, document_, load])
+  }, [api, load])
 
   const value = useMemo<ScenesStoreValue>(
     () => ({
@@ -400,6 +482,8 @@ export function ScenesStoreProvider({ children }: { children: ReactNode }) {
       removeScene,
       applyRawJson,
       rawJson: JSON.stringify(document_, null, 2),
+      world,
+      documentWorld: (extra.current.world as string | undefined) ?? null,
       load,
       save,
     }),
@@ -416,6 +500,7 @@ export function ScenesStoreProvider({ children }: { children: ReactNode }) {
       removeScene,
       applyRawJson,
       document_,
+      world,
       load,
       save,
     ],
