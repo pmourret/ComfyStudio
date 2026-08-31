@@ -75,8 +75,7 @@ export function Composer() {
 
   return (
     <div
-      className="mb-[22px] rounded-card border border-line2 p-[18px]
-                 bg-[linear-gradient(180deg,var(--panel2),var(--panel))]"
+      className="rounded-card border border-line2 bg-panel2 p-[18px]"
     >
       <h2 className="mb-[10px]">
         Décrire une intention · le modèle local écrit les scènes
@@ -112,7 +111,10 @@ export function Composer() {
           />
         </label>
         <div className="flex items-end">
-          <button className="btn primary" id="btnCompose" disabled={busy} onClick={compose}>
+          {/* Not `primary`: the screen has ONE primary action and it is
+              Enregistrer. Two primaries on a view is two answers to
+              « what am I meant to do here ». */}
+          <button className="btn" id="btnCompose" disabled={busy} onClick={compose}>
             Proposer des scènes
           </button>
         </div>

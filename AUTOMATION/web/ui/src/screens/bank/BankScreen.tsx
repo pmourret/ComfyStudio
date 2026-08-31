@@ -6,19 +6,34 @@
    skeleton block sat between the composer and the scene cards, in the middle of
    a page one scrolls to edit scenes. Two different workshops, not two sections.
 
+   SCENES IS A WORKBENCH: A GRID AND AN INSPECTOR (31/08/2026). It was twenty
+   stacked forms — five thousand pixels before one knew what the character owns.
+   The grid holds what identifies a scene, the inspector holds the rest, and the
+   two-column geometry is the one Produire already uses: same studio, same
+   shape.
+
+   WHAT IS STOWED, NOT REDESIGNED. The composer, the raw JSON and the poses are
+   unchanged; they simply stopped occupying the top of a screen whose subject is
+   the scenes. The composer in particular lost its primary button — the screen
+   has one primary action, and it is Enregistrer.
+
    THE SAVE BAR IS ON BOTH VIEWS, and that is deliberate: it saves the screen's
    DOCUMENT, and a scene edit left pending on the other view must keep its button
    — hiding it would hide the action while the dirty banner keeps warning. */
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { useApi } from '../../api/useApi'
 import { useToast } from '../../chrome/ToastContext'
 import { useScenes } from '../../state/ScenesStoreContext'
 import { useTaxonomy } from '../../state/TaxonomyContext'
 import { PATHS } from '../../app/routes'
 import { Composer } from './Composer'
 import { PosesView } from './PosesView'
-import { SceneCard } from './SceneCard'
+import { NewSceneCard, SceneGridCard, type ScenePreview } from './SceneGrid'
+import { DocumentPane, SceneInspector } from './SceneInspector'
+import { useSceneWorkbench } from './useSceneWorkbench'
+import { WorldBanner } from './WorldBanner'
 
 /* What the save bar SAYS it saves, per sub-view. Same button, same handler, same
    file: only the label changes.
@@ -39,6 +54,7 @@ const SAVE_BAR = {
 } as const
 
 export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
+  const api = useApi()
   const toast = useToast()
   const {
     bank,
@@ -47,20 +63,22 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
     direction,
     poses,
     rawJson,
+    world,
+    documentWorld,
     setAnchor,
     setDirection,
     patchDraft,
-    addScene,
-    removeScene,
     applyRawJson,
     save,
   } = useScenes()
   const { creative } = useTaxonomy()
+  const bench = useSceneWorkbench()
   const [status, setStatus] = useState<string | null>(null)
   const [rawDraft, setRawDraft] = useState<string | null>(null)
 
   const [title, subtitle] = SAVE_BAR[view]
-  const previews = (bank?.previews ?? {}) as Record<string, unknown>
+  const previews = (bank?.previews ?? {}) as Record<string, ScenePreview>
+  const stats = (bank?.stats ?? {}) as Record<string, { n: number; avg: number | null }>
 
   const onSave = async () => {
     const result = await save()
@@ -73,7 +91,7 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
 
   return (
     <div className="screen" id="scenes">
-      <div className="wrap">
+      <div className="wrap w-full max-w-none">
         {/* The two sub-views are two DESTINATIONS, so two links: shareable, and
             the browser's back button walks between them. */}
         <div className="seg mb-[22px]" id="bankView" role="tablist" aria-label="Sous-vue de la banque">
@@ -83,79 +101,141 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
 
         {view === 'scenes' ? (
           <div id="bankScenes">
-            <Composer />
+            <WorldBanner world={world} documentWorld={documentWorld} />
 
-            <h2>Note de direction — ajoutée à la fin de tous les prompts</h2>
-            <input
-              id="direction"
-              placeholder="ex : autumn palette, softer light — laisser vide si aucune"
-              value={direction}
-              onChange={(e) => setDirection(e.target.value)}
-            />
-            <p className="tiny mt-[6px] mb-[22px]">
-              Sert à donner une intention de série sans réécrire chaque scène. Se
-              vide aussi vite qu'elle se met.
-            </p>
+            {/* Two columns: the grid on the left, the sticky inspector on the
+                right. Under 1100 px the right column goes UNDER, never as an
+                overlay — it is a panel one edits in, not a notification. */}
+            <div
+              className="grid gap-[22px] [align-items:start]
+                         grid-cols-[minmax(0,1fr)_clamp(320px,26vw,460px)]
+                         max-[1100px]:grid-cols-[1fr]"
+            >
+              <div>
+                <div className="mb-[12px] flex flex-wrap items-center gap-[10px]">
+                  <h2 className="m-0">
+                    Scènes{' '}
+                    <span className="tiny" id="nScenes">
+                      {bench.filter
+                        ? `${bench.shown.length} sur ${drafts.length}`
+                        : `${drafts.length} scènes`}
+                    </span>
+                  </h2>
+                  <div className="flex-1" />
+                  {/* A real <label>, not a placeholder posing as one: the
+                      placeholder disappears at the first keystroke. It is
+                      removed VISUALLY (`sr-only` clips it) because the field
+                      sits in a toolbar, and it stays the control's accessible
+                      name. */}
+                  <label className="sr-only" htmlFor="sceneFilter">
+                    filtrer les scènes
+                  </label>
+                  <input
+                    id="sceneFilter"
+                    className="w-[190px]"
+                    type="search"
+                    placeholder="filtrer — nom, prompt, tag"
+                    value={bench.filter}
+                    onChange={(e) => bench.setFilter(e.target.value)}
+                  />
+                  <button
+                    className="btn sm"
+                    id="btnBankDocument"
+                    aria-pressed={!bench.selected}
+                    onClick={() => bench.select(null)}
+                  >
+                    Réglages de la banque
+                  </button>
+                </div>
 
-            <h2>Ancre d'identité — ajoutée à toutes les scènes</h2>
-            <textarea
-              id="anchor"
-              className="min-h-[64px]"
-              value={anchor}
-              onChange={(e) => setAnchor(e.target.value)}
-            />
-            <p className="tiny mt-[6px] mb-[22px]">
-              Ne décris jamais le visage dans une scène : le verrou d'identité le
-              porte. Ici on ne met que ce qu'il ne transporte pas (cheveux, yeux,
-              taches de rousseur).
-            </p>
+                <div
+                  ref={bench.gridRef}
+                  id="sceneCards"
+                  className="grid gap-[14px] grid-cols-[repeat(auto-fill,minmax(178px,1fr))]"
+                >
+                  {bench.shown.map(({ draft }) => (
+                    <SceneGridCard
+                      key={draft.uid}
+                      draft={draft}
+                      preview={previews[draft.base.id]}
+                      stats={stats[draft.base.id]}
+                      selected={bench.selected?.uid === draft.uid}
+                      imageUrl={api.image}
+                      onOpen={() => bench.select(draft.uid)}
+                    />
+                  ))}
+                  <NewSceneCard onClick={bench.add} />
+                  {!bench.shown.length && bench.filter && (
+                    <div className="empty col-span-full px-[16px] py-[28px] text-[13px]">
+                      aucune scène ne porte « {bench.filter} » — le filtre ne
+                      cache rien du document, il ne montre que ce qui répond.
+                    </div>
+                  )}
+                </div>
 
-            <h2>
-              Scènes <span className="tiny" id="nScenes">{drafts.length} scènes</span>
-            </h2>
-            <div id="sceneCards">
-              {drafts.map((draft, index) => (
-                <SceneCard
-                  key={index}
-                  draft={draft}
-                  index={index}
-                  creative={creative}
-                  poses={poses}
-                  produced={Boolean(previews[draft.base.id])}
-                  onPatch={(patch) => patchDraft(index, patch)}
-                  onRemove={() => removeScene(index)}
-                />
-              ))}
-            </div>
-            <button className="btn" id="btnAddScene" onClick={() => addScene()}>
-              + Ajouter une scène
-            </button>
+                {/* Stowed: two workshops that are not the subject of this
+                    screen. Unchanged inside — they moved, they were not
+                    rewritten. */}
+                <details className="adv mt-[24px]!" id="bankComposer">
+                  <summary>Composer des scènes avec le modèle local</summary>
+                  <div className="mt-[12px]">
+                    <Composer />
+                  </div>
+                </details>
 
-            <details className="adv mt-[24px]!">
-              <summary>JSON brut</summary>
-              <textarea
-                id="rawJson"
-                spellCheck={false}
-                className="mt-[12px] min-h-[320px] resize-y font-code text-[12px] leading-[normal]"
-                value={rawDraft ?? rawJson}
-                onChange={(e) => setRawDraft(e.target.value)}
-              />
-              <button
-                id="btnRawApply"
-                className="btn sm mt-[10px]"
-                onClick={() => {
-                  try {
-                    applyRawJson(rawDraft ?? rawJson)
-                    setRawDraft(null)
-                    toast('JSON appliqué — pense à enregistrer')
-                  } catch (error) {
-                    toast('JSON invalide : ' + (error as Error).message)
-                  }
-                }}
+                <details className="adv mt-[12px]!">
+                  <summary>JSON brut</summary>
+                  <textarea
+                    id="rawJson"
+                    spellCheck={false}
+                    className="mt-[12px] min-h-[320px] resize-y font-code text-[12px] leading-[normal]"
+                    value={rawDraft ?? rawJson}
+                    onChange={(e) => setRawDraft(e.target.value)}
+                  />
+                  <button
+                    id="btnRawApply"
+                    className="btn sm mt-[10px]"
+                    onClick={() => {
+                      try {
+                        applyRawJson(rawDraft ?? rawJson)
+                        setRawDraft(null)
+                        toast('JSON appliqué — pense à enregistrer')
+                      } catch (error) {
+                        toast('JSON invalide : ' + (error as Error).message)
+                      }
+                    }}
+                  >
+                    Appliquer le JSON
+                  </button>
+                </details>
+              </div>
+
+              <aside
+                className="sticky top-[12px] max-h-[calc(100vh-150px)] overflow-auto
+                           max-[1100px]:static max-[1100px]:max-h-none"
+                id="bankInspector"
               >
-                Appliquer le JSON
-              </button>
-            </details>
+                {bench.selected ? (
+                  <SceneInspector
+                    draft={bench.selected}
+                    creative={creative}
+                    poses={poses}
+                    produced={stats[bench.selected.base.id]?.n ?? null}
+                    onPatch={(patch) => patchDraft(bench.selectedIndex, patch)}
+                    onRemove={() => void bench.remove(bench.selectedIndex)}
+                    onClose={bench.close}
+                  />
+                ) : (
+                  <DocumentPane
+                    anchor={anchor}
+                    direction={direction}
+                    count={drafts.length}
+                    onAnchor={setAnchor}
+                    onDirection={setDirection}
+                  />
+                )}
+              </aside>
+            </div>
           </div>
         ) : (
           <PosesView />
