@@ -19,7 +19,6 @@ import { PATHS } from '../../app/routes'
 import { Composer } from './Composer'
 import { PosesView } from './PosesView'
 import { SceneCard } from './SceneCard'
-import './bank.css'
 
 /* What the save bar SAYS it saves, per sub-view. Same button, same handler, same
    file: only the label changes.
@@ -77,7 +76,7 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
       <div className="wrap">
         {/* The two sub-views are two DESTINATIONS, so two links: shareable, and
             the browser's back button walks between them. */}
-        <div className="seg bankview" id="bankView" role="tablist" aria-label="Sous-vue de la banque">
+        <div className="seg mb-[22px]" id="bankView" role="tablist" aria-label="Sous-vue de la banque">
           <SubViewLink to={PATHS.bankScenes} label="Scènes" active={view === 'scenes'} vue="scenes" />
           <SubViewLink to={PATHS.bankPoses} label="Poses" active={view === 'poses'} vue="poses" />
         </div>
@@ -93,7 +92,7 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
               value={direction}
               onChange={(e) => setDirection(e.target.value)}
             />
-            <p className="tiny" style={{ margin: '6px 0 22px' }}>
+            <p className="tiny mt-[6px] mb-[22px]">
               Sert à donner une intention de série sans réécrire chaque scène. Se
               vide aussi vite qu'elle se met.
             </p>
@@ -101,11 +100,11 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
             <h2>Ancre d'identité — ajoutée à toutes les scènes</h2>
             <textarea
               id="anchor"
-              style={{ minHeight: 64 }}
+              className="min-h-[64px]"
               value={anchor}
               onChange={(e) => setAnchor(e.target.value)}
             />
-            <p className="tiny" style={{ margin: '6px 0 22px' }}>
+            <p className="tiny mt-[6px] mb-[22px]">
               Ne décris jamais le visage dans une scène : le verrou d'identité le
               porte. Ici on ne met que ce qu'il ne transporte pas (cheveux, yeux,
               taches de rousseur).
@@ -132,19 +131,18 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
               + Ajouter une scène
             </button>
 
-            <details className="adv" style={{ marginTop: 24 }}>
+            <details className="adv mt-[24px]!">
               <summary>JSON brut</summary>
               <textarea
                 id="rawJson"
                 spellCheck={false}
-                style={{ marginTop: 12, minHeight: 320 }}
+                className="mt-[12px] min-h-[320px] resize-y font-code text-[12px] leading-[normal]"
                 value={rawDraft ?? rawJson}
                 onChange={(e) => setRawDraft(e.target.value)}
               />
               <button
-                className="btn sm"
                 id="btnRawApply"
-                style={{ marginTop: 10 }}
+                className="btn sm mt-[10px]"
                 onClick={() => {
                   try {
                     applyRawJson(rawDraft ?? rawJson)
@@ -170,7 +168,7 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
             <b id="scTitre">{title}</b>
             <div id="scMsg">{status ?? subtitle}</div>
           </div>
-          <div className="spacer" style={{ flex: 1 }} />
+          <div className="flex-1" />
           <button className="btn primary" id="btnSaveScenes" onClick={onSave}>
             Enregistrer
           </button>
@@ -194,7 +192,15 @@ function SubViewLink({
   return (
     <Link
       to={to}
-      className={active ? 'on' : undefined}
+      /* `on` is kept as the marker of the current sub-view — it is what the
+         segmented control means, and what a reader looks for — but nothing
+         hangs off it any more: the two states are written here. */
+      className={
+        'inline-flex cursor-pointer items-center border-none px-[15px] py-[8px]' +
+        ' text-[13.5px] no-underline focus-visible:outline-2' +
+        ' focus-visible:outline-focus focus-visible:-outline-offset-2' +
+        (active ? ' on bg-acc font-semibold text-on-acc' : ' bg-transparent text-dim')
+      }
       data-vue={vue}
       role="tab"
       aria-selected={active}

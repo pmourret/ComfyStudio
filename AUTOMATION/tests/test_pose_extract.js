@@ -56,7 +56,7 @@ const comfyUp = () => new Promise(resolve => {
 
   let ko = 0;
   const dire = (bon, quoi) => { console.log(`   ${bon ? 'ok  ' : 'ECHEC'} ${quoi}`); if (!bon) ko++; };
-  const squelettes = () => page.$$eval('#poseGrid .posecard', e => e.map(x => x.dataset.n));
+  const squelettes = () => page.$$eval('#poseGrid [data-pose-card]', e => e.map(x => x.dataset.n));
 
   console.log('\n[1] la sous-vue Poses montre la banque de squelettes');
   await page.goto(BASE + '/bank/poses?character=lena', { waitUntil: 'networkidle' });
@@ -76,7 +76,7 @@ const comfyUp = () => new Promise(resolve => {
 
   // ~20-30 s de GPU : on attend l'apparition d'un squelette de plus
   await page.waitForFunction(
-    n => document.querySelectorAll('#poseGrid .posecard').length > n,
+    n => document.querySelectorAll('#poseGrid [data-pose-card]').length > n,
     avant.length, { timeout: 120000 });
   const apres = await squelettes();
   const nouveau = apres.find(n => !avant.includes(n));
@@ -89,20 +89,20 @@ const comfyUp = () => new Promise(resolve => {
        `le compteur suit (${await page.textContent('#nPoses')})`);
   dire((await page.textContent('#poseFileName')) === '',
        'le champ de fichier est vide : la photo source a fait son office');
-  const img = await page.getAttribute(`.posecard[data-n="${nouveau}"] img`, 'src');
+  const img = await page.getAttribute(`[data-pose-card][data-n="${nouveau}"] img`, 'src');
   dire(img.startsWith('/img/pose?name='), `sa vignette vient de /img/pose (${img.slice(0, 40)}…)`);
 
   console.log('\n[4] il est proposable a une scene, dans la sous-vue Scenes');
   await page.click('#bankView [data-vue="scenes"]');
-  await page.waitForSelector('.sceneCard');
-  const options = await page.$$eval('.sceneCard:first-child [data-f="pose"] option',
+  await page.waitForSelector('[data-scene-card]');
+  const options = await page.$$eval('[data-scene-card]:first-child [data-f="pose"] option',
                                     e => e.map(x => x.value));
   dire(options.includes(nouveau), 'le nouveau squelette est dans le selecteur de pose');
 
   console.log('\n[5] NETTOYAGE : le squelette produit est retire');
   await page.click('#bankView [data-vue="poses"]');
   await page.waitForSelector('#poseGrid');
-  await page.click(`.posecard[data-n="${nouveau}"] .del`);
+  await page.click(`[data-pose-card][data-n="${nouveau}"] [data-del]`);
   await page.waitForSelector('#armBox[open]');
   dire((await page.textContent('#armBox')).includes('introuvable'),
        'le retrait previent qu une scene qui le reference le perdra');

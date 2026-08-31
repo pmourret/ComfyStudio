@@ -709,7 +709,7 @@ function Tile(props: {
         <FlagButtons item={item} onFlag={props.onFlag} />
         <span className="sep" />
         <button
-          className="del"
+          className="ml-auto"
           data-suppr="1"
           title="Supprimer définitivement — pas de retour"
           onClick={props.onDelete}

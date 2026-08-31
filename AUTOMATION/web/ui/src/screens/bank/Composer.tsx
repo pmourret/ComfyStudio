@@ -74,17 +74,21 @@ export function Composer() {
   }
 
   return (
-    <div className="compose">
-      <h2 style={{ marginBottom: 10 }}>
+    <div
+      className="mb-[22px] rounded-card border border-line2 p-[18px]
+                 bg-[linear-gradient(180deg,var(--panel2),var(--panel))]"
+    >
+      <h2 className="mb-[10px]">
         Décrire une intention · le modèle local écrit les scènes
       </h2>
       <textarea
+        className="min-h-[70px]"
         id="intention"
         placeholder="ex : Léna aime passer du temps dans son jardin, elle y bouture ses plantes le matin"
         value={intention}
         onChange={(e) => setIntention(e.target.value)}
       />
-      <div className="grid4" style={{ marginTop: 12 }}>
+      <div className="mt-[12px] grid grid-cols-[repeat(auto-fit,minmax(165px,1fr))] gap-[16px]">
         <label className="f">
           <span>intention imposée (optionnel)</span>
           <select id="cmpCat" value={target} onChange={(e) => setTarget(e.target.value)}>
@@ -107,12 +111,12 @@ export function Composer() {
             onChange={(e) => setCount(e.target.value)}
           />
         </label>
-        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+        <div className="flex items-end">
           <button className="btn primary" id="btnCompose" disabled={busy} onClick={compose}>
             Proposer des scènes
           </button>
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+        <div className="flex items-end">
           <span className="tiny" id="cmpMsg">
             {message}
           </span>
@@ -121,15 +125,18 @@ export function Composer() {
 
       <div id="props">
         {proposals.map((proposal, index) => (
-          <div className="prop" key={`${proposal.id}-${index}`}>
-            <div className="h">
-              <b>{proposal.id}</b>
+          <div
+            className="mt-[10px] rounded-[9px] border border-line2 bg-panel2 p-[13px]"
+            key={`${proposal.id}-${index}`}
+          >
+            <div className="mb-[8px] flex items-center gap-[10px]">
+              <b className="text-[14px]">{proposal.id}</b>
               <span className="tiny">
                 {proposal.intention || proposal.category} · {proposal.format} · {proposal.count} img
                 · niveaux{' '}
                 {(Array.isArray(proposal.intensity) ? proposal.intensity : [0, 1]).join('-')}
               </span>
-              <div className="spacer" style={{ flex: 1 }} />
+              <div className="flex-1" />
               <button
                 className="btn sm"
                 data-add={index}
@@ -146,7 +153,7 @@ export function Composer() {
                 ignorer
               </button>
             </div>
-            <div className="v" style={{ marginBottom: 6 }}>
+            <div className="mb-[6px] text-[12px] text-dim2">
               {(proposal.tags ?? []).map((tag) => (
                 <span className="kbd" key={tag}>
                   {tag}
@@ -156,18 +163,18 @@ export function Composer() {
                 ` · va bien en ${(proposal.tones ?? []).join(', ')}`}
             </div>
             {Object.entries(proposal.wardrobe ?? {}).map(([level, outfit]) => (
-              <div className="v" key={level}>
+              <div className="text-[12px] text-dim2" key={level}>
                 tenue n{level} · {String(outfit)}
               </div>
             ))}
             {(proposal.alertes ?? []).length > 0 && (
-              <div className="v" style={{ color: 'var(--warn)', marginTop: 6 }}>
+              <div className="mt-[6px] text-[12px] text-warn">
                 ⚠ à relire — {(proposal.alertes ?? []).join(' · ')}
               </div>
             )}
-            <p className="p">{proposal.prompt}</p>
+            <p className="mt-0 mb-[8px] text-[13px] text-dim">{proposal.prompt}</p>
             {(proposal.variants ?? []).length > 0 && (
-              <div className="v">variantes · {(proposal.variants ?? []).join(' | ')}</div>
+              <div className="text-[12px] text-dim2">variantes · {(proposal.variants ?? []).join(' | ')}</div>
             )}
           </div>
         ))}

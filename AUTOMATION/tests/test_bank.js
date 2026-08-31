@@ -44,7 +44,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
     (await (await fetch('/api/scenes?character=lena')).json()).data);
 
   await page.goto(SCENES, { waitUntil: 'networkidle' });
-  await page.waitForSelector('.sceneCard');
+  await page.waitForSelector('[data-scene-card]');
 
   console.log('\n[0] instantane de scenes.json — il sera REECRIT a la fin');
   const avant = await banque();
@@ -96,20 +96,20 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   dire(await cle() === '0', 'deplier reecrit la cle');
 
   console.log('\n[4] une carte de scene montre ce qu une scene PORTE');
-  const nCartes = await page.$$eval('.sceneCard', e => e.length);
+  const nCartes = await page.$$eval('[data-scene-card]', e => e.length);
   dire(nCartes === avant.scenes.length, `${nCartes} cartes pour ${avant.scenes.length} scenes`);
-  const champs = await page.$$eval('.sceneCard:first-child [data-f]', e => e.map(x => x.dataset.f));
+  const champs = await page.$$eval('[data-scene-card]:first-child [data-f]', e => e.map(x => x.dataset.f));
   ['id','intention','format','count','guidance','band_lo','tones','tags','prompt','wardrobe','variants','pose']
     .forEach(f => dire(champs.includes(f), `champ « ${f} »`));
 
   console.log('\n[5] le plafond de niveau se DEDUIT des tenues, a la frappe');
-  const plafond = () => page.$eval('.sceneCard:first-child [data-f="band_lo"]',
+  const plafond = () => page.$eval('[data-scene-card]:first-child [data-f="band_lo"]',
     e => e.closest('.f').querySelector('span b').textContent);
-  const tenues = await page.$eval('.sceneCard:first-child [data-f="wardrobe"]', e => e.value);
-  await page.fill('.sceneCard:first-child [data-f="wardrobe"]', tenues + '\n3: a test outfit');
+  const tenues = await page.$eval('[data-scene-card]:first-child [data-f="wardrobe"]', e => e.value);
+  await page.fill('[data-scene-card]:first-child [data-f="wardrobe"]', tenues + '\n3: a test outfit');
   await page.waitForTimeout(200);
   dire(await plafond() === '3', `le plafond suit la tenue tapee (${await plafond()})`);
-  await page.fill('.sceneCard:first-child [data-f="wardrobe"]', tenues);
+  await page.fill('[data-scene-card]:first-child [data-f="wardrobe"]', tenues);
   await page.waitForTimeout(200);
 
   console.log('\n[6] une frappe arme le bandeau « modifications non enregistrees »');
@@ -124,14 +124,14 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   dire(await vu('#dirtyBar'), "le bandeau suit sur l'ecran Application");
   await page.click('.tabs [data-s="bank"]');
   await page.waitForTimeout(500);
-  await page.waitForSelector('.sceneCard');
-  dire(await page.$eval('.sceneCard:first-child [data-f="wardrobe"]', e => e.value) === tenues,
+  await page.waitForSelector('[data-scene-card]');
+  dire(await page.$eval('[data-scene-card]:first-child [data-f="wardrobe"]', e => e.value) === tenues,
        'la saisie est intacte au retour');
 
   console.log('\n[8] ALLER-RETOUR : on modifie UN champ, et rien d autre ne bouge');
   const cible = avant.scenes[0];
   const marque = (cible.prompt || '') + ' _FUMIGATION_';
-  await page.fill('.sceneCard:first-child [data-f="prompt"]', marque);
+  await page.fill('[data-scene-card]:first-child [data-f="prompt"]', marque);
   await page.waitForTimeout(150);
   await page.click('#btnSaveScenes');
   await page.waitForTimeout(1400);
@@ -162,7 +162,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
        'la note de direction aussi');
 
   console.log('\n[9] une tenue sans niveau REFUSE l enregistrement');
-  await page.fill('.sceneCard:first-child [data-f="wardrobe"]', 'une tenue sans niveau');
+  await page.fill('[data-scene-card]:first-child [data-f="wardrobe"]', 'une tenue sans niveau');
   await page.waitForTimeout(150);
   await page.click('#btnSaveScenes');
   await page.waitForTimeout(600);

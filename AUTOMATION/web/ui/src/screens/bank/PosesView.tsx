@@ -92,30 +92,53 @@ export function PosesView() {
           {poses.length ? `— ${poses.length}` : ''}
         </span>
       </h2>
-      <p className="tiny" style={{ margin: '6px 0 16px' }}>
+      <p className="tiny mt-[6px] mb-[16px]">
         Un squelette OpenPose extrait d'une photo, imposable à une scène
         (ControlNet, cran SFW seulement). <b>La photo source ne reste jamais sur
         le disque</b> : seul le squelette est gardé.
       </p>
 
-      <div className="posegrid" id="poseGrid">
+      <div
+        className="mb-[14px] grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-[10px]"
+        id="poseGrid"
+      >
         {poses.length ? (
           poses.map((name) => (
-            <div className="posecard" data-n={name} key={name}>
-              <img loading="lazy" src={`/img/pose?name=${encodeURIComponent(name)}`} alt={name} />
-              <button className="del" title="retirer de la banque" onClick={() => remove(name)}>
+            <div
+              className="relative aspect-square overflow-hidden rounded-[8px]
+                         border border-line2 bg-black"
+              data-pose-card
+              data-n={name}
+              key={name}
+            >
+              <img
+                className="h-full w-full object-contain"
+                loading="lazy"
+                src={`/img/pose?name=${encodeURIComponent(name)}`}
+                alt={name}
+              />
+              <button
+                className="absolute top-[4px] right-[4px] m-0 h-[20px] w-[20px]
+                           cursor-pointer rounded-[50%] border border-danger-line
+                           bg-scrim text-[13px] leading-none text-danger-txt
+                           hover:bg-danger-bg focus-visible:outline-2
+                           focus-visible:outline-focus focus-visible:outline-offset-2"
+                data-del
+                title="retirer de la banque"
+                onClick={() => remove(name)}
+              >
                 ×
               </button>
             </div>
           ))
         ) : (
-          <div className="empty" style={{ padding: 24 }}>
+          <div className="empty col-span-full p-[24px]">
             aucun squelette pour l'instant
           </div>
         )}
       </div>
 
-      <div className="poseUpload">
+      <div className="flex flex-wrap items-center gap-[12px]">
         <label className="btn sm" htmlFor="poseFile">
           choisir une photo
         </label>
@@ -140,7 +163,7 @@ export function PosesView() {
 
       {/* Attributing a pose TO a scene stays on the scene card, in the Scenes
           sub-view: it is a property of the scene, not of the skeleton. */}
-      <p className="tiny" style={{ margin: '18px 0 0' }}>
+      <p className="tiny mt-[18px] mb-0">
         Pour <b>imposer</b> un de ces squelettes à une scène, c'est sur la carte
         de la scène — sous-vue <b>Scènes</b>.
       </p>

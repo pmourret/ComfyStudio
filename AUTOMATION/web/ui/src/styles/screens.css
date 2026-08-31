@@ -30,6 +30,29 @@ td.num{font-variant-numeric:tabular-nums}
    line on the wide columns. Hover only — it is a reading aid, not a selection. */
 tbody tr:hover td{background:var(--panel)}
 
+/* ------------------------------------------------- keyboard shortcut
+   Shared by the composer (proposal tags) and the Revue (the keys of the sorting
+   gestures). It came from `bank/bank.css`, which was the wrong home for a thing
+   two screens use; DESIGN.md has always listed it under typography, next to
+   `--font-mono`.
+
+   `font:var(--font-mono)` is the SHORTHAND, size included — and here it is
+   valid, unlike the `font:12px var(--font-mono)` written elsewhere, which
+   expands to two sizes and is dropped whole. */
+.kbd{font:var(--font-mono);background:var(--panel2);border:1px solid var(--line2);
+     border-radius:4px;padding:1px 5px;color:var(--dim)}
+
+/* ------------------------------------------------------ folded details
+   `details.adv` is opened by four screens (banque, Produire, Revue). This half
+   — the summary's own box — came from `bank/bank.css`; `produce.css` still
+   carries the marker glyphs and the container rule until that sheet is
+   migrated. The two never fought: every property they share is declared
+   identically, so which one wins a tie changes nothing. Verified in the
+   computed styles before the move, not assumed. */
+details.adv summary{cursor:pointer;font-size:13px;color:var(--dim);
+  padding:8px 0;border-top:1px solid var(--line)}
+details.adv summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
 /* -------------------------------------------------------- empty states */
 .empty{text-align:center;color:var(--dim);padding:60px 20px}
 .empty b{display:block;color:var(--txt);font-size:16px;margin-bottom:6px}

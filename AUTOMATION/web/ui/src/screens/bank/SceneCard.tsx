@@ -56,21 +56,31 @@ export function SceneCard({
   })
 
   return (
-    <div className="sceneCard" data-k={index}>
-      <div className="top">
+    <div
+      className="mb-[14px] rounded-card border border-line bg-panel p-[16px]"
+      data-scene-card
+      data-k={index}
+    >
+      <div className="mb-[12px] flex items-center gap-[12px]">
         <input
-          className="id"
+          className="max-w-[230px] font-semibold"
           data-f="id"
           value={draft.id}
           onChange={(e) => onPatch({ id: e.target.value })}
         />
         <span className="tiny">{produced ? 'déjà produite' : 'jamais produite'}</span>
-        <button className="del" title="supprimer" onClick={onRemove}>
+        <button
+          className="ml-auto cursor-pointer border-none border-current bg-transparent text-[18px]
+                     text-dim2 hover:text-bad focus-visible:outline-2
+                     focus-visible:outline-focus focus-visible:outline-offset-2"
+          title="supprimer"
+          onClick={onRemove}
+        >
           ×
         </button>
       </div>
 
-      <div className="rowf">
+      <div className="mb-[12px] grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-[12px]">
         {/* `category` disappeared on 26/08/2026: it was a duplicate of the
             intention (14 scenes out of 16 identical) that ALSO served as the
             export folder — the 2 divergences filed the images somewhere other
@@ -125,7 +135,7 @@ export function SceneCard({
         </label>
       </div>
 
-      <div className="rowf">
+      <div className="mb-[12px] grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-[12px]">
         {/* One number only: the maximum is DEDUCED from the declared outfits.
             The two fields said the same thing, and the outfit was authoritative
             anyway (wardrobe_for takes the highest <= level). */}
@@ -138,7 +148,7 @@ export function SceneCard({
             type="number"
             min={0}
             max={3}
-            style={{ width: 88 }}
+            className="w-[88px]"
             value={draft.bandLo}
             onChange={(e) => onPatch({ bandLo: e.target.value })}
           />
@@ -168,13 +178,14 @@ export function SceneCard({
           tenue.
         </span>
         <textarea
+          className="min-h-[78px] resize-y"
           data-f="prompt"
           value={draft.prompt}
           onChange={(e) => onPatch({ prompt: e.target.value })}
         />
       </label>
 
-      <label className="f" style={{ marginTop: 10 }}>
+      <label className="f mt-[10px]">
         <span>
           tenues — une par ligne, préfixée de son niveau (<code>0: a linen shirt
           and jeans</code>) · <b>c'est le niveau le plus haut ici qui fixe
@@ -182,24 +193,24 @@ export function SceneCard({
         </span>
         <textarea
           data-f="wardrobe"
+          className="min-h-[52px] resize-y"
           spellCheck={false}
-          style={{ minHeight: 52 }}
           value={draft.wardrobe}
           onChange={(e) => onPatch({ wardrobe: e.target.value })}
         />
       </label>
 
-      <label className="f" style={{ marginTop: 10 }}>
+      <label className="f mt-[10px]">
         <span>variantes de lumière ou de saison (une par ligne) — jamais une tenue</span>
         <textarea
+          className="min-h-[52px] resize-y"
           data-f="variants"
-          style={{ minHeight: 52 }}
           value={draft.variants}
           onChange={(e) => onPatch({ variants: e.target.value })}
         />
       </label>
 
-      <div className="rowf" style={{ marginTop: 10, alignItems: 'flex-start' }}>
+      <div className="mt-[10px] mb-[12px] items-start grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-[12px]">
         <label className="f">
           <span>
             pose imposée (option) — ControlNet, cran SFW uniquement
@@ -223,9 +234,14 @@ export function SceneCard({
             ))}
           </select>
         </label>
-        <div className="posePrev" hidden={!draft.pose}>
+        <div hidden={!draft.pose}>
           {draft.pose && (
-            <img loading="lazy" src={`/img/pose?name=${encodeURIComponent(draft.pose)}`} alt="" />
+            <img
+              className="block max-w-[120px] rounded-[8px] border border-line2"
+              loading="lazy"
+              src={`/img/pose?name=${encodeURIComponent(draft.pose)}`}
+              alt=""
+            />
           )}
         </div>
       </div>
