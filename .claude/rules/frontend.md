@@ -77,6 +77,33 @@ Toute requête est bornée au personnage courant par construction :
 fonctions déjà liées. Oublier `?character=` doit rester impossible, pas
 seulement déconseillé (isolation du 29/08/2026).
 
+## Découpage d'un écran (31/08/2026)
+
+Un écran = un dossier sous `screens/`, et trois rôles qui ne se
+mélangent pas :
+
+    Screen.tsx     composition et mise en page — il rend, il ne décide pas
+    useXxx.ts      l'état et les gestes : chargement, mutations, clavier
+    Xxx.tsx        présentation pure — props + callbacks, aucun appel API
+
+**Un sous-composant n'appelle jamais l'API.** Il reçoit ce qu'il affiche
+et les callbacks qui agissent ; c'est ce qui permet de le lire sans
+ouvrir l'écran, et de le déplacer sans rien casser.
+
+Ce qui est **partagé par deux fichiers du dossier et possédé par aucun**
+(chaîne de style, type, table de correspondance) va dans son propre
+fichier — `actionStyles.ts`, `shared.ts`. L'exporter depuis l'un des
+deux ferait dépendre le second du premier pour une raison étrangère à
+son rôle.
+
+Une **fonction pure** (calcul de résumé, filtre, formatage) sort en
+fonction, pas en hook : `runSummary.ts` se lit et se teste sans monter
+React.
+
+Ce qui ne se découpe PAS : une machine à états tenue par plusieurs refs
+(la géométrie de recadrage de `PhotoEditor`) reste entière. L'enfiler
+dans une signature de hook serait moins lisible que le fichier.
+
 ## Deux couches, deux responsabilités
 
 - Structure et comportement (ce fichier) : composants du design system
@@ -127,6 +154,12 @@ opérables au clavier. Statut jamais par la couleur seule.
 
 Un libellé masqué en mode icônes l'est **visuellement** (clip-path),
 jamais par `display:none` : il reste le nom accessible du contrôle.
+
+Un bouton qui n'a **qu'une icône** porte un `aria-label` — le glyphe
+seul s'annonce littéralement (« cœur noir » pour ♥), et `title` ne suffit
+pas. Un glyphe qui accompagne déjà un libellé texte porte
+`aria-hidden="true"`, sinon il se lit au milieu de la phrase. Un
+`<input>` porte un `<label htmlFor>`, jamais un `<span>` posé à côté.
 
 ## Tests
 
