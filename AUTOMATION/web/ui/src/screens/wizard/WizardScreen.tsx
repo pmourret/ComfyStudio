@@ -16,21 +16,23 @@
    outlives it is the polling of generated candidates, stopped on unmount. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { errorOf, type Schema } from '../api/client'
-import { useApi } from '../api/useApi'
-import { useCharacter } from '../character/CharacterContext'
-import { useToast } from '../chrome/ToastContext'
-import { PATHS } from '../app/routes'
+import { errorOf, type Schema } from '../../api/client'
+import { useApi } from '../../api/useApi'
+import { useCharacter } from '../../character/CharacterContext'
+import { useToast } from '../../chrome/ToastContext'
+import { PATHS } from '../../app/routes'
+import { StepBody } from './StepBody'
+import {
+  NOTE_ERR, STEPS, candidateUrl,
+  type CandidateState, type CharacterType, type Step,
+} from './shared'
 
 type WizardOptions = Schema<'WizardOptionsResponse'>
-type CharacterType = Schema<'WizardType'>
 type BaseNameResponse = Schema<'BaseNameResponse'>
 type BaseGenerateResponse = Schema<'BaseGenerateResponse'>
 type BaseCandidatesResponse = Schema<'BaseCandidatesResponse'>
 type CreateCharacterResponse = Schema<'CreateCharacterResponse'>
 
-const STEPS = ['type', 'style', 'world', 'base'] as const
-type Step = (typeof STEPS)[number]
 const LABELS: Record<Step, string> = {
   type: 'Type',
   style: 'Style',
@@ -50,10 +52,6 @@ const MAX_UPLOAD = 20 * 1024 * 1024
 const POLL_MS = 4000
 const POLL_MAX = 150
 
-const candidateUrl = (file: string) =>
-  `/api/characters/base/image?file=${encodeURIComponent(file)}`
-
-type CandidateState = { file: string; state: string; detail?: string | null }
 
 /* ------------------------------------------------------------- appearance
    The wizard's own sheet is gone. Two of its blocks did NOT come here: `.it`
@@ -91,75 +89,8 @@ const BULLET_STATE = {
   done: 'bg-ok text-on-acc',
 }
 
-const NOTE = 'rounded-card border px-[16px] py-[14px] text-[13px] leading-[1.55] bg-panel'
-const NOTE_OK = NOTE + ' border-line text-dim'
-const NOTE_ERR = NOTE + ' border-danger-line text-danger-txt'
 
-/* ------------------------------------------------------- identity base */
-const BASE_GRID = 'mt-[14px] grid grid-cols-2 gap-[20px] max-[720px]:grid-cols-1'
-const COL_TITLE = 'mt-0 mb-[10px] text-[11.5px] uppercase tracking-[.5px] text-dim'
-const CANDS = 'mt-[12px] grid grid-cols-[repeat(auto-fill,minmax(92px,1fr))] gap-[8px]'
-/* `.wiz-cand:focus-visible` is not ported: it restated the ring `base.css`
-   already gives every <button>, and the two cards that are not buttons cannot
-   take focus. */
-const CAND =
-  'flex aspect-square items-center justify-center overflow-hidden ' +
-  'rounded-[8px] border-2 p-0 text-[11px]'
-/* THE CURSOR IS IN THE STATES, not in the base chain — exactly like the colours,
-   and for the same reason: `cursor-pointer` and `cursor-default` are two single
-   classes, so the emitted order decides, not the order they are written in. The
-   capture caught it: the failed card was announcing itself clickable.
 
-   The chosen card does NOT take the hover border either: in the sheet
-   `.wiz-cand.chosen` came after `.wiz-cand:hover` and won the tie, so the accent
-   held under the pointer. Written as three exclusive chains rather than as a
-   `!`. */
-const CAND_IDLE = 'cursor-pointer border-line bg-panel2 text-dim2 hover:border-line2'
-const CAND_CHOSEN = 'cursor-pointer border-acc bg-panel2 text-dim2'
-const CAND_ERR = 'cursor-default border-line bg-panel2 text-danger-txt hover:border-line2'
-/* THE SPINNER. Each side names its own colour: `border-line2` + `border-t-acc`
-   would be a shorthand/longhand pair, and Tailwind emits `border-top-color`
-   BEFORE `border-color` — the accent would be wiped by the grey. */
-const SPIN =
-  'h-[16px] w-[16px] rounded-[50%] border-2 border-t-acc border-r-line2 border-b-line2 ' +
-  'border-l-line2 animate-[wizspin_.8s_linear_infinite] motion-reduce:animate-none'
-
-/* The accent border says WHICH image is frozen — the only one that will ever
-   carry the identity lock. */
-const FROZEN_IMG = 'h-[150px] w-[120px] rounded-card border-2 border-acc object-cover'
-
-/* An option card. The tooltip goes on EACH card rather than on the step title:
-   the stepper bullet is not focusable, hanging the bubble there would make it
-   unreachable by keyboard, and giving it a tabindex would put a tab stop on a
-   decorative element. */
-function OptionCard({
-  active,
-  title,
-  sub,
-  hint,
-  onClick,
-}: {
-  active: boolean
-  title: string
-  sub?: string
-  hint?: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      className={`it${active ? ' on' : ''}`}
-      type="button"
-      aria-pressed={active}
-      data-hint-text={hint}
-      onClick={onClick}
-    >
-      <b>{title}</b>
-      {sub && <span>{sub}</span>}
-    </button>
-  )
-}
-
-const FROZEN_HINT = 'Figé à la création. Un autre choix = un autre personnage.'
 
 export function WizardScreen() {
   const api = useApi()
@@ -505,185 +436,3 @@ export function WizardScreen() {
   )
 }
 
-function StepBody(props: {
-  step: Step
-  types: CharacterType[]
-  currentType: CharacterType | null
-  type: string | null
-  style: string | null
-  world: string | null
-  cidValid: boolean
-  frozenBase: string | null
-  basePreview: string
-  fileMessage: string
-  genMessage: string
-  candidates: CandidateState[] | null
-  onPickType: (id: string) => void
-  onPickStyle: (value: string) => void
-  onPickWorld: (value: string) => void
-  onFilePicked: (event: React.ChangeEvent<HTMLInputElement>) => void
-  onGenerate: () => void
-  onFreeze: (file: string) => void
-}) {
-  const { step, types, currentType } = props
-
-  if (step === 'type') {
-    return (
-      <div className="intents">
-        {types.map((entry) => (
-          <OptionCard
-            key={entry.id}
-            active={props.type === entry.id}
-            title={entry.label}
-            sub={`machine : ${entry.family}`}
-            onClick={() => props.onPickType(entry.id)}
-          />
-        ))}
-      </div>
-    )
-  }
-
-  if (!currentType) return null
-
-  if (step === 'style') {
-    const styles = currentType.styles ?? []
-    /* A single style is not a choice: we say so instead of showing one card that
-       can only be clicked one way. */
-    if (styles.length === 1) {
-      return (
-        <p className={NOTE_OK} data-note>
-          Ce type ne produit qu'un style : <b>{styles[0]}</b>. Il est fixé à la
-          création — en changer reviendrait à créer un autre personnage.
-        </p>
-      )
-    }
-    return (
-      <div className="intents">
-        {styles.map((entry) => (
-          <OptionCard
-            key={entry}
-            active={props.style === entry}
-            title={entry}
-            hint={FROZEN_HINT}
-            onClick={() => props.onPickStyle(entry)}
-          />
-        ))}
-      </div>
-    )
-  }
-
-  if (step === 'world') {
-    const worlds = currentType.worlds ?? []
-    if (!worlds.length) {
-      return <p className={NOTE_OK} data-note>Aucun monde déclaré pour ce type.</p>
-    }
-    return (
-      <div className="intents">
-        {worlds.map((entry) => (
-          <OptionCard
-            key={entry.id}
-            active={props.world === entry.id}
-            title={entry.label}
-            sub={entry.tone ?? undefined}
-            hint={FROZEN_HINT}
-            onClick={() => props.onPickWorld(entry.id)}
-          />
-        ))}
-      </div>
-    )
-  }
-
-  /* The frozen base is written under the id: without a valid one there is
-     nothing to name the file after, so the step says that rather than failing
-     on upload. */
-  if (!props.cidValid) {
-    return (
-      <p className={NOTE_OK} data-note>
-        Renseigne d'abord un <b>identifiant</b> valide en haut : la base d'identité
-        est enregistrée sous ce nom.
-      </p>
-    )
-  }
-
-  return (
-    <>
-      <p className={NOTE_OK} data-note>
-        Le visage de référence, figé à la création : le verrou d'identité s'y
-        accroche pour toute la production.{' '}
-        <b>Personnage fictif — jamais la photo d'une personne réelle.</b>
-      </p>
-      <div className={BASE_GRID}>
-        <div>
-          <h3 className={COL_TITLE}>Fournir une image</h3>
-          <label className="btn sm" htmlFor="wizFile">
-            Choisir un fichier…
-          </label>
-          <input
-            type="file"
-            id="wizFile"
-            accept="image/png,image/jpeg,image/webp"
-            hidden
-            onChange={props.onFilePicked}
-          />
-          <p className="tiny" id="wizFileMsg">
-            {props.fileMessage}
-          </p>
-        </div>
-        <div>
-          <h3 className={COL_TITLE}>Générer un portrait</h3>
-          <button className="btn sm" id="wizGen" onClick={props.onGenerate}>
-            Générer 4 portraits
-          </button>
-          <p className="tiny" id="wizGenMsg">
-            {props.genMessage}
-          </p>
-          <div className={CANDS} id="wizCands">
-            {(props.candidates ?? []).map((candidate, index) =>
-              candidate.state === 'ready' ? (
-                <button
-                  key={candidate.file}
-                  className={`${CAND} ${
-                    props.basePreview === candidateUrl(candidate.file) ? CAND_CHOSEN : CAND_IDLE
-                  }`}
-                  type="button"
-                  data-file={candidate.file}
-                  data-chosen={props.basePreview === candidateUrl(candidate.file) ? '1' : undefined}
-                  onClick={() => props.onFreeze(candidate.file)}
-                >
-                  <img
-                    className="block h-full w-full object-cover"
-                    alt="portrait candidat"
-                    src={candidateUrl(candidate.file)}
-                  />
-                </button>
-              ) : candidate.state === 'error' ? (
-                <div
-                  key={candidate.file || index}
-                  className={`${CAND} ${CAND_ERR}`}
-                  data-cand="error"
-                  title={candidate.detail || ''}
-                >
-                  échec
-                </div>
-              ) : (
-                <div key={candidate.file || index} className={`${CAND} ${CAND_IDLE}`} data-cand="pending">
-                  <span className={SPIN} />
-                </div>
-              ),
-            )}
-          </div>
-        </div>
-      </div>
-      <div className="mt-[18px]" id="wizBasePreview">
-        {props.frozenBase && (
-          <div className="flex items-center gap-[14px]">
-            <img className={FROZEN_IMG} alt="base d'identité" src={props.basePreview} />
-            <span className="text-[12.5px] text-dim">
-              base gelée : <code>{props.frozenBase}</code>
-            </span>
-          </div>
-        )}
-      </div>
-    </>
-  )
-}
