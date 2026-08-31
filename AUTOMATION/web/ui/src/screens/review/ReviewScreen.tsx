@@ -22,9 +22,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
-import { errorOf, type ActionLike } from '../../api/client'
 import { useApi } from '../../api/useApi'
-import { useConfirm } from '../../chrome/ConfirmContext'
 import { useLightbox } from '../../chrome/LightboxContext'
 import { useToast } from '../../chrome/ToastContext'
 import { useConfig } from '../../state/ConfigContext'
@@ -35,6 +33,8 @@ import { PhotoEditor } from './PhotoEditor'
 import { EmptyState } from './EmptyState'
 import { FullFrame } from './FullFrame'
 import { Tile } from './Tile'
+import { useReviewKeys } from './useReviewKeys'
+import { useSortActions } from './useSortActions'
 import {
   scoreBand,
   useTriage,
@@ -43,19 +43,6 @@ import {
   type Space,
   type Trade,
 } from './useTriage'
-
-const SORT_TARGET: Record<string, string> = {
-  valider: 'OK',
-  revoir: 'A_REVOIR',
-  rejeter: 'REJET',
-  archiver: 'ARCHIVE',
-}
-const SORT_LABEL: Record<string, string> = {
-  valider: 'validée',
-  revoir: 'à revoir',
-  rejeter: 'rejetée',
-  archiver: 'archivée',
-}
 
 const SCORE_FILTERS: { key: ScoreFilter; label: string }[] = [
   { key: 'tout', label: 'Tout' },
@@ -78,7 +65,6 @@ const REVIEW_BUCKETS = [
 export function ReviewScreen({ trade }: { trade: Trade }) {
   const api = useApi()
   const toast = useToast()
-  const confirm = useConfirm()
   const navigate = useNavigate()
   const { name: focusName } = useParams()
   const { qc } = useConfig()
@@ -93,8 +79,6 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
      gesture; when Produire is migrated it must carry the space explicitly. */
   const [space, setSpace] = useState<Space>('sfw')
   const [filter, setFilter] = useState<ScoreFilter>('tout')
-  const [measuring, setMeasuring] = useState(false)
-  const [measureLeft, setMeasureLeft] = useState<number | null>(null)
   const [declineFor, setDeclineFor] = useState<GalleryItem | null>(null)
   const [editFor, setEditFor] = useState<GalleryItem | null>(null)
 
@@ -133,203 +117,19 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
     [shown.length, setCursor],
   )
 
-  /* The realism judgement moves nothing: it is independent of sorting. */
-  const setFlag = useCallback(
-    async (item: GalleryItem, flag: string) => {
-      const next = item.flag === flag ? null : flag // clicking again removes it
-      const response = await api.post<ActionLike>('/api/flag', { name: item.name, flag: next })
-      const failure = errorOf(response)
-      if (failure) {
-        toast(failure || 'jugement impossible')
-        return
-      }
-      setItems((list) => list.map((i) => (i.name === item.name ? { ...i, flag: next } : i)))
-    },
-    [api, toast, setItems],
-  )
-
-  const act = useCallback(
-    async (action: string, index?: number) => {
-      if (!shown.length) return
-      const at = index ?? safeCursor
-      const item = shown[at]
-      if (!item) return
-      if (action === 'decliner') {
-        /* /api/decline only knows the SFW journal; the button is already hidden
-           in NSFW, this guard covers the D shortcut. */
-        if (item.space === 'nsfw') {
-          toast("déclinaison indisponible ici — passe par l'espace NSFW")
-          return
-        }
-        setDeclineFor(item)
-        return
-      }
-      if (action === 'skip') {
-        step(1)
-        return
-      }
-      if (index != null) setCursor(index)
-      // already in this folder: we move on rather than write a no-op
-      if (SORT_TARGET[action] === bucket) {
-        step(1)
-        return
-      }
-      const response = await api.post<ActionLike>('/api/action', {
-        name: item.name,
-        bucket: item.bucket,
-        space: item.space,
-        action,
-      })
-      const failure = errorOf(response)
-      if (failure) {
-        toast(failure || 'action impossible')
-        return
-      }
-      setItems((list) => list.filter((i) => i.name !== item.name))
-      refreshCounts()
-      toast(`${item.scene || item.name} → ${SORT_LABEL[action]}`, {
-        label: 'annuler',
-        run: () => void undo(),
-      })
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [api, bucket, shown, safeCursor, step, toast, setItems, setCursor, refreshCounts],
-  )
-
-  const undo = useCallback(async () => {
-    const response = await api.post<ActionLike>('/api/undo')
-    const failure = errorOf(response)
-    if (failure) {
-      toast(failure || 'rien à annuler')
-      return
-    }
-    toast('action annulée')
-    void reload()
-    refreshCounts()
-  }, [api, toast, reload, refreshCounts])
-
-  /* PERMANENT DELETION — deliberately OUTSIDE act(): it is not a sort, it never
-     goes into UNDO (there is nothing to put back, the file is gone), and mixing
-     the two in one generic function is exactly the shortcut that would one day
-     make deletion « just one more bucket ». An explicit confirmation every time,
-     and NEVER a keyboard shortcut — it is the one gesture of the app with no way
-     out. */
-  const deleteForever = useCallback(
-    async (index?: number) => {
-      const item = shown[index ?? safeCursor]
-      if (!item) return
-      const ok = await confirm({
-        title: 'Supprimer définitivement ?',
-        button: 'Supprimer définitivement',
-        body: (
-          <>
-            <p>
-              <b>{item.scene || item.name}</b> sera effacée du disque. Aucun retour
-              possible — contrairement au tri, il n'y a pas de bouton « annuler »
-              pour ce geste.
-            </p>
-            <p className="tiny">
-              Le journal garde la trace qu'elle a existé et son score ; seul le
-              fichier disparaît.
-            </p>
-          </>
-        ),
-      })
-      if (!ok) return
-      const response = await api.post<ActionLike>('/api/delete', {
-        name: item.name,
-        bucket: item.bucket,
-        space: item.space,
-      })
-      const failure = errorOf(response)
-      if (failure) {
-        toast(failure || 'suppression impossible')
-        return
-      }
-      setItems((list) => list.filter((i) => i.name !== item.name))
-      refreshCounts()
-      toast(`${item.scene || item.name} supprimée définitivement`)
-    },
-    [api, confirm, shown, safeCursor, toast, setItems, refreshCounts],
-  )
-
-  /* COUPLING TRAP §5.6-4. Catching up the realism measurements, IN BATCHES: one
-     InsightFace pass costs ~190 ms and the server refuses to do 200 in a single
-     request. The client must keep calling while `restant > 0` — that is the
-     contract, not a stopgap, and there is no push infrastructure to replace it
-     with (AUDIT §7.3). The 40-round guard bounds a loop that must never become
-     infinite. */
-  const measure = async () => {
-    if (measuring) return
-    setMeasuring(true)
-    /* A failure mid-loop must NOT be followed by « mesures à jour ». The legacy
-       handler toasted the error, broke, and then toasted the success line
-       anyway — which overwrote the only thing that said what went wrong, a
-       fraction of a second after it appeared. */
-    let failed = false
-    try {
-      for (let guard = 0; guard < 40; guard += 1) {
-        const response = await api.post<ActionLike & { restant?: number }>('/api/mesurer', {
-          bucket,
-          space,
-          lot: 20,
-        })
-        const failure = errorOf(response)
-        if (failure) {
-          failed = true
-          toast(failure || 'mesure impossible')
-          break
-        }
-        if (!response.restant) break
-        setMeasureLeft(response.restant)
-      }
-      if (!failed) toast('mesures à jour')
-    } finally {
-      setMeasuring(false)
-      setMeasureLeft(null)
-      await reload()
-    }
-  }
-
-  /* KEYBOARD. Each handler carries a stack of guards, and a migration must
-     reproduce them exactly: a text field, an open modal, the lightbox, the photo
-     editor, and the Galerie trade — where the sorting shortcuts do not exist
-     either. Hiding the buttons and letting the keyboard sort would be the worst
-     of both halves: one would sort blind, with nothing on screen to say so. */
+  const { setFlag, act, undo, deleteForever, measure, measuring, measureLeft } = useSortActions({
+    shown,
+    safeCursor,
+    bucket,
+    space,
+    setItems,
+    setCursor,
+    setDeclineFor,
+    step,
+    reload,
+  })
   const editing = declineFor !== null || editFor !== null
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null
-      if (target && /input|textarea/i.test(target.tagName)) return
-      if (target?.isContentEditable) return
-      // an open modal <dialog> swallows the page: its keys must not percolate
-      if (document.querySelector('dialog[open]')) return
-      if (lightboxSrc) return
-      if (document.body.classList.contains('editing')) return
-
-      const key = event.key.toLowerCase()
-      if (key === 'arrowright') return step(1)
-      if (key === 'arrowleft') return step(-1)
-      /* Enter on the grid = open the aimed tile full frame (the keyboard
-         equivalent of clicking the thumbnail). Not when the focus is on a
-         button: Enter would then sort AND magnify. */
-      if (key === 'enter' && view === 'grille' && !target?.closest('button, a')) {
-        setView('revue')
-        return
-      }
-      if (trade === 'galerie' && 'vrxadu'.includes(key)) return
-      if (key === 'v') void act('valider')
-      else if (key === 'r') void act('revoir')
-      else if (key === 'x') void act('rejeter')
-      else if (key === 'a') void act('archiver')
-      else if (key === 'd') void act('decliner')
-      else if (key === 'c') current && void setFlag(current, 'ok')
-      else if (key === 'i') current && void setFlag(current, 'ia')
-      else if (key === 'u') void undo()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [act, current, editing, lightboxSrc, setFlag, setView, step, trade, undo, view])
+  useReviewKeys({ trade, view, setView, step, act, setFlag, undo, current, lightboxSrc, editing })
 
   /* A finished batch means new images in the folder being looked at. */
   const lastBatch = useRef<string | null>(null)
