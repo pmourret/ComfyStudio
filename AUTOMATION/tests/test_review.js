@@ -32,6 +32,11 @@ catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'
 
 const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
 
+/* Les crochets du DOM ont change de forme avec la migration Tailwind : une
+   classe utilitaire n'est plus un nom d'etat. `.tile` -> [data-tile], `.cur` ->
+   [data-cur], `.tacts` -> [data-tacts], `.thumb` -> [data-thumb], `.acts` ->
+   [data-acts], `a.dl` -> a[data-dl], `.avis` -> [data-avis], `.triage` -> [data-triage]. */
+
 /* GARDE DE DESTRUCTION. Cette fumigation touche des DONNEES REELLES : elle ne
    doit jamais supprimer une image qu'elle n'a pas creee elle-meme. Le filet
    n'est pas une relecture de code — il intercepte les requetes : tout
@@ -67,13 +72,13 @@ const volsDeDonnees = [];
   const dire = (bon, quoi) => { console.log(`   ${bon ? 'ok  ' : 'ECHEC'} ${quoi}`); if (!bon) ko++; };
   const vu = s => page.isVisible(s).catch(() => false);
   const texte = s => page.textContent(s).catch(() => '');
-  const tuiles = () => page.$$eval('.tile', e => e.length);
+  const tuiles = () => page.$$eval('[data-tile]', e => e.length);
   const compteurs = () => page.evaluate(async () =>
     (await (await fetch('/api/state?character=lena')).json()).counts);
 
   console.log('\n[0] etat de depart des dossiers');
   await page.goto(BASE + '/gallery?character=lena', { waitUntil: 'networkidle' });
-  await page.waitForSelector('.tile');
+  await page.waitForSelector('[data-tile]');
   const depart = await compteurs();
   console.log(`      ${JSON.stringify(depart)}`);
 
@@ -84,16 +89,16 @@ const volsDeDonnees = [];
   dire(!(await vu('#bucketSel')),
        "pas de selecteur de dossier : son dossier est dit par son onglet");
   dire(!(await vu('#btnUndo')), "pas d'annulation : rien n'y est trie");
-  const gestesG = await page.$$eval('.tile:first-child .tacts [data-a]', e => e.length);
+  const gestesG = await page.$$eval('[data-tile]:first-child [data-tacts] [data-a]', e => e.length);
   dire(gestesG === 0, `aucun bouton de tri sous une vignette (${gestesG})`);
-  dire(await vu('.tile:first-child .tacts a.dl'), 'un telechargement, lui, est propose');
-  dire(await vu('.tile:first-child .tacts [data-e]'), "et l'edition");
-  const dl = await page.getAttribute('.tile:first-child .tacts a.dl', 'href');
+  dire(await vu('[data-tile]:first-child [data-tacts] a[data-dl]'), 'un telechargement, lui, est propose');
+  dire(await vu('[data-tile]:first-child [data-tacts] [data-e]'), "et l'edition");
+  const dl = await page.getAttribute('[data-tile]:first-child [data-tacts] a[data-dl]', 'href');
   dire(dl.startsWith('/img?') && dl.includes('character=lena'),
        'le telechargement est un <a download> sur /img, borne au personnage');
 
   console.log('\n[2] PIEGE §5.6-1 : le jeton `v` est sur TOUTES les URL d image');
-  const srcs = await page.$$eval('.tile img', e => e.map(x => x.getAttribute('src')));
+  const srcs = await page.$$eval('[data-tile] img', e => e.map(x => x.getAttribute('src')));
   dire(srcs.every(s => s.includes('character=lena')),
        `${srcs.length} vignette(s), toutes bornees au personnage`);
   const avecV = srcs.filter(s => /[?&]v=\d+/.test(s));
@@ -122,15 +127,15 @@ const volsDeDonnees = [];
   console.log('\n[4] les fleches et Entree, eux, marchent : ce sont des gestes de LECTURE');
   await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(250);
-  const vise = await page.$eval('.tile.cur', e => e.dataset.k);
+  const vise = await page.$eval('[data-tile][data-cur]', e => e.dataset.k);
   dire(vise === '1', `le curseur avance et se VOIT (tuile ${vise})`);
   await page.keyboard.press('Enter');
   await page.waitForTimeout(400);
-  dire(await vu('.triage'), 'Entree ouvre la vue plein cadre');
+  dire(await vu('[data-triage]'), 'Entree ouvre la vue plein cadre');
   dire(await vu('#btnInsta'), "et la Galerie y propose son geste de destination");
   dire(await page.isDisabled('#btnInsta'), 'inerte — la destination n existe pas encore dans le code');
   dire((await texte('#btnInsta')).includes('pas encore branché'), 'et il DIT pourquoi');
-  const triG = await page.$$eval('.acts [data-a]', e => e.map(x => x.dataset.a));
+  const triG = await page.$$eval('[data-acts] [data-a]', e => e.map(x => x.dataset.a));
   dire(!triG.some(a => ['valider','rejeter','archiver','revoir'].includes(a)),
        `aucun geste de tri en plein cadre non plus (${triG.join(',')})`);
 
@@ -158,13 +163,13 @@ const volsDeDonnees = [];
     console.log('      (dossier REJET vide : aller-retour de tri non observable)');
   } else {
     await page.click('#bucketSel [data-b="REJET"]');
-    await page.waitForSelector('.tile');
+    await page.waitForSelector('[data-tile]');
     await page.waitForTimeout(400);
-    const nom = await page.$eval('.tile:first-child .thumb img',
+    const nom = await page.$eval('[data-tile]:first-child [data-thumb] img',
       e => new URL(e.src, location.origin).searchParams.get('name'));
-    const gestes = await page.$$eval('.tile:first-child .tacts [data-a]', e => e.map(x => x.dataset.a));
+    const gestes = await page.$$eval('[data-tile]:first-child [data-tacts] [data-a]', e => e.map(x => x.dataset.a));
     dire(gestes.includes('valider'), `les gestes de tri sont la (${gestes.join(',')})`);
-    await page.click('.tile:first-child .tacts [data-a="valider"]');
+    await page.click('[data-tile]:first-child [data-tacts] [data-a="valider"]');
     await page.waitForTimeout(1600);
     const apresTri = await compteurs();
     dire(apresTri.REJET === depart.REJET - 1 && apresTri.OK === depart.OK + 1,
@@ -186,7 +191,7 @@ const volsDeDonnees = [];
   dire(!(await vu('dialog[open]')), 'aucune touche ne declenche la suppression');
   dire(await tuiles() === nTuiles, 'et rien n a disparu');
   if (nTuiles){
-    await page.click('.tile:first-child .tacts [data-suppr]');
+    await page.click('[data-tile]:first-child [data-tacts] [data-suppr]');
     await page.waitForSelector('dialog[open]');
     const boite = await texte('dialog[open]');
     dire(boite.includes('Aucun retour possible'), 'la confirmation dit qu il n y a pas de retour');
@@ -250,31 +255,31 @@ const volsDeDonnees = [];
   console.log('\n[10] viser une image par son nom, et le dire quand elle n y est pas');
   await page.goto(BASE + '/review/_inexistante_.png?character=lena', { waitUntil: 'networkidle' });
   await page.waitForTimeout(800);
-  dire(await vu('.empty.avis'), 'un bandeau annonce que le nom est introuvable');
-  const avis = await texte('.empty.avis');
+  dire(await vu('.empty[data-avis]'), 'un bandeau annonce que le nom est introuvable');
+  const avis = await texte('.empty[data-avis]');
   dire(avis.includes('_inexistante_.png'), 'il NOMME le fichier demande');
   dire(avis.includes('autre personnage'), 'et rappelle que la vue ne montre qu un seul arbre');
   await page.click('#btnAvisFermer');
   await page.waitForTimeout(300);
-  dire(!(await vu('.empty.avis')), 'il se ferme');
+  dire(!(await vu('.empty[data-avis]')), 'il se ferme');
 
   console.log('\n[11] un nom REEL ouvre bien sur cette image');
   await page.goto(BASE + '/gallery?character=lena', { waitUntil: 'networkidle' });
-  await page.waitForSelector('.tile');
-  const cible = await page.$eval('.tile:nth-child(3) .thumb img',
+  await page.waitForSelector('[data-tile]');
+  const cible = await page.$eval('[data-tile]:nth-child(3) [data-thumb] img',
     e => new URL(e.src, location.origin).searchParams.get('name'));
   await page.goto(BASE + `/gallery/${encodeURIComponent(cible)}?character=lena`,
                   { waitUntil: 'networkidle' });
   await page.waitForTimeout(900);
-  dire(!(await vu('.empty.avis')), 'aucun avis : le nom existe');
-  const vue = await page.$eval('.tile.cur .thumb img',
+  dire(!(await vu('.empty[data-avis]')), 'aucun avis : le nom existe');
+  const vue = await page.$eval('[data-tile][data-cur] [data-thumb] img',
     e => new URL(e.src, location.origin).searchParams.get('name'));
   dire(vue === cible, `la vignette visee est bien la sienne (${cible})`);
 
   console.log('\n[12] l espace SFW/NSFW est un axe a part du personnage');
   await page.click('#spaceSel [data-sp="nsfw"]');
   await page.waitForTimeout(1200);
-  const srcsN = await page.$$eval('.tile img', e => e.map(x => x.getAttribute('src')));
+  const srcsN = await page.$$eval('[data-tile] img', e => e.map(x => x.getAttribute('src')));
   if (srcsN.length){
     dire(srcsN.every(s => s.includes('space=nsfw') && s.includes('character=lena')),
          `les octets viennent de l'espace NSFW DU personnage (${srcsN.length} vignette(s))`);

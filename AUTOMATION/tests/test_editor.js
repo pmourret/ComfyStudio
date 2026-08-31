@@ -142,18 +142,18 @@ process.on('exit', nettoyer);
 
   console.log('\n[0] amorce : le test travaille sur SA propre image');
   await page.goto(BASE + '/gallery?character=lena', { waitUntil: 'networkidle' });
-  await page.waitForSelector('.tile');
+  await page.waitForSelector('[data-tile]');
   const depart = await compteurs();
   const nomsAvant = await noms();
   dire(nomsAvant.includes(SOURCE), `l'image jetable est en Galerie : ${SOURCE}`);
   console.log(`      ${nomsAvant.length} image(s) validee(s), dont la jetable`);
 
   console.log('\n[1] l editeur s ouvre sur ELLE, pas sur la premiere venue');
-  const kSource = await page.$$eval('.tile', (tiles, nom) =>
+  const kSource = await page.$$eval('[data-tile]', (tiles, nom) =>
     tiles.findIndex(t => (t.querySelector('img')?.src || '').includes(encodeURIComponent(nom))),
     SOURCE);
   dire(kSource >= 0, `elle est visible (tuile ${kSource})`);
-  await page.click(`.tile[data-k="${kSource}"] .tacts [data-e]`);
+  await page.click(`[data-tile][data-k="${kSource}"] [data-tacts] [data-e]`);
   await page.waitForSelector('#editorBox[open]');
   await page.waitForFunction(() => {
     const c = document.querySelector('#edCanvas');
@@ -288,13 +288,13 @@ process.on('exit', nettoyer);
 
   console.log('\n[11] NETTOYAGE : la copie est supprimee par l interface');
   await page.reload({ waitUntil: 'networkidle' });
-  await page.waitForSelector('.tile');
-  const k = await page.$$eval('.tile', (tiles, nom) => {
+  await page.waitForSelector('[data-tile]');
+  const k = await page.$$eval('[data-tile]', (tiles, nom) => {
     const i = tiles.findIndex(t => (t.querySelector('img')?.src || '').includes(encodeURIComponent(nom)));
     return i;
   }, copie);
   dire(k >= 0, `la copie est visible en Galerie (tuile ${k})`);
-  await page.click(`.tile[data-k="${k}"] .tacts [data-suppr]`);
+  await page.click(`[data-tile][data-k="${k}"] [data-tacts] [data-suppr]`);
   await page.waitForSelector('#armBox[open]');
   await page.click('#cfOui');
   await page.waitForTimeout(2000);

@@ -45,12 +45,21 @@ function Bar({
   }
   const percent = hi > lo ? Math.round((100 * (value - lo)) / (hi - lo)) : 50
   return (
-    <div className="b2">
-      <span>{label}</span>
-      <u>
-        <i className={klass} style={{ width: `${Math.max(3, percent)}%` }} />
+    <div className="flex items-center gap-[6px] text-[10.5px] text-dim2">
+      <span className="w-[30px] flex-none">{label}</span>
+      <u className="h-[4px] flex-1 overflow-hidden rounded-[2px] bg-panel2 no-underline">
+        {/* Inside the calibration band, or outside it — the figure sits next to
+            the bar, so the colour never carries the reading alone. No ground in
+            the base chain: two utilities that set the same property are decided
+            by their order in the generated sheet, not here. */}
+        <i
+          className={`block h-full ${
+            klass === 'dans' ? 'bg-ok' : klass === 'hors' ? 'bg-warn' : 'bg-dim2'
+          }`}
+          style={{ width: `${Math.max(3, percent)}%` }}
+        />
       </u>
-      <b>{value.toFixed(decimals)}</b>
+      <b className="w-[34px] text-right font-medium tabular-nums">{value.toFixed(decimals)}</b>
     </div>
   )
 }
@@ -68,7 +77,10 @@ export function ScoreBars({
   flat?: boolean
 }) {
   return (
-    <div className="bars" style={flat ? { padding: 0 } : undefined}>
+    /* `p-0` and the padded chain are exclusive on purpose: written together,
+       the shorthand comes FIRST in the generated sheet and loses to the sides —
+       the flat variant would keep the padding it exists to drop. */
+    <div className={`flex flex-col gap-[3px] ${flat ? 'p-0' : 'px-[10px] pt-0 pb-[4px]'}`}>
       {MEASURES.map((measure) => {
         const value = item[measure.field] as number | null | undefined
         if (value == null) return null

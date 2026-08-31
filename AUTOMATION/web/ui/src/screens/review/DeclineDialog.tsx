@@ -45,7 +45,7 @@ type Launched = ActionLike & { libelle?: string; total?: number }
    do not take you there. */
 function ArmingNotice({ reason }: { reason?: string }) {
   return (
-    <p className="tiny" style={{ margin: '2px 0 12px' }}>
+    <p className="tiny mt-[2px] mb-[12px]">
       {reason || "L'édition d'image n'est pas disponible pour ce personnage."}
       <br />
       Pour l'activer : <b>Application → Contenu adulte</b>.
@@ -158,19 +158,34 @@ export function DeclineDialog({
     available?: boolean | number
     suffix: string
   }) => (
-    <button className="btn dm" data-m={mode} disabled={!available || busy} onClick={() => launch(mode)}>
-      {label} <span className="n">{suffix}</span>
+    <button
+      className="btn mb-[9px] flex w-full items-center justify-start gap-[10px] text-left
+                 disabled:opacity-[.38]"
+      data-m={mode}
+      data-dm
+      disabled={!available || busy}
+      onClick={() => launch(mode)}
+    >
+      {label} <span className="ml-auto text-[11.5px] text-dim">{suffix}</span>
     </button>
   )
 
   return (
-    <Dialog id="declineBox" open onDismiss={onClose}>
-      <h3>Décliner</h3>
+    /* A question, not a work surface: the box is narrower and tighter than the
+       shared plate. `!` because `chrome.css` styles `dialog .card` with an
+       element + class selector, which outweighs a plain utility. */
+    <Dialog
+      id="declineBox"
+      open
+      onDismiss={onClose}
+      cardClassName="w-[min(460px,100%)]! p-[20px]!"
+    >
+      <h3 className="mb-[4px]! text-[16px]!">Décliner</h3>
       {!dry ? (
         <p className="tiny">chargement…</p>
       ) : (
         <>
-          <div className="src">
+          <div className="mb-[16px] text-[12.5px] text-dim">
             {dry.scene || item.name} · {item.score || '—'}
             {dry.ton ? ` · ton ${dry.ton}` : ''}
           </div>
@@ -217,9 +232,9 @@ export function DeclineDialog({
 
           {needsInstruction && (
             <input
+              className="mt-[-4px] mb-[10px]"
               id="dInstr"
               placeholder="instruction d'édition, en anglais — requise pour éditer"
-              style={{ margin: '-4px 0 10px' }}
               value={instruction}
               onChange={(event) => setInstruction(event.target.value)}
             />
@@ -227,7 +242,10 @@ export function DeclineDialog({
 
           {(modes.ton ?? []).length > 0 && (
             <>
-              <div className="lab">Autre ton</div>
+              <div className="mt-[16px] mb-[8px] text-[12px] font-semibold uppercase
+                              tracking-[.9px] text-dim">
+                Autre ton
+              </div>
               <div className="chips">
                 {(modes.ton ?? []).map((tone) => (
                   <button
@@ -245,7 +263,7 @@ export function DeclineDialog({
             </>
           )}
 
-          <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="mt-[18px] flex items-center gap-[12px]">
             <button className="link" id="dclose" onClick={onClose}>
               fermer
             </button>

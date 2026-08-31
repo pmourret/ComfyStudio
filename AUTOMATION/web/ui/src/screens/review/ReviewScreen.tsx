@@ -42,7 +42,36 @@ import {
   type Space,
   type Trade,
 } from './useTriage'
-import './review.css'
+
+/* The action row under a thumbnail, and the two realism judgements which also
+   appear in the full frame. No ground, border colour or text colour in the base
+   chain: two utilities that set the same property are decided by their order in
+   the GENERATED sheet, not by their order in the class string, so a state
+   appended after them would never win. Each state names its own. */
+const TACT =
+  'flex-1 cursor-pointer rounded-[6px] border px-0 py-[5px] text-[14px] leading-none' +
+  ' focus-visible:outline-offset-[-2px]'
+const TACT_IDLE =
+  'border-transparent bg-transparent text-dim hover:border-line2 hover:bg-panel2 hover:text-txt'
+/* Green for convincing, red for « you can tell it is generated » — they used to
+   render in the same accent, and only the glyph told them apart. */
+const TACT_FLAG: Record<string, string> = {
+  ok: 'border-ok bg-ok text-bg',
+  ia: 'border-bad bg-bad text-bg',
+}
+
+/* The score pill. `none` — no measurement — is the only one that also changes
+   its text colour, which is why no colour sits in the base. */
+const CHIP =
+  'pointer-events-none absolute top-[8px] left-[8px] rounded-[11px] px-[9px] py-[2px]' +
+  ' text-[12.5px] font-bold tabular-nums [box-shadow:0_2px_8px_#0006]'
+const CHIP_TINT: Record<string, string> = {
+  high: 'bg-high text-bg',
+  ok: 'bg-ok text-bg',
+  warn: 'bg-warn text-bg',
+  bad: 'bg-bad text-bg',
+  none: 'bg-line2 text-dim',
+}
 
 const SORT_TARGET: Record<string, string> = {
   valider: 'OK',
@@ -352,7 +381,8 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
 
   return (
     <div className="screen" id="trier" data-metier={trade}>
-      <div className="wrap">
+      {/* The sorting screen ends on its grid: it has no launch bar to clear. */}
+      <div className="wrap pb-[24px]">
         <div className="viewsel">
           {/* `data-sp="sfw"` is the WIRE key sent to /api/gallery and /img: SFW,
               not the name of a character (AUDIT §5.3). */}
@@ -413,7 +443,7 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
             ))}
           </div>
 
-          <div className="spacer" style={{ flex: 1 }} />
+          <div className="flex-1" />
 
           <div className="seg" id="viewSel">
             <button
@@ -453,12 +483,12 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
           {notFound && (
             /* A banner, not an empty screen: the folder may well have content,
                and it is the REQUEST that failed, not the load. */
-            <div className="empty avis">
+            <div className="empty mb-[16px]" data-avis>
               <b>« {notFound} » n'est pas dans ce dossier.</b>
               Le fichier a pu être trié ailleurs, supprimé, ou appartenir à un autre
               personnage — la Revue et la Galerie ne montrent que l'arbre du
               personnage ouvert.
-              <div style={{ marginTop: 16 }}>
+              <div className="mt-[16px]">
                 <button className="btn" id="btnAvisFermer" onClick={() => setNotFound(null)}>
                   Fermer
                 </button>
@@ -474,7 +504,7 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
               onShowAll={() => setFilter('tout')}
             />
           ) : view === 'grille' ? (
-            <div className="grid">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-[14px]">
               {shown.map((item, index) => (
                 <Tile
                   key={item.name}
@@ -583,7 +613,7 @@ function EmptyState({
             : 'Rien à afficher dans ce dossier.'
         : `${total} image(s) dans ce dossier, aucune dans cette bande.`}
       {!empty && (
-        <div style={{ marginTop: 16 }}>
+        <div className="mt-[16px]">
           <button className="btn" id="btnEmptyAll" onClick={onShowAll}>
             Tout afficher
           </button>
@@ -606,7 +636,7 @@ function FlagButtons({
     <>
       <button
         data-f="ok"
-        className={item.flag === 'ok' ? 'on' : undefined}
+        className={`${TACT} ${item.flag === 'ok' ? TACT_FLAG.ok : TACT_IDLE}`}
         title="Convaincante comme photo (C)"
         onClick={(e) => {
           e.stopPropagation()
@@ -617,7 +647,7 @@ function FlagButtons({
       </button>
       <button
         data-f="ia"
-        className={item.flag === 'ia' ? 'on' : undefined}
+        className={`${TACT} ${item.flag === 'ia' ? TACT_FLAG.ia : TACT_IDLE}`}
         title="Ça se voit que c'est généré (I)"
         onClick={(e) => {
           e.stopPropagation()
@@ -650,66 +680,126 @@ function Tile(props: {
   const { item, qc } = props
   return (
     <div
-      className={`tile${item.flag === 'ia' ? ' ia' : ''}${props.current ? ' cur' : ''}`}
+      /* Image aimed at by the keyboard. Without this marker, V/X/A sorted the
+         first image of the list with nothing on screen to say so. */
+      className={`relative overflow-hidden rounded-[9px] border bg-panel ${
+        item.flag === 'ia' ? 'opacity-[.62] ' : ''
+      }${props.current ? 'border-acc [box-shadow:0_0_0_2px_var(--acc)]' : 'border-line'}`}
+      data-tile
+      data-cur={props.current ? '1' : undefined}
       data-k={props.index}
       onMouseDown={(event) => {
         // the action buttons place the cursor themselves
-        if ((event.target as HTMLElement).closest('.tacts')) return
+        if ((event.target as HTMLElement).closest('[data-tacts]')) return
         props.onAim()
       }}
     >
-      <button type="button" className="thumb" data-k={props.index} title="Ouvrir en grand" onClick={props.onOpen}>
-        <img loading="lazy" src={props.src} alt="" />
+      {/* clickable thumbnail: a <button>, for keyboard access to the full frame.
+          The ring lands on a PHOTO, of which we know nothing: the dark halo gives
+          it a constant ground, without which it vanishes on a light image. */}
+      <button
+        type="button"
+        className="block w-full cursor-zoom-in [border:0] bg-transparent p-0
+                   focus-visible:[box-shadow:0_0_0_4px_var(--scrim)]
+                   focus-visible:outline-offset-[-2px]"
+        data-thumb
+        data-k={props.index}
+        title="Ouvrir en grand"
+        onClick={props.onOpen}
+      >
+        <img
+          className="block aspect-[4/5] w-full cursor-zoom-in bg-[#0f1114] object-cover"
+          loading="lazy"
+          src={props.src}
+          alt=""
+        />
       </button>
-      <div className={`chip ${scoreClass(item.score, qc)}`}>
+      <div
+        className={`${CHIP} ${CHIP_TINT[scoreClass(item.score, qc)]}${
+          item.flag === 'ia' ? ' [filter:saturate(.4)]' : ''
+        }`}
+      >
         {item.score ? Number.parseFloat(item.score).toFixed(2) : '—'}
       </div>
-      <div className="m">
-        <b>{item.scene || item.name}</b>
+      <div className="px-[10px] py-[8px] text-[12px] text-dim">
+        <b className="text-[12.5px] text-txt">{item.scene || item.name}</b>
         <br />
         {item.format || ''} · {item.date}
       </div>
       {item.nettete == null ? (
-        <div className="nomeas">réalisme non mesuré</div>
+        <div className="px-[10px] py-[6px] text-[10.5px] text-dim2">réalisme non mesuré</div>
       ) : (
         <ScoreBars item={item} bands={props.bands} items={props.items} />
       )}
-      <div className="tacts">
+      <div className="flex gap-[3px] border-t border-t-line px-[8px] py-[6px]" data-tacts>
         {/* In the Galerie the four sorting gestures DISAPPEAR — not greyed out:
             they make no sense on an image already kept, and an inert button
             would suggest otherwise. */}
         {props.trade === 'galerie' ? (
           <>
-            <button data-e="1" title="Éditer cette image" onClick={props.onEdit}>
+            <button
+              className={`${TACT} ${TACT_IDLE}`}
+              data-e="1"
+              title="Éditer cette image"
+              onClick={props.onEdit}
+            >
               ✎
             </button>
-            <a className="dl" download href={props.fullSrc} title="Télécharger le fichier">
+            {/* the download is an <a download>: the browser saves the bytes /img
+                already serves. It dresses like the buttons around it. */}
+            <a
+              className={`${TACT} ${TACT_IDLE} flex items-center justify-center no-underline`}
+              data-dl
+              download
+              href={props.fullSrc}
+              title="Télécharger le fichier"
+            >
               ⤓
             </a>
           </>
         ) : (
           <>
-            <button data-a="valider" title="Garder (V)" onClick={() => props.onAct('valider')}>
+            <button
+              className={`${TACT} ${TACT_IDLE}`}
+              data-a="valider"
+              title="Garder (V)"
+              onClick={() => props.onAct('valider')}
+            >
               ♥
             </button>
             {item.space !== 'nsfw' && (
-              <button data-d="1" title="Décliner (D)" onClick={() => props.onAct('decliner')}>
+              <button
+                className={`${TACT} ${TACT_IDLE}`}
+                data-d="1"
+                title="Décliner (D)"
+                onClick={() => props.onAct('decliner')}
+              >
                 ⟳
               </button>
             )}
-            <button data-a="rejeter" title="Rejeter (X)" onClick={() => props.onAct('rejeter')}>
+            <button
+              className={`${TACT} ${TACT_IDLE}`}
+              data-a="rejeter"
+              title="Rejeter (X)"
+              onClick={() => props.onAct('rejeter')}
+            >
               ✕
             </button>
-            <button data-a="archiver" title="Archiver (A)" onClick={() => props.onAct('archiver')}>
+            <button
+              className={`${TACT} ${TACT_IDLE}`}
+              data-a="archiver"
+              title="Archiver (A)"
+              onClick={() => props.onAct('archiver')}
+            >
               ▣
             </button>
           </>
         )}
-        <span className="sep" />
+        <span className="mx-[2px] my-[3px] w-px flex-none bg-line" />
         <FlagButtons item={item} onFlag={props.onFlag} />
-        <span className="sep" />
+        <span className="mx-[2px] my-[3px] w-px flex-none bg-line" />
         <button
-          className="ml-auto"
+          className={`${TACT} ${TACT_IDLE} ml-auto`}
           data-suppr="1"
           title="Supprimer définitivement — pas de retour"
           onClick={props.onDelete}
@@ -720,6 +810,13 @@ function Tile(props: {
     </div>
   )
 }
+
+/* The two arrows of the stage. `[transform:...]` and not `-translate-y-1/2`:
+   the utility writes the `translate` property, the sheet wrote `transform`, and
+   the computed style is not the same thing. */
+const NAV =
+  'absolute top-1/2 [transform:translateY(-50%)] h-[64px] w-[42px] cursor-pointer' +
+  ' [border:0] bg-scrim text-[20px] text-txt focus-visible:outline-offset-[-2px]'
 
 function FullFrame(props: {
   item: GalleryItem
@@ -744,21 +841,30 @@ function FullFrame(props: {
   const klass = scoreClass(item.score, qc)
 
   return (
-    <div className="triage">
-      <div className="stage">
-        <button className="nav prev" onClick={() => props.onStep(-1)}>
+    <div className="grid grid-cols-[1fr_300px] gap-[22px] [align-items:start]" data-triage>
+      <div
+        className="relative flex min-h-[62vh] items-center justify-center overflow-hidden
+                   rounded-card border border-line bg-panel"
+      >
+        <button className={`${NAV} left-0 rounded-r-[8px]`} onClick={() => props.onStep(-1)}>
           ‹
         </button>
-        <img src={props.src} id="stageImg" alt="" onClick={props.onMagnify} />
-        <button className="nav next" onClick={() => props.onStep(1)}>
+        <img
+          className="block max-h-[72vh] max-w-full cursor-zoom-in"
+          src={props.src}
+          id="stageImg"
+          alt=""
+          onClick={props.onMagnify}
+        />
+        <button className={`${NAV} right-0 rounded-l-[8px]`} onClick={() => props.onStep(1)}>
           ›
         </button>
       </div>
-      <div className="side">
+      <div className="sticky top-[12px] flex flex-col gap-[14px]">
         <div className="meta">
-          <div className="score" style={{ color: `var(--${klass})` }}>
+          <div className="text-[30px] leading-none font-bold" style={{ color: `var(--${klass})` }}>
             {item.score ? value.toFixed(3) : '—'}
-            <small>
+            <small className="mt-[3px] block text-[12px] font-medium text-dim">
               similarité à la base gelée
               {item.score
                 ? value >= qc.ok
@@ -769,8 +875,13 @@ function FullFrame(props: {
                 : ''}
             </small>
           </div>
-          <hr style={{ border: 0, borderTop: '1px solid var(--line)', margin: '14px 0' }} />
-          <dl style={{ margin: 0 }}>
+          {/* Two arbitrary properties would be decided by their order in the
+              generated sheet, and Tailwind emits `border-top` BEFORE `border`:
+              the shorthand then erased the line. Measured — the separator had
+              disappeared. The utilities keep it, at the cost of a `solid` style
+              on three edges that are 0 px wide. */}
+          <hr className="my-[14px] border-0 border-t border-t-line" />
+          <dl className="m-0">
             <dt>scène</dt>
             <dd>{item.scene || '—'}</dd>
             <dt>format · date</dt>
@@ -787,22 +898,25 @@ function FullFrame(props: {
         </div>
 
         <div className="meta">
-          <dt style={{ marginBottom: 9 }}>réalisme {calibration(props.bands, props.references)}</dt>
+          <dt className="mb-[9px]">réalisme {calibration(props.bands, props.references)}</dt>
           {item.nettete == null ? (
             <div className="tiny">non mesuré</div>
           ) : (
             <ScoreBars item={item} bands={props.bands} items={props.items} flat />
           )}
-          <div className="tacts" style={{ marginTop: 11, border: 0, padding: 0 }}>
+          <div className="mt-[11px] flex gap-[3px]" data-tacts>
             <FlagButtons item={item} onFlag={props.onFlag} />
           </div>
-          <div className="tiny" style={{ marginTop: 7 }}>
+          <div className="tiny mt-[7px]">
             ◉ convaincante <span className="kbd">C</span> · ◌ fait IA{' '}
             <span className="kbd">I</span>
           </div>
         </div>
 
-        <div className="acts">
+        {/* `[&_.btn]` and not a utility on each button: it is the ROW that says
+            its buttons are centred, exactly as the sheet did. */}
+        <div className="grid grid-cols-2 gap-[9px] [&_.btn]:justify-center [&_.btn]:text-center"
+             data-acts>
           {props.trade === 'galerie' ? (
             <GalleryActions src={props.src} onAct={props.onAct} />
           ) : (
@@ -810,7 +924,7 @@ function FullFrame(props: {
           )}
         </div>
 
-        <div className="secActs">
+        <div className="mt-[14px] flex gap-[10px]">
           <button className="btn sm" id="btnOuvrirEditeur" onClick={props.onEdit}>
             ✎ Éditer
           </button>
@@ -819,9 +933,11 @@ function FullFrame(props: {
           </button>
         </div>
 
-        <details className="adv" style={{ border: 0, padding: 0 }}>
+        {/* `!` on both: `details.adv` in `screens.css` is an element + class
+            selector, which outweighs a plain utility. */}
+        <details className="adv [border:0]! p-0!">
           <summary>prompt utilisé</summary>
-          <p className="tiny" style={{ marginTop: 8 }}>
+          <p className="tiny mt-[8px]">
             {item.prompt || ''}
           </p>
         </details>
@@ -840,18 +956,23 @@ function FullFrame(props: {
 function GalleryActions({ src, onAct }: { src: string; onAct: (action: string) => void }) {
   return (
     <>
-      <a className="btn primary wide dl" download href={src}>
+      {/* `dl` used to ride along here too, and painted nothing: that rule is
+          scoped to the tile row. */}
+      <a className="btn primary col-span-full" download href={src}>
         ⤓ Télécharger
       </a>
       <button
-        className="btn wide"
+        className="btn col-span-full"
         id="btnInsta"
         disabled
         title="Poster sur Instagram — pas encore branché"
       >
-        Poster sur Instagram <span className="tiny">pas encore branché</span>
+        {/* inert, and it SAYS why under its label — a disabled button with no
+            readable reason reads as a breakdown */}
+        Poster sur Instagram{' '}
+        <span className="tiny mt-[2px] block font-normal">pas encore branché</span>
       </button>
-      <button className="btn wide" data-a="skip" onClick={() => onAct('skip')}>
+      <button className="btn col-span-full" data-a="skip" onClick={() => onAct('skip')}>
         Suivante <span className="kbd">→</span>
       </button>
     </>
@@ -869,7 +990,7 @@ function ReviewActions({
 }) {
   const button = (action: string, label: string, key?: string, wide = false, primary = false) => (
     <button
-      className={`btn${wide ? ' wide' : ''}${primary ? ' primary' : ''}`}
+      className={`btn${wide ? ' col-span-full' : ''}${primary ? ' primary' : ''}`}
       data-a={action}
       onClick={() => onAct(action)}
     >
@@ -879,7 +1000,7 @@ function ReviewActions({
   // decline restarts from the SFW journal: no meaning for an NSFW image
   const decline =
     space === 'nsfw' ? null : (
-      <button className="btn wide" data-a="decliner" onClick={() => onAct('decliner')}>
+      <button className="btn col-span-full" data-a="decliner" onClick={() => onAct('decliner')}>
         ⟳ Décliner <span className="kbd">D</span>
       </button>
     )

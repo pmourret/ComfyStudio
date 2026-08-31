@@ -90,6 +90,15 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);
 .btn.danger{background:transparent;border-color:var(--danger-line);color:var(--danger-txt)}
 .btn.danger:hover{background:var(--danger-bg);border-color:var(--danger-line)}
 .btn.sm{padding:6px 11px;font-size:13px}
+/* An <a> dressed as a button. It belongs here, beside `.primary`, `.danger` and
+   `.sm`, because it is a button PRIMITIVE — it had drifted into
+   `screens/review.css` while the character sheet's « back to the registry »
+   link depended on it too. `inline-flex` rather than the `inline-block` of
+   `.btn`: a link often carries a glyph before its label, and that is what
+   centres the pair. */
+a.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      color:var(--txt);text-decoration:none}
+a.btn.primary{color:var(--on-acc)}
 .btn:focus-visible,button:focus-visible,a:focus-visible{
   outline:2px solid var(--focus);outline-offset:2px}
 .link{background:none;border:0;color:var(--acc);cursor:pointer;font-size:13px;

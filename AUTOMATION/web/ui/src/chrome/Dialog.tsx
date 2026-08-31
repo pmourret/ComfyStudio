@@ -23,6 +23,7 @@ export function Dialog({
   dismissable = true,
   initialFocus,
   id,
+  cardClassName,
   children,
 }: {
   open: boolean
@@ -33,6 +34,11 @@ export function Dialog({
   /** Selector focused first; the first focusable element otherwise. */
   initialFocus?: string
   id?: string
+  /** Utilities added to the visible plate, for a box whose size is not the
+      default one — a work surface, or a narrower question. `chrome.css` styles
+      `dialog .card` with an element + class selector, so an override coming
+      from here needs `!`. */
+  cardClassName?: string
   children: ReactNode
 }) {
   const ref = useRef<HTMLDialogElement | null>(null)
@@ -77,7 +83,7 @@ export function Dialog({
 
   return (
     <dialog id={id} ref={ref}>
-      <div className="card">{children}</div>
+      <div className={cardClassName ? `card ${cardClassName}` : 'card'}>{children}</div>
     </dialog>
   )
 }
