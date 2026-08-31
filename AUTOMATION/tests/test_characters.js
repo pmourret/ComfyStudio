@@ -52,20 +52,20 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   dire(!(await vu('#btnId')), "le menu d'identite aussi : aucun personnage revendique");
 
   console.log('\n[2] la grille liste le registre, plus une carte de creation');
-  const cartes = await page.$$eval('.char-card:not(.char-card--new)',
+  const cartes = await page.$$eval('[data-char-card]:not([data-new])',
                                    e => e.map(c => c.querySelector('code').textContent));
   dire(cartes.includes('lena') && cartes.includes('abyssiaelle'),
        `les deux personnages sont la : ${cartes.join(', ')}`);
-  dire(await vu('.char-card--new'), '« + Nouveau personnage » est present');
-  dire(await page.$$eval('.char-card--current', e => e.length) === 0,
+  dire(await vu('[data-char-card][data-new]'), '« + Nouveau personnage » est present');
+  dire(await page.$$eval('[data-char-card][data-current]', e => e.length) === 0,
        'aucune carte marquee « courante » : rien n est encore ouvert');
-  const tags = await page.$eval('.char-card:not(.char-card--new)',
-                                c => [...c.querySelectorAll('.char-tag')].map(t => t.textContent));
+  const tags = await page.$eval('[data-char-card]:not([data-new])',
+                                c => [...c.querySelectorAll('[data-char-tag]')].map(t => t.textContent));
   dire(tags.length >= 2, `chaque carte porte son type et son monde (${tags.join(' · ')})`);
 
   console.log('\n[3] choisir un personnage FAIT ENTRER, sans rechargement');
   await page.evaluate(() => { window.__temoinSansRechargement = 'vivant'; });
-  await page.click('.char-card[href*="abyssiaelle"]');
+  await page.click('[data-char-card][href*="abyssiaelle"]');
   await page.waitForTimeout(700);
   dire(await page.evaluate(() => window.__temoinSansRechargement) === 'vivant',
        'le temoin a survecu : aucun rechargement');
@@ -132,7 +132,7 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
 
   console.log('\n[10] le sas reste atteignable, et marque le personnage courant');
   await page.goto(BASE + '/characters?character=lena', { waitUntil: 'networkidle' });
-  const courante = await page.$$eval('.char-card--current', e => e.map(c => c.querySelector('code').textContent));
+  const courante = await page.$$eval('[data-char-card][data-current]', e => e.map(c => c.querySelector('code').textContent));
   dire(courante.length === 1 && courante[0] === 'lena',
        `la carte du personnage ouvert est marquee (${courante.join(',') || 'aucune'})`);
 

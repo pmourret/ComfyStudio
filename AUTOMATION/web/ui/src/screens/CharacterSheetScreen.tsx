@@ -20,7 +20,6 @@ import { Link } from 'react-router-dom'
 import { initialOf, useCharacter, type CharacterSheet } from '../character/CharacterContext'
 import { useChrome } from '../chrome/ChromeContext'
 import { PATHS } from '../app/routes'
-import './character.css'
 
 /* Active content types: the CREATION registry (ADR-0004), an axis transverse to
    packs. In V1 only `image` is active everywhere; video and voice are declared
@@ -76,19 +75,19 @@ function AdultContent({ sheet }: { sheet: CharacterSheet }) {
       : "aucun cran sur Produire tant que le pack n'a pas son graphe"
 
   return (
-    <div className="meta fiche-nsfw">
-      <dt style={{ marginBottom: 9 }}>Contenu adulte</dt>
-      <p className="tiny" style={{ margin: 0 }}>
+    <div className="meta">
+      <dt className="mb-[9px]">Contenu adulte</dt>
+      <p className="tiny m-0">
         État : <b>{state}</b> <span className="tiny">· {effect}</span>
       </p>
       {/* The reason comes from the server (edit_tool_state): the same sentence
           as the Application screen, not a second wording to keep in sync. */}
       {!hasGraph && tool.reason && (
-        <p className="tiny" style={{ margin: '8px 0 0' }}>
+        <p className="tiny mt-[8px] mb-0">
           {tool.reason}
         </p>
       )}
-      <p className="tiny" style={{ margin: '10px 0 0' }}>
+      <p className="tiny mt-[10px] mb-0">
         {sheet.nsfw ? 'Se désactive au même endroit :' : "Pour l'activer :"}{' '}
         <b>Application → Contenu adulte</b>.
       </p>
@@ -100,7 +99,7 @@ function Row({ term, children }: { term: string; children: React.ReactNode }) {
   return (
     <>
       <dt>{term}</dt>
-      <dd>{children}</dd>
+      <dd className="last-of-type:mb-[6px]">{children}</dd>
     </>
   )
 }
@@ -144,7 +143,7 @@ export function CharacterSheetScreen() {
           <div className="empty">
             <b>Aucun personnage ouvert</b>
             <p className="muted">Cette fiche lit le personnage chargé ; il n'y en a pas.</p>
-            <p style={{ marginTop: 18 }}>
+            <p className="mt-[18px]">
               <Link className="btn" to={PATHS.characters}>
                 Ouvrir le registre
               </Link>
@@ -187,17 +186,24 @@ export function CharacterSheetScreen() {
     <div className="screen" id="registre" data-vue="fiche">
       <div className="wrap">
         <div className="fiche" id="fiche">
-          <div className="fiche-hd">
+          <div className="mb-[4px] flex items-center gap-[14px]">
             {/* The INITIAL, not the frozen base portrait: no route serves those
                 bytes, which live outside PROD/ on the ComfyUI input side. */}
-            <span className="fiche-av" aria-hidden="true">
+            <span
+              className="flex h-[46px] w-[46px] flex-none items-center justify-center
+                         rounded-[50%] border border-line2 bg-panel2 text-[20px]
+                         font-bold text-acc"
+              aria-hidden="true"
+            >
               {initialOf(sheet)}
             </span>
             <div>
-              <h2>{sheet.name || sheet.id}</h2>
-              <code className="fiche-id">{sheet.id}</code>
+              <h2 className="m-0 text-[19px] font-semibold tracking-[0px] text-txt normal-case">
+                {sheet.name || sheet.id}
+              </h2>
+              <code className="font-code text-[12px] leading-[normal] text-dim2">{sheet.id}</code>
             </div>
-            <div className="spacer" style={{ flex: 1 }} />
+            <div className="flex-1" />
             {/* Reopens the HEADER menu — there are not two places where one
                 changes character. stopPropagation: the outside click that closes
                 that menu would otherwise close the one this button opens. */}
@@ -212,25 +218,25 @@ export function CharacterSheetScreen() {
               Tous les personnages
             </button>
           </div>
-          <p className="tiny fiche-intro">
+          <p className="tiny mt-0 mb-[18px]">
             Fiche du personnage ouvert — en lecture. Pour en ouvrir un autre ou en
             créer un, passe par le menu d'identité de l'en-tête.
           </p>
 
-          <div className="fiche-grid">
+          <div className="mb-[14px] grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-[14px]">
             <div className="meta">
-              <dl style={{ margin: 0 }}>
+              <dl className="m-0">
                 <Row term="Type de personnage">{sheet.type || '—'}</Row>
                 <Row term="Style de sortie">{sheet.output_style || '—'}</Row>
                 <Row term="Monde">{sheet.world?.label || '—'}</Row>
               </dl>
-              <p className="tiny" style={{ margin: '2px 0 0' }}>
+              <p className="tiny mt-[2px] mb-0">
                 Trois choix humains, <b>figés à la création</b> : en changer, c'est
                 créer un autre personnage.
               </p>
             </div>
             <div className="meta">
-              <dl style={{ margin: 0 }}>
+              <dl className="m-0">
                 <Row term="Pack">
                   {pack.label || pack.id || '—'}
                   {pack.model_family && <span className="tiny"> · {pack.model_family}</span>}
@@ -242,7 +248,7 @@ export function CharacterSheetScreen() {
                   <ContentTypes sheet={sheet} />
                 </Row>
               </dl>
-              <p className="tiny" style={{ margin: '2px 0 0' }}>
+              <p className="tiny mt-[2px] mb-0">
                 Le pack n'est pas choisi : il est <b>déduit</b> du type et du style,
                 et il porte le verrou d'identité.
               </p>

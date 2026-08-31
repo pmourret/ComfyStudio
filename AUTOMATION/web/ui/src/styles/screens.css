@@ -30,6 +30,16 @@ td.num{font-variant-numeric:tabular-nums}
    line on the wide columns. Hover only — it is a reading aid, not a selection. */
 tbody tr:hover td{background:var(--panel)}
 
+/* ------------------------------------------------------ reading panel
+   `.meta` is the flat plate a screen reads FROM, never edits in: the character
+   sheet uses three, the inspector of Produire one, the Revue two. It came from
+   `screens/character.css`, whose own comment already said it was « shared with
+   the inspector column of other screens » — the sheet was simply the first
+   screen to need it. */
+.meta{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:15px}
+.meta dt{font-size:11.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+.meta dd{margin:0 0 11px;font-size:14px}
+
 /* ------------------------------------------------- keyboard shortcut
    Shared by the composer (proposal tags) and the Revue (the keys of the sorting
    gestures). It came from `bank/bank.css`, which was the wrong home for a thing

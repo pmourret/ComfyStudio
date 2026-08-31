@@ -177,8 +177,8 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
 
   console.log('\n[14] le wizard est offert la ou on le cherche');
   await page.goto(BASE + '/characters', { waitUntil: 'networkidle' });
-  dire(await vu('.char-card--new'), 'depuis le sas, une carte « + Nouveau personnage »');
-  await page.click('.char-card--new');
+  dire(await vu('[data-char-card][data-new]'), 'depuis le sas, une carte « + Nouveau personnage »');
+  await page.click('[data-char-card][data-new]');
   await page.waitForTimeout(400);
   dire(await page.evaluate(() => location.pathname) === '/characters/new',
        'elle mene bien au wizard');

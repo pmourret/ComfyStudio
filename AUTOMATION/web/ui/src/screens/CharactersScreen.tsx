@@ -21,7 +21,6 @@ import { useApi } from '../api/useApi'
 import { useCharacter, type CharacterRow } from '../character/CharacterContext'
 import { useFaults } from '../state/FaultsContext'
 import { PATHS } from '../app/routes'
-import './character.css'
 
 type CharacterListResponse = Schema<'CharacterListResponse'>
 
@@ -34,8 +33,15 @@ function NewCharacterCard() {
      CHARACTERS/ folder, a case that is planned for) opens a gate with no path
      to the wizard at all. */
   return (
-    <Link className="char-card char-card--new" to={PATHS.wizard}>
-      <b>+ Nouveau personnage</b>
+    <Link
+      className="block rounded-card border-2 bg-panel px-[15px] py-[14px] text-txt no-underline hover:border-line2 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2 flex flex-col justify-center gap-[4px]
+                 border-line border-dashed"
+      to={PATHS.wizard}
+      data-char-card
+      data-new
+    >
+      <b className="block text-[15px] font-semibold text-acc">+ Nouveau personnage</b>
+      {/* `.tiny` already carries --dim2; the sheet said it a second time. */}
       <span className="tiny">type, style et monde — figés à la création</span>
     </Link>
   )
@@ -93,16 +99,19 @@ export function CharactersScreen() {
   return (
     <div className="screen" id="registre" data-vue="sas">
       <div className="wrap">
-        <div className="reg-sas">
+        <div>
           <h2>Registre des personnages</h2>
-          <p className="tiny" style={{ margin: '6px 0 18px' }}>
+          <p className="tiny mt-[6px] mb-[18px]">
             Ouvrir un personnage charge le studio sur sa production. Son type et
             son monde sont figés à sa création.
           </p>
-          <div className="charGrid" id="charGrid">
+          <div
+            className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-[14px]"
+            id="charGrid"
+          >
             {rows === null && <p className="tiny">chargement du registre…</p>}
             {rows?.length === 0 && (
-              <div className="empty" style={{ gridColumn: '1/-1' }}>
+              <div className="empty col-span-full">
                 <b>Aucun personnage</b>
                 Le dossier CHARACTERS/ est vide sur cette machine.
               </div>
@@ -110,8 +119,10 @@ export function CharactersScreen() {
             {rows?.map((row) => (
                 <a
                   key={row.id}
-                  className={`char-card${row.id === claimed ? ' char-card--current' : ''}`}
+                  className={`block rounded-card border-2 bg-panel px-[15px] py-[14px] text-txt no-underline hover:border-line2 focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2 ${row.id === claimed ? 'border-acc' : 'border-line'}`}
                   href={`?character=${encodeURIComponent(row.id)}`}
+                  data-char-card
+                  data-current={row.id === claimed ? '1' : undefined}
                   onClick={(event) => {
                     // a modified click keeps the browser's own meaning
                     if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
@@ -119,17 +130,29 @@ export function CharactersScreen() {
                     pick(row.id)
                   }}
                 >
-                  <b>{row.name || row.id}</b>
-                  <code>{row.id}</code>
-                  <div className="char-tags">
-                    <span className="char-tag">{row.type || '—'}</span>
-                    <span className="char-tag">{row.world?.label || '—'}</span>
-                    {row.nsfw && <span className="char-tag char-tag--nsfw">NSFW</span>}
+                  <b className="block text-[15px] font-semibold">{row.name || row.id}</b>
+                  {/* An id is technical: it reads in mono. `font:12px var(--font-mono)`
+                      never applied — the token already carries a size, so the
+                      shorthand held two and the browser dropped the lot. */}
+                  <code className="font-code text-[12px] leading-[normal] text-dim2">
+                    {row.id}
+                  </code>
+                  <div className="mt-[10px] flex flex-wrap gap-[6px]">
+                    <span className="rounded-[20px] border px-[8px] py-[2px] text-[11px] whitespace-nowrap border-line2 text-dim" data-char-tag>{row.type || '—'}</span>
+                    <span className="rounded-[20px] border px-[8px] py-[2px] text-[11px] whitespace-nowrap border-line2 text-dim" data-char-tag>{row.world?.label || '—'}</span>
+                    {row.nsfw && <span className="rounded-[20px] border px-[8px] py-[2px] text-[11px] whitespace-nowrap border-warn-line bg-warn-bg text-warn-txt" data-char-tag>
+                        NSFW
+                      </span>}
                     {/* A pack the studio cannot resolve is a breakdown, not a
                         case to repair in silence (ADR-0012): the card says so
                         rather than opening on an error. */}
                     {row.known_universe === false && (
-                      <span className="char-tag char-tag--warn">pack inconnu</span>
+                      <span
+                        className="rounded-[20px] border px-[8px] py-[2px] text-[11px] whitespace-nowrap border-danger-line bg-danger-bg text-danger-txt"
+                        data-char-tag
+                      >
+                        pack inconnu
+                      </span>
                     )}
                   </div>
                 </a>
