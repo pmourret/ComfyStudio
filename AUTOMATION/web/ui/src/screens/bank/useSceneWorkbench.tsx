@@ -9,7 +9,7 @@
    `.tsx` because the removal confirmation carries its sentence as markup, like
    `review/useSortActions.tsx`. Nothing here calls the API: the store owns the
    document, this owns the pointing. */
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 
 import { useConfirm } from '../../chrome/ConfirmContext'
 import { useScenes, type SceneDraft } from '../../state/ScenesStoreContext'
@@ -55,6 +55,47 @@ export function useSceneWorkbench() {
   )
 
   const select = useCallback((uid: string | null) => setSelectedUid(uid), [])
+
+  /* Arrows walk the grid. An ACCELERATOR, not a composite widget: every card
+     keeps its natural place in the tab order, so nothing regresses for whoever
+     navigates by Tab alone. What it removes is the twenty tabulations it took
+     to cross a bank from one corner to the other.
+
+     The column count is read from the computed grid rather than guessed: the
+     track list is `repeat(auto-fill, …)`, so it changes with the window and any
+     constant here would be wrong at the first resize. */
+  const onGridKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
+    const grid = gridRef.current
+    if (!grid || event.altKey || event.ctrlKey || event.metaKey) return
+    const cards = Array.from(grid.querySelectorAll<HTMLElement>('[data-scene-card]'))
+    const from = cards.indexOf(document.activeElement as HTMLElement)
+    if (from < 0) return
+
+    const columns = Math.max(
+      1,
+      getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length,
+    )
+    const steps: Record<string, number> = {
+      ArrowLeft: -1,
+      ArrowRight: 1,
+      ArrowUp: -columns,
+      ArrowDown: columns,
+    }
+    const to =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? cards.length - 1
+          : event.key in steps
+            ? from + steps[event.key]
+            : -1
+    /* Out of the grid — at an edge, or on a key we do not claim. The page keeps
+       its own scrolling: an arrow that does nothing must not also eat the
+       gesture. */
+    if (to < 0 || to >= cards.length || to === from) return
+    event.preventDefault()
+    cards[to].focus()
+  }, [])
 
   /* Closing gives the focus back to the card that was open. Without it focus
      falls to the top of the document and one tabs through the whole screen to
@@ -109,5 +150,6 @@ export function useSceneWorkbench() {
     close,
     add,
     remove,
+    onGridKeyDown,
   }
 }

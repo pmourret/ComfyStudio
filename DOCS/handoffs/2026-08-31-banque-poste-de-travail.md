@@ -74,13 +74,22 @@ la scène créée par le test disparaît à la remise en état.
 18 sections, toutes vertes. `test_produce` et `test_review` re-passés : ils
 consomment le même store.
 
+## Les deux derniers findings, traités aussi
+
+- **Le sélecteur de sous-vue n'est plus un `tablist`.** Les rôles mentaient
+  deux fois : aucun `tabpanel` en face, et ces liens **naviguent** — un lecteur
+  d'écran annonçait « onglet 1 sur 2 » pour quelque chose qui change l'URL et
+  démonte l'écran. C'est un `<nav>` de deux liens, celui en cours marqué
+  `aria-current="page"`.
+- **Les flèches parcourent la grille**, Home et End vont aux deux bouts. Un
+  **accélérateur posé sur l'ordre de tabulation, pas à sa place** : chaque
+  carte garde son passage au Tab, donc rien ne régresse pour qui navigue au
+  Tab seul. Le nombre de colonnes est lu sur la grille calculée — la piste est
+  `repeat(auto-fill, …)`, une constante serait fausse au premier
+  redimensionnement.
+
 ## Ce qui reste ouvert
 
-- **Deux findings non patchés**, mineurs et hors de la ligne « grille |
-  inspecteur » : le `role="tablist"` du sélecteur de sous-vue n'a pas de
-  `tabpanel` en face, et la grille n'a pas de navigation aux flèches (Tab
-  natif suffit sur des `<button>`, mais vingt tabulations restent vingt
-  tabulations).
 - `/api/compose` marque toujours ses propositions `origin: manual` au lieu de
   `compose` — un une-ligne côté serveur, laissé de l'étape 1.
 - Le `ui_skin_token` du monde reste déclaratif : le bandeau dit le monde, il

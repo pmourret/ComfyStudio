@@ -93,11 +93,18 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
     <div className="screen" id="scenes">
       <div className="wrap w-full max-w-none">
         {/* The two sub-views are two DESTINATIONS, so two links: shareable, and
-            the browser's back button walks between them. */}
-        <div className="seg mb-[22px]" id="bankView" role="tablist" aria-label="Sous-vue de la banque">
+            the browser's back button walks between them.
+
+            A NAV, NOT A TABLIST. It looked like a segmented control so it wore
+            `role="tablist"`, and the roles lied twice: there is no `tabpanel`
+            for a tab to control, and these links NAVIGATE — a screen reader
+            announced « onglet 1 sur 2 » for something that changes the URL and
+            unmounts the screen. Two links in a nav say exactly what they do,
+            and `aria-current="page"` marks the one we are on. */}
+        <nav className="seg mb-[22px]" id="bankView" aria-label="Sous-vue de la banque">
           <SubViewLink to={PATHS.bankScenes} label="Scènes" active={view === 'scenes'} vue="scenes" />
           <SubViewLink to={PATHS.bankPoses} label="Poses" active={view === 'poses'} vue="poses" />
-        </div>
+        </nav>
 
         {view === 'scenes' ? (
           <div id="bankScenes">
@@ -151,6 +158,10 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
                 <div
                   ref={bench.gridRef}
                   id="sceneCards"
+                  /* Arrows move the focus from card to card, Home and End to
+                     the two ends. An accelerator laid over the tab order, not
+                     a replacement for it — see useSceneWorkbench. */
+                  onKeyDown={bench.onGridKeyDown}
                   className="grid gap-[14px] grid-cols-[repeat(auto-fill,minmax(178px,1fr))]"
                 >
                   {bench.shown.map(({ draft }) => (
@@ -282,8 +293,7 @@ function SubViewLink({
         (active ? ' on bg-acc font-semibold text-on-acc' : ' bg-transparent text-dim')
       }
       data-vue={vue}
-      role="tab"
-      aria-selected={active}
+      aria-current={active ? 'page' : undefined}
     >
       {label}
     </Link>
