@@ -38,14 +38,39 @@ logique métier de graphe ComfyUI — les réglages vivent dans
 CHARACTERS/<nom>/config.json, les scènes dans scenes.json, jamais en dur
 dans le code (invariant CLAUDE.md §8.4).
 
-Découpage du backend web (ROADMAP.md, J2 ; inchangé par la migration
-FastAPI) — une nouvelle route rejoint le router qui correspond à sa
-responsabilité :
-- api/routers/state — état du système, registres, config, cycle de vie
+Découpage du backend web (ROADMAP.md, J2 ; routers inchangés par la
+migration FastAPI) — une nouvelle route rejoint le router qui correspond
+à sa responsabilité :
+- api/routers/state — état du système, registres, fiche, journal
+- api/routers/app — cycle de vie de ce serveur et de ComfyUI
 - api/routers/bank — banque de scènes, taxonomie, composeur
 - api/routers/images — images, miniatures, poses
 - api/routers/production — lancement de génération, file de jobs
 - api/routers/review — QC, revue, jugements, export
+
+**Une règle de dépendance, une seule** (31/08/2026) :
+
+    routers  ->  services  ->  runner / base / shared_state
+
+et jamais l'inverse. Un router lit la requête, appelle un service, et
+traduit ce qu'il reçoit en code de statut. Un service ne connaît pas
+`fastapi` : il refuse par `ss.bad_request()` et rend du Python nu. Un
+modèle Pydantic peut le traverser (c'est la forme du payload, pas un
+transport) ; une `JSONResponse` non — une fonction qui doit choisir un
+403 reste dans le router.
+
+- api/services/creative — règles des paliers d'intensité
+- api/services/batch — superviseur de lot (un seul chemin de lancement)
+- api/services/bank — validation de banque, backup, stats des cartes
+- api/services/journal — ligne en base, export, journal NSFW du tri
+- api/services/preview — aperçu de prompt et échos entre fragments
+
+Le test d'une règle vise le service, jamais le router : c'est ce qui a
+motivé la couche (`test_valider_banque.py` importait `api.routers.bank`
+pour tester une fonction pure).
+
+Ce qui met en forme un fragment de réponse pour UNE route reste dans le
+router — descendre trois lectures en service serait de la cérémonie.
 
 `web/app.py` ne fait que le démarrage ; l'assemblage vit dans
 `api/main.py`, les gardes dans `api/security.py` et `api/errors.py`.

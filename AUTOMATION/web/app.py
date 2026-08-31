@@ -28,11 +28,17 @@ propre module (.claude/rules/backend.md) :
     api/main.py            assemblage de l'application FastAPI
     api/security.py        garde d'origine (le substitut d'authentification)
     api/errors.py          toute reponse sort en JSON, jamais en HTML
-    api/routers/state      etat du systeme, registres, config, cycle de vie
+    api/routers/state      etat du systeme, registres, fiche, journal
+    api/routers/app        cycle de vie de ce serveur et de ComfyUI
     api/routers/bank       banque de scenes, taxonomie creative, composeur
     api/routers/images     images, miniatures, poses
     api/routers/production lancement de generation, file de jobs, declinaisons
     api/routers/review     QC, revue, jugements, export
+
+Les routers lisent la requete et rendent un statut ; les REGLES vivent un
+cran plus bas, dans api/services/ (creative, batch, bank, journal,
+preview), qui ne connait pas fastapi. Sens unique : routers -> services ->
+runner. Voir api/services/__init__.py.
 """
 import argparse
 import os
