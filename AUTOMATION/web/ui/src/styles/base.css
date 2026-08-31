@@ -4,6 +4,15 @@
    from tokens.css, never a hard-coded value that would encode a style choice
    (.claude/rules/frontend.md). */
 html,body{height:100%}
+/* `#root` IS PART OF THE HEIGHT CHAIN. The legacy frontend had `<body><div
+   class="app">`; React mounts into a `#root` wedged between the two, and a
+   `height:100%` resolves against an AUTO height as auto. Without this rule the
+   whole chain below it collapses onto its content: `.app` stops being viewport
+   tall, `.shell` with it, and the navbar — which stretches to the band —
+   ENDS WHERE THE SCREEN'S CONTENT ENDS. Hence a navbar of a different height on
+   every screen, and a <main> that never scrolls because it never overflows,
+   the page overflowing `body{overflow:hidden}` instead. */
+#root{height:100%}
 
 /* ------------------------------------------------------- scrollbars
    Painted everywhere, in one rule. The studio tokenised everything BUT them:
