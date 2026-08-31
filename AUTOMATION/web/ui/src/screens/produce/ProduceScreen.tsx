@@ -18,20 +18,18 @@
    derived expression, `runDisabled`, computed in one place from (planOk,
    running, comfy). The two writers cannot exist any more, so neither can the bug
    the guard covered; the guard survives as that single expression. */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { errorOf, type ActionLike, type Schema } from '../../api/client'
+import { errorOf, type ActionLike } from '../../api/client'
 import { useApi } from '../../api/useApi'
 import { useChrome } from '../../chrome/ChromeContext'
 import { useConfirm } from '../../chrome/ConfirmContext'
 import { useToast } from '../../chrome/ToastContext'
-import { mmss } from '../../chrome/Header'
 import { useConfig } from '../../state/ConfigContext'
-import { useScenes, type Scene } from '../../state/ScenesStoreContext'
+import { useScenes } from '../../state/ScenesStoreContext'
 import { useSystemState } from '../../state/SystemStateContext'
 import { useTaxonomy } from '../../state/TaxonomyContext'
-import { usePolling } from '../../state/usePolling'
 import { PATHS } from '../../app/routes'
 import { EditStep } from './EditStep'
 import { Inspector } from './Inspector'
@@ -40,6 +38,9 @@ import { RunPanel } from './RunPanel'
 import { IntensityBar } from './IntensityBar'
 import { IntentCard, type Intention } from './IntentCard'
 import { NewSceneCard, SceneCard } from './SceneCard'
+import { useNsfwSources } from './useNsfwSources'
+import { useSceneChoice } from './useSceneChoice'
+import { runSummary } from './runSummary'
 import {
   SettingsPanel,
   initialValues,
@@ -47,13 +48,7 @@ import {
   withPreset,
   type SettingValues,
 } from './SettingsPanel'
-import { isEditTier, usePlan, type IntensityTier, type Preview, type SourceImage } from './useProduceState'
-
-type NsfwState = Schema<'NsfwStateResponse'>
-
-/* The source grid only refreshes while it is on screen: that is the only moment
-   a newly validated image has to appear in it. */
-const NSFW_TICK_MS = 4000
+import { isEditTier, usePlan, type IntensityTier, type Preview } from './useProduceState'
 
 export function ProduceScreen() {
   const api = useApi()
@@ -80,9 +75,6 @@ export function ProduceScreen() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [override, setOverride] = useState('')
   const [instruction, setInstruction] = useState('')
-  const [sources, setSources] = useState<SourceImage[]>([])
-  const [picked, setPicked] = useState<Set<string>>(new Set())
-  const [nsfwOut, setNsfwOut] = useState('')
   const [launching, setLaunching] = useState(false)
 
   // the panel is filled from config.json as soon as it lands
@@ -94,6 +86,12 @@ export function ProduceScreen() {
   const tiers = creative?.intensity ?? []
   const tier = (tiers.find((t) => t.level === level) ?? null) as IntensityTier | null
   const editTier = isEditTier(tier)
+  const onToolGone = useCallback(() => setLevelState(0), [])
+  const { sources, picked, setPicked, nsfwOut } = useNsfwSources({
+    editTier,
+    reloadCreative,
+    onToolGone,
+  })
   /* True when the current tier EDITS an existing image instead of generating
      one. That is the default behaviour of the NSFW tier, and the project's rule:
      the branch edits an already validated image, it never generates from zero.
@@ -102,42 +100,14 @@ export function ProduceScreen() {
      applies the same rule in mode_edition(). */
   const editing = editTier && !values.generavant
 
-  /* Level at which the GENERATION pass runs. On the editing tier the chain is in
-     two steps: generate at `base_level` (Soft) then edit. The available scenes
-     are therefore those of the BASE level, not of the displayed one — otherwise
-     the choice empties, no scene declaring band 3. The server applies the same
-     rule in niveau_generation(). */
-  const sceneLevel = tier?.base_level != null ? tier.base_level : level
-
-  /* A scene is only available if the current level is in its band. The band
-     comes from the server (bank.meta), which applies the same compatibility
-     defaults as the runner — the frontend does not reimplement them. */
-  const meta = (bank?.meta ?? {}) as Record<string, { band?: number[]; intention?: string; tones?: string[]; tags?: string[]; pose?: string }>
-  const sceneList = useMemo(() => drafts.map((d) => d.base as Scene), [drafts])
-  const inBand = useCallback(
-    (scene: Scene) => {
-      const band = meta[scene.id]?.band ?? [0, 1]
-      return band[0] <= sceneLevel && sceneLevel <= band[1]
-    },
-    [meta, sceneLevel],
-  )
-  const intentOf = (scene: Scene) => meta[scene.id]?.intention ?? scene.category
-  const scenesOf = useCallback(
-    (key: string) => sceneList.filter((s) => inBand(s) && (key === '*' || intentOf(s) === key)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sceneList, inBand, meta],
-  )
-
-  /* The tone removes no scene — it lifts the ones that suit it. Hard filtering
-     led to dead ends (lifestyle + elegant: zero scene). */
-  const visibleScenes = useMemo(() => {
-    if (!intent) return []
-    const affinity = (s: Scene) => ((meta[s.id]?.tones ?? []).includes(tone) ? 0 : 1)
-    return scenesOf(intent)
-      .slice()
-      .sort((a, b) => affinity(a) - affinity(b) || a.id.localeCompare(b.id))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [intent, tone, scenesOf, meta])
+  const { meta, scenesOf, visibleScenes } = useSceneChoice({
+    bank,
+    drafts,
+    tier,
+    level,
+    intent,
+    tone,
+  })
 
   // ---------------------------------------------------------------- payload
   const field = (id: string, fallback: string | boolean = '') => values[id] ?? fallback
@@ -179,41 +149,6 @@ export function ProduceScreen() {
   useEffect(() => {
     refreshPlan()
   }, [refreshPlan, payload])
-
-  // ------------------------------------------------------------ NSFW sources
-  const nsfwTick = useCallback(async () => {
-    let response: (NsfwState & ActionLike) | null = null
-    try {
-      response = await api.get<NsfwState>('/api/nsfw/state')
-    } catch {
-      return
-    }
-    if (errorOf(response)) return
-    setSources((response.sources ?? []) as SourceImage[])
-    if (response.sortie) setNsfwOut(response.sortie)
-    /* The arming gesture lives on the Application screen: a change made there
-       must make the tier appear or DISAPPEAR here. The server stops emitting the
-       tier when the tool is unavailable, so re-reading the taxonomy is enough —
-       and leaving the tier if it is gone. */
-    const available = Boolean(response.outil?.available)
-    if (!available && editTier) {
-      await reloadCreative()
-      setLevelState(0)
-      setPicked(new Set())
-    }
-  }, [api, editTier, reloadCreative])
-
-  usePolling(nsfwTick, { intervalMs: NSFW_TICK_MS, enabled: editTier, pauseWhenHidden: true })
-
-  /* Prune the selection: an image re-sorted meanwhile is no longer editable, and
-     the server would refuse it at launch (sources_valides). */
-  useEffect(() => {
-    const available = new Set(sources.map((s) => s.name))
-    setPicked((current) => {
-      const next = new Set([...current].filter((n) => available.has(n)))
-      return next.size === current.size ? current : next
-    })
-  }, [sources])
 
   // ------------------------------------------------------------------ level
   const setLevel = async (next: number) => {
@@ -296,44 +231,20 @@ export function ProduceScreen() {
   }
 
   // --------------------------------------------------------------- summary
-  const { sumN, sumT } = useMemo(() => {
-    if (editing) {
-      const total = plan?.total ?? 0
-      return {
-        sumN: total ? `${total} ${total > 1 ? 'images' : 'image'}` : '—',
-        sumT: !picked.size
-          ? 'coche au moins une image source'
-          : !instructionText
-            ? "écris l'instruction d'édition"
-            : `${total} édition${total > 1 ? 's' : ''} · environ ${mmss(total * 82)}`,
-      }
-    }
-    if (!intent) return { sumN: '—', sumT: 'choisis une intention' }
-    if (!selected.size) return { sumN: '—', sumT: 'sélectionne au moins une scène' }
-    /* A scene added but not yet saved exists in the bank draft (so in the grid)
-       but NOT in scenes.json, which /api/plan reads. Without this message the
-       plan came back to zero and the button stayed disabled without a word. */
-    if (unsaved.length)
-      return {
-        sumN: '—',
-        sumT:
-          unsaved.join(', ') +
-          (unsaved.length > 1 ? ' ne sont pas enregistrées' : " n'est pas enregistrée") +
-          ' — écran Banque, bouton Enregistrer',
-      }
-    if (plan?.erreur) return { sumN: '—', sumT: plan.erreur }
-    const total = plan?.total ?? 0
-    const unit = quality === 'realisme' ? (bank?.avg_duration ?? 55) : quality === 'rapide' ? 32 : 22
-    const toneLabel = (creative?.tones ?? []).find((t) => t.key === tone)
-    return {
-      sumN: total ? `${total} ${total > 1 ? 'images' : 'image'}` : '—',
-      sumT:
-        `${selected.size} scène${selected.size > 1 ? 's' : ''} · ` +
-        `${tier ? tier.label : ''}${toneLabel ? ` · ${toneLabel.label}` : ''} · ` +
-        `environ ${mmss(total * unit)}`,
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing, plan, picked, instructionText, intent, selected, unsaved.join(), quality, tone, tier, bank])
+  const { sumN, sumT } = runSummary({
+    editing,
+    plan,
+    picked,
+    instructionText,
+    intent,
+    selected,
+    unsaved,
+    quality,
+    tone,
+    tier,
+    bank,
+    creative,
+  })
 
   // --------------------------------------------------------------- render
   const intentions = ((creative?.intentions ?? []) as Intention[]).filter(
