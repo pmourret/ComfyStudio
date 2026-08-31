@@ -102,6 +102,7 @@ export function Tile(props: {
             <button
               className={`${TACT} ${TACT_IDLE}`}
               data-e="1"
+              aria-label="Éditer cette image"
               title="Éditer cette image"
               onClick={props.onEdit}
             >
@@ -114,6 +115,7 @@ export function Tile(props: {
               data-dl
               download
               href={props.fullSrc}
+              aria-label="Télécharger le fichier"
               title="Télécharger le fichier"
             >
               ⤓
@@ -124,6 +126,7 @@ export function Tile(props: {
             <button
               className={`${TACT} ${TACT_IDLE}`}
               data-a="valider"
+              aria-label="Garder"
               title="Garder (V)"
               onClick={() => props.onAct('valider')}
             >
@@ -133,6 +136,7 @@ export function Tile(props: {
               <button
                 className={`${TACT} ${TACT_IDLE}`}
                 data-d="1"
+                aria-label="Décliner"
                 title="Décliner (D)"
                 onClick={() => props.onAct('decliner')}
               >
@@ -142,6 +146,7 @@ export function Tile(props: {
             <button
               className={`${TACT} ${TACT_IDLE}`}
               data-a="rejeter"
+              aria-label="Rejeter"
               title="Rejeter (X)"
               onClick={() => props.onAct('rejeter')}
             >
@@ -150,6 +155,7 @@ export function Tile(props: {
             <button
               className={`${TACT} ${TACT_IDLE}`}
               data-a="archiver"
+              aria-label="Archiver"
               title="Archiver (A)"
               onClick={() => props.onAct('archiver')}
             >
@@ -163,6 +169,7 @@ export function Tile(props: {
         <button
           className={`${TACT} ${TACT_IDLE} ml-auto`}
           data-suppr="1"
+          aria-label="Supprimer définitivement"
           title="Supprimer définitivement — pas de retour"
           onClick={props.onDelete}
         >

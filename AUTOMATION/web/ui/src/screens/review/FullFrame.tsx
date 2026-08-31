@@ -40,8 +40,12 @@ export function FullFrame(props: {
         className="relative flex min-h-[62vh] items-center justify-center overflow-hidden
                    rounded-card border border-line bg-panel"
       >
-        <button className={`${NAV} left-0 rounded-r-[8px]`} onClick={() => props.onStep(-1)}>
-          ‹
+        <button
+          className={`${NAV} left-0 rounded-r-[8px]`}
+          aria-label="Image précédente"
+          onClick={() => props.onStep(-1)}
+        >
+          <span aria-hidden="true">‹</span>
         </button>
         <img
           className="block max-h-[72vh] max-w-full cursor-zoom-in"
@@ -50,8 +54,12 @@ export function FullFrame(props: {
           alt=""
           onClick={props.onMagnify}
         />
-        <button className={`${NAV} right-0 rounded-l-[8px]`} onClick={() => props.onStep(1)}>
-          ›
+        <button
+          className={`${NAV} right-0 rounded-l-[8px]`}
+          aria-label="Image suivante"
+          onClick={() => props.onStep(1)}
+        >
+          <span aria-hidden="true">›</span>
         </button>
       </div>
       <div className="sticky top-[12px] flex flex-col gap-[14px]">
@@ -102,7 +110,8 @@ export function FullFrame(props: {
             <FlagButtons item={item} onFlag={props.onFlag} />
           </div>
           <div className="tiny mt-[7px]">
-            ◉ convaincante <span className="kbd">C</span> · ◌ fait IA{' '}
+            <span aria-hidden="true">◉</span> convaincante <span className="kbd">C</span> ·{' '}
+            <span aria-hidden="true">◌</span> fait IA{' '}
             <span className="kbd">I</span>
           </div>
         </div>
@@ -120,10 +129,10 @@ export function FullFrame(props: {
 
         <div className="mt-[14px] flex gap-[10px]">
           <button className="btn sm" id="btnOuvrirEditeur" onClick={props.onEdit}>
-            ✎ Éditer
+            <span aria-hidden="true">✎</span> Éditer
           </button>
           <button className="btn sm danger" id="btnSupprDef" onClick={props.onDelete}>
-            🗑 Supprimer définitivement
+            <span aria-hidden="true">🗑</span> Supprimer définitivement
           </button>
         </div>
 

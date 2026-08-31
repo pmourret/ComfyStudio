@@ -16,6 +16,7 @@ export function FlagButtons({
     <>
       <button
         data-f="ok"
+        aria-label="Convaincante comme photo"
         className={`${TACT} ${item.flag === 'ok' ? TACT_FLAG.ok : TACT_IDLE}`}
         title="Convaincante comme photo (C)"
         onClick={(e) => {
@@ -27,6 +28,7 @@ export function FlagButtons({
       </button>
       <button
         data-f="ia"
+        aria-label="Ça se voit que c'est généré"
         className={`${TACT} ${item.flag === 'ia' ? TACT_FLAG.ia : TACT_IDLE}`}
         title="Ça se voit que c'est généré (I)"
         onClick={(e) => {

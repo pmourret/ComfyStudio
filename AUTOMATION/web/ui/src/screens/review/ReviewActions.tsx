@@ -17,7 +17,7 @@ export function GalleryActions({ src, onAct }: { src: string; onAct: (action: st
       {/* `dl` used to ride along here too, and painted nothing: that rule is
           scoped to the tile row. */}
       <a className="btn primary col-span-full" download href={src}>
-        ⤓ Télécharger
+        <span aria-hidden="true">⤓</span> Télécharger
       </a>
       <button
         className="btn col-span-full"
@@ -59,7 +59,7 @@ export function ReviewActions({
   const decline =
     space === 'nsfw' ? null : (
       <button className="btn col-span-full" data-a="decliner" onClick={() => onAct('decliner')}>
-        ⟳ Décliner <span className="kbd">D</span>
+        <span aria-hidden="true">⟳</span> Décliner <span className="kbd">D</span>
       </button>
     )
   const skip = button('skip', 'Suivante', '→', true)
