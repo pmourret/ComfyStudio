@@ -88,6 +88,42 @@ export function valuesFor(
   return out
 }
 
+/* The shapes the panel repeats. They were `.rgs`, `.rgh`, `.mes`… in
+   `produce.css`; they are the same declarations, written where the markup is.
+
+   THE BADGE IS SPLIT IN THREE on purpose. Two utilities setting the SAME
+   property are decided by their order in the generated sheet, not by their order
+   in the class string — so an « off » chain cannot override a colour the base
+   already names. The base holds only what both states share; each state names
+   its own ground, border and text. */
+const SECTION =
+  'mt-[14px] border-t border-t-line pt-[14px] first:mt-0 first:[border-top:0] first:pt-0'
+const SECTION_TITLE = 'text-[12px] font-semibold uppercase tracking-[.8px] text-dim2'
+const BADGE_BASE = 'rounded-[5px] border px-[6px] py-[2px] text-[10px] uppercase tracking-[.6px]'
+const BADGE_ON = 'border-mes-line bg-mes-bg text-ok'
+const BADGE_OFF = 'border-line bg-transparent text-dim2 opacity-55'
+const BADGE = BADGE_BASE + ' ' + BADGE_ON
+const ROW = 'mb-[16px] last:mb-0'
+const ROW_HEAD = 'mb-[6px] flex items-center gap-[8px]'
+const HELP = 'mt-[6px] mb-0 text-[12.5px] leading-[1.6] text-dim'
+/* A field of the panel repaints what `chrome.css` gives every input, except its
+   border colour and its radius — that is the whole of the old `.rg select,
+   .rg input[type=number]`. */
+const FIELD = 'w-full rounded-[8px] border border-line2 bg-panel2 px-[10px] py-[8px]'
+/* The slider, thumb included. `appearance-none` on the track AND on the thumb:
+   without it the browser paints its own control and ignores the rest. */
+const SLIDER =
+  'mx-0 my-[2px] h-[4px] w-full appearance-none rounded-[3px] bg-line2 [outline:none] ' +
+  '[&::-webkit-slider-thumb]:h-[16px] [&::-webkit-slider-thumb]:w-[16px] ' +
+  '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:cursor-pointer ' +
+  '[&::-webkit-slider-thumb]:rounded-[50%] [&::-webkit-slider-thumb]:border-2 ' +
+  '[&::-webkit-slider-thumb]:border-panel [&::-webkit-slider-thumb]:bg-acc ' +
+  '[&::-webkit-slider-thumb]:shadow-[0_1px_4px_#0008] ' +
+  '[&::-moz-range-thumb]:h-[14px] [&::-moz-range-thumb]:w-[14px] ' +
+  '[&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-[50%] ' +
+  '[&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-panel ' +
+  '[&::-moz-range-thumb]:bg-acc'
+
 const sameAsReference = (item: Setting, value: SettingValues[string], reference: unknown) =>
   item.type === 'bool'
     ? Boolean(reference) === Boolean(value)
@@ -137,10 +173,18 @@ export function SettingsPanel({
   }, [values, presetRef, nsfwRef])
 
   return (
-    <div id="gearPanel" className={open ? 'on' : undefined}>
-      <div className="gh">
-        <h3>Réglages</h3>
-        <div className="spacer" style={{ flex: 1 }} />
+    <div
+      className={`fixed right-[20px] bottom-[96px] z-[8] w-[min(620px,calc(100vw-40px))]
+                  max-h-[calc(100vh-190px)] overflow-auto rounded-[12px] border border-line2
+                  bg-panel p-[18px] shadow-elev ${open ? 'block' : 'hidden'}`}
+      id="gearPanel"
+      data-open={open ? '1' : undefined}
+    >
+      <div className="mb-[10px] flex items-center gap-[12px]">
+        <h3 className="m-0 text-[13px] font-semibold uppercase tracking-[.9px] text-dim">
+          Réglages
+        </h3>
+        <div className="flex-1" />
         <span className="tiny" id="gearDiff">
           {total ? `${total} réglage${total > 1 ? 's' : ''} hors valeur mesurée` : ''}
         </span>
@@ -153,9 +197,9 @@ export function SettingsPanel({
           Valeurs mesurées
         </button>
       </div>
-      <p className="gintro">
+      <p className="mt-0 mb-[18px] text-[12.5px] leading-[1.6] text-dim">
         Chaque réglage dit ce qu'il fait et ce qu'il coûte. Les valeurs marquées{' '}
-        <b className="mes">mesuré</b> sont celles validées par les tests du projet :
+        <b className={BADGE}>mesuré</b> sont celles validées par les tests du projet :
         s'en écarter est permis, mais c'est un choix, pas un réglage neutre.
       </p>
       <div id="gearBody">
@@ -174,20 +218,38 @@ export function SettingsPanel({
           ))
           if (!section.replie) {
             return (
-              <section className="rgs" data-niveau={section.niveau ?? ''} key={section.titre}>
-                <h4>{section.titre}</h4>
+              <section
+                className={SECTION}
+                data-rgs
+                data-niveau={section.niveau ?? ''}
+                key={section.titre}
+              >
+                <h4 className={`${SECTION_TITLE} mt-0 mb-[12px]`}>{section.titre}</h4>
                 {body}
               </section>
             )
           }
           const deviations = bySection[section.titre] ?? 0
           return (
-            <section className="rgs pli" data-niveau={section.niveau ?? ''} key={section.titre}>
+            <section
+              className={SECTION}
+              data-rgs
+              data-niveau={section.niveau ?? ''}
+              key={section.titre}
+            >
+              {/* The fold marker: `[[open]>&]` reads « this summary, inside an
+                  open details » — the state lives on the parent, so no `open:`
+                  variant can see it from here. */}
               <details>
-                <summary>
-                  <h4>{section.titre}</h4>
+                <summary
+                  className="flex cursor-pointer items-baseline gap-[10px] [list-style:none]
+                             [&::-webkit-details-marker]:hidden
+                             before:text-[11px] before:text-acc before:content-['▸']
+                             [[open]>&]:before:content-['▾']"
+                >
+                  <h4 className={`${SECTION_TITLE} m-0 inline`}>{section.titre}</h4>
                   <span
-                    className={`ecart${deviations ? ' on' : ''}`}
+                    className={`text-[11px] ${deviations ? 'text-acc' : 'text-dim2'}`}
                     data-sec={section.titre}
                   >
                     {deviations ? `${deviations} hors mesuré` : ''}
@@ -226,15 +288,16 @@ function SettingRow({
   const disabled =
     (item.id === 'noqc' && nsfwLevel) ||
     (item.dest === 'preset' && false)
-  const classes = ['rg', item.type === 'bool' ? 'b' : '', !measured && hasReference ? 'modif' : '', inert ? 'inerte' : '']
-    .filter(Boolean)
-    .join(' ')
+  const classes = `${ROW}${inert ? ' opacity-[.42]' : ''}`
+  // a setting moved away from its measured value names itself in the accent
+  const title = `text-[13.5px] font-semibold ${!measured && hasReference ? 'text-acc' : ''}`
 
   if (item.type === 'bool') {
     return (
-      <div className={classes} data-id={item.id}>
-        <label className="check">
+      <div className={classes} data-rg data-id={item.id}>
+        <label className="flex cursor-pointer items-center gap-[8px] text-[13.5px]">
           <input
+            className={`w-auto ${inert ? 'pointer-events-none' : ''}`}
             type="checkbox"
             id={item.id}
             checked={Boolean(value)}
@@ -244,36 +307,42 @@ function SettingRow({
           />{' '}
           <b>{item.label}</b>
         </label>
-        <p className="rgq">{item.quoi}</p>
+        <p className={`${HELP} ml-[26px]`} data-rgq>{item.quoi}</p>
       </div>
     )
   }
 
   if (item.type === 'liste') {
     return (
-      <div className={classes} data-id={item.id}>
-        <div className="rgh">
-          <b>{item.label}</b>
+      <div className={classes} data-rg data-id={item.id}>
+        <div className={ROW_HEAD}>
+          <b className={title}>{item.label}</b>
         </div>
-        <select id={item.id} value={String(value)} onChange={(e) => onChange(item.id, e.target.value)}>
+        <select
+          className={`${FIELD}${inert ? ' pointer-events-none' : ''}`}
+          id={item.id}
+          value={String(value)}
+          onChange={(e) => onChange(item.id, e.target.value)}
+        >
           {(item.options ?? []).map(([v, l]) => (
             <option value={v} key={v}>
               {l}
             </option>
           ))}
         </select>
-        <p className="rgq">{item.quoi}</p>
+        <p className={HELP} data-rgq>{item.quoi}</p>
       </div>
     )
   }
 
   if (item.type === 'nombre') {
     return (
-      <div className={classes} data-id={item.id}>
-        <div className="rgh">
-          <b>{item.label}</b>
+      <div className={classes} data-rg data-id={item.id}>
+        <div className={ROW_HEAD}>
+          <b className={title}>{item.label}</b>
         </div>
         <input
+          className={`${FIELD}${inert ? ' pointer-events-none' : ''}`}
           type="number"
           id={item.id}
           min={item.min}
@@ -282,28 +351,31 @@ function SettingRow({
           value={String(value)}
           onChange={(e) => onChange(item.id, e.target.value)}
         />
-        <p className="rgq">{item.quoi}</p>
+        <p className={HELP} data-rgq>{item.quoi}</p>
       </div>
     )
   }
 
   return (
-    <div className={classes} data-id={item.id}>
-      <div className="rgh">
-        <b>{item.label}</b>
-        <span className="spacer" style={{ flex: 1 }} />
-        <span className="rgv" id={`v_${item.id}`}>
+    <div className={classes} data-rg data-id={item.id}>
+      <div className={ROW_HEAD}>
+        <b className={title}>{item.label}</b>
+        <span className="flex-1" />
+        <span className="text-[13px] font-semibold tabular-nums text-acc" id={`v_${item.id}`}>
           {fmtVal(item, value as string)}
         </span>
         <span
-          className={`mes${measured ? '' : ' off'}`}
+          className={`${BADGE_BASE} ${measured ? BADGE_ON : BADGE_OFF}`}
           id={`m_${item.id}`}
+          data-mes
+          data-off={measured ? undefined : '1'}
           title={`valeur mesurée du projet : ${hasReference ? fmtVal(item, reference as number) : '—'}`}
         >
           mesuré
         </span>
       </div>
       <input
+        className={`${SLIDER}${inert ? ' pointer-events-none' : ''}`}
         type="range"
         id={item.id}
         min={item.min}
@@ -312,13 +384,13 @@ function SettingRow({
         value={String(value)}
         onChange={(e) => onChange(item.id, e.target.value)}
       />
-      <div className="rge">
+      <div className="mt-[3px] flex justify-between text-[11px] text-dim2">
         <span>{item.bas}</span>
         <span>{item.haut}</span>
       </div>
-      <p className="rgq">
+      <p className={HELP} data-rgq>
         {item.quoi}
-        {item.cout && <span className="cout"> {item.cout}</span>}
+        {item.cout && <span className="mt-[4px] block text-dim2" data-cout> {item.cout}</span>}
       </p>
     </div>
   )

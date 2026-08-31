@@ -53,14 +53,21 @@ tbody tr:hover td{background:var(--panel)}
      border-radius:4px;padding:1px 5px;color:var(--dim)}
 
 /* ------------------------------------------------------ folded details
-   `details.adv` is opened by four screens (banque, Produire, Revue). This half
-   — the summary's own box — came from `bank/bank.css`; `produce.css` still
-   carries the marker glyphs and the container rule until that sheet is
-   migrated. The two never fought: every property they share is declared
-   identically, so which one wins a tie changes nothing. Verified in the
-   computed styles before the move, not assumed. */
+   `details.adv` is opened by four screens (banque, Produire, Revue). Half of it
+   — the summary's own box — came from `bank/bank.css`; the other half — the
+   container and the marker glyphs — came from `produce.css` when that sheet was
+   migrated. The two never fought: every property they shared was declared
+   identically, so which one won a tie changed nothing. Verified in the computed
+   styles before each move, not assumed.
+
+   The container carries a top border AND so does the summary: two lines, not
+   one. That is how it has always painted; the move did not change it. */
+details.adv{margin-top:22px;border-top:1px solid var(--line);padding-top:16px}
 details.adv summary{cursor:pointer;font-size:13px;color:var(--dim);
-  padding:8px 0;border-top:1px solid var(--line)}
+  padding:8px 0;border-top:1px solid var(--line);list-style:none}
+details.adv summary::-webkit-details-marker{display:none}
+details.adv summary::before{content:'▸ ';color:var(--acc)}
+details.adv[open] summary::before{content:'▾ '}
 details.adv summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 
 /* -------------------------------------------------------- empty states */

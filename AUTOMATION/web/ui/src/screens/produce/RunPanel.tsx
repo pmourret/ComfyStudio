@@ -29,6 +29,15 @@ const VERDICT_LABEL: Record<string, string> = {
   ERREUR: 'en erreur',
 }
 
+/* The verdict is carried by the border colour here, and in words by the
+   inspector: status never by colour alone. A bucket absent from this table —
+   SANS_VISAGE, ERREUR — keeps the neutral border, as the sheet did. */
+const VERDICT_BORDER: Record<string, string> = {
+  OK: 'border-ok',
+  A_REVOIR: 'border-warn',
+  REJET: 'border-bad',
+}
+
 /** One entry of STATE.recent. */
 type Recent = { bucket: string; name: string; scene?: string; space?: string; score?: number }
 
@@ -85,8 +94,8 @@ export function RunPanel({ state }: { state: SystemState | null }) {
 
   return (
     <div id="runPanel">
-      <div className="run">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+      <div className="mb-[20px] rounded-card border border-line bg-panel p-[18px]">
+        <div className="flex flex-wrap items-center gap-[14px]">
           <b>{running ? 'Production en cours' : 'Batch terminé'}</b>
           <span className="muted">
             {running
@@ -98,7 +107,7 @@ export function RunPanel({ state }: { state: SystemState | null }) {
                   .map(([k, v]) => `${v} ${VERDICT_LABEL[k] ?? k.toLowerCase()}`)
                   .join(' · ')}
           </span>
-          <div className="spacer" style={{ flex: 1 }} />
+          <div className="flex-1" />
           {running ? (
             <button className="btn sm" id="btnStop" disabled={stopping} onClick={stop}>
               Arrêter
@@ -109,8 +118,13 @@ export function RunPanel({ state }: { state: SystemState | null }) {
             </button>
           )}
           {!running && (
+            /* Discreet at rest: the cross must not compete with « Trier les
+               résultats », which is the useful gesture. */
             <button
-              className="run-x"
+              className="ml-[2px] cursor-pointer rounded-[8px] [border:0] bg-transparent
+                         px-[8px] py-[6px] text-[14px] leading-none text-dim2
+                         hover:bg-panel2 hover:text-txt
+                         focus-visible:outline-offset-[-2px]"
               id="btnRunFermer"
               aria-label="Fermer le compte rendu"
               onClick={() => setDismissed(state.batch_id ?? null)}
@@ -120,11 +134,11 @@ export function RunPanel({ state }: { state: SystemState | null }) {
           )}
         </div>
 
-        <div className="bar">
-          <div style={{ width: `${percent}%` }} />
+        <div className="my-[12px] h-[6px] overflow-hidden rounded-[3px] bg-panel2">
+          <div className="h-full bg-acc [transition:width_.5s]" style={{ width: `${percent}%` }} />
         </div>
 
-        <div className="strip">
+        <div className="flex gap-[9px] overflow-x-auto pt-[4px] pb-[2px]">
           {/* `space`: on the editing tier the strip also shows the NSFW output,
               which lives in PROD/<CID>/_NSFW. Without it /img looks on the SFW
               side and answers 404. `imageUrl` carries it from the item. */}
@@ -134,7 +148,10 @@ export function RunPanel({ state }: { state: SystemState | null }) {
             .map((entry) => (
               <img
                 key={entry.name}
-                className={entry.bucket}
+                /* No border colour in the base chain: two utilities that set the
+                   same property are decided by their order in the GENERATED
+                   sheet, not in this string. Each verdict names its own. */
+                className={`h-[104px] cursor-zoom-in rounded-[7px] border-2 ${VERDICT_BORDER[entry.bucket] ?? 'border-line'}`}
                 src={api.image({ ...entry, thumb: true })}
                 alt=""
                 title={`${entry.scene ?? ''}${entry.score ? ` · ${entry.score.toFixed(3)}` : ''}`}
@@ -144,7 +161,7 @@ export function RunPanel({ state }: { state: SystemState | null }) {
         </div>
 
         {finishedEditing && (
-          <p className="tiny" style={{ margin: '8px 0 0' }}>
+          <p className="tiny mt-[8px] mb-0">
             Retouche : <b>{where}, espace NSFW</b> → l'image → <b>Éditer</b>.{' '}
             {/* The ONE gesture of the application that enters the NSFW space by
                 navigation: it KNOWS which space the batch came out of (J7 —
@@ -168,9 +185,12 @@ export function RunPanel({ state }: { state: SystemState | null }) {
           </p>
         )}
 
+        {/* `!` on the three: `details.adv` in `screens.css` is an element +
+            class selector, which outweighs a plain utility. `[border:0]` and not
+            `border-0`: the shorthand resets the colour too, which is what the
+            inline style it replaces did. */}
         <details
-          className="adv"
-          style={{ marginTop: 6, border: 0, padding: 0 }}
+          className="adv mt-[6px]! [border:0]! p-0!"
           open={logOpen}
           onToggle={(e) => setLogOpen((e.target as HTMLDetailsElement).open)}
         >

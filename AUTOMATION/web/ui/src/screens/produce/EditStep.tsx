@@ -70,15 +70,24 @@ export function EditStep({
           : 'var(--bad)'
 
   return (
-    <div className="step" id="stepEdit">
-      <h2>
-        <i className="num">{number}</i> · Instruction d'édition{' '}
-        <span className="tiny">— en anglais, court et concret</span>
+    <div className="mb-[30px]" id="stepEdit">
+      <h2 className="flex items-baseline gap-[10px]">
+        <i className="not-italic text-acc" data-num>{number}</i> · Instruction d'édition{' '}
+        <span className="tiny normal-case tracking-normal">— en anglais, court et concret</span>
       </h2>
 
-      <details className="adv preamb">
+      {/* `produce.css` also carried a `details.preamb` rule resetting the top
+          margin, border and padding of this fold — it never applied: it had the
+          SAME weight as `details.adv` and came BEFORE it in the sheet, so the
+          separator won. Measured in the browser; only the bottom margin was ever
+          live, and only it survives. */}
+      <details className="adv mb-[12px]">
         <summary>ce que le graphe garantit déjà, sans que tu l'écrives</summary>
-        <pre id="preambule">{preamble}</pre>
+        <pre
+          className="mt-[10px] mb-[6px] rounded-[8px] border border-line bg-panel px-[14px]
+                     py-[12px] text-[12px] leading-[1.55] whitespace-pre-wrap text-dim"
+          id="preambule"
+        >{preamble}</pre>
         <p className="tiny">
           Inutile de le répéter dans l'instruction : elle ne sert qu'à dire{' '}
           <b>ce qui change</b>.
@@ -92,20 +101,26 @@ export function EditStep({
         onChange={(event) => onInstruction(event.target.value)}
       />
 
-      <div id="instrAlertes">
+      {/* Instruction alerts: a panel, never a block. */}
+      <div className="flex flex-col gap-[6px]" id="instrAlertes">
         {alerts.map((alert, index) => (
-          <div className="alerte" key={index}>
+          <div
+            className="rounded-[8px] border border-warn-line bg-warn-bg px-[12px] py-[9px]
+                       text-[12.5px] leading-[1.5] text-warn-txt
+                       before:font-bold before:text-warn before:content-['!_']"
+            key={index}
+          >
             {alert}
           </div>
         ))}
       </div>
 
-      <p className="tiny" style={{ margin: '6px 0 0' }}>
+      <p className="tiny mt-[6px] mb-0">
         La sortie va dans <code id="sortieNsfw">{output || '—'}</code> et n'est jamais
         exportée.
       </p>
 
-      <details className="adv" id="instrBiblio" style={{ marginTop: 14 }}>
+      <details className="adv mt-[14px]!" id="instrBiblio">
         <summary>
           instructions déjà employées{' '}
           <span className="tiny" id="biblioN">
@@ -116,22 +131,30 @@ export function EditStep({
                 : "— aucune pour l'instant"}
           </span>
         </summary>
-        <div id="biblioList">
+        <div className="mt-[10px] flex max-h-[280px] flex-col gap-[4px] overflow-auto" id="biblioList">
           {history?.length ? (
             history.map((entry, index) => (
               <div
-                className="bib"
+                className="flex cursor-pointer items-baseline gap-[10px] rounded-[7px] border
+                           border-transparent px-[10px] py-[7px]
+                           hover:border-line2 hover:bg-panel"
                 key={`${entry.texte}-${index}`}
+                data-bib
                 data-t={entry.texte}
                 title={entry.alertes.join(' · ') || 'aucune alerte'}
                 onClick={() => onInstruction(entry.texte)}
               >
-                <span className="sc" style={{ color: dot(entry.identite) }}>
+                <span
+                  className="min-w-[42px] flex-none text-[12px] tabular-nums"
+                  style={{ color: dot(entry.identite) }}
+                >
                   {entry.identite != null ? entry.identite.toFixed(3) : '—'}
                 </span>
-                <span className="tx">{entry.texte}</span>
-                {entry.alertes.length > 0 && <span className="warn">!</span>}
-                <span className="n">{entry.n}×</span>
+                <span className="flex-1 truncate text-[12.5px] text-txt">{entry.texte}</span>
+                {entry.alertes.length > 0 && (
+                  <span className="flex-none font-bold text-warn">!</span>
+                )}
+                <span className="flex-none text-[11px] text-dim2">{entry.n}×</span>
               </div>
             ))
           ) : (

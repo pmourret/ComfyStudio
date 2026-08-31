@@ -119,23 +119,44 @@ export function Inspector() {
 
   const thumb = item ? api.image({ ...item, thumb: true }) : null
 
+  /* No image to show: the role line has nothing to qualify, and the panel says
+     so in its own words instead. It used to be a `:has(.ins-shot.vide)` rule in
+     the sheet; the condition is the one this component already computes. */
+  const empty = !item || failed
+
   return (
-    <aside className="cr-side" id="inspector" aria-label="Dernière image du personnage">
-      <h2>
+    /* `top-[12px]` and not 0: flush to the edge, the sheet touched the fault
+       banner. The max height keeps its bottom above the launch bar (fixed,
+       ~100 px). Under 1100 px the column goes UNDER, never as an overlay: it is
+       a sheet one reads, not a notification. */
+    <aside
+      className="sticky top-[12px] max-h-[calc(100vh-150px)] overflow-auto
+                 max-[1100px]:static max-[1100px]:max-h-none"
+      id="inspector"
+      aria-label="Dernière image du personnage"
+    >
+      <h2 className="mb-[10px]">
         Dernière image{' '}
-        <span className="tiny" id="insSrc">
+        <span className="tiny ml-[6px] normal-case tracking-normal" id="insSrc">
           {source}
         </span>
       </h2>
-      {/* Fixed text, and its display is a CSS rule hanging off `.ins-shot.vide`:
-          nothing to keep in sync here. */}
-      <p className="tiny ins-role" id="insRole">
+      {/* `.tiny` gives this line its 12 px and its --dim2: the sheet also asked
+          for --dim here and never got it — `.tiny` is declared later and they
+          have the same weight. Measured before the move; the colour on screen
+          does not change. */}
+      <p className={`tiny mt-0 mb-[10px] ${empty ? 'hidden' : ''}`} id="insRole">
         Dernière sortie de ce personnage — pas l'aperçu du prochain run.
       </p>
-      <div className={`ins-shot${item && !failed ? '' : ' vide'}`} id="insShot">
+      <div
+        className="relative flex aspect-[4/5] items-center justify-center overflow-hidden
+                   rounded-card border border-line bg-panel"
+        id="insShot"
+        data-empty={empty ? '1' : undefined}
+      >
         {item && !failed && thumb && (
           <img
-            className="ins-layer cur"
+            className="absolute inset-0 h-full w-full cursor-zoom-in object-contain"
             id="insImg"
             src={thumb}
             alt={item.scene ? `dernière image — ${item.scene}` : 'dernière image'}
@@ -148,19 +169,23 @@ export function Inspector() {
             onError={() => setFailed(true)}
           />
         )}
-        {(!item || failed) && (
-          <p className="ins-void" id="insVoid">
+        {empty && (
+          <p className="m-0 px-[20px] text-center text-[13px] text-dim" id="insVoid">
             {failed
               ? 'image indisponible pour le moment'
               : `rien encore pour ${sheet?.name || claimed}`}
           </p>
         )}
       </div>
-      <dl className="meta ins-meta" id="insMeta">
+      {/* `mb-0!` on every row: the sheet wrote `.ins-meta dd:last-child`, and
+          each `dd` IS the last child of its own row — so the rule caught them
+          all. The inspector plate has always been the tight one; `.meta` keeps
+          its 11 px elsewhere. */}
+      <dl className="meta mt-[12px] mb-0" id="insMeta">
         {rows.map(([key, value]) => (
           <div key={key}>
             <dt>{key}</dt>
-            <dd>{value}</dd>
+            <dd className="mb-0!">{value}</dd>
           </div>
         ))}
       </dl>
@@ -168,7 +193,7 @@ export function Inspector() {
           image is worked on, and its bucket decides which — a kept one in the
           Galerie, everything else in the Revue. */}
       {item && (
-        <p className="tiny ins-voir" id="insVoirLigne">
+        <p className="tiny" id="insVoirLigne">
           <button
             className="link"
             id="insVoir"

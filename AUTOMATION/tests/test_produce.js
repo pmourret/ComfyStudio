@@ -34,6 +34,12 @@ catch { console.log('  IGNORE — playwright absent (voir l en-tete du fichier)'
 
 const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
 
+/* Les crochets du DOM que la migration Tailwind a deplaces : la carte de scene
+   et l'etat ouvert du panneau ne sont plus des classes — une classe utilitaire
+   n'est plus un nom d'etat, elle est une declaration. */
+const CARTE = '#sceneGrid [data-scene-card]';
+const PANNEAU = '#gearPanel[data-open]';
+
 (async () => {
   const nav = await chromium.launch();
   const page = await nav.newPage({ viewport: { width: 1700, height: 1050 } });
@@ -71,7 +77,7 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   dire(pleines.includes('Toutes'), '« Toutes » est proposee avec les autres');
   if (await vu('#intentVides')){
     const vides = await page.$$eval('#intentVideGrid .it b', e => e.map(x => x.textContent));
-    dire((await texte('#intentVides .sep')).includes('à peupler'),
+    dire((await texte('#intentVides [data-sep]')).includes('à peupler'),
          `les vides passent sous un separateur (${vides.join(', ')})`);
     dire(await page.$eval('#intentVideGrid .it span:last-child', e => e.textContent) === 'en composer une',
          'et proposent d aller en composer une');
@@ -84,14 +90,14 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   await page.waitForTimeout(400);
   dire(await vu('#stepTone'), 'le bloc Ton apparait');
   dire(await vu('#stepScenes'), 'le bloc Scènes aussi');
-  dire((await texte('#stepTone h2 .num')) === '2', 'numerote 2');
-  dire((await texte('#stepScenes h2 .num')) === '3', 'et 3');
+  dire((await texte('#stepTone h2 [data-num]')) === '2', 'numerote 2');
+  dire((await texte('#stepScenes h2 [data-num]')) === '3', 'et 3');
   dire(await inerte(), '« Générer » reste inerte : aucune scène cochée');
   dire((await texte('#sumT')).includes('sélectionne au moins une scène'), 'et le dit');
 
   console.log('\n[4] PIEGE §5.6-3 : le bouton suit le PLAN, sans clignoter');
   plans = 0;
-  await page.click('#sceneGrid .sc');
+  await page.click(CARTE);
   // le plan est debounce : on attend qu'il ait repondu
   await page.waitForFunction(() => {
     const b = document.querySelector('#btnRun');
@@ -125,22 +131,23 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
 
   console.log('\n[6] L APERCU montre le prompt REELLEMENT envoye');
   await page.waitForTimeout(600);
-  const frags = await page.$$eval('#apFrags .fr .src', e => e.map(x => x.textContent.trim()));
+  const frags = await page.$$eval('#apFrags [data-source]', e => e.map(x => x.textContent.trim()));
   dire(frags.length >= 3, `${frags.length} fragments, avec leur source : ${frags.join(' · ')}`);
-  const parts = await page.$$eval('#apFrags .fr .pc', e => e.map(x => x.textContent.trim()));
+  const parts = await page.$$eval('#apFrags [data-part]', e => e.map(x => x.textContent.trim()));
   dire(parts.every(p => /%$/.test(p)), `chacun avec sa part (${parts.join(' ')})`);
-  dire(await vu('#apFrags .fr.sc'), "la scène — le seul fragment que l'utilisateur ecrit — est distinguee");
+  dire(await vu('#apFrags [data-fragment][data-own]'),
+       "la scène — le seul fragment que l'utilisateur ecrit — est distinguee");
   dire(/\d+ caractères/.test(await texte('#apMeta')), `l'en-tete compte : « ${await texte('#apMeta')} »`);
 
   console.log('\n[7] l amendement demande UNE scène, et le dit sinon');
   /* Le panneau d'apercu se pose AU-DESSUS de la barre de lancement et recouvre
      le bas de la grille : on le referme pour cocher, comme le ferait quelqu'un
      qui defile. Ce n'est pas un contournement — c'est le geste reel. */
-  const combien = await page.$$eval('#sceneGrid .sc', e => e.length);
+  const combien = await page.$$eval(CARTE, e => e.length);
   if (combien > 2){
     await page.click('#apFermer');
     await page.waitForTimeout(300);
-    await page.click('#sceneGrid .sc:nth-child(2)');
+    await page.click(CARTE + ':nth-child(2)');
     await page.waitForTimeout(1000);
     await page.click('#btnApercu');
     await page.waitForSelector('#apercuPanel');
@@ -149,7 +156,7 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
     dire((await texte('#apAmdLbl')).includes('une seule scène'), 'et la raison est ecrite');
     await page.click('#apFermer');
     await page.waitForTimeout(300);
-    await page.click('#sceneGrid .sc:nth-child(2)');
+    await page.click(CARTE + ':nth-child(2)');
     await page.waitForTimeout(1000);
     await page.click('#btnApercu');
     await page.waitForSelector('#apercuPanel');
@@ -162,25 +169,30 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
 
   console.log('\n[8] LE PANNEAU DE REGLAGES : declaratif, et il dit ce qu il coute');
   await page.click('#btnGear');
-  await page.waitForSelector('#gearPanel.on');
-  const sections = await page.$$eval('#gearBody .rgs h4', e => e.map(x => x.textContent));
+  await page.waitForSelector(PANNEAU);
+  const sections = await page.$$eval('#gearBody [data-rgs] h4', e => e.map(x => x.textContent));
   dire(sections.length >= 4, `${sections.length} sections : ${sections.join(' · ')}`);
-  const controles = await page.$$eval('#gearBody .rg', e => e.length);
+  const controles = await page.$$eval('#gearBody [data-rg]', e => e.length);
   dire(controles >= 15, `${controles} reglages exposes`);
-  const sansTexte = await page.$$eval('#gearBody .rg',
-    e => e.filter(x => !x.querySelector('.rgq') || !x.querySelector('.rgq').textContent.trim()).length);
+  const sansTexte = await page.$$eval('#gearBody [data-rg]',
+    e => e.filter(x => !x.querySelector('[data-rgq]')
+                    || !x.querySelector('[data-rgq]').textContent.trim()).length);
   dire(sansTexte === 0, 'chacun dit ce qu il fait');
-  const couts = await page.$$eval('#gearBody .rgq .cout', e => e.length);
+  const couts = await page.$$eval('#gearBody [data-rgq] [data-cout]', e => e.length);
   dire(couts > 0, `${couts} disent aussi ce qu ils coutent`);
   const html = await page.$eval('#gearBody', e => e.innerHTML);
   dire(!/undefined|NaN/.test(html), 'aucun « undefined » ni « NaN » dans le panneau peint');
-  dire(!(await vu('#gearBody .rgs[data-niveau="edit"]')),
+  dire(!(await vu('#gearBody [data-rgs][data-niveau="edit"]')),
        "la section NSFW est absente hors du cran qui edite");
 
   console.log('\n[9] la pastille « mesuré » suit config.json');
-  const mesures = await page.$$eval('#gearBody .mes', e => e.map(x => x.className));
+  /* L'etat de la pastille se lit sur un ATTRIBUT, jamais dans son `class` :
+     depuis le passage aux utilitaires, la chaine de classes contient des mots
+     comme `outline-offset` — un `includes('off')` y serait vrai partout. */
+  const mesures = await page.$$eval('#gearBody [data-mes]',
+    e => e.map(x => x.hasAttribute('data-off')));
   dire(mesures.length > 0, `${mesures.length} pastille(s) « mesuré »`);
-  dire(mesures.every(c => !c.includes('off')),
+  dire(mesures.every(off => !off),
        'toutes allumees a l ouverture : le panneau part des valeurs mesurees');
   dire((await texte('#gearDiff')) === '', 'et le compteur d ecarts est vide');
 
@@ -198,14 +210,14 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   dire((await texte('#gearDiff')) === '', 'et le compteur repart a zero');
 
   console.log('\n[11] DEUX boutons, UN panneau');
-  dire(await vu('#gearPanel.on'), 'le panneau est ouvert');
+  dire(await vu(PANNEAU), 'le panneau est ouvert');
   await page.click('#btnGear');
   await page.waitForTimeout(300);
-  dire(!(await vu('#gearPanel.on')), "l'engrenage de la barre le referme");
+  dire(!(await vu(PANNEAU)), "l'engrenage de la barre le referme");
   dire(!(await page.isDisabled('#railGear')), "l'engrenage du RAIL est actif sur Produire");
   await page.click('#railGear');
   await page.waitForTimeout(300);
-  dire(await vu('#gearPanel.on'), 'et il ouvre LE MEME panneau');
+  dire(await vu(PANNEAU), 'et il ouvre LE MEME panneau');
   await page.click('#railGear');
   await page.waitForTimeout(300);
 
@@ -214,7 +226,7 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   dire(crans.length >= 3, `${crans.length} crans : ${crans.join(' · ')}`);
   dire(/exportable|hors export/.test(await texte('#intHint')),
        `le cran courant dit s il exporte : « ${await texte('#intHint')} »`);
-  const edit = await page.$('#intSel button.lvedit');
+  const edit = await page.$('#intSel button[data-edit]');
   if (edit){
     await edit.click();
     await page.waitForTimeout(1500);
@@ -229,15 +241,15 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
          "elle dit que le cran n'engendre rien");
     dire(await vu('#stepSource'), 'le bloc « Image source » remplace les intentions');
     dire(!(await vu('#stepIntent')), 'le bloc Intention disparait');
-    dire((await texte('#stepSource h2 .num')) === '1', 'la numerotation repart a 1');
-    dire((await texte('#stepEdit h2 .num')) === '2', 'et va jusqu a 2');
+    dire((await texte('#stepSource h2 [data-num]')) === '1', 'la numerotation repart a 1');
+    dire((await texte('#stepEdit h2 [data-num]')) === '2', 'et va jusqu a 2');
     dire(await inerte(), '« Éditer » est inerte tant que rien n est coche');
     dire(await page.isDisabled('#qual button[data-q="rapide"]'),
          "les prereglages qui coupent la repasse sont inertes ici");
     // le panneau a ete referme en [11] : on le rouvre pour lire ses sections
     await page.click('#btnGear');
-    await page.waitForSelector('#gearPanel.on');
-    dire(await vu('#gearBody .rgs[data-niveau="edit"]'),
+    await page.waitForSelector(PANNEAU);
+    dire(await vu('#gearBody [data-rgs][data-niveau="edit"]'),
          'la section NSFW du panneau apparait a ce cran');
     dire(await page.isDisabled('#noqc'),
          "« Sans contrôle d'identité » est inerte ici : le cran s'appuie sur le verdict");
