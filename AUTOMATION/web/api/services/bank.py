@@ -33,13 +33,24 @@ KNOWN_FORMATS = ("4:5", "2:3", "9:16", "1:1")
 # See DOCS/revue-web-2026-08-25.md.
 WATCHED_KEYS = ("intention", "intensity", "tags", "tones", "wardrobe", "pose")
 
+# Where a scene comes from (ADR-0014 §3). It keeps nothing, it EXPLAINS: a bank
+# of twenty scenes where nobody remembers which ones came from the world's
+# starter set is unreadable in Réglages.
+KNOWN_ORIGINS = ("world", "manual", "compose")
 
-def validate_scene_bank(data, previous=None, allow_losses=False):
+
+def validate_scene_bank(data, previous=None, allow_losses=False, world=None):
     """Returns the list of a scene bank's problems. Empty list = good.
 
     What we refuse here is what would break production later and for no
     apparent reason: a missing `prefix`/`texture` makes `build_jobs` raise a
     KeyError, so a 500 on every plan, very far from the save that caused it.
+
+    `world` is the character's world, frozen at birth (ADR-0012 §4). Passed in,
+    it turns on the checks of ADR-0014 §4: the bank belongs to that world, and
+    so does every scene in it. Left at None the shape checks run alone — that is
+    how a caller with no character context (a script, a unit test on the shape)
+    uses this function; the HTTP route ALWAYS passes it.
     """
     if not isinstance(data, dict):
         return ["le corps n'est pas un objet JSON"]
@@ -50,6 +61,8 @@ def validate_scene_bank(data, previous=None, allow_losses=False):
     scenes = data.get("scenes")
     if not isinstance(scenes, list) or not scenes:
         return problems + ["« scenes » doit être une liste non vide"]
+
+    problems += _world_problems(data, scenes, previous, world)
 
     seen = set()
     for i, s in enumerate(scenes):
@@ -125,6 +138,75 @@ def validate_scene_bank(data, previous=None, allow_losses=False):
                             f"parcours créatif d'un seul coup — refusé. {detail}"
                             + (" …" if len(touched) > 4 else ""))
     return problems
+
+
+def _world_problems(data, scenes, previous, world):
+    """The world lock of ADR-0014 §4. Empty list when `world` is None.
+
+    A scene is a composition INSIDE a world; the world is frozen at the
+    character's creation, so it is frozen for every scene of that character.
+    Nothing here repairs a wrong stamp — a foreign world means assets that were
+    never measured for this face, and silently rewriting it would hide exactly
+    what we want to see.
+
+    One tolerance, and it is named: a scene BORN in this save (absent from the
+    previous version) may arrive without a stamp — the Dashboard builds it in
+    the browser. `stamp_world()` writes its world before the file is persisted.
+    A scene that already existed and LOST its stamp is refused, like any other
+    batch erasure.
+    """
+    if not world:
+        return []
+    problems = []
+    root = data.get("world")
+    if not root:
+        problems.append("« world » manquant à la racine de la banque — une "
+                        f"banque appartient à un monde, ici « {world} » "
+                        "(lancer AUTOMATION/tests/migrate_scenes_world.py)")
+    elif root != world:
+        problems.append(f"la banque déclare le monde « {root} », mais le "
+                        f"personnage vit dans « {world} » — le monde est figé à "
+                        "la création, une banque ne change pas de monde")
+
+    known = ({s.get("id") for s in previous.get("scenes", []) if isinstance(s, dict)}
+             if previous else set())
+    for i, s in enumerate(scenes):
+        if not isinstance(s, dict):
+            continue                      # already reported by the shape checks
+        sid = str(s.get("id") or "").strip()
+        where = sid or f"scène #{i + 1}"
+        w = s.get("world")
+        if w and w != world:
+            problems.append(f"{where} : cette scène appartient au monde "
+                            f"« {w} », le personnage vit dans « {world} » — "
+                            "une scène ne se recopie pas d'un monde à l'autre")
+        elif not w and (not previous or sid in known):
+            problems.append(f"{where} : « world » manquant — chaque scène "
+                            f"déclare son monde, ici « {world} »")
+        origin = s.get("origin")
+        if origin is not None and origin not in KNOWN_ORIGINS:
+            problems.append(f"{where} : origine inconnue « {origin} » — "
+                            f"attendu : {', '.join(KNOWN_ORIGINS)}")
+    return problems
+
+
+def stamp_world(data, world):
+    """Stamps the bank with the character's world, in place, before writing.
+
+    Only fills what is ABSENT — validation has already refused every foreign
+    stamp, so there is nothing here to overwrite. What it does fill is the scene
+    born in this save: the interface builds it in the browser and cannot know
+    the world. It reaches disk stamped, which is what lets the next save be
+    strict (ADR-0014 §4).
+    """
+    if not world:
+        return data
+    data.setdefault("world", world)
+    for s in data.get("scenes", []):
+        if isinstance(s, dict):
+            s.setdefault("world", world)
+            s.setdefault("origin", "manual")
+    return data
 
 
 def rotate_backup(target, generations=3):

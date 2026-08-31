@@ -124,13 +124,34 @@ def ui_skin_token(wid):
     return load_world(wid).get("ui_skin_token")
 
 
+# Reglages qui appartiennent au PERSONNAGE, jamais au catalogue d'un monde
+# (ADR-0014 §2). Une tenue livree par le monde habillerait de la meme facon
+# tous les personnages qui y naissent, et rendrait fausse la premiere mesure de
+# verrou qui suit. Le format et le compte, eux, se deduisent de la fiche.
+CHARACTER_ONLY_SCENE_KEYS = ("wardrobe", "pose", "format", "count", "variants")
+
+
 def starter_scenes(wid):
     """Amorce de banque de scenes pour un nouveau personnage de ce monde.
 
     Consommee par le wizard (J7bis etape 5) ; rien ne la lit avant. La banque
     reelle d'un personnage grandit ensuite a la main depuis le Dashboard.
+
+    Un catalogue de monde decrit des CADRES, pas des garde-robes : une amorce
+    qui porte une tenue (ou une pose, un format, un compte) est une erreur
+    explicite ici, pas un silence qui se propage a chaque naissance.
     """
-    return list(load_world(wid).get("starter_scenes", []))
+    scenes = list(load_world(wid).get("starter_scenes", []))
+    for i, s in enumerate(scenes):
+        if not isinstance(s, dict):
+            raise ValueError(f"monde {wid!r} : starter_scenes[{i}] n'est pas un objet")
+        intrus = [k for k in CHARACTER_ONLY_SCENE_KEYS if k in s]
+        if intrus:
+            raise ValueError(
+                f"monde {wid!r} : la scene d'amorce {s.get('id', i)!r} declare "
+                f"{', '.join(intrus)} — un catalogue de monde n'habille pas ses "
+                f"scenes, ces reglages appartiennent au personnage (ADR-0014)")
+    return scenes
 
 
 def is_compatible(wid, family):

@@ -29,7 +29,7 @@ from ..schemas.bank import (
 )
 from ..schemas.common import ActionResponse, ERROR_RESPONSES
 from ..services.bank import (
-    category_order, rotate_backup, scene_previews, scene_stats,
+    category_order, rotate_backup, scene_previews, scene_stats, stamp_world,
     validate_scene_bank,
 )
 
@@ -92,12 +92,19 @@ async def save_scene_bank(payload: SceneBankSaveRequest, character_id: Character
     except Exception as e:
         return JSONResponse({"ok": False, "erreur": f"JSON invalide : {e}"},
                             status_code=400)
+    # The character's world is frozen at birth and already validated upstream
+    # (`shared_state.character()`); the bank has to belong to it (ADR-0014).
+    # Passing it here is what turns the world lock on — the service refuses,
+    # then stamps what is legitimately new.
+    world = lb.character_world(cid)
     problems = validate_scene_bank(data, previous=ss.scenes_data(cid),
-                                   allow_losses=payload.autoriser_pertes)
+                                   allow_losses=payload.autoriser_pertes,
+                                   world=world)
     if problems:
         ss.push_log(f"scenes.json REFUSE — {problems[0]}")
         return JSONResponse({"ok": False, "erreur": problems[0],
                              "problemes": problems}, status_code=400)
+    stamp_world(data, world)
     target = lb.scenes_path(cid)
     rotate_backup(target)
     target.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -174,6 +174,17 @@ try:
         verifie([s["id"] for s in sa["scenes"]] == ["scene_a_unique"]
                 and [s["id"] for s in sb["scenes"]] == ["scene_b_unique"],
                 "chaque banque n'a que les scenes de SON monde")
+        # La banque NAIT tamponnee (ADR-0014 §3) : c'est ce qui permet a
+        # /api/scenes d'etre strict ensuite au lieu de reparer en silence.
+        verifie(sa["world"] == a["world"] and sb["world"] == b["world"],
+                "chaque banque porte le monde de SON personnage a la racine")
+        verifie(all(s["world"] == a["world"] and s["origin"] == "world"
+                    for s in sa["scenes"])
+                and all(s["world"] == b["world"] and s["origin"] == "world"
+                        for s in sb["scenes"]),
+                "chaque scene d'amorce porte son monde et son origine")
+        verifie(all(s.get("wardrobe") == {"0": ""} for s in sa["scenes"]),
+                "la tenue nait VIDE : le catalogue du monde n'habille pas")
     finally:
         worlds.WORLDS_DIR = _vrai
         shutil.rmtree(_tmp, ignore_errors=True)

@@ -13,6 +13,7 @@ Les cas limites tournent contre un WORLDS/ jetable (monkeypatch WORLDS_DIR).
 
 Lancer :  python_embeded\\python.exe AUTOMATION\\tests\\test_worlds_registry.py
 """
+import json
 import shutil
 import sys
 import tempfile
@@ -132,6 +133,37 @@ try:
 
     attend(worlds.UnknownWorldError, lambda: worlds.load_world("absent"),
            "monde absent du registre jetable")
+finally:
+    worlds.WORLDS_DIR = _vrai
+    shutil.rmtree(_tmp, ignore_errors=True)
+
+# ----------------------------------- [9] le catalogue n'habille pas ses scenes
+print("\n[9] un catalogue de monde n'habille pas ses scenes (ADR-0014)")
+# La tenue, la pose, le format et le compte sont des reglages de PERSONNAGE. Un
+# monde qui les livrerait habillerait de la meme facon tous les personnages qui
+# y naissent, et rendrait fausse la premiere mesure de verrou qui suit. Le
+# catalogue decrit un CADRE, pas une garde-robe.
+for wid in REELS:
+    intrus = sorted({k for s in worlds.load_world(wid).get("starter_scenes", [])
+                     if isinstance(s, dict)
+                     for k in worlds.CHARACTER_ONLY_SCENE_KEYS if k in s})
+    verifie(not intrus, f"{wid} : amorce sans reglage de personnage"
+                        + (f" — trouve : {', '.join(intrus)}" if intrus else ""))
+    verifie(worlds.starter_scenes(wid) is not None,
+            f"{wid} : starter_scenes() charge sans lever")
+
+_vrai = worlds.WORLDS_DIR
+_tmp = Path(tempfile.mkdtemp(prefix="worlds_dressing_"))
+try:
+    worlds.WORLDS_DIR = _tmp
+    (_tmp / "habille.json").write_text(
+        json.dumps({"id": "habille", "label": "Habille",
+                    "compatible_families": ["flux"],
+                    "starter_scenes": [{"id": "s1", "prompt": "x",
+                                        "wardrobe": {"0": "a red dress"}}]}),
+        encoding="utf-8")
+    attend(ValueError, lambda: worlds.starter_scenes("habille"),
+           "un monde qui habille son amorce : refuse au chargement")
 finally:
     worlds.WORLDS_DIR = _vrai
     shutil.rmtree(_tmp, ignore_errors=True)

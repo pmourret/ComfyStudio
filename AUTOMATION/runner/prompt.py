@@ -163,13 +163,21 @@ def create_character(cid, name, character_type, output_style, world, base_gelee)
 
     seed = dft.get("scenes_seed") or {}
     fmt = next(iter(config["formats"]), "1:1")
+    # Tampon de monde, racine et par scene (ADR-0014 §3). Une banque nait
+    # tamponnee : c'est ce qui permet a /api/scenes d'etre STRICT ensuite au
+    # lieu de reparer en silence. `origin` dit d'ou vient la scene — ici de
+    # l'amorce du monde, plus tard « manual » ou « compose ».
+    # La tenue, elle, est ecrite VIDE : le catalogue du monde n'habille pas ses
+    # scenes (ADR-0014 §2), c'est un reglage de personnage.
     scenes = {
         "prefix": seed.get("prefix", ""),
         "anchor": seed.get("anchor", ""),
         "texture": seed.get("texture", ""),
         "direction": seed.get("direction", ""),
+        "world": world,
         "scenes": [
-            {"id": s["id"], "intention": s.get("intention", ""), "tones": [],
+            {"id": s["id"], "world": world, "origin": "world",
+             "intention": s.get("intention", ""), "tones": [],
              "intensity": 0, "format": fmt, "count": 1,
              "prompt": s.get("prompt", ""), "wardrobe": {"0": ""}, "variants": []}
             for s in worlds.starter_scenes(world) if s.get("id")
