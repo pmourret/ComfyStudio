@@ -42,13 +42,13 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   const vu = s => page.isVisible(s).catch(() => false);
   const texte = s => page.textContent(s).catch(() => '');
   const suivantArme = async () => !(await page.isDisabled('#wizNext'));
-  const etape = () => page.$eval('.wiz-steps li.on', e => e.textContent.replace(/^\d/, '').trim());
+  const etape = () => page.$eval('[data-step="on"]', e => e.textContent.replace(/^\d/, '').trim());
   const cartes = () => page.$$eval('#wizBody .it b', e => e.map(x => x.textContent));
 
   console.log('\n[1] le wizard s ouvre sur sa route, quatre etapes annoncees');
   await page.goto(BASE + '/characters/new', { waitUntil: 'networkidle' });
   dire(await vu('#wizard'), "l'ecran est monte");
-  const pas = await page.$$eval('.wiz-steps li', e => e.map(x => x.textContent.replace(/^\d/, '').trim()));
+  const pas = await page.$$eval('#wizSteps li', e => e.map(x => x.textContent.replace(/^\d/, '').trim()));
   dire(pas.join(' > ') === "Type > Style > Monde > Base d'identité",
        `les quatre etapes, dans l'ordre : ${pas.join(' > ')}`);
   dire(await etape() === 'Type', 'on demarre sur le Type');
@@ -78,9 +78,9 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   await page.click('#wizNext');
   await page.waitForTimeout(250);
   dire(await etape() === 'Style', "on est a l'etape Style");
-  const noteStyle = await vu('.wiz-note');
+  const noteStyle = await vu('[data-note]');
   if (noteStyle){
-    const n = await texte('.wiz-note');
+    const n = await texte('[data-note]');
     dire(n.includes("qu'un style"), 'un seul style : la note le dit au lieu d offrir une carte unique');
     dire(n.includes('fixé à la création'), 'et rappelle que le choix est fige');
     dire(await suivantArme(), 'le style unique est pris d office, « Suivant » reste arme');

@@ -37,6 +37,13 @@ body{margin:0;background:var(--bg);color:var(--txt);overflow:hidden;
      font:var(--font);-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
 
+/* THE STUDIO'S ONE ANIMATION — the spinner of a base portrait being generated,
+   in the wizard. It is here and not beside its only user because `@keyframes`
+   has NO SCOPE: it is a global name whatever sheet declares it, and the sheet
+   that used to hold it (`screens/wizard.css`) is gone with the Tailwind
+   migration. Its place is next to the rule below, which is what governs it. */
+@keyframes wizspin{to{transform:rotate(360deg)}}
+
 /* Honours the system « reduce motion » setting (WCAG 2.2) — covers every
    transition and animation of the studio at once. */
 @media (prefers-reduced-motion:reduce){

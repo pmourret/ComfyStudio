@@ -21,7 +21,6 @@ import { useApi } from '../api/useApi'
 import { useCharacter } from '../character/CharacterContext'
 import { useToast } from '../chrome/ToastContext'
 import { PATHS } from '../app/routes'
-import './wizard.css'
 
 type WizardOptions = Schema<'WizardOptionsResponse'>
 type CharacterType = Schema<'WizardType'>
@@ -55,6 +54,79 @@ const candidateUrl = (file: string) =>
   `/api/characters/base/image?file=${encodeURIComponent(file)}`
 
 type CandidateState = { file: string; state: string; detail?: string | null }
+
+/* ------------------------------------------------------------- appearance
+   The wizard's own sheet is gone. Two of its blocks did NOT come here: `.it`
+   (the option card) and `.launch` (the launch bar) went up into `screens.css`,
+   because Produire lays out the same two components — a sheet named after one
+   screen was the wrong home for a thing two screens share. The one `@keyframes`
+   of the studio went into `base.css`, next to the reduced-motion rule that
+   governs it: a keyframe name is global whatever sheet declares it.
+
+   `#wizard .wrap` said `max-width:var(--maxw)` a second time — `base.css`
+   already gives it to every `.wrap`. Only the taller bottom padding survives,
+   the room the fixed launch bar needs. */
+const WRAP = 'pb-[130px]'
+const ID_GRID = 'mt-[6px] mb-[22px] grid grid-cols-2 gap-[16px] max-[720px]:grid-cols-1'
+
+/* THE STEPPER SHOWS where one is; it is not a control — steps are reached by
+   the bar at the bottom, which is where the gating lives.
+
+   `mt-0 mb-[20px]` and not `m-0 mb-[20px]`: Tailwind emits the LONGHAND before
+   the shorthand (measured on the border of the Revue, previous commit), so a
+   `m-0` would wipe the bottom margin out. A <ol> has no side margin to reset
+   anyway. No colour in the base chain — each state names its own, the trap of
+   every sheet migrated so far. */
+const STEPS_LIST = 'mt-0 mb-[20px] flex list-none flex-wrap gap-[8px] p-0 text-[13px]'
+const STEP = 'flex items-center gap-[7px] rounded-[20px] border px-[12px] py-[6px]'
+const STEP_STATE = {
+  todo: 'border-line text-dim2',
+  on: 'border-acc text-txt',
+  done: 'border-line text-dim',
+}
+const BULLET = 'flex h-[18px] w-[18px] items-center justify-center rounded-[50%] text-[11px] not-italic'
+const BULLET_STATE = {
+  todo: 'bg-line2 text-txt',
+  on: 'bg-acc text-on-acc',
+  done: 'bg-ok text-on-acc',
+}
+
+const NOTE = 'rounded-card border px-[16px] py-[14px] text-[13px] leading-[1.55] bg-panel'
+const NOTE_OK = NOTE + ' border-line text-dim'
+const NOTE_ERR = NOTE + ' border-danger-line text-danger-txt'
+
+/* ------------------------------------------------------- identity base */
+const BASE_GRID = 'mt-[14px] grid grid-cols-2 gap-[20px] max-[720px]:grid-cols-1'
+const COL_TITLE = 'mt-0 mb-[10px] text-[11.5px] uppercase tracking-[.5px] text-dim'
+const CANDS = 'mt-[12px] grid grid-cols-[repeat(auto-fill,minmax(92px,1fr))] gap-[8px]'
+/* `.wiz-cand:focus-visible` is not ported: it restated the ring `base.css`
+   already gives every <button>, and the two cards that are not buttons cannot
+   take focus. */
+const CAND =
+  'flex aspect-square items-center justify-center overflow-hidden ' +
+  'rounded-[8px] border-2 p-0 text-[11px]'
+/* THE CURSOR IS IN THE STATES, not in the base chain — exactly like the colours,
+   and for the same reason: `cursor-pointer` and `cursor-default` are two single
+   classes, so the emitted order decides, not the order they are written in. The
+   capture caught it: the failed card was announcing itself clickable.
+
+   The chosen card does NOT take the hover border either: in the sheet
+   `.wiz-cand.chosen` came after `.wiz-cand:hover` and won the tie, so the accent
+   held under the pointer. Written as three exclusive chains rather than as a
+   `!`. */
+const CAND_IDLE = 'cursor-pointer border-line bg-panel2 text-dim2 hover:border-line2'
+const CAND_CHOSEN = 'cursor-pointer border-acc bg-panel2 text-dim2'
+const CAND_ERR = 'cursor-default border-line bg-panel2 text-danger-txt hover:border-line2'
+/* THE SPINNER. Each side names its own colour: `border-line2` + `border-t-acc`
+   would be a shorthand/longhand pair, and Tailwind emits `border-top-color`
+   BEFORE `border-color` — the accent would be wiped by the grey. */
+const SPIN =
+  'h-[16px] w-[16px] rounded-[50%] border-2 border-t-acc border-r-line2 border-b-line2 ' +
+  'border-l-line2 animate-[wizspin_.8s_linear_infinite] motion-reduce:animate-none'
+
+/* The accent border says WHICH image is frozen — the only one that will ever
+   carry the identity lock. */
+const FROZEN_IMG = 'h-[150px] w-[120px] rounded-card border-2 border-acc object-cover'
 
 /* An option card. The tooltip goes on EACH card rather than on the step title:
    the stepper bullet is not focusable, hanging the bubble there would make it
@@ -308,9 +380,11 @@ export function WizardScreen() {
   if (loadFailed) {
     return (
       <div className="screen" id="wizard">
-        <div className="wrap">
+        <div className={`wrap ${WRAP}`}>
           <h2>Nouveau personnage</h2>
-          <p className="wiz-note wiz-err">Impossible de charger les choix du wizard.</p>
+          <p className={NOTE_ERR} data-note>
+            Impossible de charger les choix du wizard.
+          </p>
         </div>
       </div>
     )
@@ -318,10 +392,10 @@ export function WizardScreen() {
 
   return (
     <div className="screen" id="wizard">
-      <div className="wrap">
+      <div className={`wrap ${WRAP}`}>
         <h2>Nouveau personnage</h2>
 
-        <div className="wiz-id">
+        <div className={ID_GRID}>
           <label className="f">
             <span>Nom affiché</span>
             <input
@@ -335,10 +409,14 @@ export function WizardScreen() {
           <label className="f">
             <span>
               Identifiant{' '}
-              <span
-                className={`tiny ${cid && !cidValid ? 'wiz-bad' : 'wiz-ok'}`}
-                id="wizCidHint"
-              >
+              {/* `.wiz-ok` / `.wiz-bad` ARE NOT PORTED: neither ever painted.
+                  `label.f span` (chrome.css, a class plus two types) outweighs
+                  them — and outweighs `.tiny` too. Measured on 31/08/2026: this
+                  hint is `--dim` in BOTH states, valid and invalid. Painting it
+                  now would be a VISIBLE change, which a migration meant to be
+                  invisible does not smuggle in; the ✓ and the sentence carry the
+                  state on their own, as they always have. */}
+              <span className="tiny" id="wizCidHint">
                 {!cid ? '' : cidValid ? '✓' : '— minuscules, chiffres, - et _'}
               </span>
             </span>
@@ -353,17 +431,21 @@ export function WizardScreen() {
           </label>
         </div>
 
-        <ol className="wiz-steps" id="wizSteps">
-          {STEPS.map((key, index) => (
-            <li
-              key={key}
-              className={index < step ? 'done' : index === step ? 'on' : ''}
-              aria-current={index === step ? 'step' : undefined}
-            >
-              <i>{index + 1}</i>
-              {LABELS[key]}
-            </li>
-          ))}
+        <ol className={STEPS_LIST} id="wizSteps">
+          {STEPS.map((key, index) => {
+            const state = index < step ? 'done' : index === step ? 'on' : 'todo'
+            return (
+              <li
+                key={key}
+                className={`${STEP} ${STEP_STATE[state]}`}
+                data-step={state}
+                aria-current={index === step ? 'step' : undefined}
+              >
+                <i className={`${BULLET} ${BULLET_STATE[state]}`}>{index + 1}</i>
+                {LABELS[key]}
+              </li>
+            )
+          })}
         </ol>
 
         <div id="wizBody">
@@ -405,7 +487,7 @@ export function WizardScreen() {
                 'choisis un type'}
             </div>
           </div>
-          <div className="spacer" style={{ flex: 1 }} />
+          <div className="flex-1" />
           <button className="btn" id="wizBack" disabled={step === 0} onClick={() => setStep(step - 1)}>
             Retour
           </button>
@@ -469,7 +551,7 @@ function StepBody(props: {
        can only be clicked one way. */
     if (styles.length === 1) {
       return (
-        <p className="wiz-note">
+        <p className={NOTE_OK} data-note>
           Ce type ne produit qu'un style : <b>{styles[0]}</b>. Il est fixé à la
           création — en changer reviendrait à créer un autre personnage.
         </p>
@@ -493,7 +575,7 @@ function StepBody(props: {
   if (step === 'world') {
     const worlds = currentType.worlds ?? []
     if (!worlds.length) {
-      return <p className="wiz-note">Aucun monde déclaré pour ce type.</p>
+      return <p className={NOTE_OK} data-note>Aucun monde déclaré pour ce type.</p>
     }
     return (
       <div className="intents">
@@ -516,7 +598,7 @@ function StepBody(props: {
      on upload. */
   if (!props.cidValid) {
     return (
-      <p className="wiz-note">
+      <p className={NOTE_OK} data-note>
         Renseigne d'abord un <b>identifiant</b> valide en haut : la base d'identité
         est enregistrée sous ce nom.
       </p>
@@ -525,14 +607,14 @@ function StepBody(props: {
 
   return (
     <>
-      <p className="wiz-note">
+      <p className={NOTE_OK} data-note>
         Le visage de référence, figé à la création : le verrou d'identité s'y
         accroche pour toute la production.{' '}
         <b>Personnage fictif — jamais la photo d'une personne réelle.</b>
       </p>
-      <div className="wiz-base">
-        <div className="wiz-base-col">
-          <h3>Fournir une image</h3>
+      <div className={BASE_GRID}>
+        <div>
+          <h3 className={COL_TITLE}>Fournir une image</h3>
           <label className="btn sm" htmlFor="wizFile">
             Choisir un fichier…
           </label>
@@ -547,44 +629,56 @@ function StepBody(props: {
             {props.fileMessage}
           </p>
         </div>
-        <div className="wiz-base-col">
-          <h3>Générer un portrait</h3>
+        <div>
+          <h3 className={COL_TITLE}>Générer un portrait</h3>
           <button className="btn sm" id="wizGen" onClick={props.onGenerate}>
             Générer 4 portraits
           </button>
           <p className="tiny" id="wizGenMsg">
             {props.genMessage}
           </p>
-          <div className="wiz-cands" id="wizCands">
+          <div className={CANDS} id="wizCands">
             {(props.candidates ?? []).map((candidate, index) =>
               candidate.state === 'ready' ? (
                 <button
                   key={candidate.file}
-                  className={`wiz-cand${props.basePreview === candidateUrl(candidate.file) ? ' chosen' : ''}`}
+                  className={`${CAND} ${
+                    props.basePreview === candidateUrl(candidate.file) ? CAND_CHOSEN : CAND_IDLE
+                  }`}
                   type="button"
                   data-file={candidate.file}
+                  data-chosen={props.basePreview === candidateUrl(candidate.file) ? '1' : undefined}
                   onClick={() => props.onFreeze(candidate.file)}
                 >
-                  <img alt="portrait candidat" src={candidateUrl(candidate.file)} />
+                  <img
+                    className="block h-full w-full object-cover"
+                    alt="portrait candidat"
+                    src={candidateUrl(candidate.file)}
+                  />
                 </button>
               ) : candidate.state === 'error' ? (
-                <div key={candidate.file || index} className="wiz-cand err" title={candidate.detail || ''}>
+                <div
+                  key={candidate.file || index}
+                  className={`${CAND} ${CAND_ERR}`}
+                  data-cand="error"
+                  title={candidate.detail || ''}
+                >
                   échec
                 </div>
               ) : (
-                <div key={candidate.file || index} className="wiz-cand pending">
-                  <span className="spin" />
+                <div key={candidate.file || index} className={`${CAND} ${CAND_IDLE}`} data-cand="pending">
+                  <span className={SPIN} />
                 </div>
               ),
             )}
           </div>
         </div>
       </div>
-      <div className="wiz-base-preview" id="wizBasePreview">
+      <div className="mt-[18px]" id="wizBasePreview">
         {props.frozenBase && (
-          <div className="wiz-frozen">
-            <img alt="base d'identité" src={props.basePreview} />
-            <span>
+          <div className="flex items-center gap-[14px]">
+            <img className={FROZEN_IMG} alt="base d'identité" src={props.basePreview} />
+            <span className="text-[12.5px] text-dim">
               base gelée : <code>{props.frozenBase}</code>
             </span>
           </div>

@@ -8,11 +8,23 @@ Deux couches, deux responsabilités (`.claude/rules/frontend.md`) :
 | `styles/base.css` | reset, barres de défilement, primitives de bouton | non |
 | `styles/chrome.css` | surfaces permanentes (en-tête, navbar, rail, bandeaux, modales) | non |
 | `styles/screens.css` | ce que plusieurs écrans partagent (segments, tables, vides) | non |
-| `screens/<écran>/*.css` | mise en page d'UN écran, à côté de son composant | non |
+| `styles/theme.css` | le pont entre les jetons et les espaces de noms Tailwind | non — il ne déclare aucune valeur |
 
-Les quatre premiers sont importés dans cet ordre par `src/main.tsx` ; la feuille
-d'un écran est importée par l'écran lui-même, donc chargée après — ce qui doit
-primer sur un composant partagé y est.
+Ils sont importés dans cet ordre par `src/main.tsx`, `theme.css` en **dernier**
+(voir son en-tête : les utilitaires y sont non-calqués, donc départagés par
+l'ordre).
+
+*Mis à jour le 31/08/2026 :* il n'y a **plus de feuille d'écran**. La ligne
+`screens/<écran>/*.css` — et la phrase qui disait qu'un écran importait la
+sienne, donc chargée après les feuilles communes — décrivaient les sept
+feuilles d'écran de la migration React. Elles sont passées une à une en
+utilitaires Tailwind ; la mise en page d'un écran vit désormais **à côté de son
+balisage**, dans son `.tsx`. Ce qui était partagé par plusieurs écrans est
+remonté dans `screens.css` (segments, `.meta`, `.kbd`, `details.adv`, `.chips`,
+`.it` + `.intents`, `.launch`) ou dans `base.css` (`.btn.danger`, `a.btn`,
+`@keyframes wizspin`). La phrase sur l'ordre de chargement était de toute façon
+fausse : `main.tsx` importe `App` avant toute CSS, donc les feuilles d'écran
+atterrissaient en PREMIER dans le bundle, pas en dernier.
 
 > Migration React du 30/08/2026 : `components.css` et le `screens.css` unique de
 > l'ancien frontend ont été répartis entre `styles/chrome.css` (ce qui est

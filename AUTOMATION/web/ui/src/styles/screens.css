@@ -99,3 +99,45 @@ details.adv summary:focus-visible{outline:2px solid var(--focus);outline-offset:
    padding a full-screen one does, or a two-line table would be taller than the
    window. */
 td.empty{padding:34px 20px}
+
+/* --------------------------------------------------------- option card
+   `.it` is the pill-less card offered where a choice is among a HANDFUL and the
+   sub-line matters as much as the label — the model family of a type, the tone
+   of a world, the scene count of an intention. Two screens lay one out: the
+   wizard (type, style, world) and Produire (intentions).
+
+   It came from `screens/wizard.css`, which was the wrong home for something
+   Produire has always used: the produce migration had to write `!` on `.it span`
+   precisely because that rule lived in a sheet it could not reach. The `!` stays
+   correct — `.it span` is a class plus a type, a plain utility loses to it.
+
+   `.intents` is its grid, and travels with it: a card of a different width would
+   not be the same component. */
+.intents{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px}
+.it{display:block;width:100%;font:inherit;color:inherit;
+    background:var(--panel);border:2px solid var(--line);border-radius:var(--r);
+    padding:16px 14px;cursor:pointer;text-align:left;transition:border-color .12s}
+.it:hover{border-color:var(--line2)}
+.it:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.it.on{border-color:var(--acc);background:var(--panel2)}
+.it b{display:block;font-size:14px;font-weight:600}
+.it span{font-size:11.5px;color:var(--dim)}
+
+/* --------------------------------------------------------- launch bar
+   Stuck to the bottom of the two screens that END in a gesture: Produire
+   generates, the wizard creates. It is `fixed`, therefore anchored to the
+   viewport and blind to the two left columns — without this offset it would run
+   under them. `--nav` and `--rail` are 0 wherever their column is not shown, and
+   each is declared with exactly the condition of its display: one condition
+   written twice, never two conditions.
+
+   Same trajectory as `.it`: it lived in `screens/wizard.css` while Produire
+   carried the other half of its markup. */
+.launch{position:fixed;left:calc(var(--nav) + var(--rail));right:0;bottom:0;
+        background:linear-gradient(transparent,var(--bg) 22%);
+        padding:26px 20px 18px;z-index:6}
+.launch .inner{max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;gap:16px;
+        background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:13px 18px;
+        box-shadow:var(--elev)}
+.launch .sum b{font-size:16px}
+.launch .sum div{font-size:12.5px;color:var(--dim)}
