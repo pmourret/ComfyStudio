@@ -29,7 +29,6 @@ import { useConfirm } from '../../chrome/ConfirmContext'
 import { Dialog } from '../../chrome/Dialog'
 import { useToast } from '../../chrome/ToastContext'
 import type { GalleryItem } from './useTriage'
-import './editor.css'
 
 type Crop = { x: number; y: number; w: number; h: number }
 type Ratio = { w: number; h: number } | null
@@ -55,6 +54,100 @@ const NEUTRAL: Settings = {
   temp: 0,
   grain: 0,
 }
+
+/* ------------------------------------------------------------- appearance
+   The editor's own sheet is gone; what it said is here, beside the markup it
+   dresses. Only the rail rule left the file — it is about the RAIL, and it now
+   lives beside the other rail rules in `chrome.css`.
+
+   THE BOX IS NOT A MESSAGE. `dialog{…}` of `chrome.css` sizes a question
+   (560 px, hugging its content); a work surface is sized in vw/vh and fills
+   what it takes. Those are element selectors, so a plain utility outweighs
+   them — but `dialog .card` is element + class, and the plate we are undoing
+   here needs `!` to lose. `.edWrap` is the real frame; the plate underneath is
+   reduced to a full-size transparent box.
+
+   `[border:0]` and `[box-shadow:…]` rather than `border-0` / `shadow-none` /
+   `shadow-[…]`: those three utilities write the LONGHAND — a `solid` style on a
+   0 px border — and Tailwind's five-layer shadow chain. Same pixels, but the
+   arbitrary property leaves the same COMPUTED STYLE too, and this migration is
+   checked on the computed styles, state by state. */
+const BOX = 'h-[min(880px,92vh)] max-h-[92vh] w-[min(1320px,95vw)] max-w-[95vw]'
+const CARD = 'h-full! w-full! rounded-none! [border:0]! bg-transparent! p-0! [box-shadow:none]!'
+const FRAME = 'flex h-full overflow-hidden rounded-[12px] border border-line2 bg-panel'
+/* `#0a0a0a` stays raw: DESIGN.md lists the neutral blacks of the image frames
+   and of this work surface among the values a universe re-tints by hand, not
+   among the tokens. */
+const STAGE =
+  'relative flex min-h-0 min-w-0 flex-1 items-center justify-center bg-[#0a0a0a] p-[16px]'
+
+/* THE FRAME OF REFERENCE OF THE CROP BOX. `#edCropBox` carries CANVAS
+   coordinates; its positioned parent must therefore hug the canvas to the
+   pixel, not be the stage, which CENTRES it. Without this box the frame started
+   from the corner of the work surface instead of the corner of the image
+   (332 px of offset measured on 30/08): the veil darkened the whole image and
+   the frame looked frozen. `leading-[0]` + `text-[0px]`: without them the
+   canvas baseline adds a few pixels under the box and the offset comes back
+   small. */
+const CANVAS_WRAP = 'relative max-h-full max-w-full text-[0px] leading-[0]'
+const CANVAS = 'block max-h-full max-w-full rounded-[2px]'
+/* The 2000 px veil, and the reason the crop opens OFF (F3.1). Its colour is
+   deliberately lighter than `--scrim`: one must still SEE the image outside the
+   frame — passing it to the scrim would be a functional regression, which is
+   why DESIGN.md lists it as left raw. */
+const CROP_BOX =
+  'absolute cursor-move touch-none border-[1.5px] border-acc ' +
+  '[box-shadow:0_0_0_2000px_#0b0d1066]'
+/* `[transform:…]` and not `-translate-x-1/2`: the utility would write the
+   `translate` property instead of `transform`. Same pixels, but the migration
+   is meant to leave the computed styles alone. Each corner names its own
+   cursor rather than inheriting one and overriding two — the ordering trap of
+   the previous sheets. */
+const HANDLE =
+  'absolute h-[14px] w-[14px] touch-none rounded-[50%] bg-acc [transform:translate(-50%,-50%)]'
+const HANDLES: Record<string, string> = {
+  nw: 'left-0 top-0 cursor-nwse-resize',
+  ne: 'left-full top-0 cursor-nesw-resize',
+  sw: 'left-0 top-full cursor-nesw-resize',
+  se: 'left-full top-full cursor-nwse-resize',
+}
+
+/* THE WAY OUT LIVES AT THE HEAD of the panel, not at its foot: it is the first
+   thing one looks for when abandoning a retouch. */
+const SIDE = 'flex w-[300px] flex-none flex-col overflow-y-auto border-l border-l-line p-[20px]'
+const HEAD = 'flex items-center justify-between gap-[10px]'
+const CLOSE =
+  'cursor-pointer rounded-[8px] [border:0] bg-transparent px-[8px] py-[6px] text-[16px] ' +
+  'leading-none text-dim hover:bg-panel2 hover:text-txt focus-visible:outline-offset-[-2px]'
+/* `.edSec:last-of-type{border-bottom:0}` IS NOT PORTED, because it never
+   painted: `:last-of-type` looks at the last <div> of the panel, which is the
+   actions block, not a section. All four sections have always carried their
+   rule, the grain one included. Restoring the intent is a VISIBLE change and
+   does not belong in a migration meant to be invisible. */
+const SEC = 'mb-[20px] border-b border-b-line pb-[18px]'
+const LAB = 'mb-[10px] text-[11.5px] uppercase tracking-[.5px] text-dim'
+const ROW = 'mt-[10px] flex justify-between text-[12.5px] text-dim'
+const VAL = 'tabular-nums text-txt'
+/* `width:100%` is not repeated: `chrome.css` already gives it to every input. */
+const SLIDER = 'mt-[2px]'
+
+/* STICKY FOOT of the settings panel. `.edSide` scrolls (the settings are taller
+   than the modal from 950 px of window) and used to carry the buttons away with
+   it: « Enregistrer une copie » lived 180 px below the fold. `bottom-[-20px]`
+   cancels the panel padding so the block sticks to the real bottom; the shadow
+   says content remains below when one has not finished scrolling. */
+const ACTIONS =
+  'sticky bottom-[-20px] mt-auto bg-panel pt-[10px] pb-[20px] ' +
+  '[box-shadow:0_-14px_14px_-14px_#000a]'
+const BTNS = 'mt-[14px] flex flex-col gap-[8px]'
+/* Second rank: the destructive gesture. Separated from the primary rank by a
+   rule and deliberately NARROWER — two full-width buttons one under the other
+   get clicked in the flow, and this one cannot be taken back. */
+const BTNS2 = 'mt-[10px] flex flex-col gap-[8px] border-t border-t-line pt-[10px]'
+/* The mirror is a SWITCH, and shows as pressed. `!` on the border alone:
+   `.btn:hover` names a colour of its own and outweighs a plain utility — the
+   pressed button would lose its accent under the pointer. */
+const FLIP_ON = ' bg-acc border-acc! text-on-acc font-semibold'
 
 /* Share of the available box the frame takes on opening and on every ratio
    change. NOT 100 %: a frame that exactly fills the canvas has ZERO room to
@@ -201,7 +294,7 @@ export function PhotoEditor({
        written as constants and left the image at 29 % of the available room on a
        measured 1112 x 844 stage. The modal having a known size, measuring is
        reliable. */
-    const pad = 32 // .edStage padding, both sides
+    const pad = 32 // the stage's p-[16px], both sides
     const maxW = Math.max(200, (stageRef.current?.clientWidth || 760) - pad)
     const maxH = Math.max(200, (stageRef.current?.clientHeight || 560) - pad)
     // never above 1: enlarging an image past its resolution blurs it without
@@ -484,23 +577,32 @@ export function PhotoEditor({
     setSettings((s) => ({ ...s, [key]: value }))
 
   return (
-    <Dialog id="editorBox" open onDismiss={onClose} initialFocus="#edClose">
-      <div className="edWrap">
-        <div className="edStage" ref={stageRef}>
-          <div className="edCanvasWrap">
-            <canvas id="edCanvas" ref={canvasRef} />
+    <Dialog
+      id="editorBox"
+      open
+      onDismiss={onClose}
+      initialFocus="#edClose"
+      className={BOX}
+      cardClassName={CARD}
+    >
+      <div className={FRAME}>
+        <div className={STAGE} ref={stageRef}>
+          <div className={CANVAS_WRAP}>
+            <canvas className={CANVAS} id="edCanvas" ref={canvasRef} />
             <div
+              className={CROP_BOX}
               id="edCropBox"
               style={cropStyle}
               onPointerDown={(event) => {
-                if ((event.target as HTMLElement).classList.contains('edHandle')) return
+                // a handle carries `data-h`; the box itself does not
+                if ((event.target as HTMLElement).dataset.h) return
                 startDrag('move', event)
               }}
             >
               {['nw', 'ne', 'sw', 'se'].map((handle) => (
                 <div
                   key={handle}
-                  className="edHandle"
+                  className={HANDLE + ' ' + HANDLES[handle]}
                   data-h={handle}
                   onPointerDown={(event) => startDrag(handle, event)}
                 />
@@ -509,71 +611,84 @@ export function PhotoEditor({
           </div>
         </div>
 
-        <div className="edSide">
-          <div className="edHead">
-            <h3>Éditer</h3>
-            <button className="edClose" id="edClose" aria-label="Fermer l'éditeur" onClick={onClose}>
+        <div className={SIDE}>
+          <div className={HEAD}>
+            <h3 className="m-0 text-[16px]">Éditer</h3>
+            <button className={CLOSE} id="edClose" aria-label="Fermer l'éditeur" onClick={onClose}>
               ✕
             </button>
           </div>
-          <p className="tiny edFichier" id="edFichier">
+          <p className="tiny mt-[4px] mb-[16px] break-all" id="edFichier">
             {item.name}
           </p>
 
-          <div className="edSec" id="edCropSec" data-on={crop ? '1' : '0'}>
-            <div className="edLab">Recadrage</div>
-            <button
-              className="btn sm edCropOn"
-              id="edCropOn"
-              disabled={!ready}
-              onClick={() => setCrop(centredCrop())}
-            >
-              Recadrer
-            </button>
-            <div className="seg edCropOnly" id="edRatio">
-              {RATIOS.map((entry) => (
+          {/* CROP OFF / ON (F3.1). Off, the panel shows only the gesture that
+              turns it on; on, the formats and the way out. Nothing is greyed —
+              cropping is not unavailable, it is simply not under way.
+
+              The sheet said this with two `display:none` rules under
+              `[data-on]`; React says it by mounting one branch or the other.
+              Same screen, and the attribute stays: it is what the fumigation
+              reads to know which state it is in. */}
+          <div className={SEC} id="edCropSec" data-on={crop ? '1' : '0'}>
+            <div className={LAB}>Recadrage</div>
+            {!crop ? (
+              <button
+                className="btn sm mt-[2px]"
+                id="edCropOn"
+                disabled={!ready}
+                onClick={() => setCrop(centredCrop())}
+              >
+                Recadrer
+              </button>
+            ) : (
+              <>
+                <div className="seg" id="edRatio">
+                  {RATIOS.map((entry) => (
+                    <button
+                      key={entry}
+                      className={
+                        (entry === 'libre' ? !ratio : ratio && `${ratio.w}:${ratio.h}` === entry)
+                          ? 'on'
+                          : undefined
+                      }
+                      data-r={entry}
+                      onClick={() => {
+                        const next =
+                          entry === 'libre'
+                            ? null
+                            : { w: Number(entry.split(':')[0]), h: Number(entry.split(':')[1]) }
+                        setRatio(next)
+                        // picking a format IS a crop gesture: if it was off it
+                        // turns on, otherwise the click would do nothing visible
+                        setCrop(centredCrop())
+                      }}
+                    >
+                      {entry === 'libre' ? 'Libre' : entry}
+                    </button>
+                  ))}
+                </div>
+                {/* Turning it off saves nothing and does not modify the image:
+                    the crop only exists at save time. We also come back to the
+                    free ratio — leaving « 1:1 » lit on a crop that is off would
+                    announce a constraint that no longer applies. */}
                 <button
-                  key={entry}
-                  className={
-                    (entry === 'libre' ? !ratio : ratio && `${ratio.w}:${ratio.h}` === entry)
-                      ? 'on'
-                      : undefined
-                  }
-                  data-r={entry}
+                  className="link mt-[10px] block text-left"
+                  id="edCropOff"
                   onClick={() => {
-                    const next =
-                      entry === 'libre'
-                        ? null
-                        : { w: Number(entry.split(':')[0]), h: Number(entry.split(':')[1]) }
-                    setRatio(next)
-                    // picking a format IS a crop gesture: if it was off it turns
-                    // on, otherwise the click would do nothing visible
-                    setCrop(centredCrop())
+                    setCrop(null)
+                    setRatio(null)
                   }}
                 >
-                  {entry === 'libre' ? 'Libre' : entry}
+                  annuler le recadrage
                 </button>
-              ))}
-            </div>
-            {/* Turning it off saves nothing and does not modify the image: the
-                crop only exists at save time. We also come back to the free
-                ratio — leaving « 1:1 » lit on a crop that is off would announce
-                a constraint that no longer applies. */}
-            <button
-              className="link edCropOnly"
-              id="edCropOff"
-              onClick={() => {
-                setCrop(null)
-                setRatio(null)
-              }}
-            >
-              annuler le recadrage
-            </button>
+              </>
+            )}
           </div>
 
-          <div className="edSec">
-            <div className="edLab">Rotation</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className={SEC}>
+            <div className={LAB}>Rotation</div>
+            <div className="flex items-center gap-[10px]">
               <button className="btn sm" id="edRotL" onClick={() => rotate(-1)}>
                 ↺ 90°
               </button>
@@ -581,7 +696,7 @@ export function PhotoEditor({
                 90° ↻
               </button>
               <button
-                className={`btn sm${settings.flip ? ' on' : ''}`}
+                className={`btn sm${settings.flip ? FLIP_ON : ''}`}
                 id="edFlip"
                 aria-pressed={settings.flip}
                 onClick={() => patch('flip', !settings.flip)}
@@ -589,13 +704,14 @@ export function PhotoEditor({
                 ⇄ Miroir
               </button>
             </div>
-            <div className="edRow">
+            <div className={ROW}>
               <span>redresser</span>
-              <span className="edVal" id="v_edStraighten">
+              <span className={VAL} id="v_edStraighten">
                 {settings.straighten}°
               </span>
             </div>
             <input
+              className={SLIDER}
               type="range"
               id="edStraighten"
               min={-15}
@@ -615,17 +731,18 @@ export function PhotoEditor({
             </p>
           </div>
 
-          <div className="edSec">
-            <div className="edLab">Colorimétrie</div>
+          <div className={SEC}>
+            <div className={LAB}>Colorimétrie</div>
             {SLIDERS.map((slider) => (
               <div key={slider.key}>
-                <div className="edRow">
+                <div className={ROW}>
                   <span>{slider.label}</span>
-                  <span className="edVal" id={`v_${slider.id}`}>
+                  <span className={VAL} id={`v_${slider.id}`}>
                     {settings[slider.key]}
                   </span>
                 </div>
                 <input
+                  className={SLIDER}
                   type="range"
                   id={slider.id}
                   min={slider.min}
@@ -638,20 +755,21 @@ export function PhotoEditor({
             ))}
           </div>
 
-          <div className="edSec">
-            <div className="edLab">
+          <div className={SEC}>
+            <div className={LAB}>
               Grain{' '}
               <span className="tiny">
                 — manuel, sans rapport avec le grain calibré de la production
               </span>
             </div>
-            <div className="edRow">
+            <div className={ROW}>
               <span>quantité</span>
-              <span className="edVal" id="v_edGrain">
+              <span className={VAL} id="v_edGrain">
                 {settings.grain}
               </span>
             </div>
             <input
+              className={SLIDER}
               type="range"
               id="edGrain"
               min={0}
@@ -662,7 +780,7 @@ export function PhotoEditor({
             />
           </div>
 
-          <div className="edSpacer" />
+          <div className="min-h-[10px] flex-1" />
 
           {/* STICKY FOOT. The panel scrolls — settings included — but not its
               actions: measured 30/08, the content is 1089 px for 872 of height
@@ -671,19 +789,19 @@ export function PhotoEditor({
 
               The COPY is the primary gesture: the source stays intact by
               default. « Écraser la source » is second rank and confirmed. */}
-          <div className="edActions">
+          <div className={ACTIONS}>
             <p className="tiny" id="edMsg">
               {message}
             </p>
-            <div className="edBtns">
-              <button className="btn sm" id="edReset" onClick={reset}>
+            <div className={BTNS}>
+              <button className="btn sm w-full" id="edReset" onClick={reset}>
                 Réinitialiser
               </button>
               <button className="link" id="edCancel" onClick={onClose}>
                 annuler
               </button>
               <button
-                className="btn primary"
+                className="btn primary w-full"
                 id="edSave"
                 disabled={!ready || busy}
                 onClick={() => save(false)}
@@ -691,9 +809,9 @@ export function PhotoEditor({
                 Enregistrer une copie
               </button>
             </div>
-            <div className="edBtns edBtns2">
+            <div className={BTNS2}>
               <button
-                className="btn sm danger"
+                className="btn sm danger w-auto self-end"
                 id="edSaveOver"
                 disabled={!ready || busy}
                 onClick={overwrite}

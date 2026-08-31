@@ -23,6 +23,7 @@ export function Dialog({
   dismissable = true,
   initialFocus,
   id,
+  className,
   cardClassName,
   children,
 }: {
@@ -34,6 +35,11 @@ export function Dialog({
   /** Selector focused first; the first focusable element otherwise. */
   initialFocus?: string
   id?: string
+  /** Utilities added to the <dialog> ITSELF, for a box that does not take the
+      shared geometry — the photo editor is a work surface, sized in vw/vh. The
+      `dialog{…}` rule of `chrome.css` is an element selector, so a plain
+      utility outweighs it: no `!` needed here, unlike `cardClassName`. */
+  className?: string
   /** Utilities added to the visible plate, for a box whose size is not the
       default one — a work surface, or a narrower question. `chrome.css` styles
       `dialog .card` with an element + class selector, so an override coming
@@ -82,7 +88,7 @@ export function Dialog({
   }, [dismissable, onDismiss])
 
   return (
-    <dialog id={id} ref={ref}>
+    <dialog id={id} className={className} ref={ref}>
       <div className={cardClassName ? `card ${cardClassName}` : 'card'}>{children}</div>
     </dialog>
   )

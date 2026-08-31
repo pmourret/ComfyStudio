@@ -174,8 +174,17 @@ rendent un rail identique, au caractère près.
 Il s'affiche là où ses entrées ont une surface — **Produire et Banque** —, au
 dessus de 1100 px, personnage chargé, éditeur photo fermé. Sous 1100 px il
 disparaît, et en mode éditeur aussi : ce sont des **outils**, la retouche a les
-siens. La navbar, elle, reste dans les deux cas — c'est la sortie. La condition est écrite en `@media(min-width:1101px)` avec
-`:not(.no-character):not(.editing):has(…)`, ce qui fait du masquage le défaut.
+siens. La navbar, elle, reste dans les deux cas — c'est la sortie. La condition
+d'affichage est écrite en `@media(min-width:1101px)` avec
+`.app:not(.no-character):has(.rail)`, ce qui fait du masquage le défaut.
+
+*Corrigé le 31/08/2026 :* ce paragraphe annonçait un `:not(.editing)` dans cette
+condition — il n'y en a jamais eu. Le mode éditeur est une **règle à part**
+(`body.editing .app .rail`, arrivée de `screens/review/editor.css` avec la
+migration Tailwind), et `.app` y est présent **pour la spécificité** : écrite
+`body.editing .rail`, elle perdait (0,0,2,1) contre la condition d'affichage
+ci-dessus (0,0,3,0) et ne peignait jamais. Sans conséquence visible jusqu'ici,
+`ToolRail` ne montant rien sur les deux écrans d'où l'éditeur s'ouvre.
 
 `--rail` (0, 58 ou 200 px) existe pour **une** raison : `.launch` est
 `position:fixed`, donc aveugle à la grille — sans `left:var(--rail)` la barre de

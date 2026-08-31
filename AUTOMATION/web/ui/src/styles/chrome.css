@@ -230,6 +230,20 @@ header{display:flex;align-items:center;gap:20px;padding:0 20px;height:56px;
 .app.rail-mince .rail-msg{display:none}
 .app.rail-mince .rail-pli .rail-chev{transform:rotate(180deg)}
 
+/* THE RAIL HAS NOTHING TO DO UNDER THE VEIL OF A RETOUCH — the photo editor
+   carries its own tools. It came from `screens/review/editor.css` with the
+   Tailwind migration: it is about the RAIL, not about the editor's markup, and
+   this is where its siblings are.
+
+   `body.editing` and not a class on `.app`: the marker lives on <body> because
+   it is also what the Revue's keyboard handler reads, and one marker beats two
+   that must agree. `.app` IS IN THE SELECTOR FOR SPECIFICITY, not for reach —
+   written `body.editing .rail` (0,0,2,1) the rule LOST against
+   `.app:not(.no-character) .rail` (0,0,3,0) above 1100 px and never painted.
+   Invisible today, because `ToolRail` mounts nothing on the two screens the
+   editor opens from; visible the day it opens from Produire (F3.4). */
+body.editing .app .rail{display:none}
+
 /* ------------------------------------------- unsaved changes banner
    Same shape as the fault banner, warning tone rather than alert: nothing is
    broken, something is simply not written to disk yet. */
