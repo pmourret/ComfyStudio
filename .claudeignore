@@ -11,3 +11,19 @@ venv/
 node_modules/
 *.bak
 *.avant-*
+
+# --- Contexte Claude Code : gros fichiers et docs de fond ---
+AUDIT.md
+DOCS/handoffs/
+DOCS/cadrage/
+DOCS/ideas/
+AUTOMATION/web/ui/src/api/openapi.json
+AUTOMATION/web/ui/src/api/schema.d.ts
+AUTOMATION/web/ui/package-lock.json
+AUTOMATION/tests/fixtures/
+
+# Graphes lourds ou hors production (le reste de WORKFLOWS/ reste lisible)
+WORKFLOWS/experiments/
+WORKFLOWS/nsfw/ltx2_3_persona_i2v_ui.json
+WORKFLOWS/nsfw/video_ltx2_3_i2v.json
+WORKFLOWS/content/lena_master_prod_ui.json
