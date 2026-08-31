@@ -20,7 +20,10 @@ by api/spa.py — which also carries the SPA fallback for the router's deep link
 from fastapi import FastAPI
 
 from .errors import install_error_handlers
-from .routers import bank, images, production, review, state
+from .routers import app as app_router
+from .routers import (
+    bank, images, production, review, state,
+)
 from .security import BodySizeLimitMiddleware, LocalOriginGuardMiddleware
 from .spa import mount_frontend
 
@@ -64,6 +67,7 @@ def create_app() -> FastAPI:
     install_error_handlers(app)
 
     app.include_router(state.router)
+    app.include_router(app_router.router)
     app.include_router(bank.router)
     app.include_router(images.router)
     app.include_router(production.router)
