@@ -536,10 +536,10 @@ export function PhotoEditor({
             <div className={LAB}>Rotation</div>
             <div className="flex items-center gap-[10px]">
               <button className="btn sm" id="edRotL" onClick={() => rotate(-1)}>
-                ↺ 90°
+                <span aria-hidden="true">↺</span> 90°
               </button>
               <button className="btn sm" id="edRotR" onClick={() => rotate(1)}>
-                90° ↻
+                90° <span aria-hidden="true">↻</span>
               </button>
               <button
                 className={`btn sm${settings.flip ? FLIP_ON : ''}`}
@@ -547,11 +547,11 @@ export function PhotoEditor({
                 aria-pressed={settings.flip}
                 onClick={() => patch('flip', !settings.flip)}
               >
-                ⇄ Miroir
+                <span aria-hidden="true">⇄</span> Miroir
               </button>
             </div>
             <div className={ROW}>
-              <span>redresser</span>
+              <label htmlFor="edStraighten">redresser</label>
               <span className={VAL} id="v_edStraighten">
                 {settings.straighten}°
               </span>
@@ -582,7 +582,7 @@ export function PhotoEditor({
             {SLIDERS.map((slider) => (
               <div key={slider.key}>
                 <div className={ROW}>
-                  <span>{slider.label}</span>
+                  <label htmlFor={slider.id}>{slider.label}</label>
                   <span className={VAL} id={`v_${slider.id}`}>
                     {settings[slider.key]}
                   </span>
@@ -609,7 +609,7 @@ export function PhotoEditor({
               </span>
             </div>
             <div className={ROW}>
-              <span>quantité</span>
+              <label htmlFor="edGrain">quantité</label>
               <span className={VAL} id="v_edGrain">
                 {settings.grain}
               </span>
