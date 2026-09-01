@@ -12,25 +12,33 @@
    two-column geometry is the one Produire already uses: same studio, same
    shape.
 
-   WHAT IS STOWED, NOT REDESIGNED. The composer, the raw JSON and the poses are
-   unchanged; they simply stopped occupying the top of a screen whose subject is
-   the scenes. The composer in particular lost its primary button — the screen
-   has one primary action, and it is Enregistrer.
+   THE CONSOLIDATION PASS (31/08/2026, wireframe-driven). The world banner and
+   the "Scènes N" heading merge into one band at the top (`WorldBanner`, now
+   also carrying the count); the grid stops wrapping and becomes a fixed
+   2-row, horizontally-scrolling carousel (see `useSceneWorkbench.onGridKeyDown`
+   for the column-major keyboard math this needed); the LLM composer and the
+   raw-JSON panel are RETIRED FROM THIS SCREEN, not deleted — `Composer.tsx`
+   and `ScenesStoreContext`'s `rawJson`/`applyRawJson` are untouched, waiting
+   to resurface elsewhere later. The tool rail is off here too
+   (`chrome/ToolRail.tsx`, `RAIL_ON`): the screen's own toolbar now covers what
+   it offered.
 
    THE SAVE BAR IS ON BOTH VIEWS, and that is deliberate: it saves the screen's
    DOCUMENT, and a scene edit left pending on the other view must keep its button
    — hiding it would hide the action while the dirty banner keeps warning. */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { useApi } from '../../api/useApi'
+import { Icon } from '../../chrome/Icon'
 import { useToast } from '../../chrome/ToastContext'
 import { useScenes } from '../../state/ScenesStoreContext'
 import { useTaxonomy } from '../../state/TaxonomyContext'
 import { PATHS } from '../../app/routes'
-import { Composer } from './Composer'
+import { PlaceInspector } from '../worlds/PlaceInspector'
+import { useWorldPlaces } from '../worlds/useWorldPlaces'
 import { PosesView } from './PosesView'
-import { NewSceneCard, SceneGridCard, type ScenePreview } from './SceneGrid'
+import { SceneGridCard, type ScenePreview } from './SceneGrid'
 import { DocumentPane, SceneInspector } from './SceneInspector'
 import { useSceneWorkbench } from './useSceneWorkbench'
 import { WorldBanner } from './WorldBanner'
@@ -62,19 +70,43 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
     anchor,
     direction,
     poses,
-    rawJson,
     world,
     documentWorld,
     setAnchor,
     setDirection,
     patchDraft,
-    applyRawJson,
     save,
+    load,
   } = useScenes()
   const { creative } = useTaxonomy()
   const bench = useSceneWorkbench()
   const [status, setStatus] = useState<string | null>(null)
-  const [rawDraft, setRawDraft] = useState<string | null>(null)
+  const searchRef = useRef<HTMLInputElement | null>(null)
+
+  // Monde | Personnage (ADR-0015) — the catalog of the CHARACTER's world,
+  // loaded once and shared by every scene the Banque opens.
+  const worldPlaces = useWorldPlaces(world?.id ?? null)
+  const [placeStatus, setPlaceStatus] = useState<string | null>(null)
+  const [placeSaving, setPlaceSaving] = useState(false)
+  const worldLinked = bench.selected?.base.origin === 'world'
+  const selectedPlace =
+    worldLinked && bench.selected
+      ? (worldPlaces.places?.find((p) => p.id === bench.selected!.base.world_ref) ?? null)
+      : null
+
+  const onSavePlace = async (patch: { id: string; label: string; intention: string; prompt: string }) => {
+    if (!selectedPlace || !worldPlaces.places) return
+    setPlaceSaving(true)
+    // `idEditable` is not set below, so `patch.id` always equals `selectedPlace.id` here.
+    const next = worldPlaces.places.map((p) => (p.id === selectedPlace.id ? { ...p, ...patch } : p))
+    const result = await worldPlaces.save(next)
+    setPlaceSaving(false)
+    setPlaceStatus(result.ok ? 'lieu enregistré · hérité par tous les personnages du monde' : (result.erreur ?? 'échec'))
+    if (result.ok) {
+      toast('catalogue du monde enregistré')
+      await load() // le prompt affiché côté Personnage doit suivre tout de suite
+    }
+  }
 
   const [title, subtitle] = SAVE_BAR[view]
   const previews = (bank?.previews ?? {}) as Record<string, ScenePreview>
@@ -91,7 +123,11 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
 
   return (
     <div className="screen" id="scenes">
-      <div className="wrap w-full max-w-none">
+      {/* `pb-[130px]`: room for the fixed launch bar below — needed now that
+          « Réglages de la banque » moved under the carousel (31/08/2026); it
+          used to sit above the grid, where the bar never reached it. Same
+          clearance value as `WizardScreen`'s `.wrap`, same reason. */}
+      <div className="wrap w-full max-w-none pb-[130px]">
         {/* The two sub-views are two DESTINATIONS, so two links: shareable, and
             the browser's back button walks between them.
 
@@ -108,27 +144,29 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
 
         {view === 'scenes' ? (
           <div id="bankScenes">
-            <WorldBanner world={world} documentWorld={documentWorld} />
+            <WorldBanner world={world} documentWorld={documentWorld} sceneCount={drafts.length} />
 
-            {/* Two columns: the grid on the left, the sticky inspector on the
+            {/* Two zones: the bank on the left, the sticky compositeur on the
                 right. Under 1100 px the right column goes UNDER, never as an
-                overlay — it is a panel one edits in, not a notification. */}
+                overlay — it is a panel one edits in, not a notification.
+                It STAYS in this side column at every width above that
+                (31/08/2026 correction: an earlier pass made it drop full-width
+                below the grid instead, which was the wrong axis — the ask was
+                HEIGHT, not width; see the `<aside>` below). */}
             <div
               className="grid gap-[22px] [align-items:start]
-                         grid-cols-[minmax(0,1fr)_clamp(320px,26vw,460px)]
+                         grid-cols-[minmax(0,1fr)_clamp(380px,32vw,600px)]
                          max-[1100px]:grid-cols-[1fr]"
             >
-              <div>
+              {/* `min-w-0`: without it this grid item sizes to its CONTENT's
+                  intrinsic width — the carousel's full unscrolled row of
+                  cards, not the track `minmax(0,1fr)` asks for. That grid
+                  blowout pushed the toolbar's "+ Ajouter une scène" button
+                  (flex-1-pushed to the row's end) out past the left zone,
+                  under the compositeur — same class of bug the `min-height:0`
+                  / `min-width:0` note in `chrome/Shell.tsx` already names. */}
+              <div className="min-w-0">
                 <div className="mb-[12px] flex flex-wrap items-center gap-[10px]">
-                  <h2 className="m-0">
-                    Scènes{' '}
-                    <span className="tiny" id="nScenes">
-                      {bench.filter
-                        ? `${bench.shown.length} sur ${drafts.length}`
-                        : `${drafts.length} scènes`}
-                    </span>
-                  </h2>
-                  <div className="flex-1" />
                   {/* A real <label>, not a placeholder posing as one: the
                       placeholder disappears at the first keystroke. It is
                       removed VISUALLY (`sr-only` clips it) because the field
@@ -139,12 +177,75 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
                   </label>
                   <input
                     id="sceneFilter"
-                    className="w-[190px]"
+                    ref={searchRef}
+                    className="w-[220px]"
                     type="search"
-                    placeholder="filtrer — nom, prompt, tag"
+                    placeholder="Rechercher — nom, prompt"
                     value={bench.filter}
                     onChange={(e) => bench.setFilter(e.target.value)}
                   />
+                  {/* The filter is already live — clicking this does not
+                      trigger a search that keystrokes did not already run.
+                      It gives the search field a real, honest affordance
+                      instead of a decorative icon: it puts the cursor back
+                      in it, which is what one wants right after this click. */}
+                  <button
+                    type="button"
+                    className="btn sm"
+                    aria-label="Rechercher"
+                    onClick={() => searchRef.current?.focus()}
+                  >
+                    <Icon name="search" className="h-[15px] w-[15px]" />
+                  </button>
+                  <span className="tiny" id="nScenes">
+                    {bench.filter
+                      ? `${bench.shown.length} sur ${drafts.length}`
+                      : `${drafts.length} scènes`}
+                  </span>
+                  <div className="flex-1" />
+                  <button className="btn primary sm" id="btnAddScene" onClick={bench.add}>
+                    + Ajouter une scène
+                  </button>
+                </div>
+
+                {drafts.length === 0 ? (
+                  <div className="empty rounded-card border border-line bg-panel px-[16px] py-[28px] text-[13px]">
+                    <b className="block mb-[4px]">Banque vide</b>
+                    Ajoute une première scène avec « + Ajouter une scène » ci-dessus.
+                  </div>
+                ) : bench.shown.length === 0 ? (
+                  <div className="empty rounded-card border border-line bg-panel px-[16px] py-[28px] text-[13px]">
+                    aucune scène ne porte « {bench.filter} » — le filtre ne cache rien du document,
+                    il ne montre que ce qui répond.
+                  </div>
+                ) : (
+                  <div
+                    ref={bench.gridRef}
+                    id="sceneCards"
+                    /* Arrows move the focus from card to card, Home and End to
+                       the two ends. An accelerator laid over the tab order, not
+                       a replacement for it — see useSceneWorkbench for the
+                       column-major math the carousel shape now needs. */
+                    onKeyDown={bench.onGridKeyDown}
+                    className="grid gap-[14px] [grid-auto-flow:column] [grid-template-rows:repeat(2,auto)]
+                               [grid-auto-columns:178px] overflow-x-auto overflow-y-hidden pb-[10px]
+                               snap-x snap-mandatory"
+                  >
+                    {bench.shown.map(({ draft }) => (
+                      <SceneGridCard
+                        key={draft.uid}
+                        draft={draft}
+                        preview={previews[draft.base.id]}
+                        stats={stats[draft.base.id]}
+                        selected={bench.selected?.uid === draft.uid}
+                        imageUrl={api.image}
+                        onOpen={() => bench.select(draft.uid)}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-[14px]">
                   <button
                     className="btn sm"
                     id="btnBankDocument"
@@ -154,79 +255,71 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
                     Réglages de la banque
                   </button>
                 </div>
-
-                <div
-                  ref={bench.gridRef}
-                  id="sceneCards"
-                  /* Arrows move the focus from card to card, Home and End to
-                     the two ends. An accelerator laid over the tab order, not
-                     a replacement for it — see useSceneWorkbench. */
-                  onKeyDown={bench.onGridKeyDown}
-                  className="grid gap-[14px] grid-cols-[repeat(auto-fill,minmax(178px,1fr))]"
-                >
-                  {bench.shown.map(({ draft }) => (
-                    <SceneGridCard
-                      key={draft.uid}
-                      draft={draft}
-                      preview={previews[draft.base.id]}
-                      stats={stats[draft.base.id]}
-                      selected={bench.selected?.uid === draft.uid}
-                      imageUrl={api.image}
-                      onOpen={() => bench.select(draft.uid)}
-                    />
-                  ))}
-                  <NewSceneCard onClick={bench.add} />
-                  {!bench.shown.length && bench.filter && (
-                    <div className="empty col-span-full px-[16px] py-[28px] text-[13px]">
-                      aucune scène ne porte « {bench.filter} » — le filtre ne
-                      cache rien du document, il ne montre que ce qui répond.
-                    </div>
-                  )}
-                </div>
-
-                {/* Stowed: two workshops that are not the subject of this
-                    screen. Unchanged inside — they moved, they were not
-                    rewritten. */}
-                <details className="adv mt-[24px]!" id="bankComposer">
-                  <summary>Composer des scènes avec le modèle local</summary>
-                  <div className="mt-[12px]">
-                    <Composer />
-                  </div>
-                </details>
-
-                <details className="adv mt-[12px]!">
-                  <summary>JSON brut</summary>
-                  <textarea
-                    id="rawJson"
-                    spellCheck={false}
-                    className="mt-[12px] min-h-[320px] resize-y font-code text-[12px] leading-[normal]"
-                    value={rawDraft ?? rawJson}
-                    onChange={(e) => setRawDraft(e.target.value)}
-                  />
-                  <button
-                    id="btnRawApply"
-                    className="btn sm mt-[10px]"
-                    onClick={() => {
-                      try {
-                        applyRawJson(rawDraft ?? rawJson)
-                        setRawDraft(null)
-                        toast('JSON appliqué — pense à enregistrer')
-                      } catch (error) {
-                        toast('JSON invalide : ' + (error as Error).message)
-                      }
-                    }}
-                  >
-                    Appliquer le JSON
-                  </button>
-                </details>
               </div>
 
               <aside
-                className="sticky top-[12px] max-h-[calc(100vh-150px)] overflow-auto
-                           max-[1100px]:static max-[1100px]:max-h-none"
+                /* The composer takes the full available HEIGHT of the
+                   viewport (31/08/2026, on request): a fixed `h-` rather than
+                   a `max-h-` cap, so it stretches to fill the column even when
+                   the active tab's own content is short, with its own scroll
+                   for whichever tab's content does not fit. `DocumentPane`
+                   (nothing selected) keeps the old CAP instead — it is two
+                   fields, stretching it to the full height would just be
+                   empty space under a short form. */
+                className={`sticky top-[12px] overflow-auto max-[1100px]:static max-[1100px]:h-auto
+                            max-[1100px]:max-h-none ${
+                              bench.selected
+                                ? 'h-[calc(100vh-150px)]'
+                                : 'max-h-[calc(100vh-150px)]'
+                            }`}
                 id="bankInspector"
               >
-                {bench.selected ? (
+                {bench.selected && worldLinked && (
+                  /* A GROUP of two buttons, not a tablist: it toggles which
+                     panel of the SAME inspector shows, no navigation and no
+                     `tabpanel` on either side — see SceneGrid/Scenes-Poses
+                     for why this studio reserves `tablist` for links that
+                     actually navigate. */
+                  <div
+                    role="group"
+                    aria-label="Cadre du lieu ou réglages du personnage"
+                    className="seg mb-[10px]"
+                  >
+                    <button
+                      type="button"
+                      className={`px-[13px] py-[6px] text-[12.5px]${bench.inspectorMode === 'character' ? ' on bg-acc font-semibold text-on-acc' : ' bg-transparent text-dim'}`}
+                      aria-pressed={bench.inspectorMode === 'character'}
+                      onClick={() => bench.setInspectorMode('character')}
+                    >
+                      Personnage
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-[13px] py-[6px] text-[12.5px]${bench.inspectorMode === 'world' ? ' on bg-acc font-semibold text-on-acc' : ' bg-transparent text-dim'}`}
+                      aria-pressed={bench.inspectorMode === 'world'}
+                      onClick={() => bench.setInspectorMode('world')}
+                    >
+                      Monde
+                    </button>
+                  </div>
+                )}
+
+                {bench.selected && worldLinked && bench.inspectorMode === 'world' ? (
+                  selectedPlace ? (
+                    <PlaceInspector
+                      place={selectedPlace}
+                      worldLabel={world?.label ?? bench.selected.base.world ?? ''}
+                      saving={placeSaving}
+                      status={placeStatus}
+                      onSave={onSavePlace}
+                      onClose={bench.close}
+                    />
+                  ) : (
+                    <div className="empty rounded-card border border-line bg-panel px-[16px] py-[28px] text-[13px]">
+                      {worldPlaces.error ?? 'lieu introuvable dans le catalogue du monde'}
+                    </div>
+                  )
+                ) : bench.selected ? (
                   <SceneInspector
                     draft={bench.selected}
                     creative={creative}
@@ -235,6 +328,7 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
                     onPatch={(patch) => patchDraft(bench.selectedIndex, patch)}
                     onRemove={() => void bench.remove(bench.selectedIndex)}
                     onClose={bench.close}
+                    onSaveDocument={onSave}
                   />
                 ) : (
                   <DocumentPane

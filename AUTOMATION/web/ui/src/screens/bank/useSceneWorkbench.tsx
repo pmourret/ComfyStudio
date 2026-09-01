@@ -12,15 +12,21 @@
 import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 
 import { useConfirm } from '../../chrome/ConfirmContext'
-import { useScenes, type SceneDraft } from '../../state/ScenesStoreContext'
+import { composePrompt, useScenes, type SceneDraft } from '../../state/ScenesStoreContext'
 
 /** Accent- and case-insensitive enough for a bank of a few dozen scenes. */
 const fold = (text: string) =>
   text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
+/* Fixed rows of the carousel grid (`BankScreen.tsx`, `#sceneCards`,
+   `[grid-template-rows:repeat(2,auto)]`) \u2014 a DESIGN constant, not derived: 2
+   rows is the wireframe's choice, it does not change with the viewport the
+   way the old auto-fill grid's column count did (31/08/2026 layout pass). */
+const GRID_ROWS = 2
+
 function matches(draft: SceneDraft, needle: string) {
   if (!needle) return true
-  const hay = fold([draft.id, draft.prompt, draft.tags, draft.intention].join(' '))
+  const hay = fold([draft.id, composePrompt(draft), draft.tags, draft.intention].join(' '))
   return fold(needle)
     .split(/\s+/)
     .filter(Boolean)
@@ -33,6 +39,11 @@ export function useSceneWorkbench() {
   const [selectedUid, setSelectedUid] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
   const gridRef = useRef<HTMLDivElement | null>(null)
+  /* Monde | Personnage (ADR-0015) — only meaningful for a scene bound to a
+     world place (`origin === 'world'`), reset to 'character' on every new
+     selection so opening a different scene never inherits the previous
+     one's tab. */
+  const [inspectorMode, setInspectorMode] = useState<'character' | 'world'>('character')
 
   /* Derived, never stored: a selection that outlives the scene it points at is
      how an inspector ends up editing a draft the grid no longer has. Switching
@@ -54,16 +65,25 @@ export function useSceneWorkbench() {
     [drafts, filter],
   )
 
-  const select = useCallback((uid: string | null) => setSelectedUid(uid), [])
+  const select = useCallback((uid: string | null) => {
+    setSelectedUid(uid)
+    setInspectorMode('character')
+  }, [])
 
   /* Arrows walk the grid. An ACCELERATOR, not a composite widget: every card
      keeps its natural place in the tab order, so nothing regresses for whoever
      navigates by Tab alone. What it removes is the twenty tabulations it took
      to cross a bank from one corner to the other.
 
-     The column count is read from the computed grid rather than guessed: the
-     track list is `repeat(auto-fill, …)`, so it changes with the window and any
-     constant here would be wrong at the first resize. */
+     COLUMN-MAJOR, not row-major (31/08/2026 layout pass): the grid is now a
+     horizontal carousel (`[grid-auto-flow:column]`, `GRID_ROWS` fixed rows),
+     so the DOM order (unchanged — CSS never reorders it) walks DOWN a column
+     before moving to the next one. The old grid was `auto-fill` (row-major,
+     variable column count read from the computed style, since it changed with
+     the window); this one is the opposite shape — a FIXED row count, a
+     variable column count — so the roles of Up/Down and Left/Right swap:
+     Up/Down move by one (next/previous row of the SAME column), Left/Right
+     jump a whole column (`±GRID_ROWS`). */
   const onGridKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
     const grid = gridRef.current
     if (!grid || event.altKey || event.ctrlKey || event.metaKey) return
@@ -71,15 +91,11 @@ export function useSceneWorkbench() {
     const from = cards.indexOf(document.activeElement as HTMLElement)
     if (from < 0) return
 
-    const columns = Math.max(
-      1,
-      getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length,
-    )
     const steps: Record<string, number> = {
-      ArrowLeft: -1,
-      ArrowRight: 1,
-      ArrowUp: -columns,
-      ArrowDown: columns,
+      ArrowUp: -1,
+      ArrowDown: 1,
+      ArrowLeft: -GRID_ROWS,
+      ArrowRight: GRID_ROWS,
     }
     const to =
       event.key === 'Home'
@@ -112,6 +128,7 @@ export function useSceneWorkbench() {
   const add = useCallback(() => {
     setFilter('')
     setSelectedUid(addScene())
+    setInspectorMode('character')
   }, [addScene])
 
   /* Removing is destructive — the scene leaves the bank at the next save and
@@ -151,5 +168,7 @@ export function useSceneWorkbench() {
     add,
     remove,
     onGridKeyDown,
+    inspectorMode,
+    setInspectorMode,
   }
 }

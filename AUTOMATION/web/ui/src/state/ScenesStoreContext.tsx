@@ -54,6 +54,13 @@ export type Scene = {
   tones?: string[]
   tags?: string[]
   pose?: string
+  world?: string
+  origin?: string
+  /* Id of the WORLDS/<world>.json place this scene inherits its frame from
+     (ADR-0015). Set only when `origin === 'world'`; `label`/`intention`/
+     `prompt` are then re-derived server-side from the live catalog on every
+     load and save — editing them here would be discarded, never forked. */
+  world_ref?: string
   [key: string]: unknown
 }
 
@@ -81,10 +88,45 @@ export type SceneDraft = {
   bandLo: string
   tones: string
   tags: string
-  prompt: string
+  /* The scene's prompt, decomposed for the composer (bank/composer/).
+     UI-ONLY SPLIT: scenes.json keeps ONE `prompt` string, exactly as build_jobs
+     has always read it (runner/prompt.py, byte-exact test). These three
+     fragments exist only in the draft; `composePrompt` joins them back on
+     every save, the same ", "-join build_jobs itself uses for its own
+     fragments. There is no durable memory of which chunk was which: reloading
+     a scene puts its whole `prompt` into `promptBase` and leaves the other two
+     empty, because storing a machine-readable separator INSIDE the string
+     would mean shipping that separator to the model as prompt text — worse
+     than the ambiguity it would resolve.
+
+     `wardrobe` (below) is deliberately NOT a fourth fragment here, even though
+     the composer's Vêtements tab presents it as "Prompt de vêtement": the
+     outfit is injected per-level by `wardrobe_for()` server-side, and the
+     scene's own prompt label has always said "jamais la tenue" — joining it
+     here would inject the outfit twice, once in the prompt text and once
+     per-level at generation time. */
+  promptBase: string
+  promptLight: string
+  promptPose: string
   wardrobe: string
   variants: string
   pose: string
+}
+
+/* Mirror of build_jobs' own fragment join (runner/prompt.py: `", ".join(t for
+   _, t in morceaux if t)`) — same separator, same "drop the empty ones" rule,
+   so a scene composed here reads like one build_jobs would have assembled
+   itself. Order matches the composer's tabs: décor, lumière, pose — the
+   wardrobe never joins this (see the SceneDraft comment above). */
+export function composePrompt(draft: {
+  promptBase: string
+  promptLight: string
+  promptPose: string
+}): string {
+  return [draft.promptBase, draft.promptLight, draft.promptPose]
+    .map((fragment) => fragment.trim())
+    .filter(Boolean)
+    .join(', ')
 }
 
 /* ---------------------------------------------------------------- wardrobe
@@ -181,7 +223,11 @@ export function draftOf(scene: Scene): SceneDraft {
     bandLo: String(band[0]),
     tones: (scene.tones ?? []).join(', '),
     tags: (scene.tags ?? []).join(', '),
-    prompt: scene.prompt ?? '',
+    // the whole stored prompt lands in `promptBase` — see the SceneDraft comment
+    // on why it is never guessed apart into the other two fragments
+    promptBase: scene.prompt ?? '',
+    promptLight: '',
+    promptPose: '',
     wardrobe: wardrobeToText(scene.wardrobe),
     variants: (scene.variants ?? []).join('\n'),
     pose: scene.pose ?? '',
@@ -217,7 +263,7 @@ export function draftsToScenes(drafts: SceneDraft[]): Scene[] {
     scene.id = draft.id.trim()
     scene.format = draft.format
     scene.count = Number.parseInt(draft.count, 10) || 1
-    scene.prompt = draft.prompt.trim()
+    scene.prompt = composePrompt(draft)
     put('intention', draft.intention)
     put('guidance', draft.guidance ? Number.parseFloat(draft.guidance) : null)
     put('tones', keys(draft.tones))

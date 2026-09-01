@@ -1,39 +1,20 @@
 /* The inspector: everything about ONE scene, and nothing about the others.
 
-   THE FIELDS DID NOT MOVE. This is the former `SceneCard.tsx` — the same
-   controls, the same `data-f` names, the same French labels and the same
-   incident notes. What changed is where it lives: one panel beside the grid
-   instead of twenty stacked forms.
+   THE COMPOSER LIVES NEXT DOOR (31/08/2026, wireframe-driven). The flat form
+   this file used to render directly — a dozen fields in one scroll — is now
+   `composer/SceneComposer.tsx`, seven tabs instead: this file keeps the
+   OUTER shell (the section, the Escape-closes gesture, the aria-label) and
+   the world-link decision that gates several of the composer's fields, and
+   hands the rest to it. `DocumentPane` below is untouched — a different
+   concern (the bank's shared settings, shown when nothing is selected).
 
    THE INSPECTOR DOES NOT OWN THE SCENE. It edits a DRAFT, and the draft carries
    the original object (`base`): every key it does not display crosses the save
    untouched — `world` and `origin` among them. See ScenesStoreContext for the
-   incident that rule comes from.
-
-   Text fields hold their TEXT, converted only on save — converting on each
-   keystroke would erase what is being typed. */
-import { useEffect, useRef } from 'react'
-
+   incident that rule comes from. */
 import type { Creative } from '../../state/TaxonomyContext'
-import { bandOf, textToWardrobe, type SceneDraft } from '../../state/ScenesStoreContext'
-
-const FORMATS = ['4:5', '2:3', '9:16', '1:1']
-
-/* Vocabulary of the walk, for the intention selector. A scene carrying a key
-   absent from creative.json KEEPS it: we add it to the list rather than let it
-   vanish from the selector — hence from the scene. */
-function intentionOptions(creative: Creative | null, current: string) {
-  const entries = (creative?.intentions ?? []).map((i) => [i.key, i.label] as [string, string])
-  if (current && !entries.some(([key]) => key === current)) entries.push([current, current])
-  return entries
-}
-
-/* Skeletons of INPUTS/POSE/, served by /api/scenes. A scene pointing at a
-   missing skeleton (file moved, renamed) KEEPS it in the list rather than lose
-   it in silence — same rule as an out-of-taxonomy intention. */
-function poseOptions(poses: string[], current: string) {
-  return current && !poses.includes(current) ? [...poses, current] : poses
-}
+import type { SceneDraft } from '../../state/ScenesStoreContext'
+import { SceneComposer } from './composer/SceneComposer'
 
 export function SceneInspector({
   draft,
@@ -43,6 +24,7 @@ export function SceneInspector({
   onPatch,
   onRemove,
   onClose,
+  onSaveDocument,
 }: {
   draft: SceneDraft
   creative: Creative | null
@@ -51,21 +33,16 @@ export function SceneInspector({
   onPatch: (patch: Partial<SceneDraft>) => void
   onRemove: () => void
   onClose: () => void
+  /** The document-level save, offered again from the composer's JSON panel. */
+  onSaveDocument: () => void
 }) {
-  /* The displayed ceiling is deduced from the outfits, live: it follows the
-     wardrobe text as it is typed. */
-  const band = bandOf({
-    intensity: Number.parseInt(draft.bandLo, 10) || 0,
-    wardrobe: textToWardrobe(draft.wardrobe),
-  })
-
-  /* Opening a scene puts the cursor in it. Otherwise the click lands in the
-     grid and the first keystroke goes nowhere — one clicks, then clicks
-     again. */
-  const first = useRef<HTMLInputElement | null>(null)
-  useEffect(() => {
-    first.current?.focus()
-  }, [draft.uid])
+  /* A scene bound to a world place (ADR-0015) never owns its frame: `prompt`
+     and `intention` are always re-derived from the live catalog server-side,
+     so letting them be typed here would edit a value the next save discards
+     — the Monde tab (`PlaceInspector`) is where that text actually lives.
+     Wardrobe levels and the pose skeleton are OVERLAY keys (ADR-0015 §2):
+     never locked by this, whatever the composer decides for its own fields. */
+  const worldLinked = draft.base.origin === 'world'
 
   return (
     <section
@@ -80,206 +57,26 @@ export function SceneInspector({
           onClose()
         }
       }}
-      className="rounded-card border border-line bg-panel p-[16px]"
+      /* `h-full`: the ASIDE around this section is what actually carries the
+         "fill the viewport" height (`BankScreen.tsx`, `h-[calc(100vh-150px)]`
+         while a scene is open) — a plain block element sizes to its OWN
+         content by default, so without this the visible bordered/backgrounded
+         box stopped at the active tab's content height, leaving bare,
+         unstyled aside underneath it. This is what actually reads as "the
+         panel" on screen; the aside itself has no border or background of its
+         own. */
+      className="h-full rounded-card border border-line bg-panel p-[16px]"
     >
-      <div className="mb-[12px] flex items-center gap-[10px]">
-        <label className="f m-0 flex-1">
-          <span>identifiant — sert de nom de fichier</span>
-          <input
-            ref={first}
-            className="font-semibold"
-            data-f="id"
-            value={draft.id}
-            onChange={(e) => onPatch({ id: e.target.value })}
-          />
-        </label>
-        <button
-          className="cursor-pointer self-end border-none bg-transparent text-[18px] text-dim2
-                     hover:text-bad focus-visible:outline-2 focus-visible:outline-focus
-                     focus-visible:outline-offset-2"
-          id="btnSceneRemove"
-          aria-label={`Retirer la scène ${draft.id}`}
-          title="retirer cette scène"
-          onClick={onRemove}
-        >
-          <span aria-hidden="true">×</span>
-        </button>
-      </div>
-
-      {/* Renaming a produced scene orphans it from its images: the statistics
-          and the preview are indexed by id. Said here, where the rename
-          happens. */}
-      <p className="tiny mt-0 mb-[14px]" id="insProduced">
-        {produced
-          ? `${produced} image(s) déjà produite(s) — renommer l'identifiant les détache de cette scène.`
-          : 'jamais produite'}
-      </p>
-
-      <div className="mb-[12px] grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-[12px]">
-        {/* `category` disappeared on 26/08/2026: it was a duplicate of the
-            intention (14 scenes out of 16 identical) that ALSO served as the
-            export folder — the 2 divergences filed the images somewhere other
-            than under the intention on screen. */}
-        <label className="f">
-          <span>intention — sert aussi de dossier d'export</span>
-          <select
-            data-f="intention"
-            value={draft.intention}
-            onChange={(e) => onPatch({ intention: e.target.value })}
-          >
-            <option value="">— aucune —</option>
-            {intentionOptions(creative, draft.intention).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="f">
-          <span>format</span>
-          <select
-            data-f="format"
-            value={draft.format}
-            onChange={(e) => onPatch({ format: e.target.value })}
-          >
-            {FORMATS.map((f) => (
-              <option key={f}>{f}</option>
-            ))}
-          </select>
-        </label>
-        <label className="f">
-          <span>images</span>
-          <input
-            data-f="count"
-            type="number"
-            min={1}
-            value={draft.count}
-            onChange={(e) => onPatch({ count: e.target.value })}
-          />
-        </label>
-        <label className="f">
-          <span>guidance (option)</span>
-          <input
-            data-f="guidance"
-            type="number"
-            step="0.1"
-            placeholder="défaut"
-            value={draft.guidance}
-            onChange={(e) => onPatch({ guidance: e.target.value })}
-          />
-        </label>
-      </div>
-
-      <div className="mb-[12px] grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-[12px]">
-        {/* One number only: the maximum is DEDUCED from the declared outfits.
-            The two fields said the same thing, and the outfit was authoritative
-            anyway (wardrobe_for takes the highest <= level). */}
-        <label className="f">
-          <span>
-            niveau minimum — jusqu'à <b>{band[1]}</b>, déduit des tenues
-          </span>
-          <input
-            data-f="band_lo"
-            type="number"
-            min={0}
-            max={3}
-            className="w-[88px]"
-            value={draft.bandLo}
-            onChange={(e) => onPatch({ bandLo: e.target.value })}
-          />
-        </label>
-        <label className="f">
-          <span>tons affins — virgules</span>
-          <input
-            data-f="tones"
-            placeholder={(creative?.tones ?? []).map((t) => t.key).join(', ')}
-            value={draft.tones}
-            onChange={(e) => onPatch({ tones: e.target.value })}
-          />
-        </label>
-        <label className="f">
-          <span>tags — virgules</span>
-          <input
-            data-f="tags"
-            value={draft.tags}
-            onChange={(e) => onPatch({ tags: e.target.value })}
-          />
-        </label>
-      </div>
-
-      <label className="f">
-        <span>
-          prompt de scène — décor, cadrage, lumière. Jamais le visage, jamais la
-          tenue.
-        </span>
-        <textarea
-          className="min-h-[78px] resize-y"
-          data-f="prompt"
-          value={draft.prompt}
-          onChange={(e) => onPatch({ prompt: e.target.value })}
-        />
-      </label>
-
-      <label className="f mt-[10px]">
-        <span>
-          tenues — une par ligne, préfixée de son niveau (<code>0: a linen shirt
-          and jeans</code>) · <b>c'est le niveau le plus haut ici qui fixe
-          jusqu'où la scène monte</b>
-        </span>
-        <textarea
-          data-f="wardrobe"
-          className="min-h-[52px] resize-y"
-          spellCheck={false}
-          value={draft.wardrobe}
-          onChange={(e) => onPatch({ wardrobe: e.target.value })}
-        />
-      </label>
-
-      <label className="f mt-[10px]">
-        <span>variantes de lumière ou de saison (une par ligne) — jamais une tenue</span>
-        <textarea
-          className="min-h-[52px] resize-y"
-          data-f="variants"
-          value={draft.variants}
-          onChange={(e) => onPatch({ variants: e.target.value })}
-        />
-      </label>
-
-      <div className="mt-[10px] mb-[4px] grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] items-start gap-[12px]">
-        <label className="f">
-          <span>
-            pose imposée (option) — ControlNet, cran SFW uniquement
-            <br />
-            <span className="tiny">
-              A/B mesuré : 0 image sous la bande d'identité sur 15. Un squelette
-              repose ou de profil peut ne pas être suivi, vérifier le résultat à
-              l'œil.
-            </span>
-          </span>
-          <select
-            data-f="pose"
-            value={draft.pose}
-            onChange={(e) => onPatch({ pose: e.target.value })}
-          >
-            <option value="">— aucune —</option>
-            {poseOptions(poses, draft.pose).map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div hidden={!draft.pose}>
-          {draft.pose && (
-            <img
-              className="block max-w-[120px] rounded-[8px] border border-line2"
-              loading="lazy"
-              src={`/img/pose?name=${encodeURIComponent(draft.pose)}`}
-              alt=""
-            />
-          )}
-        </div>
-      </div>
+      <SceneComposer
+        draft={draft}
+        creative={creative}
+        poses={poses}
+        produced={produced}
+        worldLinked={worldLinked}
+        onPatch={onPatch}
+        onRemove={onRemove}
+        onSaveDocument={onSaveDocument}
+      />
     </section>
   )
 }
@@ -305,7 +102,7 @@ export function DocumentPane({
     <section
       id="bankDocument"
       aria-label="Réglages de la banque"
-      className="rounded-card border border-line bg-panel p-[16px]"
+      className="h-full rounded-card border border-line bg-panel p-[16px]"
     >
       <h2 className="mt-0 mb-[4px]">Réglages de la banque</h2>
       <p className="tiny mt-0 mb-[16px]">
