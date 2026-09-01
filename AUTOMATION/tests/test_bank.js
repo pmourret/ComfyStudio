@@ -77,8 +77,11 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   // le compositeur (31/08/2026) est un tablist : un champ n'est dans le DOM
   // que si son onglet est ouvert — voir bank/composer/SceneComposer.tsx
   const onglet = async cle => {
-    await page.click(`#scene-tab-${cle}`);
-    await page.waitForSelector(`#scene-panel-${cle}`);
+    await page.click(`[data-tab="${cle}"]`);
+    // les 7 panneaux restent montes (`forceMount` cote Radix) — seul celui
+    // qui n'est plus `hidden` compte, et c'est deja l'etat 'visible' par
+    // defaut de waitForSelector
+    await page.waitForSelector(`[data-tabpanel="${cle}"]`);
   };
 
   await page.goto(SCENES, { waitUntil: 'networkidle' });
@@ -184,15 +187,17 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   dire(await page.$eval(CARTE, e => e.getAttribute('aria-pressed')) === 'true',
        'la carte ouverte se dit selectionnee (pas seulement par sa bordure)');
 
-  console.log('\n[5bis] le tablist se pilote au clavier — fleches + roving tabindex');
-  await page.focus('#scene-tab-general');
+  console.log('\n[5bis] le tablist se pilote au clavier — fleches + roving tabindex (Radix)');
+  await page.focus('[data-tab="general"]');
   await page.keyboard.press('ArrowRight');
-  dire((await page.$eval('#scene-tab-light', e => e.getAttribute('aria-selected'))) === 'true',
+  await page.waitForTimeout(100);
+  dire((await page.$eval('[data-tab="light"]', e => e.getAttribute('aria-selected'))) === 'true',
        'fleche droite selectionne l onglet suivant');
-  dire((await page.evaluate(() => document.activeElement?.id)) === 'scene-tab-light',
+  dire((await page.evaluate(() => document.activeElement?.dataset?.tab)) === 'light',
        'et deplace le focus AVEC la selection (roving tabindex)');
   await page.keyboard.press('Home');
-  dire((await page.$eval('#scene-tab-general', e => e.getAttribute('aria-selected'))) === 'true',
+  await page.waitForTimeout(100);
+  dire((await page.$eval('[data-tab="general"]', e => e.getAttribute('aria-selected'))) === 'true',
        'Home revient au premier onglet');
 
   console.log('\n[6] Echap referme et rend le focus a sa carte');
@@ -206,7 +211,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
 
   console.log('\n[6bis] Echap dans une modale de prompt ne ferme QUE la modale, pas tout le compositeur');
   await onglet('light');
-  await page.click('#scene-panel-light button[aria-label*="Modifier"]');
+  await page.click('[data-tabpanel="light"] button[aria-label*="Modifier"]');
   await page.waitForSelector('dialog[open]');
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
@@ -221,7 +226,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   console.log('\n[6ter] sur un onglet court, la barre de navigation reste proche du bas du panneau (audit m2)');
   const basPanneau = await page.$eval('#sceneInspector', e => e.getBoundingClientRect().bottom);
   const basBoutons = await page.$$eval(
-    '#scene-panel-light button', els => els[els.length - 1].getBoundingClientRect().bottom);
+    '[data-tabpanel="light"] button', els => els[els.length - 1].getBoundingClientRect().bottom);
   dire(Math.abs(basPanneau - basBoutons) < 40,
        `barre de nav a ${Math.round(basBoutons)}px, bas du panneau a ${Math.round(basPanneau)}px — pas de grand vide`);
 
@@ -360,7 +365,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   await page.click('#btnAddScene');
   await page.waitForSelector('#sceneInspector');
   dire(await vu('#sceneInspector'), 'la scene neuve ouvre dans l inspecteur — pas creee a l aveugle');
-  dire((await page.$eval('#scene-tab-general', e => e.getAttribute('aria-selected'))) === 'true',
+  dire((await page.$eval('[data-tab="general"]', e => e.getAttribute('aria-selected'))) === 'true',
        'une scene neuve (comme une autre) ouvre sur l onglet General');
   const idNeuf = 'fumigation_scene_neuve';
   await page.fill(champ('id'), idNeuf);

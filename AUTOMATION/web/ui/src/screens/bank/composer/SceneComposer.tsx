@@ -6,12 +6,18 @@
    récapitulatif du prompt, une amélioration IA (pour l'instant un gabarit —
    voir la note du panneau), et le JSON final.
 
-   A TABLIST, NOT A NAV. `BankScreen`'s Scènes|Poses switch is a nav because it
+   A TABLIST, NOT A NAV — AND RADIX'S, NOT HAND-ROLLED (audit UX/UI
+   follow-up). `BankScreen`'s Scènes|Poses switch is a nav because it
    NAVIGATES — two routes, the browser's back button walks between them. These
    seven panels are the opposite case: one widget, no URL change, nothing to
-   bookmark. That is exactly what `role="tablist"` exists for, so unlike the
-   nav above it this one earns the role for real — arrow keys move the
-   selection (roving tabindex), Home/End jump the ends.
+   bookmark. `@radix-ui/react-tabs` owns the roving tabindex, the arrow/Home/End
+   keys and the aria-selected/aria-controls/aria-labelledby wiring — three
+   separate hand-rolled bugs surfaced in this exact widget before it landed
+   here (a focus race on `requestAnimationFrame`, `aria-controls` pointing at
+   an unmounted panel, the id template drifting from what the DOM actually
+   had). `Tabs.Content` still unmounts inactive panels by default just like
+   the hand-rolled version did — `forceMount` + `hidden` below is still ours
+   to keep, Radix does not solve that part for free.
 
    THE PROMPT IS SPLIT HERE, NOWHERE ELSE. `scenes.json` still carries one
    `prompt` string, read by `build_jobs` exactly as before (byte-exact test,
@@ -25,7 +31,8 @@
    tenue") — so it keeps its own control, unlocked by a world link that the
    three prompt fragments respect (ADR-0015: `prompt` is the one key a linked
    scene never owns, `wardrobe`/`pose` are overlay keys it always does). */
-import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
+import * as Tabs from '@radix-ui/react-tabs'
 import { Link } from 'react-router-dom'
 
 import { Icon } from '../../../chrome/Icon'
@@ -113,47 +120,17 @@ export function SceneComposer({
 
   const activeIndex = TABS.findIndex((t) => t.key === tab)
 
-  /* Selecting a tab focuses ITS button — the WAI-ARIA tablist convention,
-     followed uniformly whether the selection came from a click, an arrow key,
-     or "Suivant"/"Précédent" below a panel. Done here, at the one place every
-     tab change goes through, rather than as a separate effect keyed on `tab`:
-     that used to run AFTER the mount effect below and steal focus back from
-     the identifier field it had just set — two effects racing over one
-     outcome.
-
-     SYNCHRONOUS, no `requestAnimationFrame`: only the active PANEL is
-     conditionally rendered, never the tab STRIP — every `#scene-tab-*` button
-     is already in the DOM before `setTab` runs, so there is nothing to wait
-     for. Deferring the focus a frame used to lose a real race under load
-     (caught by the browser fumigation intermittently failing its roving-
-     tabindex check: React had applied `aria-selected` well before the queued
-     frame fired, so a reader polling right after the keypress could see the
-     selection change with the focus lagging a frame behind it). */
+  /* Only for "Suivant"/"Précédent" below a panel — a gesture OUTSIDE Radix's
+     own tablist, so its roving-focus group has no reason to know about it.
+     A click or an arrow key INSIDE `Tabs.List` moves focus correctly on its
+     own; this is the one path left where the composer still has to do it by
+     hand, matching the same "selecting a tab focuses its button" convention
+     either way. */
   const goto = (index: number) => {
     if (index < 0 || index >= TABS.length) return
     const key = TABS[index].key
     setTab(key)
-    tabsRef.current?.querySelector<HTMLElement>(`#scene-tab-${key}`)?.focus()
-  }
-
-  /* Roving tabindex, arrow-key nav — WAI-ARIA tablist pattern. Left/Right (and
-     Up/Down, since the strip reads as one row either way) move BOTH the focus
-     and the selection; Home/End jump the ends. This is the studio's first
-     `role="tablist"` that actually earns it: seven panels of ONE widget, no
-     navigation, no URL — see the file banner for why BankScreen's own
-     Scènes|Poses switch deliberately is NOT this. */
-  const onTabsKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const steps: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }
-    if (event.key === 'Home') {
-      event.preventDefault()
-      goto(0)
-    } else if (event.key === 'End') {
-      event.preventDefault()
-      goto(TABS.length - 1)
-    } else if (event.key in steps) {
-      event.preventDefault()
-      goto(activeIndex + steps[event.key])
-    }
+    tabsRef.current?.querySelector<HTMLElement>(`[data-tab="${key}"]`)?.focus()
   }
 
   const lockedNote =
@@ -168,52 +145,58 @@ export function SceneComposer({
        fix upstream never reached the tabpanel content at all (audit UX/UI,
        m2 — measured live: a 300px gap between the nav bar and the panel's
        real bottom edge). */
-    <div className="flex h-full flex-col">
-      <div
+    <Tabs.Root
+      value={tab}
+      onValueChange={(v) => setTab(v as TabKey)}
+      className="flex h-full flex-col"
+    >
+      <Tabs.List
         ref={tabsRef}
-        role="tablist"
         aria-label="Sections de la scène"
-        onKeyDown={onTabsKeyDown}
         className="mb-[14px] flex gap-[4px] rounded-[9px] border border-line bg-panel2 p-[4px]"
       >
-        {TABS.map((t, index) => (
-          <button
+        {TABS.map((t) => (
+          <Tabs.Trigger
             key={t.key}
-            type="button"
-            role="tab"
-            id={`scene-tab-${t.key}`}
-            aria-selected={tab === t.key}
-            aria-controls={`scene-panel-${t.key}`}
-            tabIndex={tab === t.key ? 0 : -1}
+            value={t.key}
+            /* `data-tab`, not `id`: Radix computes `aria-controls` from an id
+               it generates and tracks internally (`useId`) — overriding the
+               rendered `id` prop replaces the ATTRIBUTE but not Radix's own
+               reference to the value it expected there, which broke both
+               `aria-controls` (pointed at an id nothing wore any more) and
+               the roving-focus group's own lookup of "the next trigger to
+               focus" (same mechanism, same expected id). A plain data
+               attribute gives the browser fumigation something stable to
+               select on without touching what Radix already gets right. */
+            data-tab={t.key}
             data-hint-text={t.label}
             className={`flex flex-1 cursor-pointer items-center justify-center rounded-[6px] border-0
                        py-[8px] focus-visible:outline-2 focus-visible:outline-focus
                        focus-visible:outline-offset-2 ${
                          tab === t.key ? 'bg-acc text-on-acc' : 'bg-transparent text-dim hover:text-txt'
                        }`}
-            onClick={() => goto(index)}
           >
             <span className="sr-only">{t.label}</span>
             <Icon name={t.icon} className="h-[16px] w-[16px]" />
-          </button>
+          </Tabs.Trigger>
         ))}
-      </div>
+      </Tabs.List>
 
-      {/* All SEVEN wrappers stay mounted — only the active one's CONTENT
-          does not (audit UX/UI, M2). Unmounting the whole `<div
-          role="tabpanel">` left `aria-controls="scene-panel-<clé>"` on six of
-          the seven tab buttons pointing at an id absent from the DOM: a
-          broken ARIA reference, not just an unused one. `hidden` keeps the
-          same practical effect (inactive panels invisible, out of the
-          accessibility tree, out of tab order) without the buttons lying
-          about what they control. */}
+      {/* All SEVEN panels stay mounted (`forceMount`) — only the active one's
+          CONTENT does not (audit UX/UI, M2). Radix itself only mounts the
+          active `Tabs.Content` by default, which would have reproduced the
+          exact bug this fixed: `aria-controls` pointing at an unmounted
+          panel for the six inactive tabs. `hidden` keeps the same practical
+          effect (invisible, out of the accessibility tree, out of tab order)
+          without the trigger lying about what it controls — Radix computes
+          `aria-controls`/`aria-labelledby` itself from `value`, correctly,
+          whichever panels happen to be mounted. */}
       {TABS.map((t) => (
-        <div
+        <Tabs.Content
           key={t.key}
-          role="tabpanel"
-          id={`scene-panel-${t.key}`}
-          aria-labelledby={`scene-tab-${t.key}`}
-          tabIndex={0}
+          value={t.key}
+          data-tabpanel={t.key}
+          forceMount
           hidden={tab !== t.key}
           className="flex-1 min-h-0"
         >
@@ -286,9 +269,9 @@ export function SceneComposer({
               </div>
             </div>
           )}
-        </div>
+        </Tabs.Content>
       ))}
-    </div>
+    </Tabs.Root>
   )
 }
 
