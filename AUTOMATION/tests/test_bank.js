@@ -227,6 +227,22 @@ const SCENES = BASE + '/bank/scenes?character=lena';
        `« + » a ajoute la ligne "0: ${libellePiece}" sans toucher au reste`);
   await page.fill(champ('wardrobe'), tenues);
   await page.waitForTimeout(200);
+
+  console.log('\n[7ter] le niveau de la ligne ajoutee se choisit — plus limite au niveau 0 (audit UX/UI, M4)');
+  await page.selectOption('select#wardrobeLevel', '2');
+  await page.waitForTimeout(100);
+  const [autrePiece] = await page.$$(`#sceneInspector [aria-pressed]`);
+  const libelleAutre = (await autrePiece.textContent()).trim();
+  await autrePiece.click();
+  await page.waitForTimeout(100);
+  const avantAjout2 = await page.$eval(champ('wardrobe'), e => e.value);
+  await page.click(boutonAjout);
+  await page.waitForTimeout(150);
+  const apresAjout2 = await page.$eval(champ('wardrobe'), e => e.value);
+  dire(apresAjout2 === `${avantAjout2}\n2: ${libelleAutre}`,
+       `le niveau choisi (2) est utilise, plus fige a 0 : "2: ${libelleAutre}"`);
+  await page.fill(champ('wardrobe'), tenues);
+  await page.waitForTimeout(200);
   await onglet('general');
 
   console.log('\n[8] une frappe arme le bandeau « modifications non enregistrees »');

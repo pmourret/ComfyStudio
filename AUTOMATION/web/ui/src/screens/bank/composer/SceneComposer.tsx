@@ -448,6 +448,13 @@ function ClothingPanel({
      notice among a dozen entries. */
   const [filter, setFilter] = useState('')
   const [selected, setSelected] = useState('')
+  /* Audit UX/UI (M4) : the selector used to always write "0: ...", so it
+     stopped being useful the moment a scene needed a garment above the
+     floor level — the exact mechanic (`bandOf`) this whole tab exists to
+     feed. Defaults to the scene's OWN minimum rather than a flat 0: a scene
+     already living at niveau 1 most likely wants its next garment there
+     too, not silently back at 0. */
+  const [level, setLevel] = useState(() => Math.min(3, Math.max(0, Number.parseInt(draft.bandLo, 10) || 0)))
   const items = filter
     ? (WARDROBE_CATALOG.find((c) => c.category === filter)?.items ?? [])
     : WARDROBE_CATALOG.flatMap((c) => c.items)
@@ -466,7 +473,7 @@ function ClothingPanel({
       <div className="mt-[16px] flex flex-wrap items-center justify-between gap-[10px]">
         <span className="text-[12px] text-dim">
           Sélecteur de vêtement
-          <InfoHint text="Vocabulaire de départ en texte — des images de collection remplaceront ces cases à terme. Filtre par catégorie, sélectionne une pièce, puis « + » l'ajoute comme nouvelle ligne (niveau 0) au prompt ci-dessus, sans toucher aux lignes déjà là." />
+          <InfoHint text="Vocabulaire de départ en texte — des images de collection remplaceront ces cases à terme. Filtre par catégorie, sélectionne une pièce, choisis le niveau, puis « + » l'ajoute comme nouvelle ligne au prompt ci-dessus, sans toucher aux lignes déjà là." />
         </span>
         <div className="flex items-center gap-[8px]">
           <label className="sr-only" htmlFor="wardrobeFilter">
@@ -488,12 +495,27 @@ function ClothingPanel({
               </option>
             ))}
           </select>
+          <label className="sr-only" htmlFor="wardrobeLevel">
+            niveau de la ligne ajoutée
+          </label>
+          <select
+            id="wardrobeLevel"
+            className="!w-auto"
+            value={level}
+            onChange={(e) => setLevel(Number(e.target.value))}
+          >
+            {[0, 1, 2, 3].map((n) => (
+              <option key={n} value={n}>
+                niveau {n}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             className="btn sm"
             aria-label="Ajouter la pièce sélectionnée comme nouvelle ligne"
             disabled={!selected}
-            onClick={() => onPatch({ wardrobe: appendWardrobeLine(draft.wardrobe, selected) })}
+            onClick={() => onPatch({ wardrobe: appendWardrobeLine(draft.wardrobe, selected, level) })}
           >
             +
           </button>
