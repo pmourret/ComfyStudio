@@ -15,7 +15,7 @@
 import type { Creative } from '../../state/TaxonomyContext'
 import type { SceneDraft } from '../../state/ScenesStoreContext'
 import { SceneComposer } from './composer/SceneComposer'
-import type { ScenePreview } from './SceneGrid'
+import type { ScenePreview } from './SceneList'
 
 export function SceneInspector({
   draft,

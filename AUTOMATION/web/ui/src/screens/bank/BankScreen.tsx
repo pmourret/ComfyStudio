@@ -38,7 +38,7 @@ import { PATHS } from '../../app/routes'
 import { PlaceInspector } from '../worlds/PlaceInspector'
 import { useWorldPlaces } from '../worlds/useWorldPlaces'
 import { PosesView } from './PosesView'
-import { SceneGridCard, type ScenePreview } from './SceneGrid'
+import { groupByIntention, SceneListRow, type ScenePreview } from './SceneList'
 import { DocumentPane, SceneInspector } from './SceneInspector'
 import { useSceneWorkbench } from './useSceneWorkbench'
 import { WorldBanner } from './WorldBanner'
@@ -146,66 +146,69 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
           <div id="bankScenes">
             <WorldBanner world={world} documentWorld={documentWorld} sceneCount={drafts.length} />
 
-            {/* Two zones: the bank on the left, the sticky compositeur on the
-                right. Under 1100 px the right column goes UNDER, never as an
-                overlay — it is a panel one edits in, not a notification.
-                It STAYS in this side column at every width above that
-                (31/08/2026 correction: an earlier pass made it drop full-width
-                below the grid instead, which was the wrong axis — the ask was
-                HEIGHT, not width; see the `<aside>` below). */}
+            {/* Two zones: a NARROW scene list on the left, the composer
+                DOMINANT on the right (studio-IA direction, 2026-09-01 — was
+                the reverse: an unbounded grid squeezing a `clamp(…,600px)`
+                composer sidebar). The list is a picker, not the work
+                surface — Unreal's World Outliner, Photoshop's Layers panel,
+                a narrow vertical list next to the wide area you actually
+                work in. Under 1100 px both still stack into one column,
+                unchanged threshold. */}
             <div
               className="grid gap-[22px] [align-items:start]
-                         grid-cols-[minmax(0,1fr)_clamp(380px,32vw,600px)]
+                         grid-cols-[clamp(240px,22vw,320px)_minmax(0,1fr)]
                          max-[1100px]:grid-cols-[1fr]"
             >
-              {/* `min-w-0`: without it this grid item sizes to its CONTENT's
-                  intrinsic width — the carousel's full unscrolled row of
-                  cards, not the track `minmax(0,1fr)` asks for. That grid
-                  blowout pushed the toolbar's "+ Ajouter une scène" button
-                  (flex-1-pushed to the row's end) out past the left zone,
-                  under the compositeur — same class of bug the `min-height:0`
-                  / `min-width:0` note in `chrome/Shell.tsx` already names. */}
+              {/* `min-w-0`: a general grid-child safety net (a long unbroken
+                  scene id could otherwise force the track wider than the
+                  clamp asks for), not tied to the carousel this replaced —
+                  see `chrome/Shell.tsx`'s own `min-height:0`/`min-width:0`
+                  note for the general shape of this class of bug. */}
               <div className="min-w-0">
-                <div className="mb-[12px] flex flex-wrap items-center gap-[10px]">
-                  {/* A real <label>, not a placeholder posing as one: the
-                      placeholder disappears at the first keystroke. It is
-                      removed VISUALLY (`sr-only` clips it) because the field
-                      sits in a toolbar, and it stays the control's accessible
-                      name. */}
-                  <label className="sr-only" htmlFor="sceneFilter">
-                    filtrer les scènes
-                  </label>
-                  <input
-                    id="sceneFilter"
-                    ref={searchRef}
-                    className="w-[220px]"
-                    type="search"
-                    placeholder="Rechercher — nom, prompt"
-                    value={bench.filter}
-                    onChange={(e) => bench.setFilter(e.target.value)}
-                  />
-                  {/* The filter is already live — clicking this does not
-                      trigger a search that keystrokes did not already run.
-                      It gives the search field a real, honest affordance
-                      instead of a decorative icon: it puts the cursor back
-                      in it, which is what one wants right after this click. */}
-                  <button
-                    type="button"
-                    className="btn sm"
-                    aria-label="Rechercher"
-                    onClick={() => searchRef.current?.focus()}
-                  >
-                    <Icon name="search" className="h-[15px] w-[15px]" />
-                  </button>
-                  <span className="tiny" id="nScenes">
-                    {bench.filter
-                      ? `${bench.shown.length} sur ${drafts.length}`
-                      : `${drafts.length} scènes`}
-                  </span>
-                  <div className="flex-1" />
-                  <button className="btn primary sm" id="btnAddScene" onClick={bench.add}>
-                    + Ajouter une scène
-                  </button>
+                <div className="mb-[10px] flex flex-col gap-[8px]">
+                  <div className="flex items-center gap-[6px]">
+                    {/* A real <label>, not a placeholder posing as one: the
+                        placeholder disappears at the first keystroke. It is
+                        removed VISUALLY (`sr-only` clips it) because the field
+                        sits in a toolbar, and it stays the control's
+                        accessible name. */}
+                    <label className="sr-only" htmlFor="sceneFilter">
+                      filtrer les scènes
+                    </label>
+                    <input
+                      id="sceneFilter"
+                      ref={searchRef}
+                      className="flex-1"
+                      type="search"
+                      placeholder="Rechercher"
+                      value={bench.filter}
+                      onChange={(e) => bench.setFilter(e.target.value)}
+                    />
+                    {/* The filter is already live — clicking this does not
+                        trigger a search that keystrokes did not already run.
+                        It gives the search field a real, honest affordance
+                        instead of a decorative icon: it puts the cursor back
+                        in it, which is what one wants right after this
+                        click. */}
+                    <button
+                      type="button"
+                      className="btn sm"
+                      aria-label="Rechercher"
+                      onClick={() => searchRef.current?.focus()}
+                    >
+                      <Icon name="search" className="h-[15px] w-[15px]" />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between gap-[8px]">
+                    <span className="tiny" id="nScenes">
+                      {bench.filter
+                        ? `${bench.shown.length} sur ${drafts.length}`
+                        : `${drafts.length} scènes`}
+                    </span>
+                    <button className="btn primary sm" id="btnAddScene" onClick={bench.add}>
+                      + Ajouter une scène
+                    </button>
+                  </div>
                 </div>
 
                 {drafts.length === 0 ? (
@@ -220,27 +223,51 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
                   </div>
                 ) : (
                   <div
-                    ref={bench.gridRef}
+                    ref={bench.listRef}
                     id="sceneCards"
-                    /* Arrows move the focus from card to card, Home and End to
-                       the two ends. An accelerator laid over the tab order, not
-                       a replacement for it — see useSceneWorkbench for the
-                       column-major math the carousel shape now needs. */
-                    onKeyDown={bench.onGridKeyDown}
-                    className="grid gap-[14px] [grid-auto-flow:column] [grid-template-rows:repeat(2,auto)]
-                               [grid-auto-columns:178px] overflow-x-auto overflow-y-hidden pb-[10px]
-                               snap-x snap-mandatory"
+                    /* Arrows move the focus from row to row, Home and End to
+                       the two ends, Left/Right fold the enclosing group — see
+                       useSceneWorkbench for why this is linear now instead of
+                       the carousel's column-major math. */
+                    onKeyDown={bench.onListKeyDown}
+                    className="flex flex-col gap-[12px]"
                   >
-                    {bench.shown.map(({ draft }) => (
-                      <SceneGridCard
-                        key={draft.uid}
-                        draft={draft}
-                        preview={previews[draft.base.id]}
-                        stats={stats[draft.base.id]}
-                        selected={bench.selected?.uid === draft.uid}
-                        imageUrl={api.image}
-                        onOpen={() => bench.select(draft.uid)}
-                      />
+                    {groupByIntention(bench.shown, creative).map((group) => (
+                      <details key={group.key} open className="group">
+                        {/* Native disclosure, not a hand-rolled one: free
+                            keyboard (Enter/Space) and expanded/collapsed
+                            state exposed to assistive tech, no ARIA to get
+                            wrong. Own chevron (rotated via Radix-free
+                            `group-open:`) replaces the native marker glyph,
+                            which the two engines draw differently. */}
+                        <summary
+                          className="flex cursor-pointer list-none items-center gap-[6px] rounded-[6px]
+                                     px-[4px] py-[4px] text-[11px] font-semibold uppercase
+                                     tracking-[.5px] text-dim2 hover:text-dim
+                                     focus-visible:outline-2 focus-visible:outline-focus
+                                     focus-visible:outline-offset-2
+                                     [&::-webkit-details-marker]:hidden"
+                        >
+                          <Icon name="chevron" className="h-[11px] w-[11px] shrink-0 transition-transform group-open:rotate-90" />
+                          <span className="truncate">{group.label}</span>
+                          <span className="ml-auto shrink-0 font-normal normal-case tracking-normal text-dim2">
+                            {group.entries.length}
+                          </span>
+                        </summary>
+                        <div className="mt-[6px] flex flex-col gap-[6px] pl-[2px]">
+                          {group.entries.map(({ draft }) => (
+                            <SceneListRow
+                              key={draft.uid}
+                              draft={draft}
+                              preview={previews[draft.base.id]}
+                              stats={stats[draft.base.id]}
+                              selected={bench.selected?.uid === draft.uid}
+                              imageUrl={api.image}
+                              onOpen={() => bench.select(draft.uid)}
+                            />
+                          ))}
+                        </div>
+                      </details>
                     ))}
                   </div>
                 )}

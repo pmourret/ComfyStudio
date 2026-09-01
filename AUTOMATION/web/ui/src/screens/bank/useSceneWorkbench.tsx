@@ -1,6 +1,6 @@
 /* Selection and gestures of the scene workbench.
 
-   THE BANK IS A GRID PLUS AN INSPECTOR, and this holds the one thing the two
+   THE BANK IS A LIST PLUS AN INSPECTOR, and this holds the one thing the two
    halves share: which scene is open. It selects on the draft's `uid`, never on
    its index — removing the third scene used to shift every following one onto
    its neighbour's state, and an index-based selection would have followed the
@@ -18,12 +18,6 @@ import { composePrompt, useScenes, type SceneDraft } from '../../state/ScenesSto
 const fold = (text: string) =>
   text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
-/* Fixed rows of the carousel grid (`BankScreen.tsx`, `#sceneCards`,
-   `[grid-template-rows:repeat(2,auto)]`) \u2014 a DESIGN constant, not derived: 2
-   rows is the wireframe's choice, it does not change with the viewport the
-   way the old auto-fill grid's column count did (31/08/2026 layout pass). */
-const GRID_ROWS = 2
-
 function matches(draft: SceneDraft, needle: string) {
   if (!needle) return true
   const hay = fold([draft.id, composePrompt(draft), draft.tags, draft.intention].join(' '))
@@ -38,7 +32,7 @@ export function useSceneWorkbench() {
   const confirm = useConfirm()
   const [selectedUid, setSelectedUid] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
-  const gridRef = useRef<HTMLDivElement | null>(null)
+  const listRef = useRef<HTMLDivElement | null>(null)
   /* Monde | Personnage (ADR-0015) — only meaningful for a scene bound to a
      world place (`origin === 'world'`), reset to 'character' on every new
      selection so opening a different scene never inherits the previous
@@ -70,57 +64,72 @@ export function useSceneWorkbench() {
     setInspectorMode('character')
   }, [])
 
-  /* Arrows walk the grid. An ACCELERATOR, not a composite widget: every card
+  /* Arrows walk the list. An ACCELERATOR, not a composite widget: every row
      keeps its natural place in the tab order, so nothing regresses for whoever
-     navigates by Tab alone. What it removes is the twenty tabulations it took
+     navigates by Tab alone. What it removes is the many tabulations it took
      to cross a bank from one corner to the other.
 
-     COLUMN-MAJOR, not row-major (31/08/2026 layout pass): the grid is now a
-     horizontal carousel (`[grid-auto-flow:column]`, `GRID_ROWS` fixed rows),
-     so the DOM order (unchanged — CSS never reorders it) walks DOWN a column
-     before moving to the next one. The old grid was `auto-fill` (row-major,
-     variable column count read from the computed style, since it changed with
-     the window); this one is the opposite shape — a FIXED row count, a
-     variable column count — so the roles of Up/Down and Left/Right swap:
-     Up/Down move by one (next/previous row of the SAME column), Left/Right
-     jump a whole column (`±GRID_ROWS`). */
-  const onGridKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
-    const grid = gridRef.current
-    if (!grid || event.altKey || event.ctrlKey || event.metaKey) return
-    const cards = Array.from(grid.querySelectorAll<HTMLElement>('[data-scene-card]'))
-    const from = cards.indexOf(document.activeElement as HTMLElement)
-    if (from < 0) return
+     LINEAR, not column-major (studio-IA direction, 2026-09-01 — the carousel
+     this replaced needed a column-major math the outliner-style vertical list
+     does not: DOM order already IS reading order). Up/Down move by one row;
+     Home/End jump the ends. Rows inside a COLLAPSED `<details>` group are
+     `display:none` (native), so `.offsetParent === null` for them — filtered
+     out here the same way a hidden element already fails a visibility check
+     anywhere else in the studio, not a hand-rolled exception for this list.
 
-    const steps: Record<string, number> = {
-      ArrowUp: -1,
-      ArrowDown: 1,
-      ArrowLeft: -GRID_ROWS,
-      ArrowRight: GRID_ROWS,
+     Left/Right do not move between rows: they collapse/expand the group the
+     focused row (or its own `<summary>`) belongs to — the same convention a
+     file tree already uses (Explorer, VS Code), and the reason this list is
+     grouped by `<details>` rather than a home-rolled disclosure widget in the
+     first place. */
+  const onListKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
+    const list = listRef.current
+    if (!list || event.altKey || event.ctrlKey || event.metaKey) return
+    const target = document.activeElement as HTMLElement | null
+    if (!target) return
+
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      const details = target.closest('details')
+      if (!details) return
+      const wantOpen = event.key === 'ArrowRight'
+      if (details.open === wantOpen) return
+      event.preventDefault()
+      details.open = wantOpen
+      if (!wantOpen) details.querySelector<HTMLElement>('summary')?.focus()
+      return
     }
+
+    const rows = Array.from(list.querySelectorAll<HTMLElement>('[data-scene-card]')).filter(
+      (el) => el.offsetParent !== null,
+    )
+    const from = rows.indexOf(target)
+    if (from < 0) return
     const to =
       event.key === 'Home'
         ? 0
         : event.key === 'End'
-          ? cards.length - 1
-          : event.key in steps
-            ? from + steps[event.key]
-            : -1
-    /* Out of the grid — at an edge, or on a key we do not claim. The page keeps
-       its own scrolling: an arrow that does nothing must not also eat the
-       gesture. */
-    if (to < 0 || to >= cards.length || to === from) return
+          ? rows.length - 1
+          : event.key === 'ArrowDown'
+            ? from + 1
+            : event.key === 'ArrowUp'
+              ? from - 1
+              : -1
+    /* Out of the list — at an edge, or on a key we do not claim. The page
+       keeps its own scrolling: an arrow that does nothing must not also eat
+       the gesture. */
+    if (to < 0 || to >= rows.length || to === from) return
     event.preventDefault()
-    cards[to].focus()
+    rows[to].focus()
   }, [])
 
-  /* Closing gives the focus back to the card that was open. Without it focus
+  /* Closing gives the focus back to the row that was open. Without it focus
      falls to the top of the document and one tabs through the whole screen to
      reach the next scene — the exact cost a workbench exists to remove. */
   const close = useCallback(() => {
     const uid = selectedUid
     setSelectedUid(null)
     if (!uid) return
-    gridRef.current?.querySelector<HTMLElement>(`[data-uid="${uid}"]`)?.focus()
+    listRef.current?.querySelector<HTMLElement>(`[data-uid="${uid}"]`)?.focus()
   }, [selectedUid])
 
   /* A scene created blind in a grid of twenty is not created: adding opens it.
@@ -157,7 +166,7 @@ export function useSceneWorkbench() {
   )
 
   return {
-    gridRef,
+    listRef,
     filter,
     setFilter,
     shown,
@@ -167,7 +176,7 @@ export function useSceneWorkbench() {
     close,
     add,
     remove,
-    onGridKeyDown,
+    onListKeyDown,
     inspectorMode,
     setInspectorMode,
   }

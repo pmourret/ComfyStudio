@@ -114,16 +114,46 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   dire(!(await vu('#worldBanner [data-world-drift]')),
        'et aucune derive signalee — la fiche et le fichier disent le meme monde');
 
-  console.log('\n[4] la GRILLE montre l essentiel, une carte par scene');
+  console.log('\n[4] la LISTE montre l essentiel, une carte par scene, groupee par intention');
   const nCartes = await page.$$eval(CARTE, e => e.length);
   dire(nCartes === avant.scenes.length, `${nCartes} cartes pour ${avant.scenes.length} scenes`);
   dire(await vu('#btnAddScene'), "le bouton « + Ajouter une scene » est dans la barre d'outils");
-  dire((await page.$eval(CARTE + ' [data-card-id]', e => e.textContent)) === avant.scenes[0].id,
-       'la premiere carte porte l identifiant de la premiere scene');
+  // le regroupement par intention reordonne l'AFFICHAGE (studio-IA,
+  // 2026-09-01) : la premiere carte du DOM n'est plus forcement avant.scenes[0]
+  // — on verifie l'ensemble des identifiants, pas un ordre precis
+  const idsAffiches = await page.$$eval(CARTE + ' [data-card-id]', e => e.map(x => x.textContent));
+  dire(JSON.stringify([...idsAffiches].sort()) === JSON.stringify(avant.scenes.map(s => s.id).sort()),
+       'chaque scene du document a exactement une carte, quel que soit le groupe');
   dire((await page.$$(CARTE + ' [data-f]')).length === 0,
        "une carte ne porte AUCUN champ : le detail vit dans l'inspecteur");
   dire((await texte(CARTE + ' [data-card-produced]')).length > 0,
        'elle dit en toutes lettres si la scene a deja ete produite');
+  // la scene CIBLE de tout le reste du parcours est celle que la premiere
+  // carte ouvre reellement — plus une hypothese sur l'ordre du document
+  const premiereCarteId = await page.$eval(CARTE + ' [data-card-id]', e => e.textContent);
+  const cible = avant.scenes.find(s => s.id === premiereCarteId);
+  dire(Boolean(cible), `la premiere carte du DOM correspond a une scene reelle (« ${premiereCarteId} »)`);
+
+  console.log('\n[4ter] les scenes sont groupees par intention, en sections repliables (studio-IA, 2026-09-01)');
+  const groupes = await page.$$eval('#sceneCards > details', els => els.map(d => ({
+    label: d.querySelector('summary span')?.textContent,
+    compte: Number(d.querySelector('summary span:last-child')?.textContent),
+    ouvert: d.open,
+  })));
+  dire(groupes.length > 0, `${groupes.length} groupe(s) d intention affiche(s)`);
+  dire(groupes.every(g => g.ouvert), 'chaque groupe s ouvre deplie par defaut');
+  dire(groupes.reduce((n, g) => n + (g.compte || 0), 0) === avant.scenes.length,
+       'la somme des groupes couvre toute la banque, sans doublon ni perte');
+  // fleches gauche/droite plient/deplient — convention d un arbre de fichiers
+  // (Explorer, VS Code), pas une invention de cet ecran
+  const premierGroupe = await page.$('#sceneCards > details');
+  await premierGroupe.evaluate(d => d.querySelector('summary').focus());
+  await page.keyboard.press('ArrowLeft');
+  await page.waitForTimeout(100);
+  dire(await premierGroupe.evaluate(d => !d.open), 'fleche gauche replie le groupe qui a le focus');
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(100);
+  dire(await premierGroupe.evaluate(d => d.open), 'fleche droite le redeplie');
 
   console.log('\n[5] OUVRIR une carte remplit l inspecteur');
   dire(await vu('#bankDocument'),
@@ -182,7 +212,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   await page.fill(champ('prompt_light_recap'), '');
 
   await onglet('general');
-  dire((await page.$eval(champ('id'), e => e.value)) === avant.scenes[0].id,
+  dire((await page.$eval(champ('id'), e => e.value)) === cible.id,
        'et c est bien LA scene ouverte qui est editee');
   dire(await page.$eval(CARTE, e => e.getAttribute('aria-pressed')) === 'true',
        'la carte ouverte se dit selectionnee (pas seulement par sa bordure)');
@@ -193,7 +223,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   console.log('\n[5quater] en-tete persistant : vignette + prompt compose en direct, sur tous les onglets');
   dire(await vu('#scenePreviewThumb'), 'la vignette de la scene est visible des l ouverture');
   const previewInitial = await page.$eval('#scenePromptPreview', e => e.textContent.trim());
-  dire(previewInitial === (avant.scenes[0].prompt || '— vide —'),
+  dire(previewInitial === (cible.prompt || '— vide —'),
        `le prompt compose initial correspond au prompt enregistre (« ${previewInitial.slice(0, 40)}… »)`);
   await onglet('light');
   dire(await vu('#scenePreviewThumb') && await vu('#scenePromptPreview'),
@@ -324,7 +354,9 @@ const SCENES = BASE + '/bank/scenes?character=lena';
        'la saisie est intacte au retour');
 
   console.log('\n[10] FILTRER retrecit la grille, jamais le document');
-  const cible = avant.scenes[0];
+  // `cible` est deja etabli en [4] — la premiere carte reelle du DOM, pas une
+  // hypothese sur l'ordre du document (le regroupement par intention reordonne
+  // l'affichage)
   await page.fill('#sceneFilter', cible.id);
   await page.waitForTimeout(200);
   const filtrees = await page.$$eval(CARTE, e => e.length);
@@ -357,7 +389,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   const apres = await banque();
   dire(apres.scenes.length === avant.scenes.length,
        `toujours ${apres.scenes.length} scenes — aucune perdue`);
-  dire(apres.scenes[0].prompt === promptAttendu,
+  dire(apres.scenes.find(s => s.id === cible.id).prompt === promptAttendu,
        'les 2 fragments tapes dans des onglets differents ont bien ete joints, virgule separee');
 
   // LE POINT DU TEST : tout ce que l'inspecteur ne montre pas doit avoir traverse
@@ -365,7 +397,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   avant.scenes.forEach((s, i) => {
     const a = apres.scenes[i] || {};
     Object.keys(s).forEach(k => {
-      if (k === 'prompt' && i === 0) return;               // le champ modifie
+      if (k === 'prompt' && s.id === cible.id) return;      // le champ modifie
       if (k === 'category') return;                        // cle morte, retiree a l'enregistrement
       if (JSON.stringify(s[k]) !== JSON.stringify(a[k]))
         ecarts.push(`${s.id}.${k} : ${JSON.stringify(s[k])} -> ${JSON.stringify(a[k])}`);
@@ -414,8 +446,14 @@ const SCENES = BASE + '/bank/scenes?character=lena';
        'et la tenue par defaut de la scene neuve n a jamais rejoint le prompt');
 
   console.log('\n[13] une tenue sans niveau REFUSE l enregistrement');
+  // la scene ajoutee en [12] a pu rejoindre un groupe affiche AVANT celui de
+  // `cible` — on la retrouve par filtre plutot que de supposer qu elle est
+  // toujours la premiere carte du DOM
+  await page.fill('#sceneFilter', cible.id);
+  await page.waitForTimeout(200);
   await page.click(CARTE);
   await page.waitForSelector('#sceneInspector');
+  await page.fill('#sceneFilter', '');
   await onglet('clothing');
   await page.fill(champ('wardrobe'), 'une tenue sans niveau');
   await page.waitForTimeout(150);
@@ -424,7 +462,8 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   dire((await texte('#scMsg')).includes('tenue sans niveau'),
        `le refus est dit a l'ecran : « ${(await texte('#scMsg')).slice(0, 70)}… »`);
   const pendant = await banque();
-  dire(JSON.stringify(pendant.scenes[0].wardrobe) === JSON.stringify(apres.scenes[0].wardrobe),
+  dire(JSON.stringify(pendant.scenes.find(s => s.id === cible.id).wardrobe) ===
+       JSON.stringify(apres.scenes.find(s => s.id === cible.id).wardrobe),
        "et rien n'a ete ecrit : la tenue d'origine est toujours en banque");
   dire(await vu('#dirtyBar'), 'le bandeau reste : le travail est toujours en attente');
 

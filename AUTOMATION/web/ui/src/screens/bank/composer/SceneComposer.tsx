@@ -45,7 +45,7 @@ import {
   type SceneDraft,
 } from '../../../state/ScenesStoreContext'
 import { PATHS } from '../../../app/routes'
-import type { ScenePreview } from '../SceneGrid'
+import type { ScenePreview } from '../SceneList'
 import { InfoHint } from './InfoHint'
 import { PromptField } from './PromptField'
 import { appendWardrobeLine, WARDROBE_CATALOG } from './wardrobeCatalog'
