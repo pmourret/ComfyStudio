@@ -93,11 +93,19 @@ const comfyUp = () => new Promise(resolve => {
   dire(img.startsWith('/img/pose?name='), `sa vignette vient de /img/pose (${img.slice(0, 40)}…)`);
 
   console.log('\n[4] il est proposable a une scene, dans la sous-vue Scenes');
+  // Depuis la refonte du compositeur (31/08/2026), une carte de la liste ne
+  // porte plus aucun champ : le detail vit dans l'inspecteur, sous l'onglet
+  // Pose — le selecteur y est une grille de vignettes (boutons), plus un
+  // <select> de <option>.
   await page.click('#bankView [data-vue="scenes"]');
   await page.waitForSelector('[data-scene-card]');
-  const options = await page.$$eval('[data-scene-card]:first-child [data-f="pose"] option',
-                                    e => e.map(x => x.value));
-  dire(options.includes(nouveau), 'le nouveau squelette est dans le selecteur de pose');
+  await page.click('[data-scene-card]');
+  await page.waitForSelector('#sceneInspector');
+  await page.click('[data-tab="pose"]');
+  await page.waitForSelector('[data-tabpanel="pose"]');
+  const vignettes = await page.$$eval('[data-tabpanel="pose"] [data-f="pose"] button[title]',
+                                      e => e.map(x => x.title));
+  dire(vignettes.includes(nouveau), 'le nouveau squelette est dans le selecteur de pose');
 
   console.log('\n[5] NETTOYAGE : le squelette produit est retire');
   await page.click('#bankView [data-vue="poses"]');
