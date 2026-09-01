@@ -15,12 +15,15 @@
 import type { Creative } from '../../state/TaxonomyContext'
 import type { SceneDraft } from '../../state/ScenesStoreContext'
 import { SceneComposer } from './composer/SceneComposer'
+import type { ScenePreview } from './SceneGrid'
 
 export function SceneInspector({
   draft,
   creative,
   poses,
   produced,
+  preview,
+  imageUrl,
   onPatch,
   onRemove,
   onClose,
@@ -30,6 +33,12 @@ export function SceneInspector({
   creative: Creative | null
   poses: string[]
   produced: number | null
+  /** The scene's last produced shot, if any — same source as the grid card's
+      own thumbnail (`BankScreen.tsx`'s `previews`), threaded here so the
+      composer can show it too instead of going image-blind the moment a
+      scene is actually open for editing. */
+  preview: ScenePreview | undefined
+  imageUrl: (ref: Record<string, unknown>) => string
   onPatch: (patch: Partial<SceneDraft>) => void
   onRemove: () => void
   onClose: () => void
@@ -74,6 +83,8 @@ export function SceneInspector({
         creative={creative}
         poses={poses}
         produced={produced}
+        preview={preview}
+        imageUrl={imageUrl}
         worldLinked={worldLinked}
         onPatch={onPatch}
         onRemove={onRemove}

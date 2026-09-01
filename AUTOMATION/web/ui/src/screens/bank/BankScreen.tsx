@@ -328,6 +328,8 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
                     creative={creative}
                     poses={poses}
                     produced={stats[bench.selected.base.id]?.n ?? null}
+                    preview={previews[bench.selected.base.id]}
+                    imageUrl={api.image}
                     onPatch={(patch) => patchDraft(bench.selectedIndex, patch)}
                     onRemove={() => void bench.remove(bench.selectedIndex)}
                     onClose={bench.close}

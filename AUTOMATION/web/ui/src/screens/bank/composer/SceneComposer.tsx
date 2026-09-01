@@ -45,6 +45,7 @@ import {
   type SceneDraft,
 } from '../../../state/ScenesStoreContext'
 import { PATHS } from '../../../app/routes'
+import type { ScenePreview } from '../SceneGrid'
 import { InfoHint } from './InfoHint'
 import { PromptField } from './PromptField'
 import { appendWardrobeLine, WARDROBE_CATALOG } from './wardrobeCatalog'
@@ -84,6 +85,8 @@ export function SceneComposer({
   creative,
   poses,
   produced,
+  preview,
+  imageUrl,
   worldLinked,
   onPatch,
   onRemove,
@@ -93,6 +96,8 @@ export function SceneComposer({
   creative: Creative | null
   poses: string[]
   produced: number | null
+  preview: ScenePreview | undefined
+  imageUrl: (ref: Record<string, unknown>) => string
   /* A scene bound to a world place (ADR-0015): its frame — the prompt this
      composer builds — is re-derived server-side on every save, so the four
      fragments below are locked here regardless of what gets typed. Wardrobe
@@ -150,6 +155,8 @@ export function SceneComposer({
       onValueChange={(v) => setTab(v as TabKey)}
       className="flex h-full flex-col"
     >
+      <SceneHeader draft={draft} produced={produced} preview={preview} imageUrl={imageUrl} />
+
       <Tabs.List
         ref={tabsRef}
         aria-label="Sections de la scène"
@@ -272,6 +279,67 @@ export function SceneComposer({
         </Tabs.Content>
       ))}
     </Tabs.Root>
+  )
+}
+
+/* ------------------------------------------------------------ En-tête
+   "Studio IA, pas un formulaire" (2026-09-01 direction). Persistent across
+   every tab — unlike the panels below, this is not `Tabs.Content` — because
+   the whole point is to never lose sight of WHAT is being edited while
+   composing it: the composer used to be text fields end to end, no image
+   anywhere, indistinguishable from editing a spreadsheet row. The grid card
+   already carries this same preview; nothing upstream of it changes here,
+   this just stops discarding it the moment a scene opens for editing. */
+function SceneHeader({
+  draft,
+  produced,
+  preview,
+  imageUrl,
+}: {
+  draft: SceneDraft
+  produced: number | null
+  preview: ScenePreview | undefined
+  imageUrl: (ref: Record<string, unknown>) => string
+}) {
+  const composed = composePrompt(draft)
+  return (
+    <div className="mb-[14px]">
+      <div className="flex items-center gap-[10px]">
+        <div
+          id="scenePreviewThumb"
+          data-void={preview ? undefined : '1'}
+          className={`relative h-[64px] w-[51px] shrink-0 overflow-hidden rounded-[8px] border
+                     border-line2 bg-panel2 bg-cover bg-center ${
+                       preview
+                         ? ''
+                         : "after:absolute after:inset-0 after:flex after:items-center" +
+                           " after:justify-center after:p-[3px] after:text-center after:text-[8px]" +
+                           " after:leading-tight after:text-dim2 after:content-['jamais_produite']"
+                     }`}
+          style={preview ? { backgroundImage: `url('${imageUrl({ ...preview, thumb: true })}')` } : undefined}
+        />
+        <div className="min-w-0 flex-1">
+          <b className="block truncate text-[14px]">{draft.id || '(sans identifiant)'}</b>
+          <span className="text-[11.5px] text-dim">
+            {produced ? `${produced} image${produced > 1 ? 's' : ''} produite${produced > 1 ? 's' : ''}` : 'jamais produite'}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-[8px] flex items-start gap-[6px] rounded-[7px] border border-line2 bg-panel2 px-[10px] py-[7px]">
+        <span className="shrink-0 pt-px text-[10px] font-semibold uppercase tracking-[.5px] text-dim2">
+          Prompt
+          <InfoHint text="Aperçu en direct du prompt composé, mis à jour à chaque frappe — le détail par fragment s'édite dans l'onglet Prompt global, jamais ici." />
+        </span>
+        <p
+          id="scenePromptPreview"
+          className="m-0 min-w-0 flex-1 truncate text-[12px] text-dim"
+          title={composed || undefined}
+        >
+          {composed || '— vide —'}
+        </p>
+      </div>
+    </div>
   )
 }
 

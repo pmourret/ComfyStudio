@@ -187,6 +187,26 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   dire(await page.$eval(CARTE, e => e.getAttribute('aria-pressed')) === 'true',
        'la carte ouverte se dit selectionnee (pas seulement par sa bordure)');
 
+  // direction "studio IA" (2026-09-01) : le compositeur montre une image et
+  // le prompt compose EN PERMANENCE, quel que soit l'onglet ouvert — plus
+  // question d'editer une scene a l'aveugle, texte seul, comme un tableur
+  console.log('\n[5quater] en-tete persistant : vignette + prompt compose en direct, sur tous les onglets');
+  dire(await vu('#scenePreviewThumb'), 'la vignette de la scene est visible des l ouverture');
+  const previewInitial = await page.$eval('#scenePromptPreview', e => e.textContent.trim());
+  dire(previewInitial === (avant.scenes[0].prompt || '— vide —'),
+       `le prompt compose initial correspond au prompt enregistre (« ${previewInitial.slice(0, 40)}… »)`);
+  await onglet('light');
+  dire(await vu('#scenePreviewThumb') && await vu('#scenePromptPreview'),
+       'l en-tete reste visible en changeant d onglet — ce n est pas un contenu d onglet');
+  const marqueurHeader = 'fumigation_header_' + Date.now();
+  await page.fill(champ('prompt_light'), marqueurHeader);
+  await page.waitForTimeout(150);
+  dire((await page.$eval('#scenePromptPreview', e => e.textContent)).includes(marqueurHeader),
+       'et se met a jour EN DIRECT depuis un onglet qui n est pas Prompt global, sans y aller');
+  await page.fill(champ('prompt_light'), '');
+  await page.waitForTimeout(150);
+  await onglet('general');
+
   console.log('\n[5bis] le tablist se pilote au clavier — fleches + roving tabindex (Radix)');
   await page.focus('[data-tab="general"]');
   await page.keyboard.press('ArrowRight');
