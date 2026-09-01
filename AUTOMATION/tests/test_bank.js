@@ -181,6 +181,16 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   await page.click(CARTE);
   await page.waitForSelector('#sceneInspector');
 
+  console.log('\n[6bis] Echap dans une modale de prompt ne ferme QUE la modale, pas tout le compositeur');
+  await onglet('light');
+  await page.click('#scene-panel-light button[aria-label*="Modifier"]');
+  await page.waitForSelector('dialog[open]');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+  dire(!(await vu('dialog[open]')), 'la modale se referme');
+  dire(await vu('#sceneInspector'), 'mais le compositeur reste ouvert — la scene reste selectionnee');
+  dire(!(await vu('#bankDocument')), 'et Echap ne retombe pas sur les reglages de la banque');
+
   console.log('\n[7] le plafond de niveau se DEDUIT des tenues, a la frappe — meme lu depuis un AUTRE onglet');
   await onglet('clothing');
   const tenues = await page.$eval(champ('wardrobe'), e => e.value);

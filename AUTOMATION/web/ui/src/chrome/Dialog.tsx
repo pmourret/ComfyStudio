@@ -79,11 +79,27 @@ export function Dialog({
     const onClick = (event: MouseEvent) => {
       if (event.target === element && dismissable) onDismiss()
     }
+    /* Escape closing THIS dialog is not the only thing that happens to it: the
+       key event is a normal `keydown` that still bubbles up the DOM after the
+       `cancel` above fires, past the <dialog> to whatever real ancestor it
+       happens to be nested in. A dialog opened from inside a panel that ALSO
+       closes on Escape (the scene composer's PromptField, nested in
+       SceneInspector's own Escape-closes-the-panel handler) then closes BOTH
+       — confirmed live: Escape in the prompt-editing modal deselected the
+       whole scene. `stopPropagation` here keeps Escape's effect scoped to
+       this dialog, whatever happens to contain it — a native listener, not a
+       React prop, because it must run before React's own root-level dispatch
+       ever sees the event. */
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') event.stopPropagation()
+    }
     element.addEventListener('cancel', onCancel)
     element.addEventListener('click', onClick)
+    element.addEventListener('keydown', onKeyDown)
     return () => {
       element.removeEventListener('cancel', onCancel)
       element.removeEventListener('click', onClick)
+      element.removeEventListener('keydown', onKeyDown)
     }
   }, [dismissable, onDismiss])
 
