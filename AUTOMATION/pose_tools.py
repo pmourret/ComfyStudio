@@ -8,16 +8,19 @@ photo source ne persiste JAMAIS — pas dans INPUTS/, pas ailleurs dans le repo.
 Elle transite par ComfyUI/input/ le temps de l'extraction et en repart quoi
 qu'il arrive (succes ou echec).
 """
+import json
 import shutil
 import sys
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 import env_config                # noqa: E402
+import pose_render                # noqa: E402
 import runner as lb              # noqa: E402
 import ui_to_api                 # noqa: E402
 
@@ -26,13 +29,23 @@ COMFY = env_config.comfyui_root()
 COMFY_INPUT = env_config.comfyui_input()
 COMFY_OUTPUT = env_config.comfyui_output()
 POSE_DIR = OFM / "INPUTS" / "POSE"
+PRESETS_DIR = HERE / "pose_presets"
 EXTRACT_WF = OFM / "WORKFLOWS" / "utils" / "pose_extract_ui.json"
+# Meme dossier scratch que le PNG (widget `filename_prefix` du SaveImage de
+# pose_extract_ui.json) ; le node qui ecrit les points-cles y depose son
+# propre prefixe, `pose_kps_` — voir _ramasser_points_extraits ci-dessous.
+POSE_KPS_SCRATCH = COMFY_OUTPUT / "_LENA_POSE"
 
 FORMATS_ACCEPTES = (".png", ".jpg", ".jpeg", ".webp")
 
 
 class ExtractionError(RuntimeError):
-    """Echec cote ComfyUI ou photo illisible — message deja prets pour l'ecran."""
+    """Echec cote banque de poses — message deja prets pour l'ecran.
+
+    Pas seulement l'extraction malgre le nom : reutilisee par le chargement
+    et l'enregistrement des points-cles, pour n'avoir qu'une seule exception
+    a attraper cote route.
+    """
 
 
 def poses_disponibles():
@@ -42,17 +55,123 @@ def poses_disponibles():
 
 
 def supprimer_pose(nom):
-    """Retire un squelette de la banque.
+    """Retire un squelette de la banque, points-cles compris.
 
     Ne touche a rien d'autre : une scene qui le referencait encore le perd
     silencieusement au niveau du fichier — `valider_banque` le signalera au
     prochain enregistrement de scenes.json (squelette introuvable).
     """
     p = POSE_DIR / nom
-    if p.exists():
+    existait = p.exists()
+    if existait:
         p.unlink()
-        return True
-    return False
+    _chemin_points(nom).unlink(missing_ok=True)
+    return existait
+
+
+def _chemin_points(nom_png):
+    return POSE_DIR / (Path(nom_png).stem + ".json")
+
+
+def _ecrire_points(nom_png, frame, source):
+    """Ecrit le sidecar JSON d'un squelette — toujours sous la forme
+    enveloppe `[frame]` que ComfyUI lui-meme produit et lit, jamais le frame
+    nu. `created_at` n'est horodate qu'une fois : un frame qui en porte deja
+    un (rechargement d'une pose existante) garde sa date de naissance."""
+    frame = dict(frame)
+    frame["source"] = source
+    if not frame.get("created_at"):
+        frame["created_at"] = datetime.now().isoformat(timespec="seconds")
+    _chemin_points(nom_png).write_text(
+        json.dumps([frame], ensure_ascii=False), encoding="utf-8")
+
+
+def charger_points(nom):
+    """Points-cles d'un squelette (le frame, jamais la liste-enveloppe).
+
+    Erreur explicite si absent : une pose extraite avant ce chantier, ou
+    dont le workflow n'a pas (encore) le node de sauvegarde des points-cles
+    branche, n'en a pas — elle n'est pas reconstruite depuis les pixels du
+    PNG (decision actee : pas de retrocompatibilite pour les poses
+    historiques, ce sont des donnees de test).
+    """
+    path = _chemin_points(nom)
+    if not path.exists():
+        raise ExtractionError(
+            f"« {nom} » n'a pas de points-clés enregistrés — extraite avant "
+            f"cette fonctionnalité, ou JSON manquant. La ré-extraire en "
+            f"produira un.")
+    return lb.load_json(path)[0]
+
+
+def enregistrer_points(frame, nom=None):
+    """Rend `frame` en PNG (pose_render, local — jamais ComfyUI) et ecrit la
+    paire PNG+JSON.
+
+    `nom` fourni : ecrase cette pose. Absent : nouvelle pose, sous le
+    prochain index libre de POSE_DIR — meme recherche d'index que
+    `extraire`. `frame["source"]` doit deja etre pose par l'appelant
+    ("preset" ou "extraction") ; repli sur "preset" si absent (le seul cas
+    ou une pose neuve n'en porte pas est un depart de zero, jamais une
+    extraction).
+    """
+    POSE_DIR.mkdir(parents=True, exist_ok=True)
+    if nom is None:
+        pris = {f.name for f in POSE_DIR.glob("*.png")}
+        n = 1
+        while f"pose__{n:05d}_.png" in pris:
+            n += 1
+        nom = f"pose__{n:05d}_.png"
+    image = pose_render.render(frame)
+    image.save(POSE_DIR / nom)
+    _ecrire_points(nom, frame, source=frame.get("source") or "preset")
+    return nom
+
+
+def presets_disponibles():
+    """`[{"nom", "label"}]` pour chaque gabarit de `pose_presets/` — nom de
+    fichier sans extension, label lu dans le fichier (repli sur le nom)."""
+    if not PRESETS_DIR.exists():
+        return []
+    sortie = []
+    for f in sorted(PRESETS_DIR.glob("*.json")):
+        try:
+            frame = lb.load_json(f)[0]
+        except Exception:
+            continue
+        sortie.append({"nom": f.stem, "label": frame.get("label") or f.stem})
+    return sortie
+
+
+def charger_preset(nom):
+    path = PRESETS_DIR / f"{nom}.json"
+    if not path.exists():
+        raise ExtractionError(f"gabarit inconnu : « {nom} »")
+    return lb.load_json(path)[0]
+
+
+def _ramasser_points_extraits():
+    """Repere le JSON de points-cles produit par CETTE extraction dans le
+    dossier scratch (meme namespace que le PNG, prefixe `pose_kps_` — voir
+    POSE_KPS_SCRATCH). Rend le frame, ou None si absent (node de sauvegarde
+    pas branche sur ce poste — l'extraction reste valide sans, voir
+    `extraire`).
+
+    Nettoie TOUT ce qu'il trouve, pas seulement le fichier retenu : comme le
+    PNG, ce dossier n'a de sens que vide entre deux extractions ; un JSON
+    plus vieux qui traine (ex. avant l'ajout de cette fonction) est du bruit,
+    jamais une pose a recuperer a retardement.
+    """
+    if not POSE_KPS_SCRATCH.exists():
+        return None
+    candidats = sorted(POSE_KPS_SCRATCH.glob("pose_kps_*.json"),
+                       key=lambda p: p.stat().st_mtime, reverse=True)
+    if not candidats:
+        return None
+    frame = lb.load_json(candidats[0])[0]
+    for c in candidats:
+        c.unlink(missing_ok=True)
+    return frame
 
 
 def extraire(photo_bytes, nom_fichier_original, comfy_url, timeout=180):
@@ -121,6 +240,12 @@ def extraire(photo_bytes, nom_fichier_original, comfy_url, timeout=180):
             n += 1
         nom = f"pose__{n:05d}_.png"
         shutil.move(str(source), str(POSE_DIR / nom))
+
+        # Points-cles : meme index que le PNG, absence tolerée (voir
+        # _ramasser_points_extraits) — le PNG reste le seul contrat dur.
+        frame_extrait = _ramasser_points_extraits()
+        if frame_extrait is not None:
+            _ecrire_points(nom, frame_extrait, source="extraction")
         return nom
     finally:
         # La photo source ne doit JAMAIS survivre a cet appel, succes ou

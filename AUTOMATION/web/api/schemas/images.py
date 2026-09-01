@@ -41,6 +41,42 @@ class PoseDeleteRequest(BaseModel):
     name: str = ""
 
 
+class PoseSaveRequest(BaseModel):
+    """Saves an edited or brand-new skeleton — `keypoints` is the raw frame
+    `pose_tools.py` reads and writes (`extra="allow"`: this layer relays a
+    format it does not own, same reasoning as `/api/config`'s own response).
+
+    `name` given, no `save_as`: overwrites that pose. `name` given WITH
+    `save_as`: keeps the original, writes a new pose under `save_as`.
+    Neither given: a brand-new pose (from a preset), auto-numbered like an
+    extraction.
+    """
+    model_config = ConfigDict(extra="allow")
+
+    name: Optional[str] = None
+    save_as: Optional[str] = None
+    keypoints: dict = {}
+
+
+class PoseSaveResponse(BaseModel):
+    """`name` is the skeleton actually written — the request's `name` on a
+    plain overwrite, `save_as` or a fresh `pose__NNNNN_.png` otherwise."""
+    ok: bool
+    name: str
+
+
+class PosePreset(BaseModel):
+    """One starter template from `AUTOMATION/pose_presets/` — entirely
+    synthetic coordinates, never a real photo (see `nom` == the file's own
+    stem, `label` == what a person reads)."""
+    nom: str
+    label: str
+
+
+class PosePresetsResponse(BaseModel):
+    presets: list[PosePreset]
+
+
 class ImageNotFound(BaseModel):
     """404 of a byte-serving route.
 

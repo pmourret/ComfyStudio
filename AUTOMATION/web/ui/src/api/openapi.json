@@ -1457,6 +1457,194 @@
         }
       }
     },
+    "/api/pose/keypoints": {
+      "get": {
+        "summary": "Points-clés d'un squelette",
+        "description": "The editable frame behind a skeleton PNG (`pose_tools.charger_points`).\n\nNo `response_model`: this layer relays a shape it does not own — same\nreasoning as `/api/config` (a model here would silently drop a key a\nfuture extraction adds). No `character=` either, same as every other\npose route: the bank is shared by every character.",
+        "operationId": "get_pose_keypoints_api_pose_keypoints_get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Nom de fichier PNG, motif SAFE_NAME",
+              "default": "",
+              "title": "Name"
+            },
+            "description": "Nom de fichier PNG, motif SAFE_NAME"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Pose Keypoints Api Pose Keypoints Get"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pose/presets": {
+      "get": {
+        "summary": "Gabarits de pose disponibles",
+        "description": "Starter templates for a pose made from scratch — entirely synthetic\ncoordinates (`AUTOMATION/pose_presets/`), never a real photo.",
+        "operationId": "get_pose_presets_api_pose_presets_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PosePresetsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pose/preset": {
+      "get": {
+        "summary": "Points-clés d'un gabarit",
+        "description": "Same shape as `/api/pose/keypoints`, for a preset instead of a saved\npose — the editor's \"new pose from scratch\" flow loads this, then\nbehaves exactly as if editing any other frame.",
+        "operationId": "get_pose_preset_api_pose_preset_get",
+        "parameters": [
+          {
+            "name": "nom",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Nom du gabarit, sans extension",
+              "default": "",
+              "title": "Nom"
+            },
+            "description": "Nom du gabarit, sans extension"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Pose Preset Api Pose Preset Get"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pose/save": {
+      "post": {
+        "summary": "Enregistrer un squelette édité ou neuf",
+        "description": "Renders `keypoints` locally (`pose_render` — no ComfyUI, no GPU, no\njob queue) and writes the PNG+JSON pair. See `PoseSaveRequest` for the\nname / save_as contract (plain overwrite / save-as-new / brand-new).",
+        "operationId": "save_pose_api_pose_save_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PoseSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoseSaveResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/plan": {
       "post": {
         "summary": "Plan à blanc du lancement",
@@ -4247,6 +4435,96 @@
         ],
         "title": "PoseExtractResponse",
         "description": "`name` is the skeleton written to INPUTS/POSE/, which a scene may then\nreference by that file name."
+      },
+      "PosePreset": {
+        "properties": {
+          "nom": {
+            "type": "string",
+            "title": "Nom"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nom",
+          "label"
+        ],
+        "title": "PosePreset",
+        "description": "One starter template from `AUTOMATION/pose_presets/` — entirely\nsynthetic coordinates, never a real photo (see `nom` == the file's own\nstem, `label` == what a person reads)."
+      },
+      "PosePresetsResponse": {
+        "properties": {
+          "presets": {
+            "items": {
+              "$ref": "#/components/schemas/PosePreset"
+            },
+            "type": "array",
+            "title": "Presets"
+          }
+        },
+        "type": "object",
+        "required": [
+          "presets"
+        ],
+        "title": "PosePresetsResponse"
+      },
+      "PoseSaveRequest": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "save_as": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Save As"
+          },
+          "keypoints": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Keypoints",
+            "default": {}
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "PoseSaveRequest",
+        "description": "Saves an edited or brand-new skeleton — `keypoints` is the raw frame\n`pose_tools.py` reads and writes (`extra=\"allow\"`: this layer relays a\nformat it does not own, same reasoning as `/api/config`'s own response).\n\n`name` given, no `save_as`: overwrites that pose. `name` given WITH\n`save_as`: keeps the original, writes a new pose under `save_as`.\nNeither given: a brand-new pose (from a preset), auto-numbered like an\nextraction."
+      },
+      "PoseSaveResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "name"
+        ],
+        "title": "PoseSaveResponse",
+        "description": "`name` is the skeleton actually written — the request's `name` on a\nplain overwrite, `save_as` or a fresh `pose__NNNNN_.png` otherwise."
       },
       "PromptEcho": {
         "properties": {

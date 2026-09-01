@@ -1,11 +1,18 @@
 """Image bytes, thumbnails, pose skeletons.
 
 Port of `routes/vignettes.py` — same 4 URLs, same bodies, same status codes.
+Plus the pose EDITOR's own routes (2026-09-02), added at the end of this
+file: keypoints/presets are JSON, not bytes, but they live here with the
+rest of the pose bank rather than a new router for four routes.
 
     /img                serves an image of a sorting bucket (thumbnail on demand)
     /img/pose           serves a pose skeleton from INPUTS/POSE/
     /api/pose/extract   a photo -> an OpenPose skeleton
     /api/pose/delete    removes a skeleton
+    /api/pose/keypoints the editable frame behind a skeleton PNG
+    /api/pose/presets   starter templates for a pose made from scratch
+    /api/pose/preset    the frame of one starter template
+    /api/pose/save      renders + writes an edited or brand-new skeleton
 
 `/static/*` is not here: it is mounted in api/main.py, with the rest of the
 assembly, exactly as `web.static` was registered in web/app.py.
@@ -25,6 +32,7 @@ from ..dependencies import RequiredCharacterId
 from ..schemas.common import ActionResponse, ERROR_RESPONSES
 from ..schemas.images import (
     ImageNotFound, PoseDeleteRequest, PoseExtractRequest, PoseExtractResponse,
+    PoseSaveRequest, PoseSaveResponse, PosePresetsResponse,
 )
 
 router = APIRouter(responses=ERROR_RESPONSES)
@@ -184,3 +192,60 @@ async def delete_pose(payload: PoseDeleteRequest):
                             status_code=404)
     ss.push_log(f"squelette retiré : {name}")
     return {"ok": True}
+
+
+@router.get("/api/pose/keypoints", summary="Points-clés d'un squelette")
+async def get_pose_keypoints(
+        name: str = Query("", description="Nom de fichier PNG, motif SAFE_NAME")) -> dict:
+    """The editable frame behind a skeleton PNG (`pose_tools.charger_points`).
+
+    No `response_model`: this layer relays a shape it does not own — same
+    reasoning as `/api/config` (a model here would silently drop a key a
+    future extraction adds). No `character=` either, same as every other
+    pose route: the bank is shared by every character.
+    """
+    if not ss.SAFE_NAME.match(name):
+        ss.bad_request("nom invalide")
+    try:
+        return pose_tools.charger_points(name)
+    except pose_tools.ExtractionError as e:
+        return JSONResponse({"ok": False, "erreur": str(e)}, status_code=404)
+
+
+@router.get("/api/pose/presets", response_model=PosePresetsResponse,
+            summary="Gabarits de pose disponibles")
+async def get_pose_presets():
+    """Starter templates for a pose made from scratch — entirely synthetic
+    coordinates (`AUTOMATION/pose_presets/`), never a real photo."""
+    return {"presets": pose_tools.presets_disponibles()}
+
+
+@router.get("/api/pose/preset", summary="Points-clés d'un gabarit")
+async def get_pose_preset(
+        nom: str = Query("", description="Nom du gabarit, sans extension")) -> dict:
+    """Same shape as `/api/pose/keypoints`, for a preset instead of a saved
+    pose — the editor's "new pose from scratch" flow loads this, then
+    behaves exactly as if editing any other frame."""
+    try:
+        return pose_tools.charger_preset(nom)
+    except pose_tools.ExtractionError as e:
+        return JSONResponse({"ok": False, "erreur": str(e)}, status_code=404)
+
+
+@router.post("/api/pose/save", response_model=PoseSaveResponse,
+             summary="Enregistrer un squelette édité ou neuf")
+async def save_pose(payload: PoseSaveRequest):
+    """Renders `keypoints` locally (`pose_render` — no ComfyUI, no GPU, no
+    job queue) and writes the PNG+JSON pair. See `PoseSaveRequest` for the
+    name / save_as contract (plain overwrite / save-as-new / brand-new)."""
+    name = (payload.name or "").strip()
+    save_as = (payload.save_as or "").strip()
+    if name and not ss.SAFE_NAME.match(name):
+        ss.bad_request("nom de fichier invalide")
+    if save_as and not ss.SAFE_NAME.match(save_as):
+        ss.bad_request("nom de fichier invalide (enregistrer sous)")
+    if not payload.keypoints.get("people"):
+        ss.bad_request("points-clés manquants ou illisibles")
+    written = pose_tools.enregistrer_points(payload.keypoints, nom=(save_as or name or None))
+    ss.push_log(f"squelette enregistré : {written}")
+    return {"ok": True, "name": written}

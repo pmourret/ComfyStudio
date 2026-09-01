@@ -92,6 +92,23 @@ const comfyUp = () => new Promise(resolve => {
   const img = await page.getAttribute(`[data-pose-card][data-n="${nouveau}"] img`, 'src');
   dire(img.startsWith('/img/pose?name='), `sa vignette vient de /img/pose (${img.slice(0, 40)}…)`);
 
+  console.log('\n[3bis] le sidecar JSON de points-cles a suivi (2026-09-02)');
+  // SavePoseKpsAsJsonFile (pose_extract_ui.json) ne rapporte rien a l'API —
+  // contrairement a SaveImage, sa presence ne se verifie que par ce que
+  // pose_tools a effectivement ecrit a cote du PNG. /api/pose/keypoints est
+  // le meme chemin que l'editeur de pose utilisera pour charger une pose.
+  const points = await page.evaluate(async (nom) => {
+    const r = await fetch(`/api/pose/keypoints?name=${encodeURIComponent(nom)}`);
+    return { code: r.status, corps: await r.json() };
+  }, nouveau);
+  dire(points.code === 200, `/api/pose/keypoints repond 200 (${points.code})`);
+  dire(points.corps.source === 'extraction',
+       `la provenance dit "extraction" (${points.corps.source})`);
+  dire(Array.isArray(points.corps.people) && points.corps.people.length === 1,
+       'un seul sujet, comme attendu');
+  const corps18 = (points.corps.people[0].pose_keypoints_2d || []).length === 18 * 3;
+  dire(corps18, '18 points de corps (x,y,confiance)');
+
   console.log('\n[4] il est proposable a une scene, dans la sous-vue Scenes');
   // Depuis la refonte du compositeur (31/08/2026), une carte de la liste ne
   // porte plus aucun champ : le detail vit dans l'inspecteur, sous l'onglet
@@ -120,6 +137,10 @@ const comfyUp = () => new Promise(resolve => {
   dire(!final.includes(nouveau), 'le squelette est retire de la banque');
   dire(final.length === avant.length && final.every(n => avant.includes(n)),
        `la banque est revenue a son etat de depart (${final.length} squelette(s))`);
+  // Le sidecar JSON disparait avec le PNG a la suppression : deja verrouille
+  // par test_pose_render.py (pas de nouvelle requete 404 ici — le navigateur
+  // journalise tout fetch en echec dans la console, meme gere, et ferait
+  // echouer [6] pour une verification deja faite ailleurs sans navigateur).
 
   console.log('\n[6] aucune erreur JS sur tout le parcours');
   dire(erreurs.length === 0, `${erreurs.length} erreur(s)`);

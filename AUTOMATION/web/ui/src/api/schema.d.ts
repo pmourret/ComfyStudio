@@ -684,6 +684,96 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pose/keypoints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Points-clés d'un squelette
+         * @description The editable frame behind a skeleton PNG (`pose_tools.charger_points`).
+         *
+         *     No `response_model`: this layer relays a shape it does not own — same
+         *     reasoning as `/api/config` (a model here would silently drop a key a
+         *     future extraction adds). No `character=` either, same as every other
+         *     pose route: the bank is shared by every character.
+         */
+        get: operations["get_pose_keypoints_api_pose_keypoints_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pose/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Gabarits de pose disponibles
+         * @description Starter templates for a pose made from scratch — entirely synthetic
+         *     coordinates (`AUTOMATION/pose_presets/`), never a real photo.
+         */
+        get: operations["get_pose_presets_api_pose_presets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pose/preset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Points-clés d'un gabarit
+         * @description Same shape as `/api/pose/keypoints`, for a preset instead of a saved
+         *     pose — the editor's "new pose from scratch" flow loads this, then
+         *     behaves exactly as if editing any other frame.
+         */
+        get: operations["get_pose_preset_api_pose_preset_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pose/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enregistrer un squelette édité ou neuf
+         * @description Renders `keypoints` locally (`pose_render` — no ComfyUI, no GPU, no
+         *     job queue) and writes the PNG+JSON pair. See `PoseSaveRequest` for the
+         *     name / save_as contract (plain overwrite / save-as-new / brand-new).
+         */
+        post: operations["save_pose_api_pose_save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/plan": {
         parameters: {
             query?: never;
@@ -2045,6 +2135,60 @@ export interface components {
          *     reference by that file name.
          */
         PoseExtractResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Name */
+            name: string;
+        };
+        /**
+         * PosePreset
+         * @description One starter template from `AUTOMATION/pose_presets/` — entirely
+         *     synthetic coordinates, never a real photo (see `nom` == the file's own
+         *     stem, `label` == what a person reads).
+         */
+        PosePreset: {
+            /** Nom */
+            nom: string;
+            /** Label */
+            label: string;
+        };
+        /** PosePresetsResponse */
+        PosePresetsResponse: {
+            /** Presets */
+            presets: components["schemas"]["PosePreset"][];
+        };
+        /**
+         * PoseSaveRequest
+         * @description Saves an edited or brand-new skeleton — `keypoints` is the raw frame
+         *     `pose_tools.py` reads and writes (`extra="allow"`: this layer relays a
+         *     format it does not own, same reasoning as `/api/config`'s own response).
+         *
+         *     `name` given, no `save_as`: overwrites that pose. `name` given WITH
+         *     `save_as`: keeps the original, writes a new pose under `save_as`.
+         *     Neither given: a brand-new pose (from a preset), auto-numbered like an
+         *     extraction.
+         */
+        PoseSaveRequest: {
+            /** Name */
+            name?: string | null;
+            /** Save As */
+            save_as?: string | null;
+            /**
+             * Keypoints
+             * @default {}
+             */
+            keypoints: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * PoseSaveResponse
+         * @description `name` is the skeleton actually written — the request's `name` on a
+         *     plain overwrite, `save_as` or a fresh `pose__NNNNN_.png` otherwise.
+         */
+        PoseSaveResponse: {
             /** Ok */
             ok: boolean;
             /** Name */
@@ -3714,6 +3858,163 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pose_keypoints_api_pose_keypoints_get: {
+        parameters: {
+            query?: {
+                /** @description Nom de fichier PNG, motif SAFE_NAME */
+                name?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Requête refusée */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pose_presets_api_pose_presets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PosePresetsResponse"];
+                };
+            };
+            /** @description Requête refusée */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_pose_preset_api_pose_preset_get: {
+        parameters: {
+            query?: {
+                /** @description Nom du gabarit, sans extension */
+                nom?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Requête refusée */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_pose_api_pose_save_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PoseSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoseSaveResponse"];
+                };
+            };
+            /** @description Requête refusée */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
             /** @description Validation Error */
             422: {
