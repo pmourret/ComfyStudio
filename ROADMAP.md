@@ -378,6 +378,49 @@ prouvent la généralisation — pas juste Léna renommée.
 - `"flux+edit"` en dur en 17 endroits pour dire « ce palier édite » — sans
   effet tant que le seul pack qui édite est flux
 
+**Studio IA — chaque écran au niveau d'un outil professionnel** *(ouvert
+2026-09-01 — exigence transverse, pas un jalon avec une date de fin)*
+- Périmètre inchangé : personnage → univers → scènes, le pipeline actuel.
+  Pas de multi-personnage, pas de vidéo pour l'instant
+- Référence de niveau visée : Unreal Engine / Photoshop côté image.
+  Modèle mental posé en session : **Soulglade est
+  l'orchestrateur/compositeur, ComfyUI est le moteur** — Soulglade compose
+  et pilote, ComfyUI exécute les graphes. Cohérent avec les invariants
+  déjà écrits (CLAUDE.md §1-§2-§11), pas une remise en cause
+- Se décline écran par écran, au fil des sessions — reste ouvert tant que
+  des écrans du pipeline actuel n'ont pas atteint ce niveau
+- **Premier écran repris : le compositeur de scène** (Banque). Formulaire
+  plat → 7 onglets (Général / Lumière / Vêtements / Pose / Prompt global /
+  Amélioration IA / JSON final). Audit UX/UI dédié : 5 correctifs
+  distincts en commits séparés (fuite d'Échap hors d'une modale,
+  sélecteur de tenue figé au niveau 0, aria-controls cassé sur 6 onglets
+  sur 7, miroirs du récapitulatif ambigus, barre de navigation flottante)
+  ; tablist fait main migré vers `@radix-ui/react-tabs` après plusieurs
+  bugs répétés du même genre (course de focus, id qui dérive). Le prompt
+  de vêtement, le prompt de pose et le sélecteur de tenue restent un
+  vocabulaire de départ en texte — pas encore un vrai catalogue illustré,
+  voir l'importeur d'assets ci-dessous. **Repris en session le 2026-09-01**
+  pour une nouvelle passe
+- Outils annoncés pour incarner cette ambition, à faire un par un, aucun
+  scope figé pour l'instant :
+  - Éditeur de pose OpenPose visuel, dans le studio (au-delà de
+    l'extraction actuelle de `PosesView`)
+  - Créateur de lumière (probable remplaçant du placeholder « template de
+    lumière » du compositeur de scène)
+  - Importeur d'assets (ex. vêtements) avec résumé automatique par vision
+    LLM de l'image importée
+  - Éditeur d'expression faciale — intégration à trouver dans le workflow
+    ComfyUI final ; à recouper avec `assert_no_face` / le verrou
+    d'identité (CLAUDE.md) le moment venu
+  - Éditeur photo existant (`screens/review/PhotoEditor.tsx`) : à revoir
+    à cette même aune une fois le patron ci-dessous stabilisé sur un
+    deuxième outil
+- Le patron d'interface du compositeur de scène (tabs + panneaux + champs
+  de prompt + catalogues + navigation Suivant/Précédent) est candidat à
+  être repris par les outils ci-dessus, mais **pas généralisé en composant
+  partagé avant un deuxième vrai consommateur** — cohérent avec CLAUDE.md
+  contre l'abstraction prématurée
+
 ## V2 — Extensions
 
 - Mise en scène de plusieurs personnages ensemble (verrous d'identité
