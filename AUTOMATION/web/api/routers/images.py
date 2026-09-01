@@ -17,6 +17,7 @@ from typing import Optional
 from fastapi import APIRouter, Query
 from fastapi.responses import FileResponse, JSONResponse
 
+import env_config
 import pose_tools
 import shared_state as ss
 
@@ -163,7 +164,7 @@ async def extract_pose(payload: PoseExtractRequest):
                             status_code=503)
     try:
         skeleton = await asyncio.get_running_loop().run_in_executor(
-            None, pose_tools.extraire, data, name, ss.cfg()["comfy_url"])
+            None, pose_tools.extraire, data, name, env_config.comfy_url())
     except pose_tools.ExtractionError as e:
         return JSONResponse({"ok": False, "erreur": str(e)}, status_code=400)
     ss.push_log(f"squelette extrait : {skeleton}")

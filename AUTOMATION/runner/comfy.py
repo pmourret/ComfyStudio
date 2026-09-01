@@ -69,7 +69,7 @@ def wait_prompt(url, prompt_id, timeout=900):
 
 # ---------------------------------------------------------------- graphe ComfyUI
 class WorkflowRunner:
-    def __init__(self, cfg, character_id="lena", *, universe_id=None,
+    def __init__(self, cfg, character_id, *, universe_id=None,
                  style_name=None, base_portrait=False):
         self.cfg = cfg
         self.character_id = character_id

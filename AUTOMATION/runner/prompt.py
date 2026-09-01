@@ -12,8 +12,9 @@ from types import SimpleNamespace
 
 from . import OFM, load_json
 
-import universe  # noqa: E402  (AUTOMATION/ sur le path via runner/__init__.py)
-import worlds    # noqa: E402
+import env_config  # noqa: E402  (AUTOMATION/ sur le path via runner/__init__.py)
+import universe    # noqa: E402
+import worlds      # noqa: E402
 
 # -------------------------------------------------------- donnees de personnage
 # CHARACTERS/<character_id>/{character,config,scenes,creative}.json : donnees
@@ -149,7 +150,6 @@ def create_character(cid, name, character_type, output_style, world, base_gelee)
     }
 
     config = {
-        "comfy_url": dft.get("comfy_url", "http://127.0.0.1:8188"),
         "workflow": universe.workflow(pack),
         "base_gelee": base_gelee,
         "identity": dict(dft.get("identity") or {}),
@@ -165,10 +165,15 @@ def create_character(cid, name, character_type, output_style, world, base_gelee)
     fmt = next(iter(config["formats"]), "1:1")
     # Tampon de monde, racine et par scene (ADR-0014 §3). Une banque nait
     # tamponnee : c'est ce qui permet a /api/scenes d'etre STRICT ensuite au
-    # lieu de reparer en silence. `origin` dit d'ou vient la scene — ici de
-    # l'amorce du monde, plus tard « manual » ou « compose ».
-    # La tenue, elle, est ecrite VIDE : le catalogue du monde n'habille pas ses
-    # scenes (ADR-0014 §2), c'est un reglage de personnage.
+    # lieu de reparer en silence. `origin` dit d'ou vient la scene — ici du
+    # catalogue du monde, plus tard « manual » ou « compose ».
+    # `merge_scene` (ADR-0015) fait le travail : le cadre (label/intention/
+    # prompt) vient du lieu, l'overlay ci-dessous est le reglage de
+    # personnage par defaut a la naissance — tenue VIDE, le catalogue du
+    # monde n'habille pas ses lieux (ADR-0014 §2). Meme fonction que celle
+    # que la Banque appelle a chaque chargement/enregistrement : une scene
+    # nee ici a deja un prompt utilisable par build_jobs sans jamais passer
+    # par la Banque.
     scenes = {
         "prefix": seed.get("prefix", ""),
         "anchor": seed.get("anchor", ""),
@@ -176,11 +181,10 @@ def create_character(cid, name, character_type, output_style, world, base_gelee)
         "direction": seed.get("direction", ""),
         "world": world,
         "scenes": [
-            {"id": s["id"], "world": world, "origin": "world",
-             "intention": s.get("intention", ""), "tones": [],
-             "intensity": 0, "format": fmt, "count": 1,
-             "prompt": s.get("prompt", ""), "wardrobe": {"0": ""}, "variants": []}
-            for s in worlds.starter_scenes(world) if s.get("id")
+            worlds.merge_scene(world, s["id"], {
+                "tones": [], "intensity": 0, "format": fmt, "count": 1,
+                "wardrobe": {"0": ""}, "variants": []})
+            for s in worlds.places(world) if s.get("id")
         ],
     }
 
@@ -225,7 +229,14 @@ def content_type_active(character_id, kind):
 
 
 def load_config(character_id):
-    return load_json(config_path(character_id))
+    """config.json d'un personnage, `comfy_url` toujours remplace par le
+    reglage MACHINE (`env_config.comfy_url()`), jamais celui ecrit dans le
+    fichier : un seul ComfyUI pour toute la plateforme, ce n'est plus un
+    reglage par personnage (2026-09-01). Tout appelant qui lit `cfg["comfy_url"]`
+    continue de fonctionner sans changement — seule la source change."""
+    cfg = load_json(config_path(character_id))
+    cfg["comfy_url"] = env_config.comfy_url()
+    return cfg
 
 
 def load_scenes(character_id):
@@ -367,7 +378,7 @@ def tone_affinity(scene, tone):
 
 
 # ------------------------------------------------------------------- plan batch
-def build_jobs(scenes_file, args, character_id="lena", creative=None):
+def build_jobs(scenes_file, args, character_id, creative=None):
     """Construit la liste des jobs.
 
     `args.intensity` absent vaut niveau 0 (SFW strict). Sur une banque non migree —
@@ -497,7 +508,7 @@ def build_jobs(scenes_file, args, character_id="lena", creative=None):
 MODES_DECLINAISON = ("lumiere", "ton", "seeds", "intensite")
 
 
-def jobs_declinaison(scenes_file, source, mode, character_id="lena", creative=None,
+def jobs_declinaison(scenes_file, source, mode, character_id, creative=None,
                      n=3, tone=None):
     """Reconstruit des jobs a partir d'une image DEJA produite.
 

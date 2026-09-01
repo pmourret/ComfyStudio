@@ -1,5 +1,4 @@
 {
-  "comfy_url": "http://127.0.0.1:8188",
   "identity": {
     "weight": 0.7, "weight_faceidv2": 1.0, "start_at": 0.0, "end_at": 1.0,
     "measured": false

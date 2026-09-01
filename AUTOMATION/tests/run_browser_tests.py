@@ -108,7 +108,7 @@ def run_one(name, port, node_path):
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=str(OFM),
         encoding="utf-8", errors="replace")          # les sorties portent des emoji
     try:
-        if not _wait_http(f"http://127.0.0.1:{port}/api/state"):
+        if not _wait_http(f"http://127.0.0.1:{port}/api/state?character=lena"):
             _kill(dash)
             return name, "DASH-KO", (dash.stdout.read() or "")[-800:]
         env = {**os.environ,

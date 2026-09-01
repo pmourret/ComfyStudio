@@ -392,6 +392,10 @@ export function ScenesStoreProvider({ children }: { children: ReactNode }) {
       /* Guarded by "there are unsaved changes", not by "the Scenes screen is
          showing": rebuilding the cards from the server while additions or a raw
          JSON application are pending is the only real risk. */
+      // No character claimed yet (entry gate): /api/scenes now requires one,
+      // and there is no bank to read before a character is even picked
+      // (2026-09-01 — see SystemStateContext's own note on the same pattern).
+      if (!claimed) return
       const editing = guardEditor && dirtyRef.current
       let response: (SceneBank & ActionLike) | null = null
       try {
@@ -422,7 +426,7 @@ export function ScenesStoreProvider({ children }: { children: ReactNode }) {
       setAnchorState(a ?? '')
       setDirectionState(d ?? '')
     },
-    [api, bank, report],
+    [api, bank, claimed, report],
   )
 
   // the bank belongs to a character: switching reloads it, and drops the drafts

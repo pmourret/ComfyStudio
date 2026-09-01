@@ -110,7 +110,7 @@ proc = subprocess.Popen(
 try:
     for _ in range(60):
         try:
-            urllib.request.urlopen(BASE + "/api/state", timeout=2).close()
+            urllib.request.urlopen(BASE + "/api/state?character=lena", timeout=2).close()
             break
         except Exception:
             if proc.poll() is not None:
@@ -127,10 +127,12 @@ try:
     print("=" * 70)
 
     # ============================================================== [1]
-    print("\n[1] le defaut reste lena, le param est honore")
+    print("\n[1] aucun defaut, le param est honore")
+    # plus de repli silencieux sur un personnage precis (2026-09-01) — voir
+    # test_isolation_disque.py [2] pour la meme regle sur /img
     code, corps = appel("/api/config")
-    verifie(code == 200 and jget(corps).get("base_gelee") != "PROBE_MARKER_00000_.png",
-            f"sans param : config de lena ({code})")
+    verifie(code == 400 and "obligatoire" in jget(corps).get("erreur", ""),
+            f"sans param : refuse, aucun repli ({code})")
     code, corps = appel("/api/config?character=lena")
     verifie(code == 200 and jget(corps).get("base_gelee") != "PROBE_MARKER_00000_.png",
             f"?character=lena : config de lena ({code})")

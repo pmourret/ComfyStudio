@@ -130,7 +130,12 @@ try:
     print("\n[3] character(request) : 400 lisible, jamais 500 ni chemin")
     verifie(char_ok("lena") == "lena", "?character=lena accepte")
     verifie(char_ok("probe") == "probe", "?character=probe accepte (character.json valide)")
-    verifie(char_ok(None) == "lena", "defaut = lena quand le param est absent")
+    # plus de defaut (2026-09-01) : un parametre absent est un refus, jamais
+    # un repli silencieux sur un personnage precis (c'etait le bug d'isolation
+    # du 29/08/2026, generalise a toutes les routes depuis)
+    msg_absent = char_refuse(None)
+    verifie(msg_absent is not None and "obligatoire" in msg_absent,
+            f"aucun defaut : ?character= absent est refuse ({msg_absent})")
 
     msg = char_refuse("probe-badu")
     verifie(msg is not None and "univers inconnu" in msg,

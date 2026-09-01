@@ -15,6 +15,7 @@
    assume. */
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
 
+import { useCharacter } from '../character/CharacterContext'
 import { useApi } from '../api/useApi'
 import type { Schema } from '../api/client'
 import { errorOf } from '../api/client'
@@ -37,12 +38,20 @@ export const TICK_MS = 1500
 
 export function SystemStateProvider({ children }: { children: ReactNode }) {
   const api = useApi()
+  const { claimed } = useCharacter()
   const { report } = useFaults()
   const [state, setState] = useState<SystemState | null>(null)
   const [finishedBatchId, setFinishedBatchId] = useState<string | null>(null)
   const lastBatch = useRef<string | null>(null)
 
   const tick = useCallback(async () => {
+    /* No character claimed yet (the entry gate): `/api/state` now REQUIRES
+       one (no server-side default any more, 2026-09-01), and there is
+       nothing to poll for before a character is even picked. Skipping the
+       call entirely — rather than sending it and reading a 400 — also
+       avoids a "failed to load resource" line the browser logs for ANY
+       non-2xx response, independent of this app's own error handling. */
+    if (!claimed) return
     let response: (SystemState & { ok?: boolean; erreur?: string }) | null = null
     try {
       response = await api.get<SystemState>('/api/state')
@@ -75,7 +84,7 @@ export function SystemStateProvider({ children }: { children: ReactNode }) {
       lastBatch.current = response.batch_id
       setFinishedBatchId(response.batch_id)
     }
-  }, [api, report])
+  }, [api, claimed, report])
 
   usePolling(tick, { intervalMs: TICK_MS })
 

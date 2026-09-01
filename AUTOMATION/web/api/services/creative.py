@@ -102,7 +102,7 @@ def apply_nsfw_overrides(configuration, payload):
     return kept
 
 
-def apply_export_rule(configuration, requested_level, character="lena"):
+def apply_export_rule(configuration, requested_level, character):
     """Cuts the export off when the REQUESTED tier does not export.
 
     `sort_and_export` only knows `cfg["export"]["enabled"]` — and that is right:
@@ -122,7 +122,7 @@ def apply_export_rule(configuration, requested_level, character="lena"):
     return configuration
 
 
-def payload_at_generation_level(payload, character="lena"):
+def payload_at_generation_level(payload, character):
     """The payload as seen by the GENERATION pass.
 
     At level 3 the chain runs in two steps: generate at the `base_level` (Soft

@@ -7,6 +7,8 @@ autonome (imports relatifs), voir run_batch.py pour le detail.
 import argparse
 from datetime import datetime
 
+import env_config
+
 from . import load_json, log, OFM
 from .prompt import build_jobs, config_path, scenes_path
 from .comfy import WorkflowRunner
@@ -15,7 +17,7 @@ from .sortie import execute_jobs, make_checker
 
 def main():
     ap = argparse.ArgumentParser(description="Runner batch")
-    ap.add_argument("--character", default="lena", help="identifiant du personnage")
+    ap.add_argument("--character", required=True, help="identifiant du personnage")
     ap.add_argument("--config", default=None,
                     help="chemin config.json (defaut : CHARACTERS/<character>/config.json)")
     ap.add_argument("--scenes-file", default=None,
@@ -36,6 +38,9 @@ def main():
     scenes_file = args.scenes_file or str(scenes_path(character_id))
 
     cfg = load_json(config_file)
+    # comfy_url est un reglage MACHINE (env_config.py), plus par personnage
+    # (2026-09-01) — un `--config` explicite n'a pas a le redeclarer.
+    cfg["comfy_url"] = env_config.comfy_url()
     jobs = build_jobs(scenes_file, args, character_id=character_id)
     if not jobs:
         log("aucune scene ne correspond aux filtres.")

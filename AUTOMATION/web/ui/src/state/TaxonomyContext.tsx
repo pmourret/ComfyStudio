@@ -32,6 +32,10 @@ export function TaxonomyProvider({ children }: { children: ReactNode }) {
   const [creative, setCreative] = useState<Creative | null>(null)
 
   const reload = useCallback(async () => {
+    // No character claimed yet (entry gate): /api/creative now requires one,
+    // and there is no taxonomy to read before a character is even picked
+    // (2026-09-01 — see SystemStateContext's own note on the same pattern).
+    if (!claimed) return
     let response: (Creative & { ok?: boolean; erreur?: string }) | null = null
     try {
       response = await api.get<Creative>('/api/creative')
@@ -43,7 +47,7 @@ export function TaxonomyProvider({ children }: { children: ReactNode }) {
       errorOf(response) || (Array.isArray(response.intentions) ? null : 'taxonomie illisible')
     report('taxonomie', failure)
     if (!failure) setCreative(response)
-  }, [api, report])
+  }, [api, claimed, report])
 
   // the taxonomy belongs to a character: switching reloads it
   useEffect(() => {

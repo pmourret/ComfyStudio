@@ -41,19 +41,20 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS batch (
   id           TEXT PRIMARY KEY,
-  character_id TEXT NOT NULL DEFAULT 'lena',
+  character_id TEXT NOT NULL,
   debut        TEXT,
   fin          TEXT,
   params_json  TEXT,          -- config EFFECTIVE, figee au lancement
   backend      TEXT DEFAULT 'local'
 );
 
--- character_id : axe personnage (J2). Distinct de `espace`, qui reste l'axe
--- SFW/NSFW — les deux valent 'lena' aujourd'hui par coincidence (un seul
--- personnage existe), a ne pas confondre pour autant (voir ADR a venir).
+-- character_id : axe personnage (J2), obligatoire, plus aucun defaut
+-- (2026-09-01). Distinct de `espace`, qui reste l'axe SFW/NSFW — celui-ci
+-- garde 'lena' comme valeur historique de sa branche SFW (vocabulaire de la
+-- base, pas un personnage), a ne pas confondre pour autant (voir ADR a venir).
 CREATE TABLE IF NOT EXISTS image (
   id           INTEGER PRIMARY KEY,
-  character_id TEXT NOT NULL DEFAULT 'lena',
+  character_id TEXT NOT NULL,
   fichier      TEXT NOT NULL,
   batch_id     TEXT,
   espace       TEXT DEFAULT 'lena',   -- lena | nsfw
@@ -103,7 +104,7 @@ CREATE TABLE IF NOT EXISTS embedding (
 -- sait toujours contre quoi une image a ete mesuree.
 CREATE TABLE IF NOT EXISTS reference_set (
   id           INTEGER PRIMARY KEY,
-  character_id TEXT NOT NULL DEFAULT 'lena',
+  character_id TEXT NOT NULL,
   libelle      TEXT,
   cree_le      TEXT,
   actif        INTEGER DEFAULT 0,
@@ -158,14 +159,13 @@ def ouvrir():
 
 
 # ------------------------------------------------------------------- ecriture
-def enregistrer_image(cx, fichier, character_id="lena", **champs):
+def enregistrer_image(cx, fichier, character_id, **champs):
     """Insere ou met a jour une image par (character_id, fichier). Retourne son id.
 
     `character_id` fait partie de l'identite de la ligne (cle composite avec
     `fichier`, voir idx_image_unique) — ce n'est pas un champ modifiable comme
     les autres, d'ou un parametre a part plutot qu'une entree de `colonnes`.
-    Defaut 'lena' pour ne pas casser les appelants pas encore mis a jour
-    (J2 etape 3) ; tout nouvel appel doit le passer explicitement.
+    Obligatoire, plus de defaut (2026-09-01) — tout appelant le passe.
     """
     colonnes = ("batch_id", "espace", "bucket", "scene", "intention", "ton",
                 "intensite", "format", "seed", "variante", "prompt", "cree_le",
@@ -181,7 +181,7 @@ def enregistrer_image(cx, fichier, character_id="lena", **champs):
                       (character_id, fichier)).fetchone()[0]
 
 
-def renommer(cx, ancien, nouveau, character_id="lena"):
+def renommer(cx, ancien, nouveau, character_id):
     """Suit un fichier renomme. Le tri renomme en cas de collision d'homonymes
     (voir runner.nom_libre) : sans ca la ligne reste sur l'ancien nom, et la
     suivante en cree une seconde pour la meme image."""

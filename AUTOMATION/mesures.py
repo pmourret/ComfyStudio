@@ -113,18 +113,24 @@ def demesurer(nom):
         return e or None
 
 
-def poser_flag(nom, flag):
+def poser_flag(nom, flag, character_id):
     """flag dans FLAGS, ou None pour retirer le jugement.
 
     Ecrit aussi en base : c'est ce jugement qui etalonne le realisme, il ne doit
-    pas exister a deux endroits qui divergent.
+    pas exister a deux endroits qui divergent. `character_id` est obligatoire
+    depuis que `base.enregistrer_image` n'a plus de defaut (2026-09-01) — avant
+    ca, l'ecriture en base d'un jugement retombait en silence sur 'lena' pour
+    TOUT personnage (le `except Exception: pass` ci-dessous avale l'echec sans
+    le dire, par design : la base ne doit jamais bloquer un jugement humain,
+    mais elle ecrivait alors sous la mauvaise identite plutot que de refuser).
     """
     if flag is not None and flag not in FLAGS:
         raise ValueError(f"flag inconnu : {flag}")
     try:
         import base
         with base.ouvrir() as cx:
-            base.enregistrer_jugement(cx, base.enregistrer_image(cx, nom), flag)
+            base.enregistrer_jugement(
+                cx, base.enregistrer_image(cx, nom, character_id), flag)
             cx.commit()
     except Exception:
         pass                        # la base ne doit jamais bloquer un jugement

@@ -61,7 +61,7 @@ def test_compatibilite():
         verifie(False, f"{SCENES_AVANT.name} introuvable — test impossible")
         return
     data = lb.load_json(SCENES_AVANT)
-    jobs = lb.build_jobs(SCENES_AVANT, filtres(), creative=CREATIVE)
+    jobs = lb.build_jobs(SCENES_AVANT, filtres(), character_id="lena", creative=CREATIVE)
 
     attendus = []
     for scene in data["scenes"]:
@@ -96,7 +96,7 @@ def test_compatibilite():
 def test_no_variants():
     print("\n[2] --no-variants : une image par scene, la plus simple")
     data = lb.load_json(SCENES)
-    jobs = lb.build_jobs(SCENES, filtres(no_variants=True), creative=CREATIVE)
+    jobs = lb.build_jobs(SCENES, filtres(no_variants=True), character_id="lena", creative=CREATIVE)
     # sans niveau demande on est au palier 0 : les scenes dont la bande commence
     # plus haut (une scene intime, par exemple) n'y sont pas — c'est voulu
     attendu = sum(s.get("count", 1) for s in data["scenes"]
@@ -114,7 +114,7 @@ def test_no_variants():
     # un echec a signaler, pas un cas a sauter en silence.
     avant_data = lb.load_json(SCENES_AVANT)
     avant = lb.build_jobs(SCENES_AVANT, filtres(no_variants=True),
-                          creative=CREATIVE)
+                          character_id="lena", creative=CREATIVE)
     attendu_avant = sum(s.get("count", 1) for s in avant_data["scenes"]
                         if lb.scene_band(s)[0] == 0)
     verifie(len(avant) == attendu_avant,
@@ -127,7 +127,7 @@ def test_filtrage_intensite():
     bande = {s["id"]: lb.scene_band(s) for s in data["scenes"]}
     precedent = None
     for niveau in (0, 1, 2, 3):
-        jobs = lb.build_jobs(SCENES, filtres(intensity=niveau), creative=CREATIVE)
+        jobs = lb.build_jobs(SCENES, filtres(intensity=niveau), character_id="lena", creative=CREATIVE)
         scenes = {j["scene"] for j in jobs}
         eligibles = {i for i, (lo, hi) in bande.items() if lo <= niveau <= hi}
         verifie(scenes == eligibles,
@@ -150,7 +150,7 @@ def test_filtrage_intensite():
 def test_assemblage_nouveau():
     print("\n[4] assemblage avec ton et intention")
     jobs = lb.build_jobs(SCENES, filtres(intensity=0, tone="elegant"),
-                         creative=CREATIVE)
+                         character_id="lena", creative=CREATIVE)
     if not jobs:
         verifie(False, "au moins un job produit")
         return
@@ -168,7 +168,7 @@ def test_assemblage_nouveau():
 
     inconnu = False
     try:
-        lb.build_jobs(SCENES, filtres(intensity=9), creative=CREATIVE)
+        lb.build_jobs(SCENES, filtres(intensity=9), character_id="lena", creative=CREATIVE)
     except ValueError:
         inconnu = True
     verifie(inconnu, "un niveau inconnu leve une erreur explicite")
@@ -177,18 +177,18 @@ def test_assemblage_nouveau():
     # prompt, pas un filtre. Un ton filtrant menait a des culs-de-sac (lifestyle +
     # elegant ne laissait aucune scene).
     sans = {j["scene"] for j in lb.build_jobs(SCENES, filtres(intensity=0),
-                                              creative=CREATIVE)}
+                                              character_id="lena", creative=CREATIVE)}
     for t in CREATIVE["tones"]:
         avec = {j["scene"] for j in lb.build_jobs(
-            SCENES, filtres(intensity=0, tone=t["key"]), creative=CREATIVE)}
+            SCENES, filtres(intensity=0, tone=t["key"]), character_id="lena", creative=CREATIVE)}
         verifie(avec == sans, f"ton « {t['label']} » : le choix de scenes est intact")
 
     for i in CREATIVE["intentions"]:
         for t in CREATIVE["tones"]:
             n = len(lb.build_jobs(SCENES, filtres(intensity=0, intention=i["key"],
-                                                  tone=t["key"]), creative=CREATIVE))
+                                                  tone=t["key"]), character_id="lena", creative=CREATIVE))
             m = len(lb.build_jobs(SCENES, filtres(intensity=0, intention=i["key"]),
-                                  creative=CREATIVE))
+                                  character_id="lena", creative=CREATIVE))
             if n != m:
                 verifie(False, f"{i['key']} + {t['key']} : {n} vs {m} sans ton")
                 return

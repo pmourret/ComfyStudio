@@ -55,6 +55,7 @@ AUTOMATION = HERE.parent
 sys.path.insert(0, str(AUTOMATION))
 
 import comfy_server  # noqa: E402
+import env_config  # noqa: E402
 import shared_state as ss  # noqa: E402
 from api import security  # noqa: E402
 from api.main import app  # noqa: E402
@@ -147,7 +148,7 @@ def main():
     # "hors ligne" et rien n'est lancable. Ne demarre rien s'il tourne deja.
     if not args.no_comfy:
         try:
-            comfy_server.ensure(ss.cfg()["comfy_url"])
+            comfy_server.ensure(env_config.comfy_url())
         except Exception as e:
             print(f"!! ComfyUI n'a pas pu demarrer : {e}")
             print("   Le tableau de bord s'ouvre quand meme (production indisponible).")

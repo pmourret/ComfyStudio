@@ -36,6 +36,10 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const [qc, setQc] = useState<QcBands>(DEFAULT_QC)
 
   const load = useCallback(async () => {
+    // No character claimed yet (entry gate): /api/config now requires one,
+    // and there is nothing to read before a character is even picked
+    // (2026-09-01 — see SystemStateContext's own note on the same pattern).
+    if (!claimed) return
     try {
       const response = await api.get<CharacterConfig>('/api/config')
       setConfig(response)
@@ -51,7 +55,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     } catch {
       /* keep the defaults — a comfort reading must not break the screen */
     }
-  }, [api])
+  }, [api, claimed])
 
   // the settings belong to a character: switching reloads them
   useEffect(() => {

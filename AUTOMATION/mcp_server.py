@@ -153,7 +153,11 @@ def plan(a):
         count=a.get("count"), limit=a.get("limit"), seed=a.get("seed"),
         no_variants=bool(a.get("no_variants")), intensity=a.get("intensity"),
         tone=a.get("tone"), intention=a.get("intention"))
-    jobs = lb.build_jobs(lb.scenes_path("lena"), args)
+    # "lena" en dur : deferre a V3 (ROADMAP.md), pas parametre par l'appelant
+    # MCP. `character_id` n'a plus de defaut dans build_jobs (2026-09-01), il
+    # faut donc le passer explicitement ici pour garder ce comportement (deja
+    # hardcode) inchange plutot que de casser l'outil.
+    jobs = lb.build_jobs(lb.scenes_path("lena"), args, character_id="lena")
     return {"total": len(jobs), "note": "aucune generation lancee",
             "jobs": [{"scene": j["scene"], "format": j["format"],
                       "intensite": j["intensity"], "tenue": j["outfit"],

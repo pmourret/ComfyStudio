@@ -27,7 +27,7 @@ import mesures as mes
 import runner as lb
 import shared_state as ss
 
-from ..dependencies import CharacterId
+from ..dependencies import RequiredCharacterId
 from ..schemas.common import ActionResponse, ERROR_RESPONSES
 from ..schemas.review import (
     DeleteRequest, EditSaveRequest, EditSaveResponse, FlagRequest, FlagResponse,
@@ -50,7 +50,7 @@ ACTIONS = {"valider": "OK", "revoir": "A_REVOIR", "rejeter": "REJET",
 
 @router.get("/api/gallery", response_model=GalleryResponse,
             summary="Contenu d'un dossier de tri")
-async def get_gallery(character_id: CharacterId, bucket: str = "OK",
+async def get_gallery(character_id: RequiredCharacterId, bucket: str = "OK",
                       space: str = None):
     """Content of one sorting folder — of THIS character, and of it alone.
 
@@ -118,15 +118,21 @@ async def get_gallery(character_id: CharacterId, bucket: str = "OK",
 
 @router.post("/api/flag", response_model=FlagResponse,
              summary="Jugement humain de réalisme")
-async def set_flag(payload: FlagRequest):
-    """Human judgement on realism. Independent of sorting: it moves nothing."""
+async def set_flag(payload: FlagRequest, character_id: RequiredCharacterId):
+    """Human judgement on realism. Independent of sorting: it moves nothing.
+
+    Took no character parameter at all until 2026-09-01 — the DB write this
+    triggers (`mesures.poser_flag` -> `base.enregistrer_image`) silently
+    recorded every judgement, for every character, under one specific
+    character_id, because that was the only default `enregistrer_image` had.
+    """
     name = payload.name
     if not ss.SAFE_NAME.match(name):
         ss.bad_request("nom de fichier invalide")
     flag = payload.flag
     if flag not in (None, "ok", "ia"):
         return JSONResponse({"ok": False, "erreur": "flag inconnu"}, status_code=400)
-    mes.poser_flag(name, flag)
+    mes.poser_flag(name, flag, character_id)
     return {"ok": True, "flag": flag}
 
 
@@ -134,7 +140,7 @@ async def set_flag(payload: FlagRequest):
              response_model_exclude_unset=True,
              responses={409: {"description": "Une production tourne"}},
              summary="Rattraper les mesures manquantes, par paquets")
-async def measure_batch(payload: MeasureRequest, character_id: CharacterId):
+async def measure_batch(payload: MeasureRequest, character_id: RequiredCharacterId):
     """Catches up a folder's missing measurements.
 
     ┌── COUPLING TO PRESERVE — migration brief §4.2, AUDIT §5.6.4 ────────────┐
@@ -216,7 +222,7 @@ async def measure_batch(payload: MeasureRequest, character_id: CharacterId):
 @router.post("/api/action", response_model=SortResponse,
              responses={404: {"description": "Fichier introuvable"}},
              summary="Trier une image")
-async def sort_image(payload: SortRequest, character_id: CharacterId):
+async def sort_image(payload: SortRequest, character_id: RequiredCharacterId):
     cid = character_id
     name = payload.name
     bucket, action = payload.bucket, payload.action
@@ -278,7 +284,7 @@ async def sort_image(payload: SortRequest, character_id: CharacterId):
              response_model_exclude_unset=True,
              responses={404: {"description": "Fichier introuvable"}},
              summary="Suppression définitive")
-async def delete_image(payload: DeleteRequest, character_id: CharacterId):
+async def delete_image(payload: DeleteRequest, character_id: RequiredCharacterId):
     """DEFINITIVE removal — not a sort, not in UNDO, no way back.
 
     Removes the file, its thumbnail and its export copy. `journal_batch.csv`,
@@ -309,7 +315,7 @@ async def delete_image(payload: DeleteRequest, character_id: CharacterId):
              response_model_exclude_unset=True,
              responses={404: {"description": "Image d'origine introuvable"}},
              summary="Enregistrer une retouche navigateur")
-async def save_edit(payload: EditSaveRequest, character_id: CharacterId):
+async def save_edit(payload: EditSaveRequest, character_id: RequiredCharacterId):
     """Saves a retouch (crop / colour / grain, browser-side).
 
     By default a NEW file `<name>_edit`, in the same bucket as the original:
@@ -384,7 +390,7 @@ async def save_edit(payload: EditSaveRequest, character_id: CharacterId):
 @router.post("/api/undo", response_model=UndoResponse,
              responses={400: {"description": "Rien à annuler"}},
              summary="Annuler le dernier tri de ce personnage")
-async def undo_sort(character_id: CharacterId):
+async def undo_sort(character_id: RequiredCharacterId):
     """Undoes THIS CHARACTER's last sort: puts the image back in its original
     folder.
 

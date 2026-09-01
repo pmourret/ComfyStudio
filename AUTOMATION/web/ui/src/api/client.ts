@@ -24,15 +24,17 @@ export type ActionLike = { ok?: boolean; erreur?: string }
    where none is claimed yet. */
 export type CharacterId = string | null
 
-/* Appends `?character=` — and omits it when nothing is claimed.
+/* Appends `?character=` — and omits it when nothing is claimed yet.
 
-   The legacy module defaulted to the literal `'lena'` client-side. That was a
-   second copy of a default the server already owns (`current_character` in
-   api/dependencies.py, documented in the OpenAPI page), so the parameter is
-   simply left out instead: same answer from every route, minus one hard-coded
-   character id in the frontend. `/img` is the exception that proves it right —
-   it REQUIRES the parameter and answers 400 rather than serving Léna's bytes to
-   whoever did not ask for them (isolation of 29/08/2026). */
+   The server has NO default character for any route any more (amended
+   2026-09-01 — every route used to fall back to one specific character when
+   the parameter was missing, `/img` excepted since the isolation bug of
+   29/08/2026 made it the first to require the parameter strictly). Omitting
+   it here only matters for the entry gate, BEFORE a character is claimed —
+   no component past that gate ever calls through `useApi()` with `claimed`
+   still null, so this branch never reaches a real request; it exists so a
+   call attempted from the gate fails with the server's own explicit 400
+   instead of silently addressing a character nobody chose. */
 export function withCharacter(url: string, characterId: CharacterId): string {
   if (!characterId) return url
   const sep = url.includes('?') ? '&' : '?'

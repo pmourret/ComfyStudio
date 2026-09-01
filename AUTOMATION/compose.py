@@ -253,6 +253,9 @@ if __name__ == "__main__":
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import runner
-    scenes, raw = compose(" ".join(sys.argv[1:]) or "Lena jardine le matin",
-                          creative=runner.load_creative("lena"))
+    if len(sys.argv) < 2:
+        raise SystemExit("usage : python compose.py <character_id> [intention...]")
+    character_id, *mots = sys.argv[1:]
+    scenes, raw = compose(" ".join(mots) or "gardening in the morning",
+                          creative=runner.load_creative(character_id))
     print(json.dumps(scenes, ensure_ascii=False, indent=2))

@@ -86,6 +86,23 @@ def insightface_root():
     return comfyui_root() / "models" / "insightface"
 
 
+def comfy_url():
+    """URL du serveur ComfyUI de cette machine.
+
+    Deplace ici depuis `config.json` par personnage (2026-09-01) : un seul
+    GPU, un seul ComfyUI (AUDIT §4.5) — le stocker par personnage n'etait
+    qu'une duplication du meme reglage machine dans chaque config.json,
+    exactement le genre d'endroit ou un ancien nom de personnage codait en
+    dur ce qui aurait du etre generique. `runner.load_config()` fusionne
+    cette valeur dans tout config.json lu, donc aucun appelant existant n'a
+    besoin de changer.
+
+    Optionnel, contrairement a COMFYUI_ROOT : `http://127.0.0.1:8188` est le
+    port par defaut de ComfyUI, deja repris comme repli en dur a plusieurs
+    endroits du projet (wf_check.py, compose.py) avant ce fichier."""
+    return _get("COMFY_URL", requis=False) or "http://127.0.0.1:8188"
+
+
 def _diagnostic():
     """Resout et affiche la config machine, sans rien supposer de plus."""
     print("=" * 72)

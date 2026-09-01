@@ -68,7 +68,7 @@ proc = subprocess.Popen(
 try:
     for _ in range(60):
         try:
-            urllib.request.urlopen(BASE + "/api/state", timeout=2).close()
+            urllib.request.urlopen(BASE + "/api/state?character=lena", timeout=2).close()
             break
         except Exception:
             if proc.poll() is not None:
@@ -87,7 +87,7 @@ try:
 
     # ============================================================== E2
     print("\n[E2] le bucket SANS_VISAGE est atteignable")
-    code, corps = appel("/api/state")
+    code, corps = appel("/api/state?character=lena")
     verifie("SANS_VISAGE" in json.loads(corps).get("counts", {}),
             "/api/state le compte")
     code, _ = appel("/api/gallery?bucket=SANS_VISAGE&space=sfw&character=lena")
@@ -104,14 +104,14 @@ try:
     print("\n[E1] la banque de scenes est validee cote serveur")
     ampute = json.loads(json.dumps(banque))
     ampute.pop("texture")
-    code, corps = appel("/api/scenes", {"data": ampute})
+    code, corps = appel("/api/scenes?character=lena", {"data": ampute})
     verifie(code == 400 and b"texture" in corps, f"sans « texture » : refuse ({code})")
 
     detruite = json.loads(json.dumps(banque))
     for s in detruite["scenes"]:
         for c in ("intention", "intensity", "tags", "tones", "wardrobe"):
             s.pop(c, None)
-    code, corps = appel("/api/scenes", {"data": detruite})
+    code, corps = appel("/api/scenes?character=lena", {"data": detruite})
     verifie(code == 400 and "seul coup" in json.loads(corps).get("erreur", ""),
             f"l'effacement en lot du 25/08 : refuse ({code})")
     verifie(json.loads((OFM / "CHARACTERS" / "lena" / "scenes.json").read_text(encoding="utf-8"))
@@ -132,26 +132,26 @@ try:
                     entetes={"Host": "attaquant.example"})
     verifie(code == 403, f"Host etranger (DNS rebinding) : refuse ({code})")
 
-    code, _ = appel("/api/plan", {"scenes": [], "intensity": 0},
+    code, _ = appel("/api/plan?character=lena", {"scenes": [], "intensity": 0},
                     entetes={"Origin": BASE})
     verifie(code == 200, f"origine locale : acceptee ({code})")
 
     # ============================================================== M3
     print("\n[M3] une requete malformee ressort en JSON, jamais en HTML")
-    code, corps = appel("/api/action", {"name": "x.png", "bucket": "OK",
+    code, corps = appel("/api/action?character=lena", {"name": "x.png", "bucket": "OK",
                                         "action": "supprimer_tout"})
     verifie(code == 400 and est_json(corps), f"action inconnue : {code} en JSON")
-    code, corps = appel("/api/action", {})
+    code, corps = appel("/api/action?character=lena", {})
     verifie(code == 400 and est_json(corps), f"corps vide : {code} en JSON")
-    code, corps = appel("/api/plan", brut=b"pas du json")
+    code, corps = appel("/api/plan?character=lena", brut=b"pas du json")
     verifie(code == 400 and est_json(corps), f"corps illisible : {code} en JSON")
-    code, corps = appel("/api/plan", {"scenes": [], "count": "beaucoup"})
+    code, corps = appel("/api/plan?character=lena", {"scenes": [], "count": "beaucoup"})
     verifie(code == 400 and est_json(corps), f"« count » non numerique : {code} en JSON")
 
     # ============================================================== M9
     print("\n[M9] les bornes du panneau valent aussi cote serveur")
     sid = banque["scenes"][0]["id"]
-    code, corps = appel("/api/plan", {"scenes": [sid], "count": 9999,
+    code, corps = appel("/api/plan?character=lena", {"scenes": [sid], "count": 9999,
                                       "intensity": 0, "no_variants": True})
     total = json.loads(corps).get("total")
     verifie(code == 200 and total is not None and total <= 24,
@@ -248,7 +248,7 @@ try:
             for _ in range(12):
                 t = time.time()
                 try:
-                    urllib.request.urlopen(BASE + "/api/state", timeout=10).close()
+                    urllib.request.urlopen(BASE + "/api/state?character=lena", timeout=10).close()
                     lat.append(time.time() - t)
                 except Exception:
                     lat.append(99.0)

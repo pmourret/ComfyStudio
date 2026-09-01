@@ -411,6 +411,10 @@ export interface paths {
          * RAM / VRAM / thermique
          * @description Machine memory and thermals, for the banner and the Application screen.
          *
+         *     No character parameter: VRAM/RAM belong to the MACHINE, one ComfyUI for
+         *     the whole platform (2026-09-01) — there is nothing here a character could
+         *     scope.
+         *
          *     Both probes go into a THREAD: `comfy_alive` cost a 2005 ms event-loop
          *     freeze on 24/08 for having probed while blocking, and we are not replaying
          *     that. The result is kept for a second and a half.
@@ -449,7 +453,8 @@ export interface paths {
          * @description Unloads models and VRAM. Explicit gesture, never automatic.
          *
          *     Refused during a batch: unloading under a running job would make it fail,
-         *     and the user would lose a production to gain some VRAM.
+         *     and the user would lose a production to gain some VRAM. No character
+         *     parameter, same reason as `get_comfy_stats` above.
          */
         post: operations["unload_comfy_api_app_comfy_unload_post"];
         delete?: never;
@@ -908,6 +913,11 @@ export interface paths {
         /**
          * Jugement humain de réalisme
          * @description Human judgement on realism. Independent of sorting: it moves nothing.
+         *
+         *     Took no character parameter at all until 2026-09-01 — the DB write this
+         *     triggers (`mesures.poser_flag` -> `base.enregistrer_image`) silently
+         *     recorded every judgement, for every character, under one specific
+         *     character_id, because that was the only default `enregistrer_image` had.
          */
         post: operations["set_flag_api_flag_post"];
         delete?: never;
@@ -2425,7 +2435,7 @@ export interface components {
              */
             edition: boolean;
             /** Character */
-            character: string;
+            character?: string | null;
             last_error?: components["schemas"]["BatchError"] | null;
             /** Comfy */
             comfy: boolean;
@@ -2578,7 +2588,7 @@ export interface operations {
     get_system_state_api_state_get: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -2619,7 +2629,7 @@ export interface operations {
     get_character_config_api_config_get: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -2662,7 +2672,7 @@ export interface operations {
     get_character_api_character_get: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -3012,7 +3022,7 @@ export interface operations {
     get_universe_tools_api_universe_tools_get: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -3053,7 +3063,7 @@ export interface operations {
     get_journal_api_journal_get: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -3094,7 +3104,7 @@ export interface operations {
     get_nsfw_state_api_nsfw_state_get: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -3228,10 +3238,7 @@ export interface operations {
     };
     get_comfy_stats_api_app_comfy_stats_get: {
         parameters: {
-            query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
-                character?: string | null;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -3256,23 +3263,11 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     unload_comfy_api_app_comfy_unload_post: {
         parameters: {
-            query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
-                character?: string | null;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -3303,15 +3298,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
             };
             /** @description Le déchargement a échoué */
             502: {
@@ -3354,7 +3340,7 @@ export interface operations {
     get_scene_bank_api_scenes_get: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -3395,7 +3381,7 @@ export interface operations {
     save_scene_bank_api_scenes_post: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -3440,7 +3426,7 @@ export interface operations {
     get_creative_taxonomy_api_creative_get: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -3481,7 +3467,7 @@ export interface operations {
     compose_scenes_api_compose_post: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -3543,7 +3529,7 @@ export interface operations {
                 thumb?: string | null;
                 /** @description Jeton de cache, IGNORÉ par le serveur. Voir la note dans le code : il ne sert qu'à l'URL. */
                 v?: string | null;
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -3743,7 +3729,7 @@ export interface operations {
     build_plan_api_plan_post: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -3788,7 +3774,7 @@ export interface operations {
     decline_image_api_decline_post: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -3854,7 +3840,7 @@ export interface operations {
     run_batch_api_run_post: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -3949,7 +3935,7 @@ export interface operations {
     get_nsfw_instructions_api_nsfw_instructions_get: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -3990,7 +3976,7 @@ export interface operations {
     arm_nsfw_api_nsfw_arm_post: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -4037,7 +4023,7 @@ export interface operations {
             query?: {
                 bucket?: string;
                 space?: string;
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -4077,7 +4063,10 @@ export interface operations {
     };
     set_flag_api_flag_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
+                character?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4120,7 +4109,7 @@ export interface operations {
     measure_batch_api_mesurer_post: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -4172,7 +4161,7 @@ export interface operations {
     sort_image_api_action_post: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -4224,7 +4213,7 @@ export interface operations {
     delete_image_api_delete_post: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -4276,7 +4265,7 @@ export interface operations {
     save_edit_api_edit_save_post: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;
@@ -4328,7 +4317,7 @@ export interface operations {
     undo_sort_api_undo_post: {
         parameters: {
             query?: {
-                /** @description Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige. */
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
                 character?: string | null;
             };
             header?: never;

@@ -39,6 +39,7 @@ AUTOMATION = HERE.parent
 OFM = AUTOMATION.parent
 sys.path.insert(0, str(AUTOMATION))
 
+import env_config  # noqa: E402
 import runner as lb  # noqa: E402
 import universe  # noqa: E402
 import worlds  # noqa: E402
@@ -83,7 +84,7 @@ STATE = {
     # demarrer_edition, remis a faux par demarrer : le resume de fin de lot
     # renvoie alors vers la retouche, qui n'a de sens que la.
     "edition": False,
-    "character": "lena",   # personnage du batch en cours (pose par demarrer*)
+    "character": None,      # personnage du batch en cours (pose par demarrer*)
     # derniere erreur de batch, {at, msg} ou None. Pose au niveau du batch (pas
     # par job) et efface au demarrage du suivant : le chrome la montre meme
     # quand on a quitte l'ecran Creer (J7bis, chrome honnete).
@@ -139,7 +140,7 @@ def push_log(msg):
 _CHARACTER_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 
 
-def character(character_id, required=False):
+def character(character_id):
     """character_id de la requete, valide AVANT de toucher au disque.
 
     Prend l'IDENTIFIANT BRUT plutot qu'une requete : lire `?character=` est
@@ -147,13 +148,18 @@ def character(character_id, required=False):
     migration FastAPI. La validation, elle, n'a jamais rien eu a voir avec
     HTTP — c'est ce qui reste ici, inchange.
 
-    `required=True` : l'absence du parametre est elle-meme une erreur, au lieu
-    de retomber sur le defaut. Reserve aux routes qui servent des OCTETS d'un
-    arbre de personnage (/img) : y laisser un defaut, c'est rendre les images de
-    Lena a qui ne les a pas demandees — le bug d'isolation du 29/08/2026.
+    AUCUN DEFAUT (amende 2026-09-01) — un parametre absent est TOUJOURS une
+    erreur, plus un repli implicite sur un personnage precis. Avant, seules
+    les routes servant des OCTETS d'un arbre de personnage (/img) l'exigeaient
+    strictement ; partout ailleurs, l'absence de `?character=` retombait en
+    silence sur un personnage donne — exactement le bug d'isolation du
+    29/08/2026 (la Revue d'Abyssiaelle affichait la galerie de ce
+    personnage-la), juste pas encore declenche ailleurs. Plus de distinction :
+    une route sans rien de propre a un personnage ne prend simplement plus ce
+    parametre du tout (voir `api/routers/app.py`).
 
     Rejette en 400 JSON (jamais un 500, jamais un chemin) :
-      - un parametre absent quand `requis` ;
+      - un parametre absent ;
       - un id qui n'est pas un slug simple (`?character=../x`) ;
       - un dossier CHARACTERS/<id>/ absent ;
       - un dossier sans character.json (registre personnage manquant, J4) ;
@@ -166,9 +172,7 @@ def character(character_id, required=False):
     """
     cid = character_id
     if cid is None:
-        if required:
-            bad_request("parametre character= obligatoire sur cette route")
-        cid = "lena"
+        bad_request("parametre character= obligatoire sur cette route")
     if not _CHARACTER_RE.match(cid):
         bad_request(f"character_id invalide : {cid!r}")
     if not lb.character_dir(cid).is_dir():
@@ -208,11 +212,11 @@ def character(character_id, required=False):
     return cid
 
 
-def cfg(character="lena"):
+def cfg(character):
     return lb.load_config(character)
 
 
-def scenes_data(character="lena"):
+def scenes_data(character):
     return lb.load_scenes(character)
 
 
@@ -470,6 +474,6 @@ async def comfy_alive():
     if time.monotonic() - COMFY_PROBE["at"] < 1.0:
         return COMFY_PROBE["ok"]
     ok = await asyncio.get_running_loop().run_in_executor(
-        None, _probe_comfy, cfg()["comfy_url"])
+        None, _probe_comfy, env_config.comfy_url())
     COMFY_PROBE.update(ok=ok, at=time.monotonic())
     return ok

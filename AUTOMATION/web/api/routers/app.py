@@ -29,9 +29,9 @@ import time
 from fastapi import APIRouter, Response
 
 import comfy_server
+import env_config
 import shared_state as ss
 
-from ..dependencies import CharacterId
 from ..schemas.common import ActionResponse, ERROR_RESPONSES
 from ..schemas.state import ComfyStatsResponse
 
@@ -94,8 +94,12 @@ _STATS_LOCK = None          # created lazily: it needs a running loop
 
 @router.get("/api/app/comfy/stats", response_model=ComfyStatsResponse,
             summary="RAM / VRAM / thermique")
-async def get_comfy_stats(character_id: CharacterId):
+async def get_comfy_stats():
     """Machine memory and thermals, for the banner and the Application screen.
+
+    No character parameter: VRAM/RAM belong to the MACHINE, one ComfyUI for
+    the whole platform (2026-09-01) — there is nothing here a character could
+    scope.
 
     Both probes go into a THREAD: `comfy_alive` cost a 2005 ms event-loop
     freeze on 24/08 for having probed while blocking, and we are not replaying
@@ -117,7 +121,7 @@ async def get_comfy_stats(character_id: CharacterId):
         _STATS_LOCK = asyncio.Lock()
     if _STATS["val"] is not None and time.monotonic() - _STATS["at"] < _STATS_TTL:
         return _STATS["val"]
-    url = ss.cfg(character_id)["comfy_url"]
+    url = env_config.comfy_url()
     async with _STATS_LOCK:
         # re-read under the lock: another call may have served during the wait
         if _STATS["val"] is not None and time.monotonic() - _STATS["at"] < _STATS_TTL:
@@ -132,18 +136,19 @@ async def get_comfy_stats(character_id: CharacterId):
              responses={409: {"description": "Une production est en cours"},
                         502: {"description": "Le déchargement a échoué"}},
              summary="Décharger la VRAM")
-async def unload_comfy(response: Response, character_id: CharacterId):
+async def unload_comfy(response: Response):
     """Unloads models and VRAM. Explicit gesture, never automatic.
 
     Refused during a batch: unloading under a running job would make it fail,
-    and the user would lose a production to gain some VRAM.
+    and the user would lose a production to gain some VRAM. No character
+    parameter, same reason as `get_comfy_stats` above.
     """
     if ss.STATE["running"]:
         response.status_code = 409
         return {"ok": False,
                 "erreur": "une production est en cours — "
                           "décharger la mémoire la ferait échouer"}
-    url = ss.cfg(character_id)["comfy_url"]
+    url = env_config.comfy_url()
     ok, err = await asyncio.get_running_loop().run_in_executor(
         None, comfy_server.unload, url)
     if not ok:
@@ -168,7 +173,7 @@ async def restart_comfy():
         await asyncio.sleep(1)
         try:
             await loop.run_in_executor(
-                None, lambda: comfy_server.ensure(ss.cfg()["comfy_url"], log=ss.push_log))
+                None, lambda: comfy_server.ensure(env_config.comfy_url(), log=ss.push_log))
         except Exception as e:
             ss.push_log(f"redémarrage de ComfyUI : {type(e).__name__} — {e}")
 

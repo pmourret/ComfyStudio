@@ -32,7 +32,7 @@ import nsfw_batch
 import runner as lb
 import shared_state as ss
 
-from ..dependencies import CharacterId
+from ..dependencies import RequiredCharacterId
 from ..schemas.common import ActionResponse, ERROR_RESPONSES
 from ..schemas.production import (
     DeclineDryResponse, DeclineRequest, NsfwArmRequest, NsfwArmResponse,
@@ -121,7 +121,7 @@ def filters_from(payload):
 @router.post("/api/plan", response_model=PlanResponse,
              response_model_exclude_unset=True,
              summary="Plan à blanc du lancement")
-async def build_plan(payload: RunPayload, character_id: CharacterId):
+async def build_plan(payload: RunPayload, character_id: RequiredCharacterId):
     """Dry run of /api/run: how many images, which jobs, and what the prompt
     will really say.
 
@@ -171,7 +171,8 @@ async def build_plan(payload: RunPayload, character_id: CharacterId):
         return {"total": len(valid_sources(payload, cid)), "jobs": [],
                 "edition": True, "alertes": alerts}
     jobs = lb.build_jobs(lb.scenes_path(cid),
-                         filters_from(payload_at_generation_level(payload, cid)))
+                         filters_from(payload_at_generation_level(payload, cid)),
+                         character_id=cid)
     return {"total": len(jobs), "alertes": alerts,
             "apercu": prompt_preview(jobs), "jobs": [
         {"scene": j["scene"], "category": j["category"], "format": j["format"],
@@ -234,7 +235,7 @@ def start_edit_from_image(name, payload, level, character):
                         409: {"description": "Un batch tourne déjà"},
                         403: {"description": "Un verrou du curseur s'y oppose"}},
              summary="Repartir d'une image déjà produite")
-async def decline_image(payload: DeclineRequest, character_id: CharacterId):
+async def decline_image(payload: DeclineRequest, character_id: RequiredCharacterId):
     """Short loop: start again from an image already produced.
 
     `dry` only returns what each mode would produce, so the interface shows
@@ -261,7 +262,7 @@ async def decline_image(payload: DeclineRequest, character_id: CharacterId):
                                    if t["key"] != (row.get("ton") or None)]
             else:
                 available[mode] = len(lb.jobs_declinaison(
-                    scenes, row, mode, creative=creative,
+                    scenes, row, mode, character_id=cid, creative=creative,
                     n=int(payload.n or 3)))
         following = lb.by_level(creative, level + 1)
         # the "one notch up" button must reflect the SAME locks as the main
@@ -322,7 +323,7 @@ async def decline_image(payload: DeclineRequest, character_id: CharacterId):
         if err:
             return JSONResponse({"ok": False, "erreur": err}, status_code=403)
 
-    jobs = lb.jobs_declinaison(scenes, row, mode, creative=creative,
+    jobs = lb.jobs_declinaison(scenes, row, mode, character_id=cid, creative=creative,
                                n=int(payload.n or 3), tone=payload.tone)
     if not jobs:
         reason = {"lumiere": "cette scène n'a pas d'autre variante de lumière",
@@ -349,7 +350,7 @@ async def decline_image(payload: DeclineRequest, character_id: CharacterId):
              responses={409: {"description": "Un batch tourne déjà"},
                         403: {"description": "Un verrou du curseur s'y oppose"}},
              summary="Lancer une production ou une édition")
-async def run_batch(payload: RunPayload, character_id: CharacterId):
+async def run_batch(payload: RunPayload, character_id: RequiredCharacterId):
     """Launches a batch. TWO MODES ON A SINGLE ENTRY POINT: generation, or
     editing images already validated.
 
@@ -391,7 +392,8 @@ async def run_batch(payload: RunPayload, character_id: CharacterId):
                 "total": len(sources), "edition": True}
 
     jobs = lb.build_jobs(lb.scenes_path(cid),
-                         filters_from(payload_at_generation_level(payload, cid)))
+                         filters_from(payload_at_generation_level(payload, cid)),
+                         character_id=cid)
     if not jobs:
         return JSONResponse({"ok": False, "erreur": "aucune scene ne correspond"},
                             status_code=400)
@@ -463,7 +465,7 @@ def instruction_history(character_id, limit=20):
 
 @router.get("/api/nsfw/instructions", response_model=NsfwInstructionsResponse,
             summary="Préambule réel du graphe + instructions déjà employées")
-async def get_nsfw_instructions(character_id: CharacterId):
+async def get_nsfw_instructions(character_id: RequiredCharacterId):
     """The graph's REAL preamble plus the instructions already used.
 
     The preamble used to be described by a sentence in the interface (« la pose
@@ -478,7 +480,7 @@ async def get_nsfw_instructions(character_id: CharacterId):
 
 @router.post("/api/nsfw/arm", response_model=NsfwArmResponse,
              summary="Armer / désarmer le contenu adulte du personnage")
-async def arm_nsfw(payload: NsfwArmRequest, character_id: CharacterId):
+async def arm_nsfw(payload: NsfwArmRequest, character_id: RequiredCharacterId):
     """Explicit arming: the exact word has to be retyped, not merely clicked.
 
     Writes the switch into the character registry (character.json, key `nsfw`)

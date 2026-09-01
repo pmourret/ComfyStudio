@@ -82,7 +82,7 @@ def nsfw_chaining_hook(configuration, use_qc, batch_id, character):
     return hook
 
 
-def run_batch_blocking(jobs, configuration, batch_id, use_qc, character="lena"):
+def run_batch_blocking(jobs, configuration, batch_id, use_qc, character):
     if use_qc:
         ss.checker_partage(configuration)
 
@@ -183,7 +183,7 @@ def start_edit_batch(sources, instruction, configuration, use_qc, level, charact
     return batch_id
 
 
-def start_batch(jobs, configuration, use_qc, header=None, character="lena"):
+def start_batch(jobs, configuration, use_qc, character, header=None):
     """Starts a batch and returns its identifier. ONE launch path.
 
     Used by /api/run (production) and /api/decline (refinement loop).

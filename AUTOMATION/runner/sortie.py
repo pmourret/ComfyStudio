@@ -29,7 +29,7 @@ def nom_libre(stem, racine, ext=".png"):
     return nom
 
 
-def sort_and_export(src, job, verdict, score, cfg, batch_id, character_id="lena"):
+def sort_and_export(src, job, verdict, score, cfg, batch_id, character_id):
     """Range l'image selon le verdict QC et produit l'export publiable.
 
     Dossier de tri derive de `character_id` (`character_id.upper()`, ex.
@@ -80,7 +80,7 @@ JOURNAL_COLS = ["date", "batch", "character", "scene", "categorie", "intensite",
                 "fichier", "export", "duree_s", "prompt"]
 
 
-def ecrire_en_base(rows, character_id="lena"):
+def ecrire_en_base(rows, character_id):
     """Double ecriture : le CSV reste lisible hors outil, la base devient la
     source de verite en lecture. Ne doit jamais faire echouer un batch."""
     try:
@@ -156,7 +156,7 @@ def ecrire_nsfw_en_base(rows, character_id):
         log(f"   base : ecriture NSFW impossible — {type(e).__name__} : {e}")
 
 
-def append_log(rows, character_id="lena"):
+def append_log(rows, character_id):
     path = OFM / "PROD" / "journal_batch.csv"
     path.parent.mkdir(parents=True, exist_ok=True)
     new = not path.exists()
@@ -218,7 +218,7 @@ def mesurer_realisme(path, bbox):
         return None
 
 
-def appliquer_expression(path, job, cfg, checker=None, avant=None, character_id="lena"):
+def appliquer_expression(path, job, cfg, character_id, checker=None, avant=None):
     """Pose l'expression du ton, sous budget d'identite. Rend (params, apres).
 
     APRES le controle d'identite, jamais avant : la mesure d'identite n'est pas
@@ -250,8 +250,8 @@ def appliquer_expression(path, job, cfg, checker=None, avant=None, character_id=
     return {}, avant
 
 
-def ranger_mesures(nom, identite, reel, embedding=None, apres_expression=None,
-                   expression=None, character_id="lena"):
+def ranger_mesures(nom, identite, reel, character_id, embedding=None,
+                   apres_expression=None, expression=None):
     quand = datetime.now().isoformat(timespec="seconds")
     try:
         import mesures
@@ -287,7 +287,7 @@ def make_checker(cfg):
         cfg["qc"]["threshold_ok"], cfg["qc"]["threshold_watch"])
 
 
-def execute_jobs(jobs, cfg, checker, batch_id, character_id="lena", runner=None,
+def execute_jobs(jobs, cfg, checker, batch_id, character_id, runner=None,
                  on_event=None, should_stop=None, after=None):
     """Execute la liste de jobs. Utilise par la CLI et par la web UI.
 

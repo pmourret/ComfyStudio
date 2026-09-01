@@ -22,15 +22,15 @@ import pose_tools
 import runner as lb
 import shared_state as ss
 
-from ..dependencies import CharacterId
+from ..dependencies import RequiredCharacterId
 from ..schemas.bank import (
     ComposeRequest, ComposeResponse, CreativeResponse, SceneBankRejected,
     SceneBankResponse, SceneBankSaveRequest,
 )
 from ..schemas.common import ActionResponse, ERROR_RESPONSES
 from ..services.bank import (
-    category_order, rotate_backup, scene_previews, scene_stats, stamp_world,
-    validate_scene_bank,
+    category_order, refresh_world_scenes, rotate_backup, scene_previews,
+    scene_stats, stamp_world, validate_scene_bank,
 )
 
 router = APIRouter(responses=ERROR_RESPONSES)
@@ -39,10 +39,10 @@ router = APIRouter(responses=ERROR_RESPONSES)
 
 @router.get("/api/scenes", response_model=SceneBankResponse,
             summary="Banque de scènes du personnage")
-async def get_scene_bank(character_id: CharacterId):
+async def get_scene_bank(character_id: RequiredCharacterId):
     """The bank, plus everything the Créer screen's cards need in ONE call."""
     cid = character_id
-    data = ss.scenes_data(cid)
+    data = refresh_world_scenes(ss.scenes_data(cid))
     categories = sorted({lb.scene_intention(s) for s in data["scenes"]},
                         key=category_order)
     # journey metadata, computed here so the frontend does not have to
@@ -67,7 +67,7 @@ async def get_scene_bank(character_id: CharacterId):
              responses={400: {"model": SceneBankRejected,
                               "description": "Banque refusée"}},
              summary="Enregistrer la banque de scènes")
-async def save_scene_bank(payload: SceneBankSaveRequest, character_id: CharacterId):
+async def save_scene_bank(payload: SceneBankSaveRequest, character_id: RequiredCharacterId):
     """Writes scenes.json after validation, with a .bak rotation over three
     generations.
 
@@ -97,6 +97,12 @@ async def save_scene_bank(payload: SceneBankSaveRequest, character_id: Character
     # Passing it here is what turns the world lock on — the service refuses,
     # then stamps what is legitimately new.
     world = lb.character_world(cid)
+    # Live merge (ADR-0015), BEFORE validation: a world-linked scene arrives
+    # with no trustworthy prompt of its own, and this is what fills it in
+    # from the current catalog — so the empty-prompt check below judges the
+    # inherited text, not the client's silence. It is also the point that
+    # makes the write below what `build_jobs` will read verbatim.
+    data = refresh_world_scenes(data)
     problems = validate_scene_bank(data, previous=ss.scenes_data(cid),
                                    allow_losses=payload.autoriser_pertes,
                                    world=world)
@@ -114,7 +120,7 @@ async def save_scene_bank(payload: SceneBankSaveRequest, character_id: Character
 
 @router.get("/api/creative", response_model=CreativeResponse,
             summary="Taxonomie du parcours créatif")
-async def get_creative_taxonomy(character_id: CharacterId):
+async def get_creative_taxonomy(character_id: RequiredCharacterId):
     """Journey taxonomy: intentions, tones, intensity scale."""
     cid = character_id
     creative = lb.load_creative(cid)
@@ -169,7 +175,7 @@ async def get_creative_taxonomy(character_id: CharacterId):
 @router.post("/api/compose", response_model=ComposeResponse,
              responses={500: {"description": "Le composeur a échoué"}},
              summary="Composer des scènes depuis une intention en français")
-async def compose_scenes(payload: ComposeRequest, character_id: CharacterId):
+async def compose_scenes(payload: ComposeRequest, character_id: RequiredCharacterId):
     """Turns a French intention into scenes ready to be reviewed.
 
     Goes through the local LLM served by ComfyUI, in an executor: `composer`

@@ -39,7 +39,7 @@ def verifie(ok, texte):
 
 def _up(port):
     try:
-        urllib.request.urlopen(f"http://127.0.0.1:{port}/api/state", timeout=2).close()
+        urllib.request.urlopen(f"http://127.0.0.1:{port}/api/state?character=lena", timeout=2).close()
         return True
     except Exception:
         return False

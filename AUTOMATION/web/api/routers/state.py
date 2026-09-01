@@ -29,7 +29,7 @@ import shared_state as ss
 import universe
 import worlds
 
-from ..dependencies import CharacterId
+from ..dependencies import RequiredCharacterId
 from ..schemas.common import ERROR_RESPONSES
 from ..schemas.state import (
     BaseCandidatesRequest, BaseCandidatesResponse, BaseFreezeRequest,
@@ -52,7 +52,10 @@ def seconds_per_image():
     """
     # character of the BATCH, not of the URL: it is its real duration we are
     # extrapolating. An SDXL pack and a Flux pack do not run at the same speed.
-    cid = ss.STATE.get("character") or "lena"
+    # Reached only while a batch is running (see the caller's guard below),
+    # by which point start_batch/start_edit_batch already set STATE["character"]
+    # to a real id — no fallback needed, and none should exist (2026-09-01).
+    cid = ss.STATE["character"]
     base = ss.avg_duration(cid)
     tier = lb.by_level(lb.load_creative(cid), ss.STATE.get("intensity") or 0)
     if tier and tier.get("pipeline") == "flux+edit":
@@ -62,7 +65,7 @@ def seconds_per_image():
 
 @router.get("/api/state", response_model=SystemStateResponse,
             summary="État du système et compteurs de buckets")
-async def get_system_state(character_id: CharacterId):
+async def get_system_state(character_id: RequiredCharacterId):
     """System state + bucket counts OF THE REQUESTED CHARACTER.
 
     The counts are those of one precise `PROD/<CID>/` tree: without the
@@ -110,7 +113,7 @@ async def get_system_state(character_id: CharacterId):
 
 
 @router.get("/api/config", summary="config.json du personnage")
-async def get_character_config(character_id: CharacterId) -> dict:
+async def get_character_config(character_id: RequiredCharacterId) -> dict:
     """The character's measured settings: QC thresholds, preset, formats,
     export.
 
@@ -161,7 +164,7 @@ def frozen_base_brief(cid):
 
 @router.get("/api/character", response_model=CharacterSheet,
             summary="Fiche du personnage courant")
-async def get_character(character_id: CharacterId):
+async def get_character(character_id: RequiredCharacterId):
     """Current character, for the header (registry J4; type + world J7bis) and
     for its SHEET (F1.2, 30/08/2026).
 
@@ -351,7 +354,7 @@ async def freeze_identity_base(payload: BaseFreezeRequest):
 
 @router.get("/api/universe/tools", response_model=UniverseToolsResponse,
             summary="Panel d'outils de l'univers du personnage")
-async def get_universe_tools(character_id: CharacterId):
+async def get_universe_tools(character_id: RequiredCharacterId):
     """Tool panel declared for the character's universe (tools.json, CLAUDE.md
     §5).
 
@@ -364,7 +367,7 @@ async def get_universe_tools(character_id: CharacterId):
 
 @router.get("/api/journal", response_model=JournalResponse,
             summary="Journal de production du personnage")
-async def get_journal(character_id: CharacterId):
+async def get_journal(character_id: RequiredCharacterId):
     """Production journal, filtered on the requested character.
 
     Truncated to the last 300 rows, newest first, with no pagination — same as
@@ -383,7 +386,7 @@ async def get_journal(character_id: CharacterId):
 
 @router.get("/api/nsfw/state", response_model=NsfwStateResponse,
             summary="État de la branche NSFW du personnage")
-async def get_nsfw_state(character_id: CharacterId):
+async def get_nsfw_state(character_id: RequiredCharacterId):
     cid = character_id
     configuration = ss.cfg(cid)
     # `outil` carries BOTH conditions and the reason when one is missing: that

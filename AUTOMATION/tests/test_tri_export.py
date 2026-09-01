@@ -60,8 +60,13 @@ CLIENT = TestClient(app, base_url="http://127.0.0.1")
 
 
 def appeler(route, corps=None):
-    """POST sur une route de tri. Rend le corps JSON, comme avant."""
-    return CLIENT.post(route, json=corps or {}).json()
+    """POST sur une route de tri. Rend le corps JSON, comme avant.
+
+    Ce fichier ne parle jamais que de lena : `?character=` ajoute ici une
+    fois plutot que sur chacun des appels — les routes de tri l'exigent
+    depuis qu'il n'existe plus de repli implicite (2026-09-01)."""
+    sep = "&" if "?" in route else "?"
+    return CLIENT.post(f"{route}{sep}character=lena", json=corps or {}).json()
 
 
 def image(chemin, taille=(896, 1120)):
@@ -104,7 +109,7 @@ verifie(r["ok"] and r["bucket"] == "OK", "l'image passe en OK")
 exp = racine / "PROD" / "EXPORT" / "lena" / "voyage" / "voyage_rando_01.jpg"
 verifie(exp.exists(), "l'export est dans EXPORT/lena/voyage (pas dans « divers »)")
 if exp.exists():
-    attendu = tuple(ss.cfg()["export_sizes"]["9:16"])
+    attendu = tuple(ss.cfg("lena")["export_sizes"]["9:16"])
     with Image.open(exp) as im:
         verifie(im.size == attendu, f"export a la taille du 9:16 {im.size} == {attendu}")
 

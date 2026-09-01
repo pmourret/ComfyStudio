@@ -53,7 +53,10 @@ class SystemStateResponse(BaseModel):
     recent: list[RecentImage] = Field(default_factory=list)
     intensity: int = 0
     edition: bool = False
-    character: str
+    # Character of the batch IN FLIGHT, not of the request (see
+    # `seconds_per_image`'s own note) — None until the first batch runs, no
+    # longer a specific character's id as a placeholder (2026-09-01).
+    character: Optional[str] = None
     last_error: Optional[BatchError] = None
     # added by the route on top of STATE
     comfy: bool

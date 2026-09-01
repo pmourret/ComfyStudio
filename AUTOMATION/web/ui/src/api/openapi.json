@@ -25,10 +25,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "responses": {
@@ -84,10 +84,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "responses": {
@@ -145,10 +145,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "responses": {
@@ -554,10 +554,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "responses": {
@@ -613,10 +613,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "responses": {
@@ -671,10 +671,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "responses": {
@@ -803,28 +803,8 @@
     "/api/app/comfy/stats": {
       "get": {
         "summary": "RAM / VRAM / thermique",
-        "description": "Machine memory and thermals, for the banner and the Application screen.\n\nBoth probes go into a THREAD: `comfy_alive` cost a 2005 ms event-loop\nfreeze on 24/08 for having probed while blocking, and we are not replaying\nthat. The result is kept for a second and a half.\n\nTWO TRAPS, both observed on 30/08 with ComfyUI stopped — the case where the\nprobe is SLOW (urlopen waiting on a dead port, ~2 s):\n\n  1. The timestamp is set AFTER the work, not before. Stamped at the start\n     of the request, a probe longer than the TTL made the cache stale at\n     birth: it NEVER served anything again, and every call re-ran\n     nvidia-smi and the wait. Measured: 2087 ms on a call meant to come out\n     of the cache.\n  2. A lock, otherwise two concurrent calls both do the work. The second\n     waits for the first and reads its result.",
+        "description": "Machine memory and thermals, for the banner and the Application screen.\n\nNo character parameter: VRAM/RAM belong to the MACHINE, one ComfyUI for\nthe whole platform (2026-09-01) — there is nothing here a character could\nscope.\n\nBoth probes go into a THREAD: `comfy_alive` cost a 2005 ms event-loop\nfreeze on 24/08 for having probed while blocking, and we are not replaying\nthat. The result is kept for a second and a half.\n\nTWO TRAPS, both observed on 30/08 with ComfyUI stopped — the case where the\nprobe is SLOW (urlopen waiting on a dead port, ~2 s):\n\n  1. The timestamp is set AFTER the work, not before. Stamped at the start\n     of the request, a probe longer than the TTL made the cache stale at\n     birth: it NEVER served anything again, and every call re-ran\n     nvidia-smi and the wait. Measured: 2087 ms on a call meant to come out\n     of the cache.\n  2. A lock, otherwise two concurrent calls both do the work. The second\n     waits for the first and reads its result.",
         "operationId": "get_comfy_stats_api_app_comfy_stats_get",
-        "parameters": [
-          {
-            "name": "character",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
-              "title": "Character"
-            },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -845,16 +825,6 @@
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
         }
       }
@@ -862,28 +832,8 @@
     "/api/app/comfy/unload": {
       "post": {
         "summary": "Décharger la VRAM",
-        "description": "Unloads models and VRAM. Explicit gesture, never automatic.\n\nRefused during a batch: unloading under a running job would make it fail,\nand the user would lose a production to gain some VRAM.",
+        "description": "Unloads models and VRAM. Explicit gesture, never automatic.\n\nRefused during a batch: unloading under a running job would make it fail,\nand the user would lose a production to gain some VRAM. No character\nparameter, same reason as `get_comfy_stats` above.",
         "operationId": "unload_comfy_api_app_comfy_unload_post",
-        "parameters": [
-          {
-            "name": "character",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
-              "title": "Character"
-            },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -910,16 +860,6 @@
           },
           "502": {
             "description": "Le déchargement a échoué"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
         }
       }
@@ -972,10 +912,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "responses": {
@@ -1029,10 +969,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "requestBody": {
@@ -1098,10 +1038,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "responses": {
@@ -1157,10 +1097,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "requestBody": {
@@ -1307,10 +1247,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "responses": {
@@ -1536,10 +1476,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "requestBody": {
@@ -1605,10 +1545,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "requestBody": {
@@ -1692,10 +1632,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "requestBody": {
@@ -1798,10 +1738,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "responses": {
@@ -1857,10 +1797,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "requestBody": {
@@ -1945,10 +1885,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "responses": {
@@ -1988,17 +1928,37 @@
     "/api/flag": {
       "post": {
         "summary": "Jugement humain de réalisme",
-        "description": "Human judgement on realism. Independent of sorting: it moves nothing.",
+        "description": "Human judgement on realism. Independent of sorting: it moves nothing.\n\nTook no character parameter at all until 2026-09-01 — the DB write this\ntriggers (`mesures.poser_flag` -> `base.enregistrer_image`) silently\nrecorded every judgement, for every character, under one specific\ncharacter_id, because that was the only default `enregistrer_image` had.",
         "operationId": "set_flag_api_flag_post",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/FlagRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -2053,10 +2013,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "requestBody": {
@@ -2124,10 +2084,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "requestBody": {
@@ -2196,10 +2156,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "requestBody": {
@@ -2268,10 +2228,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "requestBody": {
@@ -2340,10 +2300,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige.",
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
               "title": "Character"
             },
-            "description": "Identifiant du personnage (registre CHARACTERS/). Défaut « lena » sauf sur /img, qui l'exige."
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
           }
         ],
         "responses": {
@@ -5042,7 +5002,14 @@
             "default": false
           },
           "character": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Character"
           },
           "last_error": {
@@ -5093,7 +5060,6 @@
         "type": "object",
         "required": [
           "running",
-          "character",
           "comfy",
           "counts",
           "nsfw_counts",
