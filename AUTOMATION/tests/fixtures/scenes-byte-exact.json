@@ -3,8 +3,9 @@
     "Banque de scenes pour le runner batch. Le prompt final est assemble ainsi :",
     "  prefix + anchor + ', ' + scene.prompt + [', ' + variante] + ', ' + texture",
     "Ne JAMAIS decrire le visage dans une scene : c'est PuLID qui le porte.",
-    "L'ancre (cheveux + yeux + taches de rousseur) est obligatoire, PuLID ne la",
-    "transporte pas. Voir DOCS/lena-realisme.md.",
+    "L'ancre (traits physiques stables hors visage) est obligatoire, PuLID ne la",
+    "transporte pas. En production elle vit dans CHARACTERS/<perso>/config.json ;",
+    "ici c'est un texte invente, sans rapport avec un personnage reel du studio.",
     "count : nombre d'images par scene (chaque image a un seed different).",
     "variants : si present, chaque variante produit count images de plus.",
     "guidance / steps / refiner_denoise : facultatifs, ecrasent config.json pour",
@@ -13,7 +14,7 @@
     "direction : note globale ajoutee a la fin de TOUS les prompts. Sert a donner une intention de serie (ex : 'autumn palette, softer light')."
   ],
   "prefix": "raw, unedited photo of",
-  "anchor": "a 22-year-old French woman, long dark brown hair falling past her shoulders, green eyes, dense freckles across her nose and cheeks",
+  "anchor": "a fictional test subject, invented build and hair, no resemblance to any real or studio character intended",
   "direction": "",
   "texture": "visible skin texture and pores, light film grain, desaturated palette of terracotta, sage, cream and warm brown, shot on 35mm, natural no-makeup look",
   "scenes": [
