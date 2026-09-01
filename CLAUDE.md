@@ -20,9 +20,15 @@ repo et skills en **français**.
 
 ## Invariants
 
-1. Workflows **lus, jamais réécrits** (`ui_to_api.convert` au lancement) ;
-   inspecter un graphe via `wf_check.py --roles`, **jamais le JSON brut**. Le
+1. `ui_to_api.convert` reste le seul chemin de lecture à l'exécution ; le
    contrat workflows ↔ runner passe par les titres de nœuds/groupes.
+   **Amendé le 2026-09-01** — c'était « lus, jamais réécrits, jamais le JSON
+   brut » : Claude peut désormais **modifier directement le JSON** d'un
+   workflow sur demande explicite. En contrepartie, **l'utilisateur valide
+   lui-même** chaque workflow modifié (ouverture réelle dans ComfyUI, ou
+   `--essai`) avant de le considérer fiable — un lien de graphe mal câblé à
+   la main (ids de nœud/lien incohérents, ordre de widgets faux) ne se voit
+   pas à la relecture du JSON, seul ComfyUI le détecte.
 2. Un seul cœur d'exécution (`execute_jobs`), CLI et web — pas un deuxième par
    univers ou par personnage.
 3. Un seul assembleur de prompt par personnage, verrouillé par un test à

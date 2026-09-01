@@ -1,6 +1,6 @@
 {
-  "last_node_id": 5,
-  "last_link_id": 3,
+  "last_node_id": 6,
+  "last_link_id": 4,
   "nodes": [
     {
       "id": 1,
@@ -98,7 +98,9 @@
         {
           "name": "POSE_KEYPOINT",
           "type": "POSE_KEYPOINT",
-          "links": null
+          "links": [
+            4
+          ]
         }
       ],
       "title": "DWPose - corps + mains, SANS visage",
@@ -172,6 +174,36 @@
       "widgets_values": [
         "_LENA_POSE/pose_"
       ]
+    },
+    {
+      "id": 6,
+      "type": "SavePoseKpsAsJsonFile",
+      "pos": [
+        1160.0,
+        300.0
+      ],
+      "size": [
+        340.0,
+        80.0
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "pose_kps",
+          "type": "POSE_KEYPOINT",
+          "link": 4
+        }
+      ],
+      "outputs": [],
+      "title": "Points-cles JSON (scratch, deplace ensuite vers INPUTS/POSE/)",
+      "properties": {
+        "Node name for S&R": "SavePoseKpsAsJsonFile"
+      },
+      "widgets_values": [
+        "_LENA_POSE/pose_kps_"
+      ]
     }
   ],
   "links": [
@@ -198,6 +230,14 @@
       5,
       0,
       "IMAGE"
+    ],
+    [
+      4,
+      3,
+      1,
+      6,
+      0,
+      "POSE_KEYPOINT"
     ]
   ],
   "groups": [
