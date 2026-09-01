@@ -191,16 +191,25 @@ export function SceneComposer({
         ))}
       </div>
 
-      {TABS.map(
-        (t) =>
-          tab === t.key && (
-            <div
-              key={t.key}
-              role="tabpanel"
-              id={`scene-panel-${t.key}`}
-              aria-labelledby={`scene-tab-${t.key}`}
-              tabIndex={0}
-            >
+      {/* All SEVEN wrappers stay mounted — only the active one's CONTENT
+          does not (audit UX/UI, M2). Unmounting the whole `<div
+          role="tabpanel">` left `aria-controls="scene-panel-<clé>"` on six of
+          the seven tab buttons pointing at an id absent from the DOM: a
+          broken ARIA reference, not just an unused one. `hidden` keeps the
+          same practical effect (inactive panels invisible, out of the
+          accessibility tree, out of tab order) without the buttons lying
+          about what they control. */}
+      {TABS.map((t) => (
+        <div
+          key={t.key}
+          role="tabpanel"
+          id={`scene-panel-${t.key}`}
+          aria-labelledby={`scene-tab-${t.key}`}
+          tabIndex={0}
+          hidden={tab !== t.key}
+        >
+          {tab === t.key && (
+            <>
               {t.key === 'general' && (
                 <GeneralPanel
                   draft={draft}
@@ -255,9 +264,10 @@ export function SceneComposer({
                   </button>
                 )}
               </div>
-            </div>
-          ),
-      )}
+            </>
+          )}
+        </div>
+      ))}
     </div>
   )
 }

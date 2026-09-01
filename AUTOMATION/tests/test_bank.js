@@ -140,6 +140,12 @@ const SCENES = BASE + '/bank/scenes?character=lena';
        `le panneau (${Math.round(hPanel)}px) remplit son conteneur (${Math.round(hAside)}px), pas seulement son contenu`);
   dire((await page.$$eval('#sceneInspector [role="tab"]', e => e.length)) === 7,
        'le compositeur ouvre sur ses 7 onglets (wireframe 31/08/2026)');
+  // audit UX/UI (M2) : aria-controls doit resoudre a un id REELLEMENT present
+  // dans le DOM pour les 7 onglets, pas seulement celui actif — un panneau
+  // demonte pour les 6 autres cassait la reference ARIA en silence
+  const controlesResolus = await page.$$eval('#sceneInspector [role="tab"]', tabs =>
+    tabs.every(t => document.getElementById(t.getAttribute('aria-controls') || '') !== null));
+  dire(controlesResolus, 'aria-controls des 7 onglets pointe vers un panneau qui existe vraiment dans le DOM');
   // les champs du compositeur sont repartis par onglet — un champ absent du
   // DOM tant que son onglet n'est pas ouvert, contrairement a l'ancien
   // formulaire plat qui les montrait tous a la fois
