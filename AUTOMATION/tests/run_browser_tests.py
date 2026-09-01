@@ -67,6 +67,7 @@ TESTS = [
     "test_editor",        # editeur photo : recadrage, copie, ecrasement (ecran 6)
     "test_produce",       # Produire : pieges /api/plan et #btnRun (ecran 7)
     "test_pose_extract",  # ComfyUI requis (s'ignore sinon) : extraction reelle
+    "test_pose_editor",   # aucun ComfyUI requis : preset -> canvas -> save local
 ]
 
 def _free_from(base):

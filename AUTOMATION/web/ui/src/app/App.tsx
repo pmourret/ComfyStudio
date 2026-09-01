@@ -25,6 +25,9 @@ import { TaxonomyProvider } from '../state/TaxonomyContext'
 import { ConfigProvider } from '../state/ConfigContext'
 import { LightboxProvider } from '../chrome/LightboxContext'
 import { BankPosesScreen, BankScenesScreen } from '../screens/bank/BankScreen'
+import { PoseEditorScreen } from '../screens/pose-editor/PoseEditorScreen'
+import { WorldPlacesScreen } from '../screens/worlds/WorldPlacesScreen'
+import { WorldsScreen } from '../screens/worlds/WorldsScreen'
 import { GalleryRoute, ReviewRoute } from '../screens/review/ReviewScreen'
 import { ProduceScreen } from '../screens/produce/ProduceScreen'
 import { ApplicationScreen } from '../screens/ApplicationScreen'
@@ -75,6 +78,15 @@ export function App() {
                       always meant « sub-view of », and now the router says it. */}
                   <Route path={PATHS.bankScenes} element={<BankScenesScreen />} />
                   <Route path={PATHS.bankPoses} element={<BankPosesScreen />} />
+                  {/* :name? absent -> "new pose", starting from a chosen preset
+                      (2026-09-02) — same list-then-editor shape as worlds/
+                      places just below. */}
+                  <Route path={`${PATHS.poseEditor}/:name?`} element={<PoseEditorScreen />} />
+                  {/* ADR-0016: the world registry, and its catalog editor —
+                      the id is a route param, like the review/gallery image
+                      name below. */}
+                  <Route path={PATHS.worlds} element={<WorldsScreen />} />
+                  <Route path={`${PATHS.worlds}/:worldId/places`} element={<WorldPlacesScreen />} />
                   {/* The second screen the legacy chrome switched by attribute:
                       `#trier[data-metier]` becomes two routes. `:name?` is the
                       image aimed at (F1.3), the shape `#trier/<nom>` carried. */}

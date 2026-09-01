@@ -46,15 +46,16 @@ class PoseSaveRequest(BaseModel):
     `pose_tools.py` reads and writes (`extra="allow"`: this layer relays a
     format it does not own, same reasoning as `/api/config`'s own response).
 
-    `name` given, no `save_as`: overwrites that pose. `name` given WITH
-    `save_as`: keeps the original, writes a new pose under `save_as`.
-    Neither given: a brand-new pose (from a preset), auto-numbered like an
-    extraction.
+    `name` given: overwrites that pose. Omitted: a brand-new pose,
+    auto-numbered like an extraction — including "save as new" while
+    editing an existing one: since a pose's filename is never chosen by
+    hand (`pose__NNNNN_.png`, always machine-numbered), keeping the
+    original untouched and branching a new one is simply calling this
+    WITHOUT `name`, not a separate parameter.
     """
     model_config = ConfigDict(extra="allow")
 
     name: Optional[str] = None
-    save_as: Optional[str] = None
     keypoints: dict = {}
 
 

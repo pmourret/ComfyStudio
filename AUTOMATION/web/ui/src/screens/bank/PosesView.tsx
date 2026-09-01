@@ -6,12 +6,14 @@
    extraction, success or failure. The interface says so, because the person
    choosing the file is the one who needs to know. */
 import { useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import { errorOf, type ActionLike } from '../../api/client'
 import { useApi } from '../../api/useApi'
 import { useConfirm } from '../../chrome/ConfirmContext'
 import { useToast } from '../../chrome/ToastContext'
 import { useScenes } from '../../state/ScenesStoreContext'
+import { PATHS } from '../../app/routes'
 
 type ExtractResponse = ActionLike & { name?: string }
 
@@ -86,16 +88,22 @@ export function PosesView() {
 
   return (
     <div id="bankPoses">
-      <h2>
-        Squelettes de pose{' '}
-        <span className="tiny" id="nPoses">
-          {poses.length ? `— ${poses.length}` : ''}
-        </span>
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-[10px]">
+        <h2 className="m-0">
+          Squelettes de pose{' '}
+          <span className="tiny" id="nPoses">
+            {poses.length ? `— ${poses.length}` : ''}
+          </span>
+        </h2>
+        <Link className="btn sm" to={PATHS.poseEditor}>
+          + Nouvelle pose
+        </Link>
+      </div>
       <p className="tiny mt-[6px] mb-[16px]">
         Un squelette OpenPose extrait d'une photo, imposable à une scène
         (ControlNet, cran SFW seulement). <b>La photo source ne reste jamais sur
-        le disque</b> : seul le squelette est gardé.
+        le disque</b> : seul le squelette est gardé. « + Nouvelle pose » part
+        d'un gabarit, sans photo — à corriger point par point ensuite.
       </p>
 
       <div
@@ -129,6 +137,16 @@ export function PosesView() {
               >
                 ×
               </button>
+              <Link
+                className="absolute bottom-[4px] left-[4px] rounded-[6px] border
+                           border-line2 bg-scrim px-[6px] py-[2px] text-[10.5px]
+                           text-dim no-underline hover:text-txt
+                           focus-visible:outline-2 focus-visible:outline-focus
+                           focus-visible:outline-offset-2"
+                to={`${PATHS.poseEditor}/${encodeURIComponent(name)}`}
+              >
+                éditer
+              </Link>
             </div>
           ))
         ) : (

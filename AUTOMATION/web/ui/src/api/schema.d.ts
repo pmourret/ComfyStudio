@@ -765,7 +765,8 @@ export interface paths {
          * Enregistrer un squelette édité ou neuf
          * @description Renders `keypoints` locally (`pose_render` — no ComfyUI, no GPU, no
          *     job queue) and writes the PNG+JSON pair. See `PoseSaveRequest` for the
-         *     name / save_as contract (plain overwrite / save-as-new / brand-new).
+         *     name contract (plain overwrite when given, brand-new — "save as new"
+         *     while editing an existing pose included — when omitted).
          */
         post: operations["save_pose_api_pose_save_post"];
         delete?: never;
@@ -2163,16 +2164,16 @@ export interface components {
          *     `pose_tools.py` reads and writes (`extra="allow"`: this layer relays a
          *     format it does not own, same reasoning as `/api/config`'s own response).
          *
-         *     `name` given, no `save_as`: overwrites that pose. `name` given WITH
-         *     `save_as`: keeps the original, writes a new pose under `save_as`.
-         *     Neither given: a brand-new pose (from a preset), auto-numbered like an
-         *     extraction.
+         *     `name` given: overwrites that pose. Omitted: a brand-new pose,
+         *     auto-numbered like an extraction — including "save as new" while
+         *     editing an existing one: since a pose's filename is never chosen by
+         *     hand (`pose__NNNNN_.png`, always machine-numbered), keeping the
+         *     original untouched and branching a new one is simply calling this
+         *     WITHOUT `name`, not a separate parameter.
          */
         PoseSaveRequest: {
             /** Name */
             name?: string | null;
-            /** Save As */
-            save_as?: string | null;
             /**
              * Keypoints
              * @default {}

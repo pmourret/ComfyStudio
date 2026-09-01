@@ -49,6 +49,7 @@ import type { ScenePreview } from '../SceneList'
 import { InfoHint } from './InfoHint'
 import { PromptField } from './PromptField'
 import { appendWardrobeLine, WARDROBE_CATALOG } from './wardrobeCatalog'
+import { PoseEditorModal } from '../../pose-editor/PoseEditorModal'
 
 const FORMATS = ['4:5', '2:3', '9:16', '1:1']
 
@@ -678,6 +679,7 @@ function PosePanel({
   onPatch: (patch: Partial<SceneDraft>) => void
 }) {
   const options = poseOptions(poses, draft.pose)
+  const [editing, setEditing] = useState(false)
   return (
     <div>
       <PromptField
@@ -696,9 +698,22 @@ function PosePanel({
           Sélecteur de pose — squelette ControlNet imposé (option, cran SFW uniquement)
           <InfoHint text="Mesuré (A/B interne) : 0 image sous la bande d'identité sur 15. Un squelette de dos ou de profil peut ne pas être suivi par le modèle — vérifier le résultat à l'œil après génération." />
         </span>
-        <Link className="btn sm" to={PATHS.bankPoses}>
-          Éditeur de pose
-        </Link>
+        <div className="flex items-center gap-[6px]">
+          {draft.pose && (
+            <button
+              type="button"
+              className="btn sm"
+              aria-label={`Modifier « ${draft.pose} » point par point`}
+              data-hint-text="Retoucher ce squelette, sans quitter la scène"
+              onClick={() => setEditing(true)}
+            >
+              <Icon name="pencil" className="h-[14px] w-[14px]" />
+            </button>
+          )}
+          <Link className="btn sm" to={PATHS.bankPoses}>
+            Éditeur de pose
+          </Link>
+        </div>
       </div>
       <div
         className="mt-[8px] grid grid-cols-[repeat(auto-fill,minmax(76px,1fr))] gap-[8px]"
@@ -740,6 +755,17 @@ function PosePanel({
           ))
         )}
       </div>
+
+      {editing && draft.pose && (
+        <PoseEditorModal
+          source={{ kind: 'pose', name: draft.pose }}
+          onClose={() => setEditing(false)}
+          onSaved={(name) => {
+            onPatch({ pose: name })
+            setEditing(false)
+          }}
+        />
+      )}
     </div>
   )
 }

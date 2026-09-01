@@ -23,9 +23,18 @@ export const PATHS = {
   gallery: '/gallery',
   bankScenes: '/bank/scenes',
   bankPoses: '/bank/poses',
+  poseEditor: '/bank/poses/edit',
+  worlds: '/worlds',
   application: '/app',
   journal: '/app/journal',
 } as const
+
+/** `/worlds/<id>/places` — the catalog editor of one world (ADR-0016). A
+    function and not a PATHS entry: it needs an id, like `characterPath`
+    needs a claim state. */
+export function worldPlacesPath(worldId: string): string {
+  return `${PATHS.worlds}/${encodeURIComponent(worldId)}/places`
+}
 
 export type ScreenKey =
   | 'character'
@@ -33,6 +42,7 @@ export type ScreenKey =
   | 'review'
   | 'gallery'
   | 'bank'
+  | 'worlds'
   | 'application'
 
 /* The six destinations of the studio navbar, in their order on screen.
@@ -91,6 +101,13 @@ export const DESTINATIONS: Destination[] = [
     path: PATHS.bankScenes,
     icon: 'bank',
     activePrefix: '/bank',
+  },
+  {
+    key: 'worlds',
+    label: 'Mondes',
+    path: PATHS.worlds,
+    icon: 'worlds',
+    activePrefix: '/worlds',
   },
   {
     key: 'application',

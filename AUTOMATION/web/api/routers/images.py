@@ -237,15 +237,13 @@ async def get_pose_preset(
 async def save_pose(payload: PoseSaveRequest):
     """Renders `keypoints` locally (`pose_render` — no ComfyUI, no GPU, no
     job queue) and writes the PNG+JSON pair. See `PoseSaveRequest` for the
-    name / save_as contract (plain overwrite / save-as-new / brand-new)."""
+    name contract (plain overwrite when given, brand-new — "save as new"
+    while editing an existing pose included — when omitted)."""
     name = (payload.name or "").strip()
-    save_as = (payload.save_as or "").strip()
     if name and not ss.SAFE_NAME.match(name):
         ss.bad_request("nom de fichier invalide")
-    if save_as and not ss.SAFE_NAME.match(save_as):
-        ss.bad_request("nom de fichier invalide (enregistrer sous)")
     if not payload.keypoints.get("people"):
         ss.bad_request("points-clés manquants ou illisibles")
-    written = pose_tools.enregistrer_points(payload.keypoints, nom=(save_as or name or None))
+    written = pose_tools.enregistrer_points(payload.keypoints, nom=(name or None))
     ss.push_log(f"squelette enregistré : {written}")
     return {"ok": True, "name": written}

@@ -1599,7 +1599,7 @@
     "/api/pose/save": {
       "post": {
         "summary": "Enregistrer un squelette édité ou neuf",
-        "description": "Renders `keypoints` locally (`pose_render` — no ComfyUI, no GPU, no\njob queue) and writes the PNG+JSON pair. See `PoseSaveRequest` for the\nname / save_as contract (plain overwrite / save-as-new / brand-new).",
+        "description": "Renders `keypoints` locally (`pose_render` — no ComfyUI, no GPU, no\njob queue) and writes the PNG+JSON pair. See `PoseSaveRequest` for the\nname contract (plain overwrite when given, brand-new — \"save as new\"\nwhile editing an existing pose included — when omitted).",
         "operationId": "save_pose_api_pose_save_post",
         "requestBody": {
           "content": {
@@ -4484,17 +4484,6 @@
             ],
             "title": "Name"
           },
-          "save_as": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Save As"
-          },
           "keypoints": {
             "additionalProperties": true,
             "type": "object",
@@ -4505,7 +4494,7 @@
         "additionalProperties": true,
         "type": "object",
         "title": "PoseSaveRequest",
-        "description": "Saves an edited or brand-new skeleton — `keypoints` is the raw frame\n`pose_tools.py` reads and writes (`extra=\"allow\"`: this layer relays a\nformat it does not own, same reasoning as `/api/config`'s own response).\n\n`name` given, no `save_as`: overwrites that pose. `name` given WITH\n`save_as`: keeps the original, writes a new pose under `save_as`.\nNeither given: a brand-new pose (from a preset), auto-numbered like an\nextraction."
+        "description": "Saves an edited or brand-new skeleton — `keypoints` is the raw frame\n`pose_tools.py` reads and writes (`extra=\"allow\"`: this layer relays a\nformat it does not own, same reasoning as `/api/config`'s own response).\n\n`name` given: overwrites that pose. Omitted: a brand-new pose,\nauto-numbered like an extraction — including \"save as new\" while\nediting an existing one: since a pose's filename is never chosen by\nhand (`pose__NNNNN_.png`, always machine-numbered), keeping the\noriginal untouched and branching a new one is simply calling this\nWITHOUT `name`, not a separate parameter."
       },
       "PoseSaveResponse": {
         "properties": {
