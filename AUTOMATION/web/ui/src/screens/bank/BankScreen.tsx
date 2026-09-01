@@ -54,22 +54,23 @@ import { DocumentPane, SceneInspector } from './SceneInspector'
 import { useSceneWorkbench } from './useSceneWorkbench'
 import { WorldBanner } from './WorldBanner'
 
-/* What the save bar SAYS it saves, per sub-view. Same button, same handler, same
-   file: only the label changes.
+/* What « Enregistrer » saves, per sub-view — said in its HOVER tooltip, not as
+   permanent text (2026-09-01: a title + a ".bak" reassurance sat in the chrome
+   at all times, reported as noise — "n'a pas d'intérêt à être affiché ici").
 
-   On Poses, plain « scenes.json » suggested the skeletons were being saved. They
-   are already on disk by the time the grid shows them (INPUTS/POSE/, written by
-   the extraction); what this view puts into scenes.json is the ATTRIBUTIONS
-   carried by the scenes. The disk target never lied — the context was missing.
+   On Poses, plain « scenes.json » would suggest the skeletons are what gets
+   saved. They are already on disk by the time the grid shows them
+   (INPUTS/POSE/, written by the extraction); what this view puts into
+   scenes.json is the ATTRIBUTIONS carried by the scenes. The disk target never
+   lied — the context was missing, and it still needs saying somewhere, just
+   on demand rather than permanently.
 
    A two-entry table, not a growing `if`: the day the bank gains a third
    sub-view, it adds a line. */
-const SAVE_BAR = {
-  scenes: ['scenes.json', 'une sauvegarde .bak est faite à chaque enregistrement'],
-  poses: [
-    'Scènes + attributions de pose',
-    'Enregistre scenes.json — pas les squelettes (déjà sur le disque). Une .bak à chaque fois.',
-  ],
+const SAVE_HINT = {
+  scenes: 'Enregistrer scenes.json — une sauvegarde .bak est faite à chaque fois',
+  poses:
+    'Enregistrer les attributions de pose dans scenes.json — jamais les squelettes, déjà sur le disque',
 } as const
 
 export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
@@ -119,15 +120,11 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
     }
   }
 
-  const [title, subtitle] = SAVE_BAR[view]
   const previews = (bank?.previews ?? {}) as Record<string, ScenePreview>
   const stats = (bank?.stats ?? {}) as Record<string, { n: number; avg: number | null }>
 
   const onSave = async () => {
     const result = await save()
-    /* `#scMsg` doubles as the status line, and that is wanted: the status is
-       transient, the sub-view text is the resting state, and only a change of
-       view puts it back. */
     setStatus(result.ok ? 'enregistré · sauvegarde .bak faite' : (result.erreur ?? 'échec'))
     if (result.ok) toast('scenes.json enregistré')
   }
@@ -151,10 +148,10 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
 
             The document actions ride along on the SAME row, at the SAME
             height: "Réglages de la banque" (scenes-only — Poses has no
-            document-level settings pane) and the save status + button, which
-            stays on BOTH sub-views per the note above. `flex-wrap` lets the
-            right-hand block drop to its own line rather than overflow on a
-            narrow window. */}
+            document-level settings pane) and the save button, which stays on
+            BOTH sub-views per the note above. `flex-wrap` lets the right-hand
+            block drop to its own line rather than overflow on a narrow
+            window. */}
         <div className="mb-[22px] flex flex-wrap items-center justify-between gap-[12px]">
           <nav className="seg" id="bankView" aria-label="Sous-vue de la banque">
             <SubViewLink to={PATHS.bankScenes} label="Scènes" active={view === 'scenes'} vue="scenes" />
@@ -173,22 +170,24 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
               </button>
             )}
             <div className="flex items-center gap-[10px]">
-              <span className="tiny text-right leading-tight">
-                <b id="scTitre" className="block text-dim2">
-                  {title}
-                </b>
-                <span id="scMsg">{status ?? subtitle}</span>
-              </span>
-              {/* Icon + hover tooltip, not a permanent label (2026-09-01):
-                  this row already says what it saves (title/status just to
-                  its left) — the button only needs to say WHICH action,
-                  and a disk glyph plus a tooltip on hover/focus does that
-                  without a permanent word sitting in the chrome. */}
+              {/* TRANSIENT ONLY — no resting text (2026-09-01: a permanent
+                  "scenes.json / une sauvegarde .bak est faite..." sat here at
+                  all times, reported as not worth the permanent space). What
+                  this button saves, per sub-view, moved into its OWN hover
+                  tooltip below; what a save just DID (success or the refusal
+                  message) still needs to be seen without hovering, so it
+                  stays a visible, if transient, status line — `role="status"`
+                  matches DirtyBar/FaultBar's own transient-message pattern. */}
+              {status && (
+                <span id="scMsg" role="status" className="tiny text-right leading-tight">
+                  {status}
+                </span>
+              )}
               <button
                 className="btn primary sm"
                 id="btnSaveScenes"
                 aria-label="Enregistrer"
-                data-hint-text="Enregistrer"
+                data-hint-text={SAVE_HINT[view]}
                 onClick={onSave}
               >
                 <Icon name="save" className="h-[15px] w-[15px]" />

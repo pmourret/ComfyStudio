@@ -178,6 +178,13 @@ export function DeclineDialog({
       id="declineBox"
       open
       onDismiss={onClose}
+      /* `className` gives the <dialog> ITSELF a definite width — without it,
+         the element has no size of its own (chrome.css sets only
+         `max-width`) and shrink-wraps to content, so `.card`'s percentage
+         width (`min(460px,100%)`) resolves against nothing concrete. Same
+         bug found and fixed in the scene composer's PromptField modal
+         (2026-09-01) — see that file's comment for the full diagnosis. */
+      className="w-[min(460px,calc(100vw-32px))] max-w-[min(460px,calc(100vw-32px))]"
       cardClassName="w-[min(460px,100%)]! p-[20px]!"
     >
       <h3 className="mb-[4px]! text-[16px]!">Décliner</h3>

@@ -103,8 +103,15 @@ const SCENES = BASE + '/bank/scenes?character=lena';
 
   console.log('\n[1bis] pas de barre fixe en bas : reglages + enregistrement vivent en haut, a cote du switch (01/09/2026)');
   dire(!(await vu('.launch')), "la banque n'a plus de barre de lancement fixe au bas de l'ecran");
-  dire(await vu('#btnBankDocument') && await vu('#scTitre') && await vu('#btnSaveScenes'),
-       "le trio reglages/statut/enregistrer est visible sans avoir a chercher en bas de page");
+  dire(await vu('#btnBankDocument') && await vu('#btnSaveScenes'),
+       "le duo reglages/enregistrer est visible sans avoir a chercher en bas de page");
+  // le texte permanent "scenes.json / une sauvegarde .bak..." n'a plus sa place ici
+  // (signale sans interet a l'ecran, 01/09/2026) : au repos, #scMsg n'existe pas —
+  // ce que le bouton enregistre se dit desormais dans son infobulle
+  dire(!(await vu('#scMsg')), 'au repos, aucun texte de statut ne traine en permanence');
+  const infobulleSave = await page.$eval('#btnSaveScenes', e => e.dataset.hintText || '');
+  dire(infobulleSave.toLowerCase().includes('scenes.json'),
+       `mais ce qui est enregistre reste dit, dans l'infobulle du bouton (« ${infobulleSave} »)`);
   const hautNav = await page.$eval('#bankView', e => e.getBoundingClientRect().top);
   const hautReglages = await page.$eval('#btnBankDocument', e => e.getBoundingClientRect().top);
   const hautSave = await page.$eval('#btnSaveScenes', e => e.getBoundingClientRect().top);
@@ -504,15 +511,18 @@ const SCENES = BASE + '/bank/scenes?character=lena';
        "et rien n'a ete ecrit : la tenue d'origine est toujours en banque");
   dire(await vu('#dirtyBar'), 'le bandeau reste : le travail est toujours en attente');
 
-  console.log('\n[14] sous-vue POSES : une route, un libelle de barre qui suit');
+  console.log('\n[14] sous-vue POSES : une route, une infobulle de sauvegarde qui suit');
   await page.click('#bankView [data-vue="poses"]');
   await page.waitForTimeout(400);
   dire(await page.evaluate(() => location.pathname) === '/bank/poses', 'chemin /bank/poses');
   dire(await vu('#bankPoses'), 'la sous-vue Poses est montee');
   dire(!(await vu('#bankScenes')), 'la sous-vue Scenes ne l est plus');
-  dire((await texte('#scTitre')).includes('attributions de pose'),
-       `la barre dit ce qu elle enregistre ICI : « ${await texte('#scTitre')} »`);
-  dire((await texte('#scMsg')).includes('pas les squelettes'),
+  // le texte permanent a disparu (voir [1bis]) : ce qui est enregistre ICI —
+  // et ce qui ne l'est PAS — se dit desormais dans l'infobulle du bouton
+  const infobullePoses = await page.$eval('#btnSaveScenes', e => e.dataset.hintText || '');
+  dire(infobullePoses.includes('attributions de pose'),
+       `l'infobulle dit ce qu elle enregistre ICI : « ${infobullePoses} »`);
+  dire(infobullePoses.toLowerCase().includes('squelette'),
        'et precise ce qu elle N enregistre PAS');
   dire(await vu('#btnSaveScenes'), "le bouton reste : une edition en attente garde son action");
   dire(await vu('#dirtyBar'), 'et le bandeau aussi');
