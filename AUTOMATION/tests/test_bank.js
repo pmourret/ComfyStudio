@@ -214,6 +214,17 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   dire(await vu('#sceneInspector'), 'mais le compositeur reste ouvert — la scene reste selectionnee');
   dire(!(await vu('#bankDocument')), 'et Echap ne retombe pas sur les reglages de la banque');
 
+  // audit UX/UI (m2) : sur un onglet COURT (Lumiere n'a qu'un champ), la
+  // barre Suivant/Precedent doit rester proche du bas du panneau plein-hauteur
+  // plutot que de flotter juste apres le contenu, loin au-dessus d'un grand
+  // vide — on est deja sur l'onglet Lumiere depuis le test precedent
+  console.log('\n[6ter] sur un onglet court, la barre de navigation reste proche du bas du panneau (audit m2)');
+  const basPanneau = await page.$eval('#sceneInspector', e => e.getBoundingClientRect().bottom);
+  const basBoutons = await page.$$eval(
+    '#scene-panel-light button', els => els[els.length - 1].getBoundingClientRect().bottom);
+  dire(Math.abs(basPanneau - basBoutons) < 40,
+       `barre de nav a ${Math.round(basBoutons)}px, bas du panneau a ${Math.round(basPanneau)}px — pas de grand vide`);
+
   console.log('\n[7] le plafond de niveau se DEDUIT des tenues, a la frappe — meme lu depuis un AUTRE onglet');
   await onglet('clothing');
   const tenues = await page.$eval(champ('wardrobe'), e => e.value);

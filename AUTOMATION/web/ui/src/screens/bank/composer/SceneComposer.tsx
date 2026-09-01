@@ -160,7 +160,15 @@ export function SceneComposer({
     "hérité du lieu — s'édite dans l'onglet Monde, ce qui serait tapé ici ne survit pas à l'enregistrement (ADR-0015)."
 
   return (
-    <div>
+    /* `flex h-full flex-col`, not a plain block: the tabpanel's own `flex-1`
+       (below) needs a REAL flex container to grow inside, and `h-full`
+       resolves against `#sceneInspector`'s own height (SceneInspector.tsx)
+       only once every link of the chain between here and there is definite —
+       a plain block div here left that chain broken, so the panel's height
+       fix upstream never reached the tabpanel content at all (audit UX/UI,
+       m2 — measured live: a 300px gap between the nav bar and the panel's
+       real bottom edge). */
+    <div className="flex h-full flex-col">
       <div
         ref={tabsRef}
         role="tablist"
@@ -207,37 +215,49 @@ export function SceneComposer({
           aria-labelledby={`scene-tab-${t.key}`}
           tabIndex={0}
           hidden={tab !== t.key}
+          className="flex-1 min-h-0"
         >
           {tab === t.key && (
-            <>
-              {t.key === 'general' && (
-                <GeneralPanel
-                  draft={draft}
-                  creative={creative}
-                  produced={produced}
-                  worldLinked={worldLinked}
-                  idRef={idRef}
-                  onPatch={onPatch}
-                />
-              )}
-              {t.key === 'light' && (
-                <LightPanel draft={draft} worldLinked={worldLinked} lockedNote={lockedNote} onPatch={onPatch} />
-              )}
-              {t.key === 'clothing' && <ClothingPanel draft={draft} onPatch={onPatch} />}
-              {t.key === 'pose' && (
-                <PosePanel
-                  draft={draft}
-                  poses={poses}
-                  worldLinked={worldLinked}
-                  lockedNote={lockedNote}
-                  onPatch={onPatch}
-                />
-              )}
-              {t.key === 'recap' && (
-                <RecapPanel draft={draft} worldLinked={worldLinked} lockedNote={lockedNote} onPatch={onPatch} />
-              )}
-              {t.key === 'ai' && <AiPanel draft={draft} />}
-              {t.key === 'json' && <JsonPanel draft={draft} onSaveDocument={onSaveDocument} />}
+            /* `flex h-full flex-col` on an INNER wrapper, not the `hidden`
+               element itself (audit UX/UI, m2): Tailwind's `.flex{display:
+               flex}` and the UA's `[hidden]{display:none}` carry the same
+               specificity, so putting both on one element risks the utility
+               winning the cascade and defeating `hidden` — keeping them on
+               separate elements sidesteps the question entirely. The content
+               panel is `flex-1`: on a short tab (Général, Lumière…) it grows
+               to fill the now-full-height box instead of leaving the nav bar
+               floating over a dead gap above the panel's bottom edge. */
+            <div className="flex h-full flex-col">
+              <div className="flex-1">
+                {t.key === 'general' && (
+                  <GeneralPanel
+                    draft={draft}
+                    creative={creative}
+                    produced={produced}
+                    worldLinked={worldLinked}
+                    idRef={idRef}
+                    onPatch={onPatch}
+                  />
+                )}
+                {t.key === 'light' && (
+                  <LightPanel draft={draft} worldLinked={worldLinked} lockedNote={lockedNote} onPatch={onPatch} />
+                )}
+                {t.key === 'clothing' && <ClothingPanel draft={draft} onPatch={onPatch} />}
+                {t.key === 'pose' && (
+                  <PosePanel
+                    draft={draft}
+                    poses={poses}
+                    worldLinked={worldLinked}
+                    lockedNote={lockedNote}
+                    onPatch={onPatch}
+                  />
+                )}
+                {t.key === 'recap' && (
+                  <RecapPanel draft={draft} worldLinked={worldLinked} lockedNote={lockedNote} onPatch={onPatch} />
+                )}
+                {t.key === 'ai' && <AiPanel draft={draft} />}
+                {t.key === 'json' && <JsonPanel draft={draft} onSaveDocument={onSaveDocument} />}
+              </div>
 
               {/* One shared bottom section, same shape on EVERY tab (wireframe
                   31/08/2026): a rule, then full-width bars — Suivant above
@@ -264,7 +284,7 @@ export function SceneComposer({
                   </button>
                 )}
               </div>
-            </>
+            </div>
           )}
         </div>
       ))}
