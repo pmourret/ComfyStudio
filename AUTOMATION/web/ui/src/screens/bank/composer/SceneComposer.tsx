@@ -160,7 +160,7 @@ export function SceneComposer({
       <Tabs.List
         ref={tabsRef}
         aria-label="Sections de la scène"
-        className="mb-[14px] flex gap-[4px] rounded-[9px] border border-line bg-panel2 p-[4px]"
+        className="mb-[16px] flex gap-[6px] rounded-[10px] border border-line bg-panel2 p-[6px]"
       >
         {TABS.map((t) => (
           <Tabs.Trigger
@@ -177,14 +177,14 @@ export function SceneComposer({
                select on without touching what Radix already gets right. */
             data-tab={t.key}
             data-hint-text={t.label}
-            className={`flex flex-1 cursor-pointer items-center justify-center rounded-[6px] border-0
-                       py-[8px] focus-visible:outline-2 focus-visible:outline-focus
+            className={`flex flex-1 cursor-pointer items-center justify-center rounded-[7px] border-0
+                       py-[12px] focus-visible:outline-2 focus-visible:outline-focus
                        focus-visible:outline-offset-2 ${
                          tab === t.key ? 'bg-acc text-on-acc' : 'bg-transparent text-dim hover:text-txt'
                        }`}
           >
             <span className="sr-only">{t.label}</span>
-            <Icon name={t.icon} className="h-[16px] w-[16px]" />
+            <Icon name={t.icon} className="h-[19px] w-[19px]" />
           </Tabs.Trigger>
         ))}
       </Tabs.List>
@@ -303,41 +303,44 @@ function SceneHeader({
 }) {
   const composed = composePrompt(draft)
   return (
-    <div className="mb-[14px]">
-      <div className="flex items-center gap-[10px]">
-        <div
-          id="scenePreviewThumb"
-          data-void={preview ? undefined : '1'}
-          className={`relative h-[64px] w-[51px] shrink-0 overflow-hidden rounded-[8px] border
-                     border-line2 bg-panel2 bg-cover bg-center ${
-                       preview
-                         ? ''
-                         : "after:absolute after:inset-0 after:flex after:items-center" +
-                           " after:justify-center after:p-[3px] after:text-center after:text-[8px]" +
-                           " after:leading-tight after:text-dim2 after:content-['jamais_produite']"
-                     }`}
-          style={preview ? { backgroundImage: `url('${imageUrl({ ...preview, thumb: true })}')` } : undefined}
-        />
-        <div className="min-w-0 flex-1">
-          <b className="block truncate text-[14px]">{draft.id || '(sans identifiant)'}</b>
-          <span className="text-[11.5px] text-dim">
+    <div className="mb-[16px] flex gap-[14px]">
+      {/* Bumped from a 51×64 reminder icon to an actual focal point (studio-IA
+          polish pass, 2026-09-01) — the composer has the width for it now that
+          the scene list gave it up (see BankScreen.tsx's grid-cols). */}
+      <div
+        id="scenePreviewThumb"
+        data-void={preview ? undefined : '1'}
+        className={`relative h-[128px] w-[102px] shrink-0 overflow-hidden rounded-[10px] border
+                   border-line2 bg-panel2 bg-cover bg-center ${
+                     preview
+                       ? ''
+                       : "after:absolute after:inset-0 after:flex after:items-center" +
+                         " after:justify-center after:p-[6px] after:text-center after:text-[10px]" +
+                         " after:leading-tight after:text-dim2 after:content-['jamais_produite']"
+                   }`}
+        style={preview ? { backgroundImage: `url('${imageUrl({ ...preview, thumb: true })}')` } : undefined}
+      />
+      <div className="flex min-w-0 flex-1 flex-col justify-between">
+        <div>
+          <b className="block truncate text-[17px]">{draft.id || '(sans identifiant)'}</b>
+          <span className="text-[12px] text-dim">
             {produced ? `${produced} image${produced > 1 ? 's' : ''} produite${produced > 1 ? 's' : ''}` : 'jamais produite'}
           </span>
         </div>
-      </div>
 
-      <div className="mt-[8px] flex items-start gap-[6px] rounded-[7px] border border-line2 bg-panel2 px-[10px] py-[7px]">
-        <span className="shrink-0 pt-px text-[10px] font-semibold uppercase tracking-[.5px] text-dim2">
-          Prompt
-          <InfoHint text="Aperçu en direct du prompt composé, mis à jour à chaque frappe — le détail par fragment s'édite dans l'onglet Prompt global, jamais ici." />
-        </span>
-        <p
-          id="scenePromptPreview"
-          className="m-0 min-w-0 flex-1 truncate text-[12px] text-dim"
-          title={composed || undefined}
-        >
-          {composed || '— vide —'}
-        </p>
+        <div className="flex items-start gap-[6px] rounded-[7px] border border-line2 bg-panel2 px-[10px] py-[8px]">
+          <span className="shrink-0 pt-px text-[10px] font-semibold uppercase tracking-[.5px] text-dim2">
+            Prompt
+            <InfoHint text="Aperçu en direct du prompt composé, mis à jour à chaque frappe — le détail par fragment s'édite dans l'onglet Prompt global, jamais ici." />
+          </span>
+          <p
+            id="scenePromptPreview"
+            className="m-0 line-clamp-3 min-w-0 flex-1 text-[12px] text-dim"
+            title={composed || undefined}
+          >
+            {composed || '— vide —'}
+          </p>
+        </div>
       </div>
     </div>
   )
@@ -402,7 +405,7 @@ function GeneralPanel({
         </select>
       </label>
 
-      <div className="mt-[10px] grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-[12px]">
+      <div className="mt-[12px] grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-[14px]">
         <label className="f">
           <span>format</span>
           <select data-f="format" value={draft.format} onChange={(e) => onPatch({ format: e.target.value })}>
@@ -448,7 +451,7 @@ function GeneralPanel({
         </label>
       </div>
 
-      <div className="mt-[10px] grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-[12px]">
+      <div className="mt-[12px] grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-[14px]">
         <label className="f">
           <span>tons affins — virgules</span>
           <input
@@ -495,7 +498,7 @@ function LightPanel({
       <label className="f mt-[14px]">
         <span>variantes de lumière ou de saison (une par ligne) — jamais une tenue</span>
         <textarea
-          className="min-h-[52px] resize-y"
+          className="min-h-[68px] resize-y"
           data-f="variants"
           value={draft.variants}
           onChange={(e) => onPatch({ variants: e.target.value })}

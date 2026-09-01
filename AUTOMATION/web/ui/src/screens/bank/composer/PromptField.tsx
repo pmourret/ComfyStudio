@@ -56,7 +56,7 @@ export function PromptField({
         <textarea
           id={fieldId}
           data-f={dataField}
-          className="min-h-[54px] resize-y"
+          className="min-h-[78px] resize-y"
           value={value}
           placeholder={placeholder}
           disabled={disabled}
