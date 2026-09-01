@@ -258,20 +258,23 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
               </div>
 
               <aside
-                /* The composer takes the full available HEIGHT of the
-                   viewport (31/08/2026, on request): a fixed `h-` rather than
-                   a `max-h-` cap, so it stretches to fill the column even when
-                   the active tab's own content is short, with its own scroll
-                   for whichever tab's content does not fit. `DocumentPane`
-                   (nothing selected) keeps the old CAP instead — it is two
-                   fields, stretching it to the full height would just be
-                   empty space under a short form. */
-                className={`sticky top-[12px] overflow-auto max-[1100px]:static max-[1100px]:h-auto
-                            max-[1100px]:max-h-none ${
-                              bench.selected
-                                ? 'h-[calc(100vh-150px)]'
-                                : 'max-h-[calc(100vh-150px)]'
-                            }`}
+                /* CAP, not a forced size (reverted 31/08/2026 — a forced
+                   `h-[calc(100vh-150px)]` was tried to make a short tab visually
+                   fill the column, but "150px" is a GUESS at how much chrome
+                   sits above this aside — it was tuned against a 950px test
+                   viewport, and on a real, taller window it undershoots, so the
+                   forced box (and the Suivant/Précédent bar pinned to its
+                   bottom, since the audit's m2 fix) can extend past the actual
+                   visible viewport with no obvious cue that the primary
+                   navigation button is now off-screen. Reported live: it
+                   disappeared entirely. A `max-h` cap can only ever make the
+                   box SHORTER than its content demands (falling back to its own
+                   `overflow-auto` scrollbar, always reachable from where it
+                   already is) — it can never push a critical control past the
+                   fold the way a wrong forced height can. Same value Produire's
+                   own Inspector already uses this way. */
+                className="sticky top-[12px] max-h-[calc(100vh-150px)] overflow-auto
+                           max-[1100px]:static max-[1100px]:max-h-none"
                 id="bankInspector"
               >
                 {bench.selected && worldLinked && (

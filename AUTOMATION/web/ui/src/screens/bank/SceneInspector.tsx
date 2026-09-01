@@ -57,14 +57,16 @@ export function SceneInspector({
           onClose()
         }
       }}
-      /* `h-full`: the ASIDE around this section is what actually carries the
-         "fill the viewport" height (`BankScreen.tsx`, `h-[calc(100vh-150px)]`
-         while a scene is open) — a plain block element sizes to its OWN
-         content by default, so without this the visible bordered/backgrounded
-         box stopped at the active tab's content height, leaving bare,
-         unstyled aside underneath it. This is what actually reads as "the
-         panel" on screen; the aside itself has no border or background of its
-         own. */
+      /* `h-full`: the ASIDE around this section is capped, not forced
+         (`BankScreen.tsx`, `max-h-[calc(100vh-150px)]` — reverted from a
+         forced height that could push the composer's Suivant/Précédent bar
+         past the real viewport on a window taller than the cap assumed).
+         Most of the time this section just sizes to its own content, same as
+         the aside. `h-full` only matters the rare time a tab's content
+         actually exceeds the cap: the aside then clamps to it and scrolls,
+         and this keeps the visible bordered/backgrounded box — what actually
+         reads as "the panel" — filling that scrollable area instead of
+         stopping short partway through it. */
       className="h-full rounded-card border border-line bg-panel p-[16px]"
     >
       <SceneComposer
