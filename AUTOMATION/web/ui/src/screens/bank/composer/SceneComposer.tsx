@@ -669,7 +669,7 @@ function RecapPanel({
       />
       <PromptField
         dataField="prompt_light_recap"
-        label="Prompt de lumière"
+        label="Prompt de lumière — même champ que l'onglet Lumière"
         value={draft.promptLight}
         disabled={worldLinked}
         lockedNote={worldLinked ? lockedNote : undefined}
@@ -677,7 +677,7 @@ function RecapPanel({
       />
       <PromptField
         dataField="prompt_pose_recap"
-        label="Prompt de pose"
+        label="Prompt de pose — même champ que l'onglet Pose"
         value={draft.promptPose}
         disabled={worldLinked}
         lockedNote={worldLinked ? lockedNote : undefined}

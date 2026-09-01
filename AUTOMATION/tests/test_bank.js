@@ -161,6 +161,23 @@ const SCENES = BASE + '/bank/scenes?character=lena';
     const presents = await page.$$eval('#sceneInspector [data-f]', e => e.map(x => x.dataset.f));
     champsAttendus.forEach(f => dire(presents.includes(f), `onglet ${cle} : champ « ${f} »`));
   }
+
+  // audit UX/UI (m1) : les miroirs du recapitulatif disent qu'ils sont le
+  // MEME champ que leur onglet d'origine (pas une copie propre au recap),
+  // et editer l'un met bien a jour l'autre — pas juste le libelle qui le dit
+  console.log('\n[5ter] les miroirs du recapitulatif se disent lies a leur onglet, et le sont vraiment');
+  await onglet('recap');
+  const libelleLumiereRecap = await page.$eval(
+    `label[for="scene-prompt-prompt_light_recap"] span`, e => e.textContent);
+  dire(libelleLumiereRecap.includes('même champ que l'), 'le libelle du miroir lumiere dit qu il est lie a son onglet');
+  const marqueurSync = 'fumigation_sync_' + Date.now();
+  await onglet('light');
+  await page.fill(champ('prompt_light'), marqueurSync);
+  await onglet('recap');
+  dire((await page.$eval(champ('prompt_light_recap'), e => e.value)) === marqueurSync,
+       'et la frappe dans l onglet Lumiere se reflete bien dans le miroir du recap');
+  await page.fill(champ('prompt_light_recap'), '');
+
   await onglet('general');
   dire((await page.$eval(champ('id'), e => e.value)) === avant.scenes[0].id,
        'et c est bien LA scene ouverte qui est editee');
