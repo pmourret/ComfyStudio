@@ -25,7 +25,18 @@
 
    THE SAVE BAR IS ON BOTH VIEWS, and that is deliberate: it saves the screen's
    DOCUMENT, and a scene edit left pending on the other view must keep its button
-   — hiding it would hide the action while the dirty banner keeps warning. */
+   — hiding it would hide the action while the dirty banner keeps warning.
+
+   THE SAVE BAR MOVED OFF THE FIXED FOOTER (2026-09-01, studio-IA polish). A
+   `position:fixed` bar at the bottom of the viewport cost every screen a
+   reserved strip of dead space (`.wrap`'s own 120px bottom padding) whether or
+   not anything needed it, and pushed the "Réglages de la banque" toggle down
+   below the scene list, a second landmark to scroll past. Both now sit beside
+   the Scènes/Poses switch, at the top, where the switch already is — no
+   `position:fixed`, no reserved clearance, one less thing to scroll for. The
+   `.launch`/`.inner`/`.sum` classes stay defined in the shared stylesheet and
+   in use by `ProduceScreen`/`WizardScreen` — only this screen stops reaching
+   for them. */
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -38,7 +49,7 @@ import { PATHS } from '../../app/routes'
 import { PlaceInspector } from '../worlds/PlaceInspector'
 import { useWorldPlaces } from '../worlds/useWorldPlaces'
 import { PosesView } from './PosesView'
-import { groupByIntention, SceneListRow, type ScenePreview } from './SceneList'
+import { SceneListPanel, type ScenePreview } from './SceneList'
 import { DocumentPane, SceneInspector } from './SceneInspector'
 import { useSceneWorkbench } from './useSceneWorkbench'
 import { WorldBanner } from './WorldBanner'
@@ -123,11 +134,11 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
 
   return (
     <div className="screen" id="scenes">
-      {/* `pb-[130px]`: room for the fixed launch bar below — needed now that
-          « Réglages de la banque » moved under the carousel (31/08/2026); it
-          used to sit above the grid, where the bar never reached it. Same
-          clearance value as `WizardScreen`'s `.wrap`, same reason. */}
-      <div className="wrap w-full max-w-none pb-[130px]">
+      {/* `pb-[24px]`: the shared `.wrap` class reserves 120px at the bottom for
+          `ProduceScreen`/`WizardScreen`'s own fixed launch bar — this screen no
+          longer has one, so that clearance is now dead scroll space, overridden
+          back down to match the top padding. */}
+      <div className="wrap w-full max-w-none pb-[24px]">
         {/* The two sub-views are two DESTINATIONS, so two links: shareable, and
             the browser's back button walks between them.
 
@@ -136,11 +147,44 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
             for a tab to control, and these links NAVIGATE — a screen reader
             announced « onglet 1 sur 2 » for something that changes the URL and
             unmounts the screen. Two links in a nav say exactly what they do,
-            and `aria-current="page"` marks the one we are on. */}
-        <nav className="seg mb-[22px]" id="bankView" aria-label="Sous-vue de la banque">
-          <SubViewLink to={PATHS.bankScenes} label="Scènes" active={view === 'scenes'} vue="scenes" />
-          <SubViewLink to={PATHS.bankPoses} label="Poses" active={view === 'poses'} vue="poses" />
-        </nav>
+            and `aria-current="page"` marks the one we are on.
+
+            The document actions ride along on the SAME row, at the SAME
+            height: "Réglages de la banque" (scenes-only — Poses has no
+            document-level settings pane) and the save status + button, which
+            stays on BOTH sub-views per the note above. `flex-wrap` lets the
+            right-hand block drop to its own line rather than overflow on a
+            narrow window. */}
+        <div className="mb-[22px] flex flex-wrap items-center justify-between gap-[12px]">
+          <nav className="seg" id="bankView" aria-label="Sous-vue de la banque">
+            <SubViewLink to={PATHS.bankScenes} label="Scènes" active={view === 'scenes'} vue="scenes" />
+            <SubViewLink to={PATHS.bankPoses} label="Poses" active={view === 'poses'} vue="poses" />
+          </nav>
+
+          <div className="flex flex-wrap items-center gap-[10px]">
+            {view === 'scenes' && (
+              <button
+                className="btn sm"
+                id="btnBankDocument"
+                aria-pressed={!bench.selected}
+                onClick={() => bench.select(null)}
+              >
+                Réglages de la banque
+              </button>
+            )}
+            <div className="flex items-center gap-[10px]">
+              <span className="tiny text-right leading-tight">
+                <b id="scTitre" className="block text-dim2">
+                  {title}
+                </b>
+                <span id="scMsg">{status ?? subtitle}</span>
+              </span>
+              <button className="btn primary sm" id="btnSaveScenes" onClick={onSave}>
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
 
         {view === 'scenes' ? (
           <div id="bankScenes">
@@ -164,7 +208,7 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
                   clamp asks for), not tied to the carousel this replaced —
                   see `chrome/Shell.tsx`'s own `min-height:0`/`min-width:0`
                   note for the general shape of this class of bug. */}
-              <div className="min-w-0">
+              <div className="min-w-0 max-[1100px]:max-w-[420px]">
                 <div className="mb-[10px] flex flex-col gap-[8px]">
                   <div className="flex items-center gap-[6px]">
                     {/* A real <label>, not a placeholder posing as one: the
@@ -222,66 +266,19 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
                     il ne montre que ce qui répond.
                   </div>
                 ) : (
-                  <div
-                    ref={bench.listRef}
-                    id="sceneCards"
-                    /* Arrows move the focus from row to row, Home and End to
-                       the two ends, Left/Right fold the enclosing group — see
-                       useSceneWorkbench for why this is linear now instead of
-                       the carousel's column-major math. */
+                  <SceneListPanel
+                    shown={bench.shown}
+                    creative={creative}
+                    filterActive={Boolean(bench.filter.trim())}
+                    previews={previews}
+                    stats={stats}
+                    selectedUid={bench.selected?.uid}
+                    imageUrl={api.image}
+                    onOpen={bench.select}
+                    listRef={bench.listRef}
                     onKeyDown={bench.onListKeyDown}
-                    className="flex flex-col gap-[12px]"
-                  >
-                    {groupByIntention(bench.shown, creative).map((group) => (
-                      <details key={group.key} open className="group">
-                        {/* Native disclosure, not a hand-rolled one: free
-                            keyboard (Enter/Space) and expanded/collapsed
-                            state exposed to assistive tech, no ARIA to get
-                            wrong. Own chevron (rotated via Radix-free
-                            `group-open:`) replaces the native marker glyph,
-                            which the two engines draw differently. */}
-                        <summary
-                          className="flex cursor-pointer list-none items-center gap-[6px] rounded-[6px]
-                                     px-[4px] py-[4px] text-[11px] font-semibold uppercase
-                                     tracking-[.5px] text-dim2 hover:text-dim
-                                     focus-visible:outline-2 focus-visible:outline-focus
-                                     focus-visible:outline-offset-2
-                                     [&::-webkit-details-marker]:hidden"
-                        >
-                          <Icon name="chevron" className="h-[11px] w-[11px] shrink-0 transition-transform group-open:rotate-90" />
-                          <span className="truncate">{group.label}</span>
-                          <span className="ml-auto shrink-0 font-normal normal-case tracking-normal text-dim2">
-                            {group.entries.length}
-                          </span>
-                        </summary>
-                        <div className="mt-[6px] flex flex-col gap-[6px] pl-[2px]">
-                          {group.entries.map(({ draft }) => (
-                            <SceneListRow
-                              key={draft.uid}
-                              draft={draft}
-                              preview={previews[draft.base.id]}
-                              stats={stats[draft.base.id]}
-                              selected={bench.selected?.uid === draft.uid}
-                              imageUrl={api.image}
-                              onOpen={() => bench.select(draft.uid)}
-                            />
-                          ))}
-                        </div>
-                      </details>
-                    ))}
-                  </div>
+                  />
                 )}
-
-                <div className="mt-[14px]">
-                  <button
-                    className="btn sm"
-                    id="btnBankDocument"
-                    aria-pressed={!bench.selected}
-                    onClick={() => bench.select(null)}
-                  >
-                    Réglages de la banque
-                  </button>
-                </div>
               </div>
 
               <aside
@@ -298,9 +295,16 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
                    box SHORTER than its content demands (falling back to its own
                    `overflow-auto` scrollbar, always reachable from where it
                    already is) — it can never push a critical control past the
-                   fold the way a wrong forced height can. Same value Produire's
-                   own Inspector already uses this way. */
-                className="sticky top-[12px] max-h-[calc(100vh-150px)] overflow-auto
+                   fold the way a wrong forced height can.
+
+                   "150px" DROPPED TO "90px" (2026-09-01): that budget was
+                   guessing room for the top nav AND the fixed launch bar's own
+                   height at the bottom — the bar is gone (moved into the top
+                   row, see the file's opening comment), so only the top nav
+                   need be guessed for now. Being a CAP, an imprecise guess
+                   here only costs the aside its own internal scroll, never a
+                   hidden control — see the paragraph above. */
+                className="sticky top-[12px] max-h-[calc(100vh-90px)] overflow-auto
                            max-[1100px]:static max-[1100px]:max-h-none"
                 id="bankInspector"
               >
@@ -377,19 +381,6 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
         ) : (
           <PosesView />
         )}
-      </div>
-
-      <div className="launch">
-        <div className="inner">
-          <div className="sum">
-            <b id="scTitre">{title}</b>
-            <div id="scMsg">{status ?? subtitle}</div>
-          </div>
-          <div className="flex-1" />
-          <button className="btn primary" id="btnSaveScenes" onClick={onSave}>
-            Enregistrer
-          </button>
-        </div>
       </div>
     </div>
   )

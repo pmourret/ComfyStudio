@@ -302,11 +302,21 @@ function SceneHeader({
   imageUrl: (ref: Record<string, unknown>) => string
 }) {
   const composed = composePrompt(draft)
+  // Mirror of `lb.scene_band` / the old grid card's own call: the ceiling
+  // follows the wardrobe TEXT as typed, so the badge answers "how far does
+  // this scene go" without a save.
+  const band = bandOf({
+    intensity: Number.parseInt(draft.bandLo, 10) || 0,
+    wardrobe: textToWardrobe(draft.wardrobe),
+  })
   return (
     <div className="mb-[16px] flex gap-[14px]">
       {/* Bumped from a 51×64 reminder icon to an actual focal point (studio-IA
           polish pass, 2026-09-01) — the composer has the width for it now that
-          the scene list gave it up (see BankScreen.tsx's grid-cols). */}
+          the scene list gave it up (see BankScreen.tsx's grid-cols). Pose/band
+          badges moved here from the retired grid card (2026-09-01): the list
+          row dropped them once this header started carrying the picture, so
+          they needed exactly one new home, not two. */}
       <div
         id="scenePreviewThumb"
         data-void={preview ? undefined : '1'}
@@ -319,7 +329,27 @@ function SceneHeader({
                          " after:leading-tight after:text-dim2 after:content-['jamais_produite']"
                    }`}
         style={preview ? { backgroundImage: `url('${imageUrl({ ...preview, thumb: true })}')` } : undefined}
-      />
+      >
+        {draft.pose && (
+          <div
+            className="absolute top-[6px] left-[6px] rounded-[8px] bg-scrim px-[6px] py-px
+                       text-[10px] font-bold text-[#9fd8ff]"
+            title={`pose imposée : ${draft.pose}`}
+          >
+            {/* the glyph accompanies a word, so it is not read out on its own */}
+            <span aria-hidden="true">⛓ </span>pose
+          </div>
+        )}
+        {band[1] > 0 && (
+          <div
+            className="absolute right-[6px] bottom-[6px] rounded-[8px] bg-scrim px-[6px]
+                       py-px text-[10px] font-bold text-dim"
+            title={`niveaux ${band[0]} à ${band[1]}, déduits des tenues`}
+          >
+            n{band[0]}–{band[1]}
+          </div>
+        )}
+      </div>
       <div className="flex min-w-0 flex-1 flex-col justify-between">
         <div>
           <b className="block truncate text-[17px]">{draft.id || '(sans identifiant)'}</b>

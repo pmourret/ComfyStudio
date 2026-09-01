@@ -17,6 +17,9 @@
    badges and tags do not need to survive twice. Deliberately the same
    `data-scene-card` contract `produce/SceneCard.tsx` used, so the keyboard
    accelerator in `useSceneWorkbench` keeps working the same way. */
+import { useState, type KeyboardEvent, type RefObject } from 'react'
+
+import { Icon } from '../../chrome/Icon'
 import type { Creative } from '../../state/TaxonomyContext'
 import type { SceneDraft } from '../../state/ScenesStoreContext'
 
@@ -100,6 +103,115 @@ export function groupByIntention(
   return orderedKeys.map((key) => ({
     key,
     label: key ? (labels.get(key) ?? key) : '— sans intention —',
-    entries: buckets.get(key)!,
+    // Alphabetical within a group — a picker one scans, not a log one reads
+    // in creation order (explicit direction, 2026-09-01).
+    entries: [...buckets.get(key)!].sort((a, b) => a.draft.id.localeCompare(b.draft.id, 'fr')),
   }))
+}
+
+/* The grouped list itself, extracted from BankScreen so the auto-expand-while-
+   searching behaviour has one owner instead of living inline in the screen.
+   Collapse state is LOCAL and per-group: a group starts open, a click folds
+   it, and that choice sticks across re-renders (typing in another field,
+   selecting a different scene) because it lives here, not in the JSX.
+
+   WHILE A SEARCH IS ACTIVE, every rendered group already holds only matches —
+   `groupByIntention` builds its buckets from `shown`, the already-filtered
+   list, so a group with zero hits never appears at all. Forcing every VISIBLE
+   group open while filtering is therefore always correct, with no per-group
+   "does this one have a hit" check needed. A manual collapse attempted while
+   filtering is not persisted: it would be undone by the very next render
+   anyway (the group still has a match), so recording it would only leave a
+   stale collapse waiting to surprise the next filter-cleared render. */
+export function SceneListPanel({
+  shown,
+  creative,
+  filterActive,
+  previews,
+  stats,
+  selectedUid,
+  imageUrl,
+  onOpen,
+  listRef,
+  onKeyDown,
+}: {
+  shown: { draft: SceneDraft; index: number }[]
+  creative: Creative | null
+  filterActive: boolean
+  previews: Record<string, ScenePreview>
+  stats: Record<string, { n: number; avg: number | null }>
+  selectedUid: string | undefined
+  imageUrl: (ref: Record<string, unknown>) => string
+  onOpen: (uid: string) => void
+  listRef: RefObject<HTMLDivElement | null>
+  onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void
+}) {
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
+  const groups = groupByIntention(shown, creative)
+
+  return (
+    <div
+      ref={listRef}
+      id="sceneCards"
+      /* Arrows move the focus from row to row, Home and End to the two ends,
+         Left/Right fold the enclosing group — see useSceneWorkbench for why
+         this is linear now instead of the carousel's column-major math. */
+      onKeyDown={onKeyDown}
+      className="flex flex-col gap-[12px]"
+    >
+      {groups.map((group) => {
+        const open = filterActive || !collapsed.has(group.key)
+        return (
+          <details
+            key={group.key}
+            open={open}
+            className="group"
+            onToggle={(event) => {
+              if (filterActive) return
+              const isOpen = event.currentTarget.open
+              setCollapsed((prev) => {
+                const next = new Set(prev)
+                if (isOpen) next.delete(group.key)
+                else next.add(group.key)
+                return next
+              })
+            }}
+          >
+            {/* Native disclosure, not a hand-rolled one: free keyboard
+                (Enter/Space) and expanded/collapsed state exposed to
+                assistive tech, no ARIA to get wrong. Own chevron (rotated via
+                Tailwind's `group-open:`) replaces the native marker glyph,
+                which the two engines draw differently. */}
+            <summary
+              className="flex cursor-pointer list-none items-center gap-[6px] rounded-[6px]
+                         px-[4px] py-[4px] text-[11px] font-semibold uppercase
+                         tracking-[.5px] text-dim2 hover:text-dim
+                         focus-visible:outline-2 focus-visible:outline-focus
+                         focus-visible:outline-offset-2
+                         [&::-webkit-details-marker]:hidden"
+            >
+              <Icon name="chevron" className="h-[11px] w-[11px] shrink-0 transition-transform group-open:rotate-90" />
+              <span className="truncate">{group.label}</span>
+              <span className="ml-auto shrink-0 font-normal normal-case tracking-normal text-dim2">
+                {group.entries.length}
+              </span>
+            </summary>
+            <div className="mt-[6px] flex flex-col gap-[6px] pl-[2px]">
+              {group.entries.map(({ draft }) => (
+                <SceneListRow
+                  key={draft.uid}
+                  draft={draft}
+                  preview={previews[draft.base.id]}
+                  stats={stats[draft.base.id]}
+                  selected={selectedUid === draft.uid}
+                  imageUrl={imageUrl}
+                  onOpen={() => onOpen(draft.uid)}
+                />
+              ))}
+            </div>
+          </details>
+        )
+      })}
+    </div>
+  )
 }

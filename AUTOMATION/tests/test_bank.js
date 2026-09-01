@@ -101,6 +101,16 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   const allume = await page.$$eval('.tabs .nav-item.on', e => e.map(x => x.dataset.s));
   dire(allume.join(',') === 'bank', "l'entree Banque de la navbar est allumee");
 
+  console.log('\n[1bis] pas de barre fixe en bas : reglages + enregistrement vivent en haut, a cote du switch (01/09/2026)');
+  dire(!(await vu('.launch')), "la banque n'a plus de barre de lancement fixe au bas de l'ecran");
+  dire(await vu('#btnBankDocument') && await vu('#scTitre') && await vu('#btnSaveScenes'),
+       "le trio reglages/statut/enregistrer est visible sans avoir a chercher en bas de page");
+  const hautNav = await page.$eval('#bankView', e => e.getBoundingClientRect().top);
+  const hautReglages = await page.$eval('#btnBankDocument', e => e.getBoundingClientRect().top);
+  const hautSave = await page.$eval('#btnSaveScenes', e => e.getBoundingClientRect().top);
+  dire(Math.abs(hautNav - hautReglages) < 6 && Math.abs(hautNav - hautSave) < 6,
+       `« Réglages de la banque » et « Enregistrer » sont a la meme hauteur que le switch Scenes/Poses (${Math.round(hautNav)} / ${Math.round(hautReglages)} / ${Math.round(hautSave)} px)`);
+
   console.log('\n[2] LE RAIL D OUTILS n apparait PAS sur Scenes (31/08/2026)');
   dire(!(await vu('#toolRail')),
        "l'ecran createur de scenes a son propre outillage — le rail n'y ajoute rien");
@@ -144,6 +154,13 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   dire(groupes.every(g => g.ouvert), 'chaque groupe s ouvre deplie par defaut');
   dire(groupes.reduce((n, g) => n + (g.compte || 0), 0) === avant.scenes.length,
        'la somme des groupes couvre toute la banque, sans doublon ni perte');
+  // un groupe est un PICKER que l'oeil parcourt, pas un journal en ordre de
+  // creation — decision explicite, 2026-09-01
+  const idsParGroupe = await page.$$eval('#sceneCards > details', els =>
+    els.map(d => Array.from(d.querySelectorAll('[data-card-id]')).map(e => e.textContent)));
+  dire(idsParGroupe.every(ids =>
+         JSON.stringify(ids) === JSON.stringify([...ids].sort((a, b) => a.localeCompare(b, 'fr')))),
+       'les scenes de chaque groupe sont triees par ordre alphabetique');
   // fleches gauche/droite plient/deplient — convention d un arbre de fichiers
   // (Explorer, VS Code), pas une invention de cet ecran
   const premierGroupe = await page.$('#sceneCards > details');
@@ -154,6 +171,26 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(100);
   dire(await premierGroupe.evaluate(d => d.open), 'fleche droite le redeplie');
+
+  console.log('\n[4quater] une recherche qui trouve une scene dans un groupe replie le redeplie de force');
+  // `cible` appartient forcement a `premierGroupe` : c est la scene de la
+  // toute premiere carte du DOM, donc de la premiere ligne du premier groupe
+  await page.keyboard.press('ArrowLeft');
+  await page.waitForTimeout(100);
+  dire(await premierGroupe.evaluate(d => !d.open), 'le groupe est replie manuellement, hors recherche');
+  await page.fill('#sceneFilter', cible.id);
+  await page.waitForTimeout(200);
+  dire(await premierGroupe.evaluate(d => d.open),
+       'une recherche qui trouve « ' + cible.id + '» dans ce groupe le redeplie, meme replie a la main');
+  await page.fill('#sceneFilter', '');
+  await page.waitForTimeout(200);
+  dire(await premierGroupe.evaluate(d => !d.open),
+       'et une fois la recherche videe, le groupe RETROUVE son pli manuel d avant la recherche — pas de reouverture surprise');
+  // on le redeplie pour la suite du parcours, qui a besoin de voir sa premiere carte
+  const resume = await premierGroupe.$('summary');
+  await resume.click();
+  await page.waitForTimeout(100);
+  dire(await premierGroupe.evaluate(d => d.open), 'et un clic sur son en-tete le redeplie normalement');
 
   console.log('\n[5] OUVRIR une carte remplit l inspecteur');
   dire(await vu('#bankDocument'),
@@ -508,11 +545,10 @@ const SCENES = BASE + '/bank/scenes?character=lena';
        'les libelles restent le nom accessible des entrees');
   dire(await lab.evaluate(e => e.getBoundingClientRect().width <= 2),
        'mais ils sont retires VISUELLEMENT');
-  // `--rail` suit la largeur : sinon la barre de lancement garde sa gouttiere
-  const gouttiere = await page.$eval('.launch', e => e.getBoundingClientRect().left);
-  const railDroite = await page.$eval('#toolRail', e => e.getBoundingClientRect().right);
-  dire(Math.abs(gouttiere - railDroite) < 3,
-       `la barre de lancement suit le rail replie (${Math.round(gouttiere)} vs ${Math.round(railDroite)} px)`);
+  // La banque n'a plus de barre de lancement fixe depuis le 01/09/2026 (le
+  // statut + « Enregistrer » ont rejoint la rangee du haut, a cote du switch
+  // Scenes/Poses) : le suivi `--rail` d'une barre fixe reste verifie ailleurs
+  // (ProduceScreen, WizardScreen, qui gardent `.launch`), plus ici.
   await page.click('#btnRailPli');
   await page.waitForTimeout(250);
   dire(await cle() === '0', 'deplier reecrit la cle');
