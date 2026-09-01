@@ -179,8 +179,19 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
                 </b>
                 <span id="scMsg">{status ?? subtitle}</span>
               </span>
-              <button className="btn primary sm" id="btnSaveScenes" onClick={onSave}>
-                Enregistrer
+              {/* Icon + hover tooltip, not a permanent label (2026-09-01):
+                  this row already says what it saves (title/status just to
+                  its left) — the button only needs to say WHICH action,
+                  and a disk glyph plus a tooltip on hover/focus does that
+                  without a permanent word sitting in the chrome. */}
+              <button
+                className="btn primary sm"
+                id="btnSaveScenes"
+                aria-label="Enregistrer"
+                data-hint-text="Enregistrer"
+                onClick={onSave}
+              >
+                <Icon name="save" className="h-[15px] w-[15px]" />
               </button>
             </div>
           </div>

@@ -94,11 +94,27 @@ export function PromptField({
         open={editing}
         onDismiss={() => setEditing(false)}
         initialFocus="textarea"
-        cardClassName="w-[min(640px,100%)]!"
+        /* `className` gives the <dialog> ITSELF a definite WIDTH, not just a
+           `max-width` — chrome.css's own `dialog{}` sets only `max-width`, so
+           the element has no explicit size and shrink-wraps to content
+           (native `dialog` has no UA-stylesheet width, only position/inset).
+           `.card`'s own `width:min(…,100%)` then resolves that `100%`
+           against an INDETERMINATE parent width — which collapsed the whole
+           modal down to the width of its own heading text (measured: 288px,
+           nowhere near the 640px `cardClassName` asked for), matching the
+           report: "s'affiche en vraiment petit". Giving the dialog a real
+           width breaks that circularity; the card's `100%` now has something
+           concrete to be 100% OF. `max-width` needs the SAME override too —
+           chrome.css's own `max-width:min(560px,…)` still wins over a plain
+           `width` utility otherwise (max-width always clamps width when the
+           two conflict), which is why a first attempt at this still measured
+           exactly 560px. */
+        className="w-[min(760px,calc(100vw-32px))] max-w-[min(760px,calc(100vw-32px))]"
+        cardClassName="w-[min(760px,100%)]!"
       >
         <h3>{label}</h3>
         <textarea
-          className="min-h-[240px] resize-y"
+          className="min-h-[320px] resize-y"
           value={value}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
