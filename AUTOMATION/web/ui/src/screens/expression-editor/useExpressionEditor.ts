@@ -11,6 +11,7 @@ import { PARAM_BOUNDS, PARAM_LABELS, type ExpressionParamName } from './expressi
 
 export type GalleryItem = Schema<'GalleryItem'>
 type SavedRange = Schema<'ExpressionRangeParams'>
+type Params = Record<ExpressionParamName, ParamState>
 
 export type ParamState = {
   /** Whether this parameter is part of the tone's SAVED range — an
@@ -29,8 +30,14 @@ export type SaveResult = { ok: true } | { ok: false; erreur: string }
 
 const PARAM_NAMES = Object.keys(PARAM_BOUNDS) as ExpressionParamName[]
 
-function initialParamState(saved: SavedRange | null | undefined): Record<ExpressionParamName, ParamState> {
-  const out = {} as Record<ExpressionParamName, ParamState>
+// Same constants as usePoseEditor.ts's own history: a drag or a burst of
+// keystrokes reports many calls in a row — one undo step per burst, not one
+// per event, or undoing a single slider drag would take a hundred Ctrl+Z.
+const HISTORY_COALESCE_MS = 400
+const HISTORY_LIMIT = 100
+
+function initialParamState(saved: SavedRange | null | undefined): Params {
+  const out = {} as Params
   for (const name of PARAM_NAMES) {
     const range = saved?.[name]
     out[name] = range
@@ -45,7 +52,12 @@ export function useExpressionEditor(toneKey: string) {
   const { creative, reload: reloadTaxonomy } = useTaxonomy()
   const tone = creative?.tones.find((t) => t.key === toneKey) ?? null
 
-  const [params, setParams] = useState<Record<ExpressionParamName, ParamState> | null>(null)
+  const [params, setParams] = useState<Params | null>(null)
+  const [dirty, setDirty] = useState(false)
+  const past = useRef<Params[]>([])
+  const future = useRef<Params[]>([])
+  const lastPushAt = useRef(0)
+
   // Re-hydrates when the TONE changes (a different key, navigated to from
   // the picker below) — never on an incidental `creative` refresh for the
   // SAME tone, which would otherwise clobber edits in progress right after
@@ -54,6 +66,9 @@ export function useExpressionEditor(toneKey: string) {
   useEffect(() => {
     if (!creative || hydratedFor.current === toneKey) return
     setParams(initialParamState(tone?.expression))
+    setDirty(false)
+    past.current = []
+    future.current = []
     hydratedFor.current = toneKey
   }, [creative, tone, toneKey])
 
@@ -78,6 +93,7 @@ export function useExpressionEditor(toneKey: string) {
   const [photo, setPhoto] = useState<GalleryItem | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [scoreAfter, setScoreAfter] = useState<number | null>(null)
+  const [viewingOriginal, setViewingOriginal] = useState(false)
   const [rendering, setRendering] = useState(false)
   const [renderError, setRenderError] = useState<string | null>(null)
   const previewUrlRef = useRef<string | null>(null)
@@ -103,45 +119,119 @@ export function useExpressionEditor(toneKey: string) {
     setPreviewUrl(null)
     setScoreAfter(null)
     setRenderError(null)
+    setViewingOriginal(false)
     setPhoto(next)
   }, [])
 
-  const setTrial = useCallback((name: ExpressionParamName, value: number) => {
-    setParams((prev) => prev && { ...prev, [name]: { ...prev[name], trial: value } })
+  const toggleViewingOriginal = useCallback(() => setViewingOriginal((v) => !v), [])
+
+  /** Coalesced by time — dragging the trial slider or typing into a field
+      fires many calls in a burst; one undo step per burst, matching
+      usePoseEditor.ts's own `update()`. */
+  const updateParams = useCallback((updater: (current: Params) => Params) => {
+    setParams((current) => {
+      if (!current) return current
+      const now = Date.now()
+      if (now - lastPushAt.current > HISTORY_COALESCE_MS) {
+        past.current.push(current)
+        if (past.current.length > HISTORY_LIMIT) past.current.shift()
+      }
+      lastPushAt.current = now
+      return updater(current)
+    })
+    future.current = []
+    setDirty(true)
   }, [])
 
-  const setMin = useCallback((name: ExpressionParamName, value: number) => {
-    setParams((prev) => prev && { ...prev, [name]: { ...prev[name], min: value } })
+  /** Always a FRESH undo step — a discrete click (toggle, "fixer comme
+      min/max") must never merge with an unrelated drag that happened to
+      land in the same coalescing window, matching usePoseEditor.ts's own
+      `applyAction()` and the bug it was written to fix there (two quick
+      discrete actions collapsing into one undo step). */
+  const applyParamsAction = useCallback((updater: (current: Params) => Params) => {
+    setParams((current) => {
+      if (!current) return current
+      past.current.push(current)
+      if (past.current.length > HISTORY_LIMIT) past.current.shift()
+      return updater(current)
+    })
+    future.current = []
+    lastPushAt.current = 0
+    setDirty(true)
   }, [])
 
-  const setMax = useCallback((name: ExpressionParamName, value: number) => {
-    setParams((prev) => prev && { ...prev, [name]: { ...prev[name], max: value } })
+  const undo = useCallback(() => {
+    setParams((current) => {
+      const prev = past.current.pop()
+      if (!prev || !current) return current
+      future.current.push(current)
+      return prev
+    })
+    lastPushAt.current = 0
   }, [])
 
-  const toggleIncluded = useCallback((name: ExpressionParamName) => {
-    setParams((prev) => prev && { ...prev, [name]: { ...prev[name], included: !prev[name].included } })
+  const redo = useCallback(() => {
+    setParams((current) => {
+      const next = future.current.pop()
+      if (!next || !current) return current
+      past.current.push(current)
+      return next
+    })
+    lastPushAt.current = 0
   }, [])
+
+  const setTrial = useCallback(
+    (name: ExpressionParamName, value: number) => {
+      updateParams((current) => ({ ...current, [name]: { ...current[name], trial: value } }))
+    },
+    [updateParams],
+  )
+
+  const setMin = useCallback(
+    (name: ExpressionParamName, value: number) => {
+      updateParams((current) => ({ ...current, [name]: { ...current[name], min: value } }))
+    },
+    [updateParams],
+  )
+
+  const setMax = useCallback(
+    (name: ExpressionParamName, value: number) => {
+      updateParams((current) => ({ ...current, [name]: { ...current[name], max: value } }))
+    },
+    [updateParams],
+  )
+
+  const toggleIncluded = useCallback(
+    (name: ExpressionParamName) => {
+      applyParamsAction((current) => ({ ...current, [name]: { ...current[name], included: !current[name].included } }))
+    },
+    [applyParamsAction],
+  )
 
   /** "Fixer comme min/max depuis l'essai" — widens the OTHER bound if the
       trial value would otherwise put min above max, rather than refusing:
       the user just showed intent to move that edge past the other one. */
-  const setAsMin = useCallback((name: ExpressionParamName) => {
-    setParams((prev) => {
-      if (!prev) return prev
-      const current = prev[name]
-      const min = current.trial
-      return { ...prev, [name]: { ...current, min, max: Math.max(min, current.max) } }
-    })
-  }, [])
+  const setAsMin = useCallback(
+    (name: ExpressionParamName) => {
+      applyParamsAction((current) => {
+        const c = current[name]
+        const min = c.trial
+        return { ...current, [name]: { ...c, min, max: Math.max(min, c.max) } }
+      })
+    },
+    [applyParamsAction],
+  )
 
-  const setAsMax = useCallback((name: ExpressionParamName) => {
-    setParams((prev) => {
-      if (!prev) return prev
-      const current = prev[name]
-      const max = current.trial
-      return { ...prev, [name]: { ...current, max, min: Math.min(current.min, max) } }
-    })
-  }, [])
+  const setAsMax = useCallback(
+    (name: ExpressionParamName) => {
+      applyParamsAction((current) => {
+        const c = current[name]
+        const max = c.trial
+        return { ...current, [name]: { ...c, max, min: Math.min(c.min, max) } }
+      })
+    },
+    [applyParamsAction],
+  )
 
   const renderPreview = useCallback(async () => {
     if (!photo || !params) return
@@ -161,6 +251,7 @@ export function useExpressionEditor(toneKey: string) {
       const next = URL.createObjectURL(result.blob)
       previewUrlRef.current = next
       setPreviewUrl(next)
+      setViewingOriginal(false)
       const header = result.headers.get('X-Identity-After')
       setScoreAfter(header ? Number(header) : null)
     } finally {
@@ -184,6 +275,7 @@ export function useExpressionEditor(toneKey: string) {
       const response = await api.post<ActionLike>('/api/expression/tone', { tone: toneKey, params: payload })
       const failure = errorOf(response)
       if (failure) return { ok: false, erreur: failure }
+      setDirty(false)
       await reloadTaxonomy()
       return { ok: true }
     } finally {
@@ -193,10 +285,12 @@ export function useExpressionEditor(toneKey: string) {
 
   return {
     tone, creativeLoaded: creative !== null,
-    params,
+    params, dirty,
     setTrial, setMin, setMax, toggleIncluded, setAsMin, setAsMax,
+    undo, redo, canUndo: past.current.length > 0, canRedo: future.current.length > 0,
     photos, photosError, photo, selectPhoto,
-    previewUrl, scoreAfter, rendering, renderError, renderPreview,
+    previewUrl, scoreAfter, viewingOriginal, toggleViewingOriginal,
+    rendering, renderError, renderPreview,
     saving, save,
   }
 }

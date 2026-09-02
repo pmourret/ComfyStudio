@@ -308,6 +308,38 @@ dialog h3{margin:0 0 12px;font-size:17px}
 dialog p,dialog li{color:var(--dim);font-size:13.5px}
 dialog ul{padding-left:20px;margin:10px 0}
 
+/* -------------------------------------------------------------- lightbox
+   NOT a <dialog> (chrome/LightboxContext.tsx explains why: nothing
+   focusable, the whole surface is the close affordance, Escape is handled
+   in JS). This rule was simply MISSING since the React migration — ported
+   from `static/lightbox.js` with the behaviour, never with its CSS, so the
+   overlay had `display:flex` and nothing else: the image inserted itself at
+   natural size in the normal page flow instead of floating above it (found
+   by actually clicking it, 2026-09-03). `--scrim`, same token `dialog
+   ::backdrop` uses just above.
+
+   ZOOMED (2026-09-03): a click on the image itself toggles native pixel
+   size in a scrollable frame — `.zoomed img` drops the max-width/height
+   fit and `#lightbox.zoomed` turns on `overflow:auto`. A ComfyUI output is
+   1024-2048px, already well past viewport size, so "native" alone shows
+   the detail a fit-to-screen view hides; a click on the BACKDROP still
+   closes, as does Escape, at any zoom level. */
+#lightbox{position:fixed;inset:0;z-index:60;display:none;
+  align-items:center;justify-content:center;padding:24px;
+  background:var(--scrim)}
+#lightbox.on{display:flex}
+#lightbox img{max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in}
+/* `flex-start`, not the centring above: a centred flex item that overflows
+   its container clips on the START side when scrolled (a well-known
+   flexbox quirk) — natural size needs every edge reachable. */
+#lightbox.zoomed{overflow:auto;align-items:flex-start;justify-content:flex-start;cursor:default}
+#lightbox.zoomed img{max-width:none;max-height:none;cursor:zoom-out}
+#lightboxClose{position:fixed;top:16px;right:20px;z-index:61;
+  width:36px;height:36px;border-radius:50%;border:1px solid var(--line2);
+  background:var(--panel);color:var(--txt);font-size:16px;line-height:1;
+  display:flex;align-items:center;justify-content:center;cursor:pointer}
+#lightboxClose:hover{background:var(--panel2)}
+
 /* ------------------------------------------------------ form primitives */
 label.f{display:block}
 label.f span{display:block;font-size:12px;color:var(--dim);margin-bottom:5px}

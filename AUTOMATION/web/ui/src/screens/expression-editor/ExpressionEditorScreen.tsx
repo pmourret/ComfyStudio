@@ -9,8 +9,10 @@ import { Link, useParams } from 'react-router-dom'
 
 import { useApi } from '../../api/useApi'
 import { PATHS } from '../../app/routes'
+import { useLightbox } from '../../chrome/LightboxContext'
 import { useToast } from '../../chrome/ToastContext'
 import { useConfig } from '../../state/ConfigContext'
+import { UndoRedoButtons } from '../pose-editor/UndoRedoButtons'
 import { ExpressionSliders } from './ExpressionSliders'
 import { useExpressionEditor, type GalleryItem } from './useExpressionEditor'
 
@@ -24,11 +26,14 @@ function ExpressionEditorInner({ toneKey }: { toneKey: string }) {
   const api = useApi()
   const toast = useToast()
   const { qc } = useConfig()
+  const { open: openLightbox } = useLightbox()
   const {
-    tone, creativeLoaded, params,
+    tone, creativeLoaded, params, dirty,
     setTrial, setMin, setMax, toggleIncluded, setAsMin, setAsMax,
+    undo, redo, canUndo, canRedo,
     photos, photosError, photo, selectPhoto,
-    previewUrl, scoreAfter, rendering, renderError, renderPreview,
+    previewUrl, scoreAfter, viewingOriginal, toggleViewingOriginal,
+    rendering, renderError, renderPreview,
     saving, save,
   } = useExpressionEditor(toneKey)
 
@@ -61,8 +66,28 @@ function ExpressionEditorInner({ toneKey }: { toneKey: string }) {
     toast(result.ok ? 'plage d’expression enregistrée' : result.erreur)
   }
 
-  const previewSrc =
-    previewUrl ?? (photo ? api.image({ bucket: photo.bucket, space: photo.space, name: photo.name, v: photo.v }) : null)
+  const originalSrc = photo ? api.image({ bucket: photo.bucket, space: photo.space, name: photo.name, v: photo.v }) : null
+  const previewSrc = previewUrl && !viewingOriginal ? previewUrl : originalSrc
+
+  /* Ctrl/Cmd+Z undoes, +Maj+Z or +Y redoes — same detection as
+     PoseCanvas.tsx's own onKeyDown. Bound on the WHOLE aside (button +
+     number fields), not just one focusable root as PoseCanvas does for its
+     SVG: the number fields here are as much the primary surface as the
+     slider is, undoing from one should work the same as from the other.
+     `preventDefault` also suppresses the browser's own per-field text undo,
+     which would otherwise fire alongside this and double the effect. */
+  const onAsideKeyDown = (event: React.KeyboardEvent) => {
+    if (!(event.ctrlKey || event.metaKey)) return
+    const key = event.key.toLowerCase()
+    if (key === 'z') {
+      event.preventDefault()
+      if (event.shiftKey) redo()
+      else undo()
+    } else if (key === 'y') {
+      event.preventDefault()
+      redo()
+    }
+  }
 
   return (
     <div className="screen" id="expressionEditor">
@@ -97,13 +122,21 @@ function ExpressionEditorInner({ toneKey }: { toneKey: string }) {
 
             <div className="mt-[12px] rounded-card border border-line2 bg-panel2 p-[10px]">
               {previewSrc ? (
-                <img className="max-h-[420px] w-full rounded-[6px] object-contain" src={previewSrc} alt="" />
+                // `cursor-zoom-in`, same affordance as FullFrame.tsx's own
+                // `#stageImg` — clicking opens the shared Lightbox on
+                // whichever image is showing (rendered or original).
+                <img
+                  className="max-h-[420px] w-full cursor-zoom-in rounded-[6px] object-contain"
+                  src={previewSrc}
+                  alt=""
+                  onClick={() => openLightbox(previewSrc)}
+                />
               ) : (
                 <div className="empty rounded-card border border-line bg-panel px-[16px] py-[28px] text-[13px]">
                   choisis une photo ci-dessus pour prévisualiser
                 </div>
               )}
-              <div className="mt-[8px] flex items-center gap-[10px]">
+              <div className="mt-[8px] flex flex-wrap items-center gap-[10px]">
                 <button
                   type="button"
                   className="btn primary sm"
@@ -112,7 +145,12 @@ function ExpressionEditorInner({ toneKey }: { toneKey: string }) {
                 >
                   {rendering ? 'rendu en cours…' : 'Rendre l’aperçu'}
                 </button>
-                {scoreAfter !== null && <ScoreBadge score={scoreAfter} ok={qc.ok} watch={qc.watch} />}
+                {previewUrl && (
+                  <button type="button" className="btn sm" onClick={toggleViewingOriginal}>
+                    {viewingOriginal ? 'Voir le rendu' : 'Voir l’original'}
+                  </button>
+                )}
+                {scoreAfter !== null && !viewingOriginal && <ScoreBadge score={scoreAfter} ok={qc.ok} watch={qc.watch} />}
               </div>
               {renderError && (
                 <p role="status" className="tiny mt-[6px] text-danger-txt">
@@ -122,10 +160,22 @@ function ExpressionEditorInner({ toneKey }: { toneKey: string }) {
             </div>
           </div>
 
-          <aside className="flex h-full min-h-0 w-[360px] shrink-0 flex-col gap-[10px]">
-            <button type="button" className="btn primary" disabled={saving} onClick={() => void onSave()}>
-              Enregistrer la plage
-            </button>
+          <aside
+            className="flex h-full min-h-0 w-[360px] shrink-0 flex-col gap-[10px]"
+            onKeyDown={onAsideKeyDown}
+          >
+            <div className="flex items-center gap-[8px]">
+              <button
+                type="button"
+                className="btn primary flex-1"
+                disabled={saving}
+                onClick={() => void onSave()}
+              >
+                Enregistrer la plage
+              </button>
+              <UndoRedoButtons canUndo={canUndo} canRedo={canRedo} onUndo={undo} onRedo={redo} />
+            </div>
+            {dirty && <p className="tiny">Modifications non enregistrées</p>}
             <div className="min-h-0 flex-1 overflow-y-auto">
               <ExpressionSliders
                 params={params}
