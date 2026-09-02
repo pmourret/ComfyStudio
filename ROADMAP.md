@@ -803,6 +803,20 @@ prouvent la généralisation — pas juste Léna renommée.
     avec des photos produites — snapshotte et restaure `creative.json` à
     l'octet près) + `test_bank.js` étendu (3 sous-vues). Suite complète
     (12 fumigations navigateur) verte.
+    - **Audit UX/UI + lightbox réparé, fait, 2026-09-03** — passe dédiée sur
+      ce module tout juste livré, deux bugs réels trouvés en testant (pas en
+      relisant) : re-rendre à l'identique échouait à coup sûr (cache
+      ComfyUI renvoyant un fichier déjà supprimé — corrigé par un nom
+      d'entrée unique par appel) et changer de photo après un rendu
+      laissait l'ancien aperçu/score affichés. Layout de l'écran rebordé en
+      hauteur (toute la page défilait au lieu du seul panneau de droite).
+      Puis, en branchant le zoom demandé sur `LightboxContext` : le
+      composant partagé (Revue/Galerie/Produire) n'avait plus AUCUN style
+      depuis la migration React (`#lightbox` documenté dans DESIGN.md,
+      jamais porté) — réparé avec un vrai zoom (taille native, clic sur
+      l'image plutôt que sur le fond), plus 3 compléments sur le modèle de
+      l'éditeur de pose : bascule original/rendu, indicateur « non
+      enregistré », annuler/rétablir (Ctrl+Z) sur les curseurs.
   - Éditeur photo existant (`screens/review/PhotoEditor.tsx`) : à revoir
     à cette même aune une fois le patron ci-dessous stabilisé sur un
     deuxième outil
