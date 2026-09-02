@@ -180,5 +180,8 @@ Référence de scène ≠ verrou d'identité : l'UI ne les confond pas.
 
 ## Quand le changement est visuel ou de parcours
 
-Charger le skill `audit-ux-ui` : findings avant patch, diff minimal.
+Charger le skill `audit-ux-ui` : findings avant patch, diff minimal,
+**vérifiés en vrai** (capture d'écran, mesure DOM, interaction rejouée —
+pas seulement à la lecture). Systématique en fin de construction d'un
+écran neuf (skill `nouvel-outil`, patron 2), pas seulement sur demande.
 Ne pas « améliorer le look » hors finding.

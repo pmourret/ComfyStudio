@@ -70,6 +70,10 @@ repo et skills en **français**.
   données entre deux personnages.
 - Petits commits thématiques, jamais un big-bang.
 - Erreurs remontées à l'interface, jamais échouées en silence.
+- Nouvel écran/module de studio (créateur de lumière, importeur d'assets,
+  etc.) : suivre le skill `nouvel-outil` (patron 2) — étapes séparées,
+  mode Plan avant tout code multi-fichier, audit `audit-ux-ui` **vérifié en
+  vrai** et systématique en fin de chantier, jamais seulement à la lecture.
 
 ## Ne pas ouvrir sans raison explicite
 

@@ -47,6 +47,8 @@ migration FastAPI) — une nouvelle route rejoint le router qui correspond
 - api/routers/images — images, miniatures, poses
 - api/routers/production — lancement de génération, file de jobs
 - api/routers/review — QC, revue, jugements, export
+- api/routers/worlds — registre des mondes, catalogue de lieux (ADR-0015/16)
+- api/routers/expression — aperçu non-destructif d'expression, plage d'un ton
 
 **Une règle de dépendance, une seule** (31/08/2026) :
 
@@ -64,6 +66,9 @@ transport) ; une `JSONResponse` non — une fonction qui doit choisir un
 - api/services/bank — validation de banque, backup, stats des cartes
 - api/services/journal — ligne en base, export, journal NSFW du tri
 - api/services/preview — aperçu de prompt et échos entre fragments
+- api/services/worlds — validation du catalogue de lieux d'un monde
+- api/services/expression — résolution de photo, rendu d'aperçu, écriture
+  de la plage d'un ton dans creative.json
 
 Le test d'une règle vise le service, jamais le router : c'est ce qui a
 motivé la couche (`test_valider_banque.py` importait `api.routers.bank`
@@ -99,6 +104,35 @@ JSON sur chaque réponse quel que soit le statut. Une erreur a la forme
 `{"ok": false, "erreur": "<texte français destiné à l'écran>"}` ;
 `ss.bad_request()` est le point de passage. Les messages d'erreur restent
 en français (ils s'affichent tels quels), le code reste en anglais.
+
+## `run_in_executor` : attraper large, dans la route qui l'attend
+
+Un appel bloquant (urllib vers ComfyUI, un import lourd type InsightFace)
+tourne dans un executor (`await asyncio.get_running_loop().run_in_executor
+(None, fonction, ...)`, voir `/api/pose/extract` et `/api/expression/
+preview`) — jamais en direct dans un handler async, ça gèlerait tout le
+serveur. Mais l'inverse compte tout autant : **la route qui l'attend doit
+attraper elle-même toute exception possible**, pas seulement celle qu'elle
+anticipe.
+
+Incident réel (2026-09-03, `/api/expression/preview`) : une exception
+imprévue (`ModuleNotFoundError` sur `cv2` absent) remontait non attrapée
+jusqu'au handler générique de `api/errors.py` — et **la réponse
+n'arrivait jamais**, ni son corps ni son statut, sous
+`LocalOriginGuardMiddleware` (`BaseHTTPMiddleware` de Starlette a un défaut
+documenté avec une exception d'exécuteur qui s'échappe de la route qui
+l'attend). Confirmé en isolant : la requête SUIVANTE sur ce même serveur
+restait bloquée aussi. `/api/pose/extract` n'a jamais eu ce problème parce
+qu'il attrape déjà `pose_tools.ExtractionError` localement, sans jamais
+laisser une exception de l'executor s'échapper de la route.
+
+La règle : tout appel à `run_in_executor` se termine par un `except
+Exception` large **dans la route**, en plus de l'exception précise
+attendue, qui répond en JSON propre (`{"ok": false, "erreur": ...}`,
+`ss.push_log` pour la trace) — jamais laissé retomber sur le handler
+générique. Un test qui vérifie l'isolation entre deux personnages doit
+aussi couvrir ce chemin d'erreur si la route en a un
+(`test_expression_isolation.py` en donne l'exemple).
 
 ## Tests
 
