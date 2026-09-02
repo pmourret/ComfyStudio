@@ -62,14 +62,29 @@ function ParamRow({
   const [lo, hi] = PARAM_BOUNDS[name]
   const step = hi - lo > 40 ? 1 : 0.01
   return (
-    <div className="rounded-card border border-line2 bg-panel2 p-[8px]" data-param={name}>
+    // Dimmed when NOT included — measured before this fix: an included and
+    // an excluded card rendered at the exact same opacity (1), the only
+    // difference being a 13px checkbox easy to miss while scanning 12 rows.
+    // The checkbox and the trial slider/field stay fully opaque of their
+    // own accord (`opacity` on the parent doesn't disable them) — only the
+    // whole card's visual WEIGHT drops, which is what needs to read at a
+    // glance: this row does not (yet) count toward what gets saved.
+    <div
+      className={`rounded-card border border-line2 bg-panel2 p-[8px] transition-opacity ${state.included ? '' : 'opacity-55'}`}
+      data-param={name}
+    >
       <div className="flex items-center justify-between gap-[8px]">
         <label className="flex items-center gap-[6px] text-[12.5px]">
           <input type="checkbox" data-param-included checked={state.included} onChange={onToggle} />
           {PARAM_LABELS[name]}
           <InfoHint text={`Bornes du node ComfyUI : [${lo}, ${hi}]. « Inclure » ajoute ce paramètre à la plage enregistrée pour ce ton — la valeur d'essai reste explorable même non inclus.`} />
         </label>
-        <span className="tiny opacity-60">{lo} … {hi}</span>
+        {/* No `opacity-60` on top of `tiny` — this label already duplicates
+            the bounds the InfoHint above gives, stacking a second dimming on
+            an already-dim token pushed it under WCAG AA contrast for no
+            reason (measured ≈4.3:1 at full opacity, well under 4.5:1 once
+            dimmed further). */}
+        <span className="tiny">{lo} … {hi}</span>
       </div>
 
       <div className="mt-[6px] flex items-center gap-[8px]">

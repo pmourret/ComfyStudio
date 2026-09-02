@@ -43,6 +43,7 @@ import json
 import random
 import sys
 import urllib.request
+import uuid
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -175,10 +176,22 @@ def apercu(path, params, comfy_url, mesurer=None, timeout=300):
     est absent, ou s'il echoue (aucun visage detecte n'est deja rendu comme
     None par IdentityChecker.mesure — une exception de mesure ne doit pas
     faire perdre l'image, juste le score qui l'accompagne).
+
+    NOM D'ENTREE UNIQUE A CHAQUE APPEL — trouve en testant l'editeur, pas en
+    relisant le code : cliquer deux fois « Rendre l'apercu » SANS changer un
+    seul parametre echouait a coup sur (4/4). ComfyUI met en cache le graphe
+    (meme image d'entree, memes reglages) et renvoie le nom du fichier deja
+    genere au premier appel — sauf que ce fichier vient d'etre supprime par
+    le `finally` ci-dessous. Un suffixe different a chaque appel fait du
+    LoadImage un noeud « neuf » aux yeux du cache, ce qui force tout le
+    graphe (jusqu'a SaveImage) a se re-executer plutot que de renvoyer une
+    reference perimee. `appliquer()` (production) n'a pas besoin de ce
+    suffixe : elle n'est jamais rappelee coup sur coup avec des entrees
+    identiques comme l'est un editeur interactif.
     """
     import shutil
     path = Path(path)
-    tmp = COMFY_INPUT / (PREFIXE + "apercu_" + path.name)
+    tmp = COMFY_INPUT / (PREFIXE + f"apercu_{uuid.uuid4().hex[:8]}_" + path.name)
     sortie = None
     try:
         shutil.copy(path, tmp)

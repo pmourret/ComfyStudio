@@ -32,7 +32,12 @@ export function TonesView() {
         </div>
       ) : (
         <div
-          className="grid gap-[10px]"
+          // Capped, not left to stretch to whatever width the viewport
+          // gives: a handful of tones (hand-authored, never dozens) filling
+          // ultra-wide tracks read as a page missing content rather than a
+          // short, deliberate list — the grid itself still wraps normally
+          // below this width.
+          className="grid max-w-[900px] gap-[10px]"
           style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))' }}
           id="tonesGrid"
         >

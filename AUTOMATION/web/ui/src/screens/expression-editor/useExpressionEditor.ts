@@ -90,6 +90,22 @@ export function useExpressionEditor(toneKey: string) {
     [],
   )
 
+  /** Picking a photo drops whatever preview/score is on screen — found in
+      testing, not reading: without this, choosing a NEW photo after a
+      successful render left the PREVIOUS photo's rendered image and identity
+      score on screen (the grid's own selection highlight moved to the new
+      photo, nothing else did), which reads as belonging to it. */
+  const selectPhoto = useCallback((next: GalleryItem) => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current)
+      previewUrlRef.current = null
+    }
+    setPreviewUrl(null)
+    setScoreAfter(null)
+    setRenderError(null)
+    setPhoto(next)
+  }, [])
+
   const setTrial = useCallback((name: ExpressionParamName, value: number) => {
     setParams((prev) => prev && { ...prev, [name]: { ...prev[name], trial: value } })
   }, [])
@@ -179,7 +195,7 @@ export function useExpressionEditor(toneKey: string) {
     tone, creativeLoaded: creative !== null,
     params,
     setTrial, setMin, setMax, toggleIncluded, setAsMin, setAsMax,
-    photos, photosError, photo, setPhoto,
+    photos, photosError, photo, selectPhoto,
     previewUrl, scoreAfter, rendering, renderError, renderPreview,
     saving, save,
   }

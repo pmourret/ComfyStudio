@@ -27,7 +27,7 @@ function ExpressionEditorInner({ toneKey }: { toneKey: string }) {
   const {
     tone, creativeLoaded, params,
     setTrial, setMin, setMax, toggleIncluded, setAsMin, setAsMax,
-    photos, photosError, photo, setPhoto,
+    photos, photosError, photo, selectPhoto,
     previewUrl, scoreAfter, rendering, renderError, renderPreview,
     saving, save,
   } = useExpressionEditor(toneKey)
@@ -66,9 +66,17 @@ function ExpressionEditorInner({ toneKey }: { toneKey: string }) {
 
   return (
     <div className="screen" id="expressionEditor">
-      <div className="wrap w-full max-w-none">
-        <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-[16px]">
-          <div className="min-w-0">
+      {/* Height-bounded, like PoseEditorScreen's own `.wrap` — without it
+          neither column has anything to scroll WITHIN, so the whole PAGE
+          scrolls instead (measured: the sidebar alone grew to 2676px tall).
+          That took the photo grid and the preview off-screen while reaching
+          the lower parameter groups (Regard/Sourcils/Rotation) — exactly
+          the two things a live preview tool most needs kept in view
+          together. Found by measuring the real layout, not by reading the
+          JSX. */}
+      <div className="wrap h-[calc(100vh-24px)] w-full max-w-none">
+        <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_360px] gap-[16px]">
+          <div className="h-full min-h-0 min-w-0 overflow-y-auto pr-[4px]">
             <Link className="link" to={PATHS.bankScenes}>
               ← Retour à la banque
             </Link>
@@ -82,7 +90,7 @@ function ExpressionEditorInner({ toneKey }: { toneKey: string }) {
                 photos={photos}
                 error={photosError}
                 selected={photo}
-                onSelect={setPhoto}
+                onSelect={selectPhoto}
                 imageUrl={api.image}
               />
             </div>
@@ -114,7 +122,7 @@ function ExpressionEditorInner({ toneKey }: { toneKey: string }) {
             </div>
           </div>
 
-          <aside className="flex min-h-0 w-[360px] shrink-0 flex-col gap-[10px]">
+          <aside className="flex h-full min-h-0 w-[360px] shrink-0 flex-col gap-[10px]">
             <button type="button" className="btn primary" disabled={saving} onClick={() => void onSave()}>
               Enregistrer la plage
             </button>
@@ -167,6 +175,7 @@ function PhotoPicker({
           className="relative aspect-square overflow-hidden rounded-[6px] border p-0"
           style={{ borderColor: selected?.name === item.name ? 'var(--acc)' : 'var(--line2)' }}
           aria-pressed={selected?.name === item.name}
+          title={[item.scene, item.date, item.score].filter(Boolean).join(' · ')}
           onClick={() => onSelect(item)}
         >
           <img
