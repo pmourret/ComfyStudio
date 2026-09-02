@@ -38,6 +38,10 @@ def scenes_path(character_id):
     return character_dir(character_id) / "scenes.json"
 
 
+def creative_path(character_id):
+    return character_dir(character_id) / "creative.json"
+
+
 def load_character(character_id):
     """Entree du registre personnage. Erreur explicite si elle manque —
     un dossier CHARACTERS/<id>/ sans character.json est invalide, pas un cas
@@ -281,7 +285,7 @@ def load_creative(character_id):
     """Taxonomie creative du personnage. Absente = le runner retombe sur
     l'ancien comportement (creative.json est optionnel, contrairement a
     config.json/scenes.json)."""
-    path = character_dir(character_id) / "creative.json"
+    path = creative_path(character_id)
     return load_json(path) if path.exists() else {"intentions": [], "tones": [],
                                                   "intensity": []}
 

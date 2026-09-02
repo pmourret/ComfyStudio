@@ -24,6 +24,9 @@ from .routers import app as app_router
 from .routers import (
     bank, images, production, review, state,
 )
+# aliased: this module's own name would otherwise shadow AUTOMATION/expression.py,
+# which routers/expression.py itself already imports as the bare `expression` module
+from .routers import expression as expression_router
 # aliased: this module's own name would otherwise shadow AUTOMATION/worlds.py,
 # which `bank.py` and `state.py` already import as the bare `worlds` module
 from .routers import worlds as worlds_router
@@ -72,6 +75,7 @@ def create_app() -> FastAPI:
     app.include_router(state.router)
     app.include_router(app_router.router)
     app.include_router(bank.router)
+    app.include_router(expression_router.router)
     app.include_router(images.router)
     app.include_router(production.router)
     app.include_router(review.router)

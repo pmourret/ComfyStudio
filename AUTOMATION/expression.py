@@ -104,6 +104,39 @@ def _graphe(nom_entree, params, prefixe_sortie):
     }
 
 
+class RenderError(RuntimeError):
+    """L'appel ComfyUI a echoue. Jamais leve par `appliquer` (qui avale et
+    rend False — un echec de production ne doit pas faire perdre une image
+    deja produite et deja jugee) ; leve par `apercu`, ou l'utilisateur attend
+    un retour explicite d'un clic (frontend.md : jamais un echec silencieux)."""
+
+
+def _generer(nom_entree, params, comfy_url, timeout):
+    """Soumet le graphe, attend, rend le Path du fichier de sortie ComfyUI —
+    jamais deplace ni supprime ici, c'est a l'appelant d'en decider (production
+    l'ecrase sur l'original, l'apercu le lit puis le jette)."""
+    import runner as lb
+    graphe = _graphe(nom_entree, params, "_LENA_EXPR/e")
+    req = urllib.request.Request(
+        comfy_url.rstrip("/") + "/prompt",
+        data=json.dumps({"prompt": graphe, "client_id": "lena_expr"}).encode(),
+        headers={"Content-Type": "application/json"})
+    pid = json.load(urllib.request.urlopen(req, timeout=60))["prompt_id"]
+    images, err, _ = lb.wait_prompt(comfy_url, pid, timeout)
+    if err or not images:
+        raise RenderError(err or "ComfyUI n'a rendu aucune image")
+    return COMFY_OUTPUT / images[0].get("subfolder", "") / images[0]["filename"]
+
+
+def _nettoyer_scratch():
+    # Namespace de scratch dans ComfyUI/output, sans rapport avec l'emplacement
+    # du repo (avant J1 "OFM" designait le repo lui-meme, colocalise ici ; ce
+    # n'est plus le cas depuis le fork, d'ou PREFIXE plutot que ce nom).
+    d = COMFY_OUTPUT / "_LENA_EXPR"
+    if d.exists() and not any(d.iterdir()):
+        d.rmdir()
+
+
 def appliquer(path, params, comfy_url, timeout=300):
     """Pose l'expression sur une image, en place. Retourne True si c'est fait.
 
@@ -111,7 +144,6 @@ def appliquer(path, params, comfy_url, timeout=300):
     produite et deja jugee. L'appelant journalise.
     """
     import shutil
-    import runner as lb
     path = Path(path)
     if not params:
         return False
@@ -119,16 +151,7 @@ def appliquer(path, params, comfy_url, timeout=300):
     sortie = None
     try:
         shutil.copy(path, tmp)
-        graphe = _graphe(tmp.name, params, "_LENA_EXPR/e")
-        req = urllib.request.Request(
-            comfy_url.rstrip("/") + "/prompt",
-            data=json.dumps({"prompt": graphe, "client_id": "lena_expr"}).encode(),
-            headers={"Content-Type": "application/json"})
-        pid = json.load(urllib.request.urlopen(req, timeout=60))["prompt_id"]
-        images, err, _ = lb.wait_prompt(comfy_url, pid, timeout)
-        if err or not images:
-            return False
-        sortie = COMFY_OUTPUT / images[0].get("subfolder", "") / images[0]["filename"]
+        sortie = _generer(tmp.name, params, comfy_url, timeout)
         shutil.move(str(sortie), str(path))          # ecrase l'image d'origine
         sortie = None
         return True
@@ -138,12 +161,43 @@ def appliquer(path, params, comfy_url, timeout=300):
         tmp.unlink(missing_ok=True)
         if sortie is not None:
             Path(sortie).unlink(missing_ok=True)
-        # Namespace de scratch dans ComfyUI/output, sans rapport avec l'emplacement
-        # du repo (avant J1 "OFM" designait le repo lui-meme, colocalise ici ; ce
-        # n'est plus le cas depuis le fork, d'ou PREFIXE plutot que ce nom).
-        d = COMFY_OUTPUT / "_LENA_EXPR"
-        if d.exists() and not any(d.iterdir()):
-            d.rmdir()
+        _nettoyer_scratch()
+
+
+def apercu(path, params, comfy_url, mesurer=None, timeout=300):
+    """Rend l'expression SANS jamais toucher `path` — pour la previsualisation
+    interactive de l'editeur d'expression.
+
+    Contrairement a `appliquer`, LEVE (`RenderError`) sur un echec du rendu :
+    l'utilisateur attend un retour explicite d'un clic, pas un silence.
+
+    Retourne (octets_png, score_apres). `score_apres` est None si `mesurer`
+    est absent, ou s'il echoue (aucun visage detecte n'est deja rendu comme
+    None par IdentityChecker.mesure — une exception de mesure ne doit pas
+    faire perdre l'image, juste le score qui l'accompagne).
+    """
+    import shutil
+    path = Path(path)
+    tmp = COMFY_INPUT / (PREFIXE + "apercu_" + path.name)
+    sortie = None
+    try:
+        shutil.copy(path, tmp)
+        try:
+            sortie = _generer(tmp.name, params, comfy_url, timeout)
+        except RenderError:
+            raise
+        except Exception as e:
+            raise RenderError(str(e)) from e
+        try:
+            score = mesurer(sortie) if mesurer else None
+        except Exception:
+            score = None
+        return sortie.read_bytes(), score
+    finally:
+        tmp.unlink(missing_ok=True)
+        if sortie is not None:
+            Path(sortie).unlink(missing_ok=True)
+        _nettoyer_scratch()
 
 
 def attenuer(params, facteur):
