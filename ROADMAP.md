@@ -760,9 +760,49 @@ prouvent la généralisation — pas juste Léna renommée.
     lumière » du compositeur de scène)
   - Importeur d'assets (ex. vêtements) avec résumé automatique par vision
     LLM de l'image importée
-  - Éditeur d'expression faciale — intégration à trouver dans le workflow
-    ComfyUI final ; à recouper avec `assert_no_face` / le verrou
-    d'identité (CLAUDE.md) le moment venu
+  - **Éditeur d'expression faciale, fait, 2026-09-03** — jusqu'ici un
+    mécanisme sans aucune UI : `AUTOMATION/expression.py` pose une
+    expression via le node ComfyUI `ExpressionEditor`
+    (`comfyui-advancedliveportrait`, revue de l'installation réelle en
+    session — ce node couvre déjà tout ce dont une image fixe a besoin,
+    `AdvancedLivePortrait`/vidéo hors scope V1, `SaveExpData`/`LoadExpData`
+    un format `.exp` interne à ComfyUI, pas une base à reprendre), une
+    plage `[lo, hi]` par ton (`creative.json` → `tones[].expression`)
+    tirée au hasard par job. Trois étapes, chacune commitée séparément :
+    1. **Backend** — `expression.py` factorisé (`_generer()` commun),
+       nouvelle `apercu()` qui rend SANS jamais toucher le fichier source
+       (contrairement à `appliquer()`, elle lève explicitement plutôt que
+       d'avaler l'échec — l'utilisateur attend un retour d'un clic).
+       `api/services/expression.py`+`routers/expression.py` neufs (suivent
+       le précédent `routers/worlds.py`) : `POST /api/expression/preview`
+       (image + score d'identité en en-tête `X-Identity-After`) et `POST
+       /api/expression/tone` (première écriture de `creative.json`, jamais
+       exposée avant). `test_expression_isolation.py` neuf, vérifié contre
+       ComfyUI/InsightFace réels.
+    2. **Écran éditeur** (`screens/expression-editor/`, calqué sur
+       `pose-editor/`) — sliders groupés par zone du visage, champs
+       numériques + boutons « fixer min/max depuis l'essai » plutôt qu'un
+       double-curseur inventé, aperçu rendu sur une photo DÉJÀ PRODUITE du
+       personnage (jamais un envoi à la volée — le coût d'identité du warp
+       varie trop d'une photo à l'autre pour qu'un aperçu sur une image
+       arbitraire veuille dire quoi que ce soit). **Bug réel trouvé et
+       corrigé en testant** : une exception non attrapée remontant de
+       `run_in_executor` jusqu'au handler générique d'erreurs fait
+       raccrocher la réponse sous `LocalOriginGuardMiddleware` — un défaut
+       connu de `BaseHTTPMiddleware` (Starlette) avec une exception
+       d'exécuteur qui s'échappe de la route qui l'attend ; confirmé en
+       isolant (la requête SUIVANTE sur ce même serveur restait bloquée).
+       Corrigé en attrapant largement dans la route, comme
+       `/api/pose/extract` le fait déjà pour la même raison.
+    3. **Sous-vue Tons** de la Banque (`screens/bank/tones/`) — le point
+       d'entrée manquant : l'éditeur était complet mais inatteignable sans
+       taper une URL à la main. Une carte par ton, aucun menu ni
+       rename/duplicate/delete (un ton reste hand-authored dans
+       `creative.json`), lien vers son propre éditeur.
+    `test_expression_editor.js` (nouveau, contre `lena` — seul personnage
+    avec des photos produites — snapshotte et restaure `creative.json` à
+    l'octet près) + `test_bank.js` étendu (3 sous-vues). Suite complète
+    (12 fumigations navigateur) verte.
   - Éditeur photo existant (`screens/review/PhotoEditor.tsx`) : à revoir
     à cette même aune une fois le patron ci-dessous stabilisé sur un
     deuxième outil
