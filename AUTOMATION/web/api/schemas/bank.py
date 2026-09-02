@@ -6,6 +6,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .expression import ExpressionRangeParams
+
 
 # ------------------------------------------------------------------ /api/scenes
 class SceneMeta(BaseModel):
@@ -101,6 +103,10 @@ class CreativeTone(BaseModel):
 
     key: str
     label: Optional[str] = None
+    # Made explicit for the expression editor (api/routers/expression.py),
+    # the first real reader of this field — `extra="allow"` already let it
+    # through untyped before.
+    expression: Optional[ExpressionRangeParams] = None
 
 
 class IntensityTier(BaseModel):

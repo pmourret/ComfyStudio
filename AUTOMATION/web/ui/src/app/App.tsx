@@ -25,6 +25,7 @@ import { TaxonomyProvider } from '../state/TaxonomyContext'
 import { ConfigProvider } from '../state/ConfigContext'
 import { LightboxProvider } from '../chrome/LightboxContext'
 import { BankPosesScreen, BankScenesScreen } from '../screens/bank/BankScreen'
+import { ExpressionEditorScreen } from '../screens/expression-editor/ExpressionEditorScreen'
 import { PoseEditorScreen } from '../screens/pose-editor/PoseEditorScreen'
 import { WorldPlacesScreen } from '../screens/worlds/WorldPlacesScreen'
 import { WorldsScreen } from '../screens/worlds/WorldsScreen'
@@ -82,6 +83,10 @@ export function App() {
                       (2026-09-02) — same list-then-editor shape as worlds/
                       places just below. */}
                   <Route path={`${PATHS.poseEditor}/:name?`} element={<PoseEditorScreen />} />
+                  {/* `:tone` required, no `?` — this editor never creates a
+                      tone, only tunes the range of one that already exists;
+                      a bare visit falls through to `path="*"` below. */}
+                  <Route path={`${PATHS.expressionEditor}/:tone`} element={<ExpressionEditorScreen />} />
                   {/* ADR-0016: the world registry, and its catalog editor —
                       the id is a route param, like the review/gallery image
                       name below. */}

@@ -560,6 +560,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/expression/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Aperçu d'une expression sur une photo déjà produite, sans l'enregistrer
+         * @description Runs the render in an executor: the ComfyUI round-trip uses blocking
+         *     urllib (same reason as `/api/pose/extract` — a blocking call in an async
+         *     handler freezes the whole server).
+         *
+         *     Order matters: the photo is resolved (character isolation) BEFORE
+         *     `comfy_alive()` is even asked — see `resolve_photo`'s own note.
+         */
+        post: operations["preview_expression_api_expression_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/expression/tone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enregistrer la plage d'expression d'un ton */
+        post: operations["save_expression_tone_api_expression_tone_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/img": {
         parameters: {
             query?: never;
@@ -1684,6 +1726,7 @@ export interface components {
             key: string;
             /** Label */
             label?: string | null;
+            expression?: components["schemas"]["ExpressionRangeParams"] | null;
         } & {
             [key: string]: unknown;
         };
@@ -1882,6 +1925,121 @@ export interface components {
             ok: boolean;
             /** Erreur */
             erreur: string;
+        };
+        /**
+         * ExpressionParams
+         * @description One trial value per parameter — what the live preview renders.
+         */
+        ExpressionParams: {
+            /** Smile */
+            smile?: number | null;
+            /** Aaa */
+            aaa?: number | null;
+            /** Eee */
+            eee?: number | null;
+            /** Woo */
+            woo?: number | null;
+            /** Blink */
+            blink?: number | null;
+            /** Wink */
+            wink?: number | null;
+            /** Eyebrow */
+            eyebrow?: number | null;
+            /** Pupil X */
+            pupil_x?: number | null;
+            /** Pupil Y */
+            pupil_y?: number | null;
+            /** Rotate Pitch */
+            rotate_pitch?: number | null;
+            /** Rotate Yaw */
+            rotate_yaw?: number | null;
+            /** Rotate Roll */
+            rotate_roll?: number | null;
+        };
+        /** ExpressionPreviewRequest */
+        ExpressionPreviewRequest: {
+            /** Bucket */
+            bucket: string;
+            /** Space */
+            space: string;
+            /** Name */
+            name: string;
+            params: components["schemas"]["ExpressionParams"];
+        };
+        /**
+         * ExpressionRangeParams
+         * @description A [min, max] pair per parameter — what a tone saves. Only the
+         *     INCLUDED parameters are sent; the rest stay unset (None), and drop out of
+         *     the tone entirely (`ExpressionToneSaveRequest.params.model_dump
+         *     (exclude_none=True)`).
+         */
+        ExpressionRangeParams: {
+            /** Smile */
+            smile?: [
+                number,
+                number
+            ] | null;
+            /** Aaa */
+            aaa?: [
+                number,
+                number
+            ] | null;
+            /** Eee */
+            eee?: [
+                number,
+                number
+            ] | null;
+            /** Woo */
+            woo?: [
+                number,
+                number
+            ] | null;
+            /** Blink */
+            blink?: [
+                number,
+                number
+            ] | null;
+            /** Wink */
+            wink?: [
+                number,
+                number
+            ] | null;
+            /** Eyebrow */
+            eyebrow?: [
+                number,
+                number
+            ] | null;
+            /** Pupil X */
+            pupil_x?: [
+                number,
+                number
+            ] | null;
+            /** Pupil Y */
+            pupil_y?: [
+                number,
+                number
+            ] | null;
+            /** Rotate Pitch */
+            rotate_pitch?: [
+                number,
+                number
+            ] | null;
+            /** Rotate Yaw */
+            rotate_yaw?: [
+                number,
+                number
+            ] | null;
+            /** Rotate Roll */
+            rotate_roll?: [
+                number,
+                number
+            ] | null;
+        };
+        /** ExpressionToneSaveRequest */
+        ExpressionToneSaveRequest: {
+            /** Tone */
+            tone: string;
+            params: components["schemas"]["ExpressionRangeParams"];
         };
         /**
          * FlagRequest
@@ -4023,6 +4181,110 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    preview_expression_api_expression_preview_post: {
+        parameters: {
+            query?: {
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
+                character?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpressionPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Requête refusée */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Photo introuvable */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description ComfyUI hors ligne */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    save_expression_tone_api_expression_tone_post: {
+        parameters: {
+            query?: {
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
+                character?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpressionToneSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResponse"];
+                };
+            };
+            /** @description Requête refusée */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };

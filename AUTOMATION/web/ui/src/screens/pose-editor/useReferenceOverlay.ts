@@ -34,10 +34,10 @@ export function useReferenceOverlay(pose: PoseFrame | null, api: BoundApi) {
     if (!pose) return
     setRendering(true)
     try {
-      const blob = await api.postForBlob('/api/pose/render', { keypoints: editableToFrame(pose) })
-      if (!blob) return
+      const result = await api.postForBlob('/api/pose/render', { keypoints: editableToFrame(pose) })
+      if (!result.ok) return
       if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
-      const next = URL.createObjectURL(blob)
+      const next = URL.createObjectURL(result.blob)
       previewUrlRef.current = next
       setPreviewUrlState(next)
     } finally {

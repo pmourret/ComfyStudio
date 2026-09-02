@@ -51,6 +51,22 @@ async def preview_expression(payload: ExpressionPreviewRequest, character_id: Re
             None, render_expression_preview, character_id, path, params)
     except expression.RenderError as e:
         return JSONResponse({"ok": False, "erreur": str(e)}, status_code=400)
+    except Exception as e:
+        # Caught HERE, deliberately, rather than left to fall through to
+        # api/errors.py's generic handler: an exception raised inside
+        # `run_in_executor` that reaches the OUTER handler instead of being
+        # caught in the route hangs the response under
+        # `LocalOriginGuardMiddleware` (Starlette's `BaseHTTPMiddleware` has
+        # a known bad interaction with an executor exception surfacing past
+        # the endpoint that awaited it) — confirmed live: the client got a
+        # 500 whose BODY never arrived, and the next request on that
+        # dashboard hung too. Every other route already wrapping
+        # `run_in_executor` (`/api/pose/extract`) catches its own specific
+        # exception locally for the same reason; this is the same fix for a
+        # failure this route cannot enumerate in advance (e.g. a missing
+        # `cv2` in the interpreter — `qc_identity.py`, not this module).
+        ss.push_log(f"/api/expression/preview : {type(e).__name__} — {e}")
+        return JSONResponse({"ok": False, "erreur": f"{type(e).__name__} : {e}"}, status_code=500)
     headers = {"X-Identity-After": f"{score:.4f}"} if score is not None else {}
     return Response(content=png, media_type="image/png", headers=headers)
 

@@ -1150,6 +1150,147 @@
         }
       }
     },
+    "/api/expression/preview": {
+      "post": {
+        "summary": "Aperçu d'une expression sur une photo déjà produite, sans l'enregistrer",
+        "description": "Runs the render in an executor: the ComfyUI round-trip uses blocking\nurllib (same reason as `/api/pose/extract` — a blocking call in an async\nhandler freezes the whole server).\n\nOrder matters: the photo is resolved (character isolation) BEFORE\n`comfy_alive()` is even asked — see `resolve_photo`'s own note.",
+        "operationId": "preview_expression_api_expression_preview_post",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpressionPreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Photo introuvable"
+          },
+          "503": {
+            "description": "ComfyUI hors ligne"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/expression/tone": {
+      "post": {
+        "summary": "Enregistrer la plage d'expression d'un ton",
+        "operationId": "save_expression_tone_api_expression_tone_post",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpressionToneSaveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/img": {
       "get": {
         "summary": "Octets d'une image de tri",
@@ -3668,6 +3809,16 @@
               }
             ],
             "title": "Label"
+          },
+          "expression": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExpressionRangeParams"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": true,
@@ -4016,6 +4167,448 @@
         ],
         "title": "ErrorResponse",
         "description": "What every rejection looks like. `erreur` is French: it is displayed to\nthe user verbatim (AUDIT §5.5)."
+      },
+      "ExpressionParams": {
+        "properties": {
+          "smile": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smile"
+          },
+          "aaa": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aaa"
+          },
+          "eee": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eee"
+          },
+          "woo": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Woo"
+          },
+          "blink": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blink"
+          },
+          "wink": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wink"
+          },
+          "eyebrow": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eyebrow"
+          },
+          "pupil_x": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pupil X"
+          },
+          "pupil_y": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pupil Y"
+          },
+          "rotate_pitch": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rotate Pitch"
+          },
+          "rotate_yaw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rotate Yaw"
+          },
+          "rotate_roll": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rotate Roll"
+          }
+        },
+        "type": "object",
+        "title": "ExpressionParams",
+        "description": "One trial value per parameter — what the live preview renders."
+      },
+      "ExpressionPreviewRequest": {
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "title": "Bucket"
+          },
+          "space": {
+            "type": "string",
+            "title": "Space"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "params": {
+            "$ref": "#/components/schemas/ExpressionParams"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bucket",
+          "space",
+          "name",
+          "params"
+        ],
+        "title": "ExpressionPreviewRequest"
+      },
+      "ExpressionRangeParams": {
+        "properties": {
+          "smile": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smile"
+          },
+          "aaa": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aaa"
+          },
+          "eee": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eee"
+          },
+          "woo": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Woo"
+          },
+          "blink": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blink"
+          },
+          "wink": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wink"
+          },
+          "eyebrow": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eyebrow"
+          },
+          "pupil_x": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pupil X"
+          },
+          "pupil_y": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pupil Y"
+          },
+          "rotate_pitch": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rotate Pitch"
+          },
+          "rotate_yaw": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rotate Yaw"
+          },
+          "rotate_roll": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rotate Roll"
+          }
+        },
+        "type": "object",
+        "title": "ExpressionRangeParams",
+        "description": "A [min, max] pair per parameter — what a tone saves. Only the\nINCLUDED parameters are sent; the rest stay unset (None), and drop out of\nthe tone entirely (`ExpressionToneSaveRequest.params.model_dump\n(exclude_none=True)`)."
+      },
+      "ExpressionToneSaveRequest": {
+        "properties": {
+          "tone": {
+            "type": "string",
+            "title": "Tone"
+          },
+          "params": {
+            "$ref": "#/components/schemas/ExpressionRangeParams"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tone",
+          "params"
+        ],
+        "title": "ExpressionToneSaveRequest"
       },
       "FlagRequest": {
         "properties": {

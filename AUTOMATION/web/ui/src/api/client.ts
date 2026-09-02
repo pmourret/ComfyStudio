@@ -103,23 +103,40 @@ export function apiPost<T>(
   })
 }
 
+/** Same request shape as `apiPost` — same header, so the origin guard still
+    sees a real POST — but a success carries bytes (a rendered image), not
+    JSON: `apiFetch`'s `.json()` would reject it. Headers ride along
+    (the expression preview's identity score arrives as `X-Identity-After`,
+    not a JSON field, since the body itself is the PNG). */
+export type BlobResult =
+  | { ok: true; blob: Blob; headers: Headers }
+  | { ok: false; erreur: string }
+
 /* Same request shape as `apiPost` — same header, so the origin guard still
-   sees a real POST — but the response is bytes (a rendered pose PNG), not
-   JSON: `apiFetch`'s `.json()` would reject it. `null` on any failure
-   (network or non-2xx): a caller compares against that rather than reading
-   an `.ok` field bytes don't carry. */
+   sees a real POST — but the response is bytes (a rendered image), not
+   JSON: `apiFetch`'s `.json()` would reject it. A failure DOES read the
+   JSON error body (routes on this path answer `{ok:false, erreur}` on every
+   rejection, bytes only on success) — silently returning null here would
+   erase the message frontend.md requires reaching the interface. */
 export async function apiPostForBlob(
   url: string,
   body: unknown,
   characterId: CharacterId,
-): Promise<Blob | null> {
+): Promise<BlobResult> {
   const response = await fetch(withCharacter(url, characterId), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body ?? {}),
   })
-  if (!response.ok) return null
-  return response.blob()
+  if (!response.ok) {
+    try {
+      const failure = (await response.json()) as ActionLike
+      return { ok: false, erreur: failure.erreur || `réponse inattendue du serveur (${response.status})` }
+    } catch {
+      return { ok: false, erreur: `réponse inattendue du serveur (${response.status})` }
+    }
+  }
+  return { ok: true, blob: await response.blob(), headers: response.headers }
 }
 
 /* An API response does not have the expected shape. `apiFetch` never throws: on

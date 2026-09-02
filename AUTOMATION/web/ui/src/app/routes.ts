@@ -24,6 +24,10 @@ export const PATHS = {
   bankScenes: '/bank/scenes',
   bankPoses: '/bank/poses',
   poseEditor: '/bank/poses/edit',
+  /* `/bank/tones` (the picker, one card per tone) does not exist yet — this
+     screen is reached by a direct link for now, same URL namespace it will
+     join once that sub-view lands. */
+  expressionEditor: '/bank/tones/edit',
   worlds: '/worlds',
   application: '/app',
   journal: '/app/journal',
