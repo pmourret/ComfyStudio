@@ -46,9 +46,15 @@ const SHORTCUTS = [
   { label: 'Poses', to: PATHS.bankPoses, icon: 'pose' },
 ]
 
-/* The rail only shows where its entries have a surface: Produire and Banque. On
-   list screens it would have no active entry and would only eat width. */
-const RAIL_ON = [PATHS.produce, '/bank']
+/* The rail only shows where its entries have a surface: Produire today. On
+   list screens it would have no active entry and would only eat width.
+   `/bank/scenes` was EXCLUDED first (31/08/2026 consolidation pass): its own
+   toolbar covers what the rail offered there. `/bank/poses` and the pose
+   editor followed the same reasoning once the editor grew its own complete
+   navigation across five build phases (2026-09-02) — the rail's "Poses"
+   entry pointed at a screen that no longer needed pointing at, from inside
+   itself. */
+const RAIL_ON = [PATHS.produce]
 
 export function useRailVisible(): boolean {
   const { pathname } = useLocation()

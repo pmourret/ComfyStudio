@@ -87,6 +87,12 @@ try:
     tmp = Path(tempfile.mkdtemp(prefix="pose_test_"))
     pt.POSE_DIR = tmp
     try:
+        print("\n[3a] rendre_apercu — meme rendu que enregistrer_points, rien sur disque")
+        avant = set(tmp.glob("*"))
+        apercu = pt.rendre_apercu(complet)
+        verifie(apercu.size == (512, 640), f"meme taille que le rendu enregistre ({apercu.size})")
+        verifie(set(tmp.glob("*")) == avant, "POSE_DIR n'a pas bouge — aucune ecriture")
+
         nom = pt.enregistrer_points(complet)
         verifie(nom == "pose__00001_.png", f"premiere pose auto-numerotee ({nom})")
         verifie((tmp / nom).exists(), "le PNG est ecrit")
@@ -128,6 +134,26 @@ try:
             verifie(False, "aurait du lever ExtractionError")
         except pt.ExtractionError as e:
             verifie("n'a pas de points-clés" in str(e), f"message clair ({e})")
+
+        print("\n[4bis] poses_disponibles_detail — libelle/provenance, ou None sans sidecar")
+        avec_label = dict(complet)
+        avec_label["label"] = "Assise, test"
+        troisieme = pt.enregistrer_points(avec_label, nom=None)
+        par_nom = {d["nom"]: d for d in pt.poses_disponibles_detail()}
+        verifie(set(par_nom) == {second, troisieme, "pose__00099_.png"},
+                f"liste les trois PNG presents ({sorted(par_nom)})")
+        verifie(par_nom[second]["source"] == "preset",
+                f"provenance lue depuis le sidecar ({par_nom[second]})")
+        verifie(par_nom[second]["label"] is None,
+                "label absent du frame de depart -> None, pas une erreur")
+        verifie(par_nom[troisieme]["label"] == "Assise, test",
+                "un vrai libelle traverse aussi")
+        verifie(bool(par_nom[second]["created_at"]) and bool(par_nom[troisieme]["created_at"]),
+                f"created_at traverse aussi, pour trier par plus recent ({par_nom[second]['created_at']})")
+        verifie(par_nom["pose__00099_.png"]["label"] is None
+                and par_nom["pose__00099_.png"]["source"] is None
+                and par_nom["pose__00099_.png"]["created_at"] is None,
+                "pose sans sidecar : label/source/created_at a None, pas de crash")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -146,6 +172,39 @@ try:
         verifie(False, "aurait du lever ExtractionError")
     except pt.ExtractionError:
         verifie(True, "gabarit inconnu -> erreur explicite")
+
+    print("\n[6] enregistrer_preset — « creer un template » depuis une pose editee")
+    tmp_presets = Path(tempfile.mkdtemp(prefix="pose_presets_test_"))
+    pt.PRESETS_DIR = tmp_presets
+    try:
+        gabarit = cadre(corps=True, mains=True)
+        nom = pt.enregistrer_preset(gabarit, "Ma Pose Assise !")
+        verifie(nom == "ma-pose-assise", f"le libelle est slugifie en nom de fichier ({nom})")
+        verifie((tmp_presets / f"{nom}.json").exists(), "le fichier gabarit est ecrit")
+
+        relu = pt.charger_preset(nom)
+        verifie(relu["label"] == "Ma Pose Assise !", "le libelle exact (accents, ponctuation) traverse, lui")
+        verifie(relu["source"] == "preset", "un gabarit se declare toujours comme tel, jamais comme extraction")
+        verifie(relu["people"][0]["pose_keypoints_2d"] == gabarit["people"][0]["pose_keypoints_2d"],
+                "les points-cles sont identiques a ce qui a ete edite")
+
+        nom2 = pt.enregistrer_preset(gabarit, "Ma Pose Assise !")
+        verifie(nom2 == "ma-pose-assise-2",
+                f"un meme libelle deux fois ne s'ecrase pas, il se numerote ({nom2})")
+        verifie((tmp_presets / f"{nom}.json").exists(),
+                "et le premier gabarit est toujours la, intact")
+
+        try:
+            pt.enregistrer_preset(gabarit, "   ")
+            verifie(False, "aurait du lever ExtractionError")
+        except pt.ExtractionError as e:
+            verifie("nom" in str(e), f"un libelle vide est refuse explicitement ({e})")
+
+        presets_apres = pt.presets_disponibles()
+        verifie({p["nom"] for p in presets_apres} == {nom, nom2},
+                f"presets_disponibles les liste tous les deux ({presets_apres})")
+    finally:
+        shutil.rmtree(tmp_presets, ignore_errors=True)
 
 finally:
     print("\n" + "=" * 70)

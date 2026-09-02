@@ -1512,6 +1512,35 @@
         }
       }
     },
+    "/api/pose/bank": {
+      "get": {
+        "summary": "Squelettes de la banque, avec libellé et provenance",
+        "description": "`poses: list[str]` on `/api/scenes` is enough for a picker (name +\nthumbnail); `PosesView.tsx`'s OWN grid additionally needs a label under\neach thumbnail and a provenance badge (gabarit / photo), which is why\nthis is its own route rather than a change to the scenes bank shape\nevery OTHER pose picker in the app also reads.",
+        "operationId": "get_pose_bank_api_pose_bank_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoseBankResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pose/presets": {
       "get": {
         "summary": "Gabarits de pose disponibles",
@@ -1594,6 +1623,53 @@
             }
           }
         }
+      },
+      "post": {
+        "summary": "Enregistrer le squelette courant comme gabarit réutilisable",
+        "description": "« Créer un template » sur une pose from-scratch — jamais appelée\nseule, toujours À CÔTÉ d'un `/api/pose/save` normal (voir\n`pose_tools.enregistrer_preset`). Le libellé devient le nom du fichier\n(slugifié) : un gabarit n'est jamais numéroté comme une pose, il se\nretrouve par son nom dans le sélecteur.",
+        "operationId": "save_pose_preset_api_pose_preset_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PosePresetSaveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PosePresetSaveResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/pose/save": {
@@ -1628,6 +1704,65 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pose/render": {
+      "post": {
+        "summary": "Aperçu du rendu d'un squelette, sans l'enregistrer",
+        "description": "Same rendering as `/api/pose/save` (`pose_tools.rendre_apercu`, itself\n`pose_render` — no ComfyUI), but returns the PNG bytes directly and\nwrites nothing to INPUTS/POSE/. The advanced editor's on-demand render,\nnext to a reference photo — refreshed on request, not on every drag.",
+        "operationId": "render_pose_preview_api_pose_render_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PoseRenderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Octets de l'image",
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "image/png": {},
+              "image/jpeg": {}
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Absente de l'arbre du personnage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageNotFound"
                 }
               }
             }
@@ -2520,6 +2655,219 @@
           }
         }
       }
+    },
+    "/api/worlds": {
+      "get": {
+        "summary": "Registre des mondes",
+        "description": "One row per `WORLDS/<id>.json` — the « Mondes » screen's registry.\nMirrors `GET /api/characters` (state.py): listing only, no validation\nbeyond what `worlds.list_worlds()` already scans.",
+        "operationId": "get_world_registry_api_worlds_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Créer un monde (catalogue vide, pack curaté)",
+        "description": "Writes a new `WORLDS/<id>.json` with an EMPTY `places` catalog\n(ADR-0016). The pack is a proposal used once to derive\n`compatible_families`/`suggested_styles` — never a routing change:\n`universe.resolve()` is not touched, and neither is `CHARACTERS/` (this\nworld is assigned to no character, ever, by this route).",
+        "operationId": "create_world_api_worlds_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorldRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateWorldResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/worlds/options": {
+      "get": {
+        "summary": "Packs proposables pour créer un monde",
+        "description": "Packs to pick FROM when creating a world (ADR-0016) — never a family\nfield: `compatible_families` is derived server-side from the chosen\npack, the form never types it.",
+        "operationId": "get_world_options_api_worlds_options_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldOptionsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/worlds/{world_id}/places": {
+      "get": {
+        "summary": "Catalogue de lieux d'un monde",
+        "description": "`worlds.load_world` raises `UnknownWorldError` (a ValueError) on an\nunknown id — the generic ValueError handler turns that into a clean 400,\nnothing to catch here.",
+        "operationId": "get_places_api_worlds__world_id__places_get",
+        "parameters": [
+          {
+            "name": "world_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "World Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlacesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Enregistrer le catalogue de lieux d'un monde",
+        "description": "Replaces the world's WHOLE `places` list, like `POST /api/scenes`\nreplaces a character's whole scene bank — same shape of contract, one\nlevel up. Affects every character composing in this world: the frontend\nwarns before calling this, the server does not soften it.",
+        "operationId": "save_places_api_worlds__world_id__places_post",
+        "parameters": [
+          {
+            "name": "world_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "World Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavePlacesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Catalogue refusé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlacesRejected"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3201,6 +3549,51 @@
           "id"
         ],
         "title": "CreateCharacterResponse"
+      },
+      "CreateWorldRequest": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "default": ""
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "default": ""
+          },
+          "pack": {
+            "type": "string",
+            "title": "Pack",
+            "default": ""
+          },
+          "tone": {
+            "type": "string",
+            "title": "Tone",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "CreateWorldRequest",
+        "description": "The short form of ADR-0016: id, name, an EXISTING pack (to derive\n`compatible_families`/`suggested_styles` from), an optional tone. No\nfamily field — typing it back in would be the same mistake the pack\npicker exists to avoid."
+      },
+      "CreateWorldResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "id"
+        ],
+        "title": "CreateWorldResponse"
       },
       "CreativeIntention": {
         "properties": {
@@ -4247,6 +4640,118 @@
         ],
         "title": "NsfwStateResponse"
       },
+      "PackOption": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "family": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Family"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "PackOption",
+        "description": "One entry of the pack picker on the world-creation form. `family` is\nshown so the form can explain what `compatible_families` will be derived\nto — never typed by hand (ADR-0016)."
+      },
+      "Place": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "default": ""
+          },
+          "intention": {
+            "type": "string",
+            "title": "Intention",
+            "default": ""
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "prompt"
+        ],
+        "title": "Place",
+        "description": "One entry of a world's catalog — a FRAME (label/intention/prompt),\nnever a wardrobe. `extra=\"allow\"` for the same reason as `SceneMeta`: this\nlayer relays a file it does not own."
+      },
+      "PlacesRejected": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": false
+          },
+          "erreur": {
+            "type": "string",
+            "title": "Erreur"
+          },
+          "problemes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Problemes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "erreur"
+        ],
+        "title": "PlacesRejected",
+        "description": "400 of a refused save. `erreur` is the first problem — what the screen\nshows; `problemes` is the whole list, for the details panel."
+      },
+      "PlacesResponse": {
+        "properties": {
+          "world": {
+            "type": "string",
+            "title": "World"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "places": {
+            "items": {
+              "$ref": "#/components/schemas/Place"
+            },
+            "type": "array",
+            "title": "Places"
+          }
+        },
+        "type": "object",
+        "required": [
+          "world",
+          "label",
+          "places"
+        ],
+        "title": "PlacesResponse"
+      },
       "PlanResponse": {
         "properties": {
           "total": {
@@ -4386,6 +4891,69 @@
         "title": "PlannedJob",
         "description": "One image of the plan. Same fields `build_jobs` produced — the route\nprojects them, it does not invent any."
       },
+      "PoseBankEntry": {
+        "properties": {
+          "nom": {
+            "type": "string",
+            "title": "Nom"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nom"
+        ],
+        "title": "PoseBankEntry",
+        "description": "One skeleton of the bank, WITH its metadata — what `PosesView.tsx`\nneeds to show under a thumbnail (label) and as a provenance badge\n(source), neither of which the plain `poses: list[str]` on\n`/api/scenes` carries. `label`/`source` are `None` for a pose extracted\nbefore this had a JSON sidecar at all (`pose_tools.poses_disponibles_detail`)\n— a real, expected state, not an error."
+      },
+      "PoseBankResponse": {
+        "properties": {
+          "poses": {
+            "items": {
+              "$ref": "#/components/schemas/PoseBankEntry"
+            },
+            "type": "array",
+            "title": "Poses"
+          }
+        },
+        "type": "object",
+        "required": [
+          "poses"
+        ],
+        "title": "PoseBankResponse"
+      },
       "PoseDeleteRequest": {
         "properties": {
           "name": {
@@ -4455,6 +5023,44 @@
         "title": "PosePreset",
         "description": "One starter template from `AUTOMATION/pose_presets/` — entirely\nsynthetic coordinates, never a real photo (see `nom` == the file's own\nstem, `label` == what a person reads)."
       },
+      "PosePresetSaveRequest": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "default": ""
+          },
+          "keypoints": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Keypoints",
+            "default": {}
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "PosePresetSaveRequest",
+        "description": "Saves the CURRENT edited frame as a new reusable starting template\n(AUTOMATION/pose_presets/) — the \"create a template too\" option on a\nfrom-scratch pose, alongside (never instead of) saving it as a normal\npose. `label` is what a person reads in the template picker\n(`PosePreset.label`); the file's own name is derived from it, never\nchosen separately — the same reasoning as a pose's own auto-numbered\nfilename, just slugified from the label instead of counted."
+      },
+      "PosePresetSaveResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "nom": {
+            "type": "string",
+            "title": "Nom"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "nom"
+        ],
+        "title": "PosePresetSaveResponse",
+        "description": "`nom` is the template's own file stem — what `/api/pose/preset?nom=`\nwill read back."
+      },
       "PosePresetsResponse": {
         "properties": {
           "presets": {
@@ -4470,6 +5076,20 @@
           "presets"
         ],
         "title": "PosePresetsResponse"
+      },
+      "PoseRenderRequest": {
+        "properties": {
+          "keypoints": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Keypoints",
+            "default": {}
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "PoseRenderRequest",
+        "description": "Same `keypoints` shape as `PoseSaveRequest` — renders the CURRENT\nin-progress frame to a PNG and returns the bytes directly. No `name`:\nunlike a save, this writes nothing to INPUTS/POSE/, so there is nothing\nto overwrite or number. The advanced editor's on-demand \"what will\nControlNet actually see\" preview, next to a reference photo."
       },
       "PoseSaveRequest": {
         "properties": {
@@ -4883,6 +5503,22 @@
         ],
         "title": "RunStartedResponse",
         "description": "A batch is on its way. `batch_id` is the timestamp the journal and the\nlive strip carry; the frontend follows it through /api/state."
+      },
+      "SavePlacesRequest": {
+        "properties": {
+          "places": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Places"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "SavePlacesRequest",
+        "description": "The business shape (unique ids, non-empty prompt, no character-only\nkey) is validated in `services/worlds.py`, not here — same reasoning as\n`SceneBankSaveRequest`: this is a FILE that belongs to the world, not a\nrequest payload the schema layer should own the rules of."
       },
       "SceneBankRejected": {
         "properties": {
@@ -5627,6 +6263,75 @@
         ],
         "title": "WorldBrief",
         "description": "`{id, label}` of a world, or null."
+      },
+      "WorldListResponse": {
+        "properties": {
+          "worlds": {
+            "items": {
+              "$ref": "#/components/schemas/WorldSummary"
+            },
+            "type": "array",
+            "title": "Worlds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "worlds"
+        ],
+        "title": "WorldListResponse"
+      },
+      "WorldOptionsResponse": {
+        "properties": {
+          "packs": {
+            "items": {
+              "$ref": "#/components/schemas/PackOption"
+            },
+            "type": "array",
+            "title": "Packs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "packs"
+        ],
+        "title": "WorldOptionsResponse"
+      },
+      "WorldSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "compatible_families": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Compatible Families"
+          },
+          "tone": {
+            "type": "string",
+            "title": "Tone",
+            "default": ""
+          },
+          "places_count": {
+            "type": "integer",
+            "title": "Places Count",
+            "default": 0
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "WorldSummary",
+        "description": "One row of the « Mondes » screen's registry — enough to card it and\nlink to its places editor, nothing a character sheet needs."
       }
     }
   }

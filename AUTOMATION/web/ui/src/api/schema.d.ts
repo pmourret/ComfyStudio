@@ -709,6 +709,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pose/bank": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Squelettes de la banque, avec libellé et provenance
+         * @description `poses: list[str]` on `/api/scenes` is enough for a picker (name +
+         *     thumbnail); `PosesView.tsx`'s OWN grid additionally needs a label under
+         *     each thumbnail and a provenance badge (gabarit / photo), which is why
+         *     this is its own route rather than a change to the scenes bank shape
+         *     every OTHER pose picker in the app also reads.
+         */
+        get: operations["get_pose_bank_api_pose_bank_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pose/presets": {
         parameters: {
             query?: never;
@@ -745,7 +769,15 @@ export interface paths {
          */
         get: operations["get_pose_preset_api_pose_preset_get"];
         put?: never;
-        post?: never;
+        /**
+         * Enregistrer le squelette courant comme gabarit réutilisable
+         * @description « Créer un template » sur une pose from-scratch — jamais appelée
+         *     seule, toujours À CÔTÉ d'un `/api/pose/save` normal (voir
+         *     `pose_tools.enregistrer_preset`). Le libellé devient le nom du fichier
+         *     (slugifié) : un gabarit n'est jamais numéroté comme une pose, il se
+         *     retrouve par son nom dans le sélecteur.
+         */
+        post: operations["save_pose_preset_api_pose_preset_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -769,6 +801,29 @@ export interface paths {
          *     while editing an existing pose included — when omitted).
          */
         post: operations["save_pose_api_pose_save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pose/render": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Aperçu du rendu d'un squelette, sans l'enregistrer
+         * @description Same rendering as `/api/pose/save` (`pose_tools.rendre_apercu`, itself
+         *     `pose_render` — no ComfyUI), but returns the PNG bytes directly and
+         *     writes nothing to INPUTS/POSE/. The advanced editor's on-demand render,
+         *     next to a reference photo — refreshed on request, not on every drag.
+         */
+        post: operations["render_pose_preview_api_pose_render_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1180,6 +1235,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/worlds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Registre des mondes
+         * @description One row per `WORLDS/<id>.json` — the « Mondes » screen's registry.
+         *     Mirrors `GET /api/characters` (state.py): listing only, no validation
+         *     beyond what `worlds.list_worlds()` already scans.
+         */
+        get: operations["get_world_registry_api_worlds_get"];
+        put?: never;
+        /**
+         * Créer un monde (catalogue vide, pack curaté)
+         * @description Writes a new `WORLDS/<id>.json` with an EMPTY `places` catalog
+         *     (ADR-0016). The pack is a proposal used once to derive
+         *     `compatible_families`/`suggested_styles` — never a routing change:
+         *     `universe.resolve()` is not touched, and neither is `CHARACTERS/` (this
+         *     world is assigned to no character, ever, by this route).
+         */
+        post: operations["create_world_api_worlds_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/worlds/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Packs proposables pour créer un monde
+         * @description Packs to pick FROM when creating a world (ADR-0016) — never a family
+         *     field: `compatible_families` is derived server-side from the chosen
+         *     pack, the form never types it.
+         */
+        get: operations["get_world_options_api_worlds_options_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/worlds/{world_id}/places": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Catalogue de lieux d'un monde
+         * @description `worlds.load_world` raises `UnknownWorldError` (a ValueError) on an
+         *     unknown id — the generic ValueError handler turns that into a clean 400,
+         *     nothing to catch here.
+         */
+        get: operations["get_places_api_worlds__world_id__places_get"];
+        put?: never;
+        /**
+         * Enregistrer le catalogue de lieux d'un monde
+         * @description Replaces the world's WHOLE `places` list, like `POST /api/scenes`
+         *     replaces a character's whole scene bank — same shape of contract, one
+         *     level up. Affects every character composing in this world: the frontend
+         *     warns before calling this, the server does not soften it.
+         */
+        post: operations["save_places_api_worlds__world_id__places_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1483,6 +1619,42 @@ export interface components {
         };
         /** CreateCharacterResponse */
         CreateCharacterResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Id */
+            id: string;
+        };
+        /**
+         * CreateWorldRequest
+         * @description The short form of ADR-0016: id, name, an EXISTING pack (to derive
+         *     `compatible_families`/`suggested_styles` from), an optional tone. No
+         *     family field — typing it back in would be the same mistake the pack
+         *     picker exists to avoid.
+         */
+        CreateWorldRequest: {
+            /**
+             * Id
+             * @default
+             */
+            id: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Pack
+             * @default
+             */
+            pack: string;
+            /**
+             * Tone
+             * @default
+             */
+            tone: string;
+        };
+        /** CreateWorldResponse */
+        CreateWorldResponse: {
             /** Ok */
             ok: boolean;
             /** Id */
@@ -2039,6 +2211,69 @@ export interface components {
             [key: string]: unknown;
         };
         /**
+         * PackOption
+         * @description One entry of the pack picker on the world-creation form. `family` is
+         *     shown so the form can explain what `compatible_families` will be derived
+         *     to — never typed by hand (ADR-0016).
+         */
+        PackOption: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Family */
+            family?: string | null;
+        };
+        /**
+         * Place
+         * @description One entry of a world's catalog — a FRAME (label/intention/prompt),
+         *     never a wardrobe. `extra="allow"` for the same reason as `SceneMeta`: this
+         *     layer relays a file it does not own.
+         */
+        Place: {
+            /** Id */
+            id: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Intention
+             * @default
+             */
+            intention: string;
+            /** Prompt */
+            prompt: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * PlacesRejected
+         * @description 400 of a refused save. `erreur` is the first problem — what the screen
+         *     shows; `problemes` is the whole list, for the details panel.
+         */
+        PlacesRejected: {
+            /**
+             * Ok
+             * @default false
+             */
+            ok: boolean;
+            /** Erreur */
+            erreur: string;
+            /** Problemes */
+            problemes?: string[];
+        };
+        /** PlacesResponse */
+        PlacesResponse: {
+            /** World */
+            world: string;
+            /** Label */
+            label: string;
+            /** Places */
+            places: components["schemas"]["Place"][];
+        };
+        /**
          * PlanResponse
          * @description Dry run. ALWAYS 200, even when the guard refuses — see the box on
          *     `build_plan` in routers/production.py: `total` and `erreur` are the server
@@ -2088,6 +2323,30 @@ export interface components {
             outfit?: unknown | null;
         } & {
             [key: string]: unknown;
+        };
+        /**
+         * PoseBankEntry
+         * @description One skeleton of the bank, WITH its metadata — what `PosesView.tsx`
+         *     needs to show under a thumbnail (label) and as a provenance badge
+         *     (source), neither of which the plain `poses: list[str]` on
+         *     `/api/scenes` carries. `label`/`source` are `None` for a pose extracted
+         *     before this had a JSON sidecar at all (`pose_tools.poses_disponibles_detail`)
+         *     — a real, expected state, not an error.
+         */
+        PoseBankEntry: {
+            /** Nom */
+            nom: string;
+            /** Label */
+            label?: string | null;
+            /** Source */
+            source?: string | null;
+            /** Created At */
+            created_at?: string | null;
+        };
+        /** PoseBankResponse */
+        PoseBankResponse: {
+            /** Poses */
+            poses: components["schemas"]["PoseBankEntry"][];
         };
         /**
          * PoseDeleteRequest
@@ -2153,10 +2412,66 @@ export interface components {
             /** Label */
             label: string;
         };
+        /**
+         * PosePresetSaveRequest
+         * @description Saves the CURRENT edited frame as a new reusable starting template
+         *     (AUTOMATION/pose_presets/) — the "create a template too" option on a
+         *     from-scratch pose, alongside (never instead of) saving it as a normal
+         *     pose. `label` is what a person reads in the template picker
+         *     (`PosePreset.label`); the file's own name is derived from it, never
+         *     chosen separately — the same reasoning as a pose's own auto-numbered
+         *     filename, just slugified from the label instead of counted.
+         */
+        PosePresetSaveRequest: {
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Keypoints
+             * @default {}
+             */
+            keypoints: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * PosePresetSaveResponse
+         * @description `nom` is the template's own file stem — what `/api/pose/preset?nom=`
+         *     will read back.
+         */
+        PosePresetSaveResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Nom */
+            nom: string;
+        };
         /** PosePresetsResponse */
         PosePresetsResponse: {
             /** Presets */
             presets: components["schemas"]["PosePreset"][];
+        };
+        /**
+         * PoseRenderRequest
+         * @description Same `keypoints` shape as `PoseSaveRequest` — renders the CURRENT
+         *     in-progress frame to a PNG and returns the bytes directly. No `name`:
+         *     unlike a save, this writes nothing to INPUTS/POSE/, so there is nothing
+         *     to overwrite or number. The advanced editor's on-demand "what will
+         *     ControlNet actually see" preview, next to a reference photo.
+         */
+        PoseRenderRequest: {
+            /**
+             * Keypoints
+             * @default {}
+             */
+            keypoints: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
         };
         /**
          * PoseSaveRequest
@@ -2359,6 +2674,21 @@ export interface components {
             mode?: string | null;
             /** Libelle */
             libelle?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * SavePlacesRequest
+         * @description The business shape (unique ids, non-empty prompt, no character-only
+         *     key) is validated in `services/worlds.py`, not here — same reasoning as
+         *     `SceneBankSaveRequest`: this is a FILE that belongs to the world, not a
+         *     request payload the schema layer should own the rules of.
+         */
+        SavePlacesRequest: {
+            /** Places */
+            places?: {
+                [key: string]: unknown;
+            }[];
         } & {
             [key: string]: unknown;
         };
@@ -2720,6 +3050,41 @@ export interface components {
             id: string;
             /** Label */
             label: string;
+        };
+        /** WorldListResponse */
+        WorldListResponse: {
+            /** Worlds */
+            worlds: components["schemas"]["WorldSummary"][];
+        };
+        /** WorldOptionsResponse */
+        WorldOptionsResponse: {
+            /** Packs */
+            packs: components["schemas"]["PackOption"][];
+        };
+        /**
+         * WorldSummary
+         * @description One row of the « Mondes » screen's registry — enough to card it and
+         *     link to its places editor, nothing a character sheet needs.
+         */
+        WorldSummary: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Compatible Families */
+            compatible_families?: string[];
+            /**
+             * Tone
+             * @default
+             */
+            tone: string;
+            /**
+             * Places Count
+             * @default 0
+             */
+            places_count: number;
+        } & {
+            [key: string]: unknown;
         };
     };
     responses: never;
@@ -3914,6 +4279,35 @@ export interface operations {
             };
         };
     };
+    get_pose_bank_api_pose_bank_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoseBankResponse"];
+                };
+            };
+            /** @description Requête refusée */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_pose_presets_api_pose_presets_get: {
         parameters: {
             query?: never;
@@ -3986,6 +4380,48 @@ export interface operations {
             };
         };
     };
+    save_pose_preset_api_pose_preset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PosePresetSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PosePresetSaveResponse"];
+                };
+            };
+            /** @description Requête refusée */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     save_pose_api_pose_save_post: {
         parameters: {
             query?: never;
@@ -4015,6 +4451,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    render_pose_preview_api_pose_render_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PoseRenderRequest"];
+            };
+        };
+        responses: {
+            /** @description Octets de l'image */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                };
+            };
+            /** @description Requête refusée */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Absente de l'arbre du personnage */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageNotFound"];
                 };
             };
             /** @description Validation Error */
@@ -4643,6 +5132,190 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_world_registry_api_worlds_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorldListResponse"];
+                };
+            };
+            /** @description Requête refusée */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_world_api_worlds_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWorldRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateWorldResponse"];
+                };
+            };
+            /** @description Requête refusée */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_world_options_api_worlds_options_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorldOptionsResponse"];
+                };
+            };
+            /** @description Requête refusée */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_places_api_worlds__world_id__places_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                world_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlacesResponse"];
+                };
+            };
+            /** @description Requête refusée */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_places_api_worlds__world_id__places_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                world_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavePlacesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResponse"];
+                };
+            };
+            /** @description Catalogue refusé */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlacesRejected"];
+                };
             };
             /** @description Validation Error */
             422: {

@@ -19,7 +19,7 @@ résolution (§4, ADR-0012).
 |---|---|---|---|
 | **Type de personnage** | métier, panel d'outils (§5), empty states, taxonomie de scènes | l'humain | figé à la création |
 | **Style de sortie** | rendu (réaliste / fantastique / cartoon / manga…), `prompt_add`, checkpoint à l'intérieur de la famille | l'humain | figé à la création (ADR-0006) |
-| **Monde / cadre** | LoRA de monde, `prompt_add`, banque de scènes de départ, ton, peau UI | l'humain | figé à la création (§4) |
+| **Monde / cadre** | LoRA de monde, `prompt_add`, catalogue de lieux (`places`, vivant — ADR-0015), ton, peau UI | l'humain | appartenance figée à la création (§4) ; le catalogue lui-même reste éditable, via ses propres routes |
 | **Pack / famille technique** | graphes de rôle, verrou d'identité, ControlNet de posing, `tools.json`, famille de modèle | **le système** | dérivé, jamais choisi à la main |
 
 - **Type**, **style** et **monde** sont trois choix humains, figés à la

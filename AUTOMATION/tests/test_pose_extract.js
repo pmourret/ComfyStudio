@@ -127,10 +127,20 @@ const comfyUp = () => new Promise(resolve => {
   console.log('\n[5] NETTOYAGE : le squelette produit est retire');
   await page.click('#bankView [data-vue="poses"]');
   await page.waitForSelector('#poseGrid');
-  await page.click(`[data-pose-card][data-n="${nouveau}"] [data-del]`);
+  // 2026-09-02 : retirer/dupliquer/renommer sont passes derriere le menu
+  // « ⋯ » de la carte (un seul declencheur pour les 4 actions plutot que
+  // 4 boutons sur une carte de ~100px de large).
+  await page.click(`[data-pose-card][data-n="${nouveau}"] [data-pose-menu]`);
+  await page.waitForSelector(`[data-pose-card][data-n="${nouveau}"] [role="menu"]`);
+  await page.click(`[data-pose-card][data-n="${nouveau}"] [role="menu"] [data-del]`);
   await page.waitForSelector('#armBox[open]');
-  dire((await page.textContent('#armBox')).includes('introuvable'),
-       'le retrait previent qu une scene qui le reference le perdra');
+  // 2026-09-02 : la confirmation nomme desormais les scenes qui referencent
+  // reellement le squelette (ScenesStoreContext) plutot qu'un avertissement
+  // generique — [4] n'a fait que PROPOSER ce squelette au selecteur de pose,
+  // aucune scene ne l'a choisi, donc le texte attendu ici dit l'inverse de
+  // « introuvable » : rien a perdre.
+  dire((await page.textContent('#armBox')).includes('ne le référence'),
+       'aucune scene ne l ayant choisi, le retrait le dit explicitement');
   await page.click('#cfOui');
   await page.waitForTimeout(1200);
   const final = await squelettes();

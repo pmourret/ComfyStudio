@@ -23,6 +23,7 @@ import shutil
 
 import pose_tools
 import shared_state as ss
+import worlds
 
 
 KNOWN_FORMATS = ("4:5", "2:3", "9:16", "1:1")
@@ -206,6 +207,41 @@ def stamp_world(data, world):
         if isinstance(s, dict):
             s.setdefault("world", world)
             s.setdefault("origin", "manual")
+    return data
+
+
+def refresh_world_scenes(data):
+    """Live merge of ADR-0015, applied in place: every scene bound to a world
+    place (`origin == "world"` and a `world_ref`) has its FRAME
+    (`label`/`intention`/`prompt`) re-derived from the CURRENT catalog —
+    never trusted from what the client sent. The character's overlay
+    (`worlds.SCENE_OVERLAY_KEYS`) is untouched either way, since
+    `merge_scene` only ever reads it back from the scene itself.
+
+    Called on every `GET /api/scenes` (so the screen shows the live catalog)
+    and on every `POST /api/scenes`, BEFORE `validate_scene_bank` (so the
+    inherited prompt already exists when the empty-prompt check runs) and
+    before the file is written — that write is what makes the merge visible
+    to `build_jobs`, which reads `scenes.json` verbatim and knows nothing of
+    this function (ADR-0014 §5, ADR-0015).
+
+    A world or place that no longer exists (`UnknownWorldError` /
+    `UnknownPlaceError`) is NOT an error here: the scene is left exactly as
+    it was, and `validate_scene_bank`'s "prompt vide" refusal is what
+    surfaces the break at the next save — this function never repairs, never
+    crashes the whole bank for one dangling reference.
+    """
+    for scene in data.get("scenes", []):
+        if not isinstance(scene, dict) or scene.get("origin") != "world":
+            continue
+        wid, ref = scene.get("world"), scene.get("world_ref")
+        if not wid or not ref:
+            continue
+        try:
+            merged = worlds.merge_scene(wid, ref, scene)
+        except (worlds.UnknownWorldError, worlds.UnknownPlaceError):
+            continue
+        scene.update(merged)
     return data
 
 

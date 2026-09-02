@@ -1,9 +1,9 @@
-/* Browser smoke test of the REACT scene bank — both sub-views, plus the tool
-   rail that appears on Poses.
+/* Browser smoke test of the REACT scene bank — both sub-views.
 
    Replaces three legacy fumigations: test_scenes_aller_retour (nothing is lost
    on a round trip), test_pose_scene_card (the pose selector on a scene card),
-   and test_rail_repli (the rail collapses to icons).
+   and test_rail_repli (the rail used to collapse to icons — see the
+   2026-09-02 note below for why that check is gone, not just moved).
 
    WHY THE ROUND TRIP IS THE HEART OF IT. On 25/08/2026 the save rebuilt each
    scene from the fields the card displays. Everything the card did NOT display
@@ -35,9 +35,14 @@
    THE 31/08/2026 CONSOLIDATION PASS moved « + Ajouter une scène » from a card
    in the grid to a toolbar button (same id, `#btnAddScene`, so most of this
    file did not need to change) and turned OFF the tool rail on `/bank/scenes`
-   — the screen's own toolbar covers what it offered there. The rail checks
-   that used to run here now run once the walk switches to `/bank/poses`,
-   where the rail still appears.
+   — the screen's own toolbar covers what it offered there. THE 2026-09-02
+   POSE EDITOR PASS did the same to `/bank/poses`: five build phases later
+   (undo/redo, hand close-ups, reference photo, mirror/IK, multi-select) the
+   editor has its own complete navigation, so the rail's "Poses" entry
+   pointed at a screen that no longer needed pointing at from inside itself
+   (`chrome/ToolRail.tsx`, `RAIL_ON`). The rail-specific checks that used to
+   run at [15]-[17] are gone rather than moved: there is no longer a rail
+   anywhere in this walk to collapse or mark active.
 
    IT RESTORES WHAT IT CHANGES. The bank is real user data: the test snapshots
    scenes.json through the API, does its round trip, then writes the snapshot
@@ -529,45 +534,18 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   dire((await texte('#bankPoses')).includes('ne reste jamais sur le disque'),
        'la vue dit que la photo source n est jamais gardee');
 
-  console.log('\n[15] LE RAIL D OUTILS apparait ici (Poses), et vient du pack');
-  dire(await vu('#toolRail'), 'le rail est present sur Poses');
-  const outils = await page.$$eval('#toolRail .rail-it .rail-lab-it', e => e.map(x => x.textContent));
-  dire(outils.length > 0, `entrees du rail : ${outils.join(' · ')}`);
-  dire(!(await vu('#toolRail [data-s]')),
-       "il ne recopie aucune destination de la navbar : ce n'est pas une seconde navigation");
-  const inertes = await page.$$eval('#toolRail .rail-it:disabled',
-    e => e.map(x => x.dataset.hintText || ''));
-  dire(inertes.every(r => r.length > 0),
-       `un outil inerte DIT pourquoi (${inertes.length} inerte(s))`);
+  console.log('\n[15] LE RAIL D OUTILS n apparait PLUS sur Poses non plus (2026-09-02)');
+  // Meme raisonnement que Scenes (voir [2]) : l'editeur de pose a grandi sa
+  // propre navigation complete sur cinq passes de developpement (retour a la
+  // banque, annuler/retablir, panneaux mains, photo de reference, miroir/IK) —
+  // le rail pointait vers un ecran qui n'en avait plus besoin depuis
+  // lui-meme. Les verifications de repli en icones et de marquage de la
+  // sous-vue active (ex-[16]/[17]) n'ont plus de sens : il n'y a plus de
+  // rail ici a replier ou a marquer.
+  dire(!(await vu('#toolRail')),
+       "l'editeur de pose a son propre outillage — le rail n'y ajoute plus rien");
 
-  console.log('\n[16] le rail se replie en ICONES, pas en rien');
-  const cle = () => page.evaluate(() => localStorage.getItem('studio.rail-mince'));
-  const largeur = () => page.$eval('#toolRail', e => e.getBoundingClientRect().width);
-  const large = await largeur();
-  await page.click('#btnRailPli');
-  await page.waitForTimeout(250);
-  dire(await cle() === '1', 'studio.rail-mince = 1');
-  const etroit = await largeur();
-  dire(etroit < large && etroit > 20, `le rail retrecit sans disparaitre (${large} -> ${etroit} px)`);
-  dire(await page.isVisible('#toolRail .rail-it'), 'ses entrees restent cliquables');
-  const lab = await page.$('#toolRail .rail-lab-it');
-  dire(await lab.evaluate(e => getComputedStyle(e).display) !== 'none',
-       'les libelles restent le nom accessible des entrees');
-  dire(await lab.evaluate(e => e.getBoundingClientRect().width <= 2),
-       'mais ils sont retires VISUELLEMENT');
-  // La banque n'a plus de barre de lancement fixe depuis le 01/09/2026 (le
-  // statut + « Enregistrer » ont rejoint la rangee du haut, a cote du switch
-  // Scenes/Poses) : le suivi `--rail` d'une barre fixe reste verifie ailleurs
-  // (ProduceScreen, WizardScreen, qui gardent `.launch`), plus ici.
-  await page.click('#btnRailPli');
-  await page.waitForTimeout(250);
-  dire(await cle() === '0', 'deplier reecrit la cle');
-
-  console.log('\n[17] le rail marque l entree de la sous-vue courante');
-  const actives = await page.$$eval('#toolRail .rail-it.on .rail-lab-it', e => e.map(x => x.textContent));
-  dire(actives.includes('Poses'), `l entree active suit la sous-vue (${actives.join(',') || 'aucune'})`);
-
-  console.log('\n[18] REMISE EN ETAT : scenes.json revient a son instantane');
+  console.log('\n[16] REMISE EN ETAT : scenes.json revient a son instantane');
   const remis = await page.evaluate(async avant => {
     const r = await fetch('/api/scenes?character=lena', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -591,7 +569,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
        `aucune trace laissee par la fumigation (${restant.length} ecart(s))`);
   restant.slice(0, 6).forEach(e => console.log('      ' + e));
 
-  console.log('\n[19] aucune erreur JS sur tout le parcours');
+  console.log('\n[17] aucune erreur JS sur tout le parcours');
   dire(erreurs.length === 0, `${erreurs.length} erreur(s)`);
   erreurs.forEach(e => console.log('      ' + e.slice(0, 150)));
 

@@ -3,7 +3,8 @@
    rendered PNG is pure local drawing (pose_render.py), so this test runs even
    with ComfyUI offline — unlike its extraction sibling.
 
-   Covers, in order: preset → canvas → drag → keyboard nudge → save → the
+   Covers, in order: the "+ Nouvelle pose" MODAL (name + template, 2026-09-02
+   — no more full-screen picker) → canvas → drag → keyboard nudge → save → the
    bank picks it up → reached again via its OWN "editer" link (not just the
    post-save redirect) → a pose from BEFORE this feature existed (no JSON
    sidecar) fails softly, not with a crash → usable from the scene composer's
@@ -29,30 +30,50 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   let ko = 0;
   const dire = (bon, quoi) => { console.log(`   ${bon ? 'ok  ' : 'ECHEC'} ${quoi}`); if (!bon) ko++; };
   const squelettes = () => page.$$eval('#poseGrid [data-pose-card]', e => e.map(x => x.dataset.n));
-  const circles = () => page.$$eval('#poseEditor svg circle', e => e.length);
+  // `[data-canvas]` distingue le canvas plein cadre (corps + 2 mains) des
+  // deux panneaux mains en gros plan (2026-09-02) — les trois vivent sous
+  // #poseEditor en meme temps, un simple `svg circle` compterait les trois.
+  const circles = (canvas) => page.$$eval(`#poseEditor svg[data-canvas="${canvas}"] circle`, e => e.length);
 
-  console.log('\n[1] la banque de poses propose "+ Nouvelle pose"');
+  console.log('\n[1] la banque de poses propose "+ Nouvelle pose" — une modale, plus un ecran');
   await page.goto(BASE + '/bank/poses?character=lena', { waitUntil: 'networkidle' });
   await page.waitForSelector('#poseGrid');
   const avant = await squelettes();
-  const lienNeuf = await page.$('a:has-text("Nouvelle pose")');
-  dire(Boolean(lienNeuf), 'le lien est present');
-  await lienNeuf.click();
+  const boutonNeuf = await page.$('button:has-text("+ Nouvelle pose")');
+  dire(Boolean(boutonNeuf), 'le bouton est present');
+  await boutonNeuf.click();
+  await page.waitForSelector('#newPoseBox[open]');
+  dire((await page.evaluate(() => location.pathname)).startsWith('/bank/poses')
+       && !(await page.evaluate(() => location.pathname)).includes('/edit'),
+       'ouvrir la modale ne navigue PAS — toujours sur la banque');
 
-  console.log('\n[2] choix d un gabarit — aucune photo, coordonnees inventees');
-  await page.waitForSelector('#poseEditor');
+  console.log('\n[2] la modale demande un nom et un gabarit — aucune photo, coordonnees inventees');
+  // La liste des gabarits arrive par /api/pose/presets, apres le premier
+  // rendu de la modale ("chargement…") — attendre le bouton lui-meme plutot
+  // qu'un delai fixe, pour ne pas dependre de la vitesse du serveur de test.
+  await page.waitForSelector('#newPoseBox button:has-text("Debout")');
+  const gabarits = await page.$$eval('#newPoseBox button', e => e.map(x => x.textContent));
+  dire(gabarits.some(t => (t || '').includes('Debout')), `le gabarit "Debout" est propose (${gabarits})`);
+  dire(await page.isDisabled('#newPoseBox button:has-text("Créer")'),
+       'Créer reste desactive tant qu aucun nom n est saisi');
+  const NOM_POSE = 'Pose de test automatisé';
+  await page.fill('#newPoseName', NOM_POSE);
+  await page.click('#newPoseBox button:has-text("Debout")');
+  dire(await page.isEnabled('#newPoseBox button:has-text("Créer")'), 'Créer s active une fois le nom saisi');
+  await page.click('#newPoseBox button:has-text("Créer")');
+  await page.waitForSelector('#poseEditor svg');
   await page.waitForTimeout(300);
-  const gabarits = await page.$$eval('#poseEditor button', e => e.map(x => x.textContent));
-  dire(gabarits.includes('Debout'), `le gabarit "Debout" est propose (${gabarits})`);
-  await page.click('button:has-text("Debout")');
-  await page.waitForTimeout(500);
+  dire((await page.evaluate(() => location.pathname)) === '/bank/poses/edit',
+       'la creation navigue vers l editeur (sans nom de pose dans l url, encore non enregistree)');
 
-  console.log('\n[3] le squelette se dessine au complet (corps + 2 mains)');
-  dire(Boolean(await page.$('#poseEditor svg')), 'le canvas SVG est present');
-  dire((await circles()) === 18 + 21 + 21, `18+21+21 joints geres (${await circles()})`);
+  console.log('\n[3] le squelette se dessine au complet (corps + 2 mains), et ses deux gros plans');
+  dire(Boolean(await page.$('#poseEditor svg[data-canvas="full"]')), 'le canvas plein cadre est present');
+  dire((await circles('full')) === 18 + 21 + 21, `18+21+21 joints geres sur le plein cadre (${await circles('full')})`);
+  dire((await circles('handLeft')) === 21, `le panneau main gauche rend ses 21 joints (${await circles('handLeft')})`);
+  dire((await circles('handRight')) === 21, `le panneau main droite rend ses 21 joints (${await circles('handRight')})`);
 
   console.log('\n[4] glisser un joint le deplace et arme "non enregistre"');
-  const premier = await page.$('#poseEditor svg circle');
+  const premier = await page.$('#poseEditor svg[data-canvas="full"] circle');
   const boite = await premier.boundingBox();
   await page.mouse.move(boite.x + boite.width / 2, boite.y + boite.height / 2);
   await page.mouse.down();
@@ -68,7 +89,7 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   // drapeau "non enregistre" est deja arme par [4] : on verifie ici que le
   // joint bouge REELLEMENT (cx avance de 2px pour 2x ArrowRight), pas juste
   // que le drapeau reste leve.
-  const autreJoint = (await page.$$('#poseEditor svg circle'))[5];
+  const autreJoint = (await page.$$('#poseEditor svg[data-canvas="full"] circle'))[5];
   const cxAvant = await autreJoint.getAttribute('cx');
   const jbox = await autreJoint.boundingBox();
   await page.mouse.click(jbox.x + jbox.width / 2, jbox.y + jbox.height / 2);
@@ -84,7 +105,8 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   await page.waitForFunction(() => location.pathname.includes('/bank/poses/edit/'), null, { timeout: 5000 });
   const nouveau = decodeURIComponent(new URL(page.url()).pathname.split('/').pop());
   dire(nouveau.startsWith('pose__') && nouveau.endsWith('.png'), `nom recu : ${nouveau}`);
-  dire((await page.textContent('aside b')) === nouveau, 'le panneau affiche ce nom');
+  dire((await page.textContent('aside b')).trim() === NOM_POSE,
+       'le panneau affiche le nom saisi dans la modale, pas le nom de fichier');
 
   console.log('\n[7] la banque la montre, AVEC son propre lien "editer"');
   await page.click('a:has-text("Retour à la banque")');
@@ -92,17 +114,30 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   await page.waitForTimeout(300);
   const apres = await squelettes();
   dire(apres.includes(nouveau), 'la nouvelle pose est dans la banque');
-  const lienEditer = await page.$(`[data-pose-card][data-n="${nouveau}"] a:has-text("éditer")`);
+  // 2026-09-02 : "editer" est passe derriere le menu « ⋯ » de la carte
+  // (un seul declencheur pour editer/dupliquer/renommer/retirer).
+  await page.click(`[data-pose-card][data-n="${nouveau}"] [data-pose-menu]`);
+  await page.waitForSelector(`[data-pose-card][data-n="${nouveau}"] [role="menu"]`);
+  const lienEditer = await page.$(`[data-pose-card][data-n="${nouveau}"] [role="menu"] a:has-text("éditer")`);
   dire(Boolean(lienEditer), 'sa carte porte un lien "editer"');
   await lienEditer.click();
   await page.waitForSelector('#poseEditor svg');
-  dire((await page.textContent('aside b')) === nouveau,
-       'suivre ce lien (pas juste la redirection de sauvegarde) rouvre la meme pose');
+  dire((await page.textContent('aside b')).trim() === NOM_POSE,
+       'suivre ce lien (pas juste la redirection de sauvegarde) rouvre la meme pose, avec son nom');
 
   console.log('\n[8] une pose SANS points-cles (anterieure a cette fonctionnalite) echoue sans crash');
-  // pas de nouvelle pose sans JSON dans ce test : celles deja en banque avant
-  // ce chantier n'ont pas de sidecar, s'il en reste au moins une on la prend.
-  const sansPoints = avant.find(n => n !== nouveau);
+  // Pas de nouvelle pose sans JSON dans ce test : on cherche parmi celles
+  // deja en banque une qui n'a VRAIMENT pas de sidecar (2026-09-02 : toute
+  // extraction en ecrit un desormais, donc « plus vieille que nouveau » ne
+  // suffit plus a le garantir — verifie via l'API plutot que suppose).
+  let sansPoints = null;
+  for (const n of avant.filter(x => x !== nouveau)) {
+    const dispo = await page.evaluate(
+      async (name) => (await fetch(`/api/pose/keypoints?name=${encodeURIComponent(name)}&character=lena`)).ok,
+      n,
+    );
+    if (!dispo) { sansPoints = n; break; }
+  }
   if (sansPoints) {
     await page.goto(BASE + `/bank/poses/edit/${encodeURIComponent(sansPoints)}?character=lena`,
                      { waitUntil: 'networkidle' });
@@ -138,7 +173,9 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   console.log('\n[10] NETTOYAGE : seule la pose creee ici est retiree');
   await page.click('#bankView [data-vue="poses"]');
   await page.waitForSelector('#poseGrid');
-  await page.click(`[data-pose-card][data-n="${nouveau}"] [data-del]`);
+  await page.click(`[data-pose-card][data-n="${nouveau}"] [data-pose-menu]`);
+  await page.waitForSelector(`[data-pose-card][data-n="${nouveau}"] [role="menu"]`);
+  await page.click(`[data-pose-card][data-n="${nouveau}"] [role="menu"] [data-del]`);
   await page.waitForSelector('#armBox[open]');
   await page.click('#cfOui');
   await page.waitForTimeout(800);

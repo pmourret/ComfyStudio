@@ -54,6 +54,32 @@ def poses_disponibles():
     return sorted(f.name for f in POSE_DIR.glob("*.png"))
 
 
+def poses_disponibles_detail():
+    """`[{"nom", "label", "source", "created_at"}]` pour chaque squelette de
+    POSE_DIR — le nom de fichier PNG, plus le libelle, la provenance et la
+    date de naissance lus dans le JSON soeur QUAND il existe. Une pose
+    extraite avant ce chantier n'en a pas (voir `charger_points`) :
+    `label`/`source`/`created_at` retombent a None plutot que de lever, la
+    banque doit pouvoir lister CES poses-la aussi, pas seulement celles qui
+    ont un sidecar."""
+    if not POSE_DIR.exists():
+        return []
+    sortie = []
+    for f in sorted(POSE_DIR.glob("*.png")):
+        entree = {"nom": f.name, "label": None, "source": None, "created_at": None}
+        chemin = _chemin_points(f.name)
+        if chemin.exists():
+            try:
+                frame = lb.load_json(chemin)[0]
+                entree["label"] = frame.get("label")
+                entree["source"] = frame.get("source")
+                entree["created_at"] = frame.get("created_at")
+            except Exception:
+                pass
+        sortie.append(entree)
+    return sortie
+
+
 def supprimer_pose(nom):
     """Retire un squelette de la banque, points-cles compris.
 
@@ -128,6 +154,15 @@ def enregistrer_points(frame, nom=None):
     return nom
 
 
+def rendre_apercu(frame):
+    """Meme rendu que `enregistrer_points` (pose_render, local) mais SANS rien
+    ecrire dans POSE_DIR — un apercu a la demande pendant l'edition, pas un
+    enregistrement. Rend l'image PIL telle quelle ; la conversion en octets
+    PNG est l'affaire de la route (mise en forme HTTP, pas de cette
+    fonction)."""
+    return pose_render.render(frame)
+
+
 def presets_disponibles():
     """`[{"nom", "label"}]` pour chaque gabarit de `pose_presets/` — nom de
     fichier sans extension, label lu dans le fichier (repli sur le nom)."""
@@ -148,6 +183,43 @@ def charger_preset(nom):
     if not path.exists():
         raise ExtractionError(f"gabarit inconnu : « {nom} »")
     return lb.load_json(path)[0]
+
+
+def _slug(texte):
+    """Convertit un libelle en nom de fichier sur — memes regles que le
+    `_slug` prive de compose.py (pas partage : un utilitaire d'une ligne
+    ne vaut pas un couplage entre deux modules sans rapport)."""
+    import re
+    return re.sub(r"[^a-z0-9]+", "-", str(texte or "").strip().lower()).strip("-")
+
+
+def enregistrer_preset(frame, label):
+    """Sauve `frame` comme nouveau gabarit reutilisable (pose_presets/),
+    en plus — jamais a la place — de l'enregistrement normal d'une pose
+    (`enregistrer_points`) : « creer un template » sur une pose from-scratch,
+    capture a l'enregistrement final, pas au choix du gabarit de depart
+    (une pose neuve n'a encore rien de personnel a ce moment-la).
+
+    Meme enveloppe JSON qu'une pose enregistree — rien a convertir, seul
+    l'endroit change. Le nom de fichier vient du libelle (un gabarit se
+    retrouve par son nom dans le selecteur, jamais par un identifiant
+    technique) ; un doublon de slug prend un suffixe numerique plutot que
+    d'ecraser un gabarit existant du meme nom.
+    """
+    if not (label or "").strip():
+        raise ExtractionError("un gabarit a besoin d'un nom")
+    PRESETS_DIR.mkdir(parents=True, exist_ok=True)
+    base = _slug(label) or "gabarit"
+    nom, n = base, 1
+    while (PRESETS_DIR / f"{nom}.json").exists():
+        n += 1
+        nom = f"{base}-{n}"
+    saved = dict(frame)
+    saved["label"] = label.strip()
+    saved["source"] = "preset"  # un gabarit reste une donnee inventee, jamais une photo
+    (PRESETS_DIR / f"{nom}.json").write_text(
+        json.dumps([saved], ensure_ascii=False), encoding="utf-8")
+    return nom
 
 
 def _ramasser_points_extraits():

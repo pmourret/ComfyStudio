@@ -425,6 +425,10 @@ export function ScenesStoreProvider({ children }: { children: ReactNode }) {
       directionRef.current = d ?? ''
       setAnchorState(a ?? '')
       setDirectionState(d ?? '')
+      // Reached only when drafts were just REPLACED by the server's own copy
+      // (the guarded "editing" branch above already returned) — whatever was
+      // unsaved before this call no longer exists to be unsaved.
+      setDirty(false)
     },
     [api, bank, claimed, report],
   )

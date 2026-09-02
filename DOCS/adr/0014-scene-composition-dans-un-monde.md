@@ -4,6 +4,9 @@
 
 Accepté (2026-08-31) — précise ADR-0012 §4, ne le supersède pas.
 
+Précisé par ADR-0015 (2026-08-31) : §1 et §3, `starter_scenes` → `places`,
+qui passe d'amorce à usage unique à catalogue vivant.
+
 ## Contexte
 
 ADR-0012 a posé le monde comme quatrième axe, figé à la création, et lui a

@@ -59,8 +59,8 @@ for wid in REELS:
             and isinstance(w.get("compatible_families"), list) and w["compatible_families"],
             f"{wid} : id + label + compatible_families non vide")
     verifie(worlds.label(wid) and isinstance(worlds.suggested_styles(wid), list)
-            and isinstance(worlds.starter_scenes(wid), list),
-            f"{wid} : accesseurs label / suggested_styles / starter_scenes sains")
+            and isinstance(worlds.places(wid), list),
+            f"{wid} : accesseurs label / suggested_styles / places sains")
 
 # ----------------------------------------------- [2] pas une copie l'un de l'autre
 print("\n[2] les deux mondes ne sont pas une copie l'un de l'autre")
@@ -137,20 +137,20 @@ finally:
     worlds.WORLDS_DIR = _vrai
     shutil.rmtree(_tmp, ignore_errors=True)
 
-# ----------------------------------- [9] le catalogue n'habille pas ses scenes
-print("\n[9] un catalogue de monde n'habille pas ses scenes (ADR-0014)")
+# ----------------------------------- [9] le catalogue n'habille pas ses lieux
+print("\n[9] un catalogue de monde n'habille pas ses lieux (ADR-0014)")
 # La tenue, la pose, le format et le compte sont des reglages de PERSONNAGE. Un
 # monde qui les livrerait habillerait de la meme facon tous les personnages qui
 # y naissent, et rendrait fausse la premiere mesure de verrou qui suit. Le
 # catalogue decrit un CADRE, pas une garde-robe.
 for wid in REELS:
-    intrus = sorted({k for s in worlds.load_world(wid).get("starter_scenes", [])
+    intrus = sorted({k for s in worlds.load_world(wid).get("places", [])
                      if isinstance(s, dict)
                      for k in worlds.CHARACTER_ONLY_SCENE_KEYS if k in s})
-    verifie(not intrus, f"{wid} : amorce sans reglage de personnage"
+    verifie(not intrus, f"{wid} : lieux sans reglage de personnage"
                         + (f" — trouve : {', '.join(intrus)}" if intrus else ""))
-    verifie(worlds.starter_scenes(wid) is not None,
-            f"{wid} : starter_scenes() charge sans lever")
+    verifie(worlds.places(wid) is not None,
+            f"{wid} : places() charge sans lever")
 
 _vrai = worlds.WORLDS_DIR
 _tmp = Path(tempfile.mkdtemp(prefix="worlds_dressing_"))
@@ -159,11 +159,95 @@ try:
     (_tmp / "habille.json").write_text(
         json.dumps({"id": "habille", "label": "Habille",
                     "compatible_families": ["flux"],
-                    "starter_scenes": [{"id": "s1", "prompt": "x",
+                    "places": [{"id": "s1", "prompt": "x",
                                         "wardrobe": {"0": "a red dress"}}]}),
         encoding="utf-8")
-    attend(ValueError, lambda: worlds.starter_scenes("habille"),
-           "un monde qui habille son amorce : refuse au chargement")
+    attend(ValueError, lambda: worlds.places("habille"),
+           "un monde qui habille un de ses lieux : refuse au chargement")
+finally:
+    worlds.WORLDS_DIR = _vrai
+    shutil.rmtree(_tmp, ignore_errors=True)
+
+# --------------------------------- [10] place() / save_places() / merge_scene()
+print("\n[10] catalogue vivant : place(), save_places(), merge_scene() (ADR-0015)")
+for wid in REELS:
+    first = worlds.places(wid)[0]
+    p = worlds.place(wid, first["id"])
+    verifie(p == first, f"{wid} : place({first['id']!r}) rend l'entree du catalogue")
+attend(worlds.UnknownPlaceError, lambda: worlds.place("slow-life", "does-not-exist"),
+       "place() sur un id absent")
+attend(worlds.UnknownWorldError, lambda: worlds.place("does-not-exist", "x"),
+       "place() sur un monde absent")
+
+_vrai = worlds.WORLDS_DIR
+_tmp = Path(tempfile.mkdtemp(prefix="worlds_live_"))
+try:
+    worlds.WORLDS_DIR = _tmp
+    (_tmp / "vivant.json").write_text(json.dumps({
+        "id": "vivant", "label": "Vivant", "compatible_families": ["flux"],
+        "assets": {"lora": None, "lora_strength": None, "prompt_add": ""},
+        "places": [{"id": "p1", "label": "Lieu 1", "intention": "lifestyle",
+                    "prompt": "a quiet room, morning light"}],
+    }), encoding="utf-8")
+
+    merged = worlds.merge_scene("vivant", "p1", {"wardrobe": {"0": "jeans"},
+                                                  "intensity": 0})
+    verifie(merged["prompt"] == "a quiet room, morning light"
+            and merged["intention"] == "lifestyle" and merged["world_ref"] == "p1"
+            and merged["origin"] == "world" and merged["world"] == "vivant"
+            and merged["wardrobe"] == {"0": "jeans"} and merged["intensity"] == 0,
+            f"merge_scene : cadre du lieu + overlay du personnage ({merged})")
+    attend(worlds.UnknownPlaceError, lambda: worlds.merge_scene("vivant", "gone", {}),
+           "merge_scene sur un lieu absent")
+
+    # save_places : reecrit UNIQUEMENT `places`, le reste du fichier survit
+    worlds.save_places("vivant", [{"id": "p1", "label": "Lieu 1 renomme",
+                                   "intention": "lifestyle",
+                                   "prompt": "a quiet room, evening light"}])
+    apres = worlds.load_world("vivant")
+    verifie(apres["places"][0]["prompt"] == "a quiet room, evening light",
+            "save_places : le catalogue relu porte le nouveau texte")
+    verifie(apres["label"] == "Vivant" and apres["compatible_families"] == ["flux"],
+            "save_places : le reste du fichier (label, compatible_families) intact")
+
+    remerged = worlds.merge_scene("vivant", "p1", {"wardrobe": {"0": "jeans"}})
+    verifie(remerged["prompt"] == "a quiet room, evening light",
+            "merge_scene relit le catalogue APRES l'edition — heritage live")
+finally:
+    worlds.WORLDS_DIR = _vrai
+    shutil.rmtree(_tmp, ignore_errors=True)
+
+# --------------------------------------------- [11] create_world() (ADR-0016)
+print("\n[11] create_world() : catalogue vide, pack curate, jamais un aiguillage")
+attend(ValueError, lambda: worlds.create_world("Bad Id", "x", "instagram-influenceur"),
+       "id invalide refuse")
+attend(ValueError, lambda: worlds.create_world("probe-bad-pack", "x", "does-not-exist"),
+       "pack inconnu refuse")
+attend(FileExistsError, lambda: worlds.create_world("slow-life", "x", "instagram-influenceur"),
+       "id deja pris refuse")
+
+_vrai = worlds.WORLDS_DIR
+_tmp = Path(tempfile.mkdtemp(prefix="worlds_create_"))
+try:
+    worlds.WORLDS_DIR = _tmp
+    wid = worlds.create_world("probe-monde", "  Probe Monde  ", "rpg-personnage",
+                              "  quiet test tone  ")
+    verifie(wid == "probe-monde", "create_world rend l'id")
+    data = worlds.load_world("probe-monde")
+    verifie(data["label"] == "Probe Monde", "label nettoye des espaces")
+    verifie(data["tone"] == "quiet test tone", "tone nettoye des espaces")
+    verifie(data["places"] == [], "catalogue de lieux VIDE a la naissance")
+    verifie(data["compatible_families"] == [universe.model_family("rpg-personnage")],
+            f"compatible_families DERIVE du pack, pas tape ({data['compatible_families']})")
+    verifie(data["suggested_styles"] == universe.style_names("rpg-personnage"),
+            f"suggested_styles DERIVE du pack, pas tape ({data['suggested_styles']})")
+    verifie(data["ui_skin_token"] == "world-probe-monde",
+            "ui_skin_token derive de l'id, meme convention que les mondes reels")
+
+    # label vide -> replie sur l'id, comme create_character (name or cid)
+    worlds.create_world("probe-sans-nom", "", "instagram-influenceur")
+    verifie(worlds.load_world("probe-sans-nom")["label"] == "probe-sans-nom",
+            "label vide replie sur l'id")
 finally:
     worlds.WORLDS_DIR = _vrai
     shutil.rmtree(_tmp, ignore_errors=True)

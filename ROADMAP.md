@@ -404,7 +404,358 @@ prouvent la généralisation — pas juste Léna renommée.
 - Outils annoncés pour incarner cette ambition, à faire un par un, aucun
   scope figé pour l'instant :
   - Éditeur de pose OpenPose visuel, dans le studio (au-delà de
-    l'extraction actuelle de `PosesView`)
+    l'extraction actuelle de `PosesView`). **Scope défini en session le
+    2026-09-02** (revue d'éditeurs OpenPose ComfyUI/A1111, de Cascadeur et
+    des conventions Unreal/Blender/Unity) — deux niveaux, `PoseCanvas.tsx`
+    partagé par les deux :
+    - **rapide** (`PoseEditorModal.tsx`, depuis l'onglet Pose du
+      compositeur) : correction point par point + zoom/pan (fait,
+      2026-09-02), reste volontairement minimal
+    - **avancé** (`PoseEditorScreen.tsx`, écran dédié), par petits
+      commits, dans cet ordre :
+      1. annuler/rétablir (fait, 2026-09-02) — utile aux deux niveaux, pas
+         réservé à l'avancé
+      2. **fait, 2026-09-02** : lecture/saisie numérique du point
+         sélectionné (x/y éditables, angle + longueur d'os depuis le
+         parent) + liste des 60 joints nommés (`PoseInspector.tsx`,
+         sélection par nom — utile pour les 21 points d'une main) +
+         recentrer sur la sélection. A fait remonter `selected` hors de
+         `PoseCanvas` (contrôlé désormais, partagé modale/écran) ; `view`
+         (zoom/pan) est resté interne au canvas, piloté par un simple
+         compteur `recenterTrigger` plutôt que d'être remonté aussi —
+         la caméra reste l'affaire du canvas, l'appelant se contente de la
+         pousser vers un point
+      3. **fait, 2026-09-02** : panneaux mains en gros plan (aucun éditeur
+         OpenPose du marché ne le fait — angle mort constaté en session,
+         pas juste une lacune chez nous). Disposition posée par
+         l'utilisateur (maquette en session) : colonne de gauche empilant
+         main gauche / main droite, `PoseCanvas` plein cadre au centre,
+         panneau de travail (phase 2) à droite — trois instances du même
+         `PoseCanvas`, même `pose`/`selected` partagés, donc un geste dans
+         un panneau se répercute partout sans synchronisation à écrire.
+         Chaque panneau main démarre pré-zoomé sur la boîte englobante de
+         SES points placés (avec marge), `view` reste local à chaque
+         instance comme en phase 2. A ajouté `data-canvas` (full/handLeft/
+         handRight) sur le `<svg>` — nécessaire dès que `test_pose_editor.js`
+         a dû distinguer les trois pour compter les joints (mis à jour dans
+         la foulée)
+      4. **fait, 2026-09-02** : photo de référence en fond (opacité
+         réglable) + rendu du squelette réactualisable à la demande pour
+         comparer au calque du dessous. En creusant : la photo source
+         d'une extraction ne persiste JAMAIS (règle déjà actée de
+         `pose_tools.py`, avant même cette session) — donc pas de
+         "reprendre la photo d'origine de cette pose", il n'y en a plus
+         une fois l'extraction faite. La photo de référence est donc une
+         image choisie fraîche pour la session d'édition, jamais envoyée
+         au serveur : `URL.createObjectURL` sur le fichier local
+         (`useReferenceOverlay.ts`), rendue comme `<image>` DANS le SVG
+         (même repère que les joints, donc alignée au zoom/pan, y compris
+         dans les deux panneaux mains — même prop `referenceImage` passée
+         aux trois `PoseCanvas`) — jamais un `<img>` HTML séparé qui
+         aurait dérivé. Vérifié en vrai : zéro requête réseau déclenchée
+         par le choix du fichier.
+         « Le rendu » = le PNG local du squelette (`pose_render.py`,
+         déjà utilisé par enregistrer/charger), via une nouvelle route
+         `POST /api/pose/render` qui rend sans jamais écrire dans
+         `INPUTS/POSE/` (`pose_tools.rendre_apercu`, testé : POSE_DIR ne
+         bouge pas). Affiché avec `mix-blend-mode: screen` pour que le
+         fond noir du rendu (attendu par ControlNet) ne masque pas la
+         photo dessous — remplace la vue interactive plutôt que de se
+         superposer (rien à glisser sur un rendu figé), un bouton
+         "revenir à l'édition" restaure les poignées.
+         Extension envisagée **à terme, hors scope de cette phase** : si
+         la pose vient d'une photo, reprendre CETTE photo (tant qu'elle
+         est encore en mémoire côté client, jamais après coup) et lui
+         appliquer un vrai workflow ComfyUI pour prévisualiser le
+         résultat rendu — passerait par `execute_jobs` comme toute
+         génération (invariant §2), pas un chemin d'exécution parallèle
+      5. **fait, 2026-09-02** : épingler un point + rotation façon IK
+         (préserve la longueur d'un os) + miroir gauche/droite — le nombre
+         de points OpenPose (18 corps + 21×2 mains) est un format fixe
+         consommé tel quel par ControlNet, donc pas d'ajout/suppression de
+         points, seulement de nouvelles façons de manipuler les points
+         existants. Le système n'a jamais eu de propagation parent→enfant
+         (déplacer une hanche ne bouge pas le genou) : « épingler » ne
+         contre donc pas une cascade qui n'existe pas, c'est un
+         verrou simple — un point épinglé ignore glisser ET les flèches,
+         contour pointillé ambre pour le voir, bouton dans le panneau
+         numérique (`PoseCanvas.tsx`, `PoseInspector.tsx`). La rotation IK
+         est Maj+glisser sur un joint non-racine : projette la cible sur le
+         cercle de la longueur d'os ACTUELLE autour du parent
+         (`parentIndexOf`, désormais partagé avec la phase 2 plutôt que
+         dupliqué). Miroir corps (8 paires, réfléchies autour du x du cou —
+         body-18 n'a pas de point bassin unique) et miroir main (copie la
+         forme depuis le poignet source, réancrée au poignet ACTUEL de la
+         cible) dans `poseFrame.ts`.
+         **Bug réel trouvé en testant** : les deux miroirs (corps, main)
+         passaient par `update()`, dont la fenêtre de regroupement de
+         400ms (pensée pour un seul glisser continu) fusionnait deux clics
+         de miroir rapprochés en un seul pas d'annulation — annuler le
+         miroir de main annulait aussi le miroir de corps. Corrigé par
+         `applyAction()`, un second chemin dans `usePoseEditor.ts` qui
+         pousse toujours un pas neuf, pour toute action déclenchée par un
+         bouton plutôt qu'un geste continu.
+         Rough edge déjà documentée pour Ctrl+Z, retrouvée à l'identique
+         pour épingler : cliquer un bouton hors du canvas déplace le focus
+         DOM, donc la flèche clavier suivante ne vise plus le joint tant
+         qu'on n'a pas recliqué dessus — les boutons restent le chemin
+         fiable. Caractéristique notée en testant, pas un bug de cette
+         phase : dans le canvas plein cadre, le poignet du corps et le
+         poignet de la main occupent presque le même pixel (la main est
+         ancrée au poignet), donc une interaction souris visée sur l'un
+         peut réellement accrocher l'autre — un rappel de plus de l'intérêt
+         des panneaux mains dédiés (phase 3)
+    - **Backlog, fait, 2026-09-02** : sélection de plusieurs points à la
+      fois. `Selected` (`PoseCanvas.tsx`) est devenu `ReadonlySet<string>`
+      (des `pointKey`) au lieu de `{group, index} | null` — le changement
+      le plus large de tout le chantier pose, touchant `PoseCanvas`,
+      `PoseInspector`, l'écran et la modale, mais compile et passe sans
+      accroc du premier coup (`useSelection.ts`, nouveau, centralise la
+      logique de sélection partagée par la modale et l'écran plutôt que
+      dupliquée). Trois gestes, sans collision de touche :
+      - **clic** sur un joint (canvas ou outliner) : remplace la
+        sélection par ce seul joint (comportement d'avant, inchangé)
+      - **Ctrl/Cmd+clic** sur un joint : ajoute/retire ce joint sans
+        toucher au reste — Maj était déjà pris (rotation IK sur un
+        glisser, futur rectangle sur le fond), Ctrl/Cmd était libre et
+        c'est la convention OS standard pour ce geste
+      - **Maj+glisser le FOND** du canvas : rectangle de sélection (le
+        glisser normal du fond reste le panoramique, inchangé — seul
+        Maj bascule vers la sélection, jamais l'inverse)
+      Glisser un point qui appartient à une sélection à plusieurs déplace
+      tout le groupe en bloc (`withPointsMoved`, `poseFrame.ts` — chaque
+      point recalculé depuis SA propre position de départ + le même
+      delta, jamais de façon incrémentale, pour ne pas se composer).
+      Testé en vrai : la distance entre deux points d'un groupe déplacé
+      reste identique au pixel près. La rotation IK (Maj+glisser) ne
+      s'applique qu'à un glisser à UN seul point — un groupe n'a pas de
+      parent commun unique à préserver, donc bascule toujours en
+      déplacement libre. Épingler et le recentrage opèrent maintenant sur
+      toute la sélection (bouton « épingler tout », recentrage sur la
+      boîte englobante du groupe)
+    - **Audit UX/UI, fait, 2026-09-02** (skill `audit-ux-ui`, avant
+      validation de tout le chantier) — findings vérifiés en vrai
+      (captures d'écran + mesures DOM), pas seulement à la lecture :
+      - le panneau utilisait du texte en dur là où le studio a déjà un
+        mécanisme d'infobulle prêt et monté globalement
+        (`chrome/HintLayer.tsx`, `Shell.tsx`) — c'était le seul écran à
+        ne pas s'en servir. Remplacé par `InfoHint`
+        (`screens/bank/composer/InfoHint.tsx`, réutilisé hors de son
+        dossier d'origine) et `data-hint-text` sur `UndoRedoButtons` (qui
+        utilisait un `title` natif, sans focus clavier ni fermeture par
+        Échap). Mesuré : les deux blocs de texte retirés pesaient
+        148,75px dans une colonne de 320px
+      - conséquence directe mesurée : la liste de joints (seule vraie
+        zone de défilement, légitime vu les 60 points) passe de 42% à
+        68% visible sans scroller (311px → 508px sur 742px nécessaires)
+      - rangée « symétrie corps » sans `items-center`, cassait
+        systématiquement à 320px de large (un bouton isolé pleine
+        largeur) — corrigé en empilant le libellé au-dessus d'une
+        rangée de deux boutons à parts égales
+      - l'en-tête « Corps complet », partagé entre le libellé et les
+        contrôles de la photo de référence (phase 4), explosait en 3
+        lignes une fois une photo chargée (`<input type="range">` sans
+        largeur contraint, hérite de `width:100%` par défaut) —
+        `LabeledCanvas` donne maintenant sa propre rangée à
+        `headerExtra`, et le curseur est fixé à 90px
+      - lien « Retour à la banque » passé de `.btn` à `.link` (même
+        convention que le bouton « fermer » de la modale) pour aligner
+        la ligne de tête des 3 colonnes, qui ne l'était pas
+      Toutes les suites de tests (régression officielle, multi-sélection,
+      phase 5) repassées au vert après coup — aucune régression
+      fonctionnelle depuis la restructuration visuelle
+    - **Passe de capitalisation, fait, 2026-09-02** : tour des libellés et
+      infobulles de l'éditeur (écran + modale) pour les majuscules
+      manquantes en début de phrase/titre — texte seulement, aucun
+      comportement changé
+    - **Retrait du rail d'outils global sur `/bank/poses` et l'éditeur de
+      pose, fait, 2026-09-02** : `RAIL_ON` (`chrome/ToolRail.tsx`) ne
+      couvre plus que `PATHS.produce` — l'éditeur de pose a désormais son
+      propre outillage complet (undo/redo, inspecteur, miroir, épingle),
+      le rail n'y ajoutait plus rien qu'une redondance. Confirmé par
+      `test_bank.js` [15]
+    - **Placer un point jamais détecté, fait, 2026-09-02**
+      (`PoseInspector.tsx`) : un point issu d'une extraction occultée, ou
+      d'un gabarit qui ne le couvrait pas, reste à `(0,0)`/confiance nulle
+      — jusqu'ici aucun moyen de le positionner depuis le studio avancé,
+      identifié en amont du chantier « nouvelle pose » ci-dessous comme
+      potentiellement bloquant pour une création from-scratch (un gabarit
+      qui ne couvrirait pas tous les points). Le panneau du point unique
+      détecte `point.c <= 0` et affiche un message + bouton « Placer ce
+      point » plutôt que les champs x/y habituels. `defaultPlacement()`
+      propose un point proche du parent (+40/-40px) ou, sans parent, le
+      centre du canvas — mais **seulement** si le point est réellement à
+      `(0,0)` (le repli de `flatToPoints` pour une donnée absente) ; un
+      point à confiance nulle mais aux coordonnées déjà plausibles
+      (deviné à bas niveau de confiance par l'extraction) voit sa position
+      existante promue telle quelle. Distinction trouvée en testant, pas
+      en amont : la première version écrasait systématiquement, un point
+      `Rwri` à confiance nulle mais coordonnées réelles a révélé la perte
+    - **« Nouvelle pose » : modale plutôt qu'écran plein, fait,
+      2026-09-02** — un plein écran pour une décision aussi courte
+      (nom + gabarit + option « créer aussi un gabarit ») n'avait pas de
+      sens ; `NewPoseModal.tsx` (nouveau, `screens/pose-editor/`)
+      remplace l'ancien `PresetPicker` de `PoseEditorScreen.tsx`. Elle ne
+      sauvegarde rien elle-même : elle collecte la décision et la passe en
+      `state` de route (`NewPoseIntent`) à `navigate(PATHS.poseEditor,
+      {state})` — `PoseEditorScreen` lit `useLocation().state` ; sans nom
+      dans l'URL NI état (visite directe/bookmark), l'écran redirige vers
+      la banque plutôt que de ressusciter un picker plein écran
+      (`<Navigate to={PATHS.bankPoses} replace/>`).
+      Piège trouvé en testant, pas en le lisant : `navigate()` vers
+      `PATHS.poseEditor` seul (sans `?character=`) déclenche l'effet de
+      rattrapage de `CharacterContext.tsx` (« l'URL rattrape le state »),
+      qui republie l'URL via `setSearchParams(..., {replace:true})` —
+      et cet appel ne réinjecte PAS le `state` de la navigation qu'il
+      remplace, effaçant `intent` un instant après l'arrivée sur l'écran
+      (constaté : la modale se fermait, mais l'écran rebondissait vers la
+      banque). Corrigé en portant `search: location.search` dans l'appel
+      `navigate` de la modale, pour que `?character=` soit déjà présent
+      et que l'effet de rattrapage n'ait jamais à se déclencher — même
+      piège déjà documenté dans le commentaire de `selectCharacter`, pour
+      la première fois rencontré côté `state`.
+      Còté API : `pose_tools.enregistrer_preset(frame, label)` (nouveau,
+      juste après `charger_preset`) écrit un gabarit dans
+      `AUTOMATION/pose_presets/`, nom de fichier dérivé du libellé par un
+      `_slug()` local (pas d'import du `_slug` de `compose.py` — module
+      différent, éviter un couplage pour une fonction d'une ligne),
+      numéroté en cas de collision (`ma-pose-assise`, `ma-pose-assise-2`,
+      …) sans jamais écraser un gabarit existant. Testé (`test_pose_render.py`
+      §6) : aller-retour du libellé (accents/ponctuation compris),
+      `source` toujours `"preset"` même si le frame d'origine venait
+      d'une extraction, libellé vide refusé explicitement. Exposé par
+      `POST /api/pose/preset` (`PosePresetSaveRequest`/`Response`,
+      `api/schemas/images.py`) à côté du `GET` déjà existant sur la même
+      route — convention FastAPI valide, pas de nom alternatif nécessaire.
+      Vérifié en HTTP réel (curl), pas seulement via la fonction Python.
+      Côté écran : `usePoseEditor.ts` gagne `saveAsPreset(label)` et un
+      `initialLabel` optionnel sur la source `preset` (le nom tapé dans la
+      modale devient `pose.label` dès le chargement du gabarit de départ,
+      avant même le premier enregistrement). L'option « créer aussi un
+      gabarit » ne se déclenche qu'au tout premier `Enregistrer` d'une
+      pose from-scratch (jamais sur un ré-enregistrement ultérieur) et
+      réutilise le nom de la pose comme libellé du gabarit — pas de
+      second champ. L'en-tête du panneau (`aside b`) affiche désormais
+      `pose.label` en priorité sur le nom de fichier brut, cohérent avec
+      le nom qu'on vient de taper plutôt qu'un `pose__00001_.png` illisible.
+      `test_pose_editor.js` réécrit en conséquence (la modale remplace les
+      deux premières étapes, le panneau vérifié sur le libellé plutôt que
+      le nom de fichier) — toute la suite (régression officielle, banque,
+      extraction) repassée au vert
+    - **Banque de poses elle-même, fait, 2026-09-02** — les 3 premières
+      directions actées en brainstorm ; recherche/regroupement laissé de
+      côté (jugé prématuré tant que la banque reste petite) :
+      - **libellé sous chaque vignette**. `poses: string[]` (déjà servi
+        par `/api/scenes`, lu par tout autre sélecteur de pose de l'appli
+        — le compositeur de scène notamment) ne porte ni libellé ni
+        provenance ; changer sa forme aurait fait déborder ce chantier sur
+        un composant qui n'en a pas besoin. Route dédiée à la place :
+        `GET /api/pose/bank` (`pose_tools.poses_disponibles_detail()`,
+        nouveau, juste après `poses_disponibles()`) — lit le JSON sœur de
+        chaque squelette quand il existe, `label`/`source` à `None` sinon
+        (une pose d'avant le sidecar JSON n'est pas une erreur, voir
+        `charger_points`). Testé (`test_pose_render.py` §4bis) : les
+        deux cas, plus un vrai libellé qui traverse. Régénéré via
+        `python AUTOMATION/tools/toolchain.py types` (`PoseBankEntry`/
+        `PoseBankResponse`, schéma généré — pas de type API écrit à la
+        main, cf. `frontend.md`)
+      - **badge de provenance**. Réduit aux deux valeurs que la donnée
+        distingue réellement (`source: "preset" | "extraction"`) —
+        « gabarit » / « photo ». Le 3ᵉ mot du brainstorm (« main »,
+        pour une pose démarrée d'un gabarit puis corrigée à la main) n'a
+        pas d'équivalent dans le modèle : rien ne sépare aujourd'hui « un
+        gabarit copié tel quel » d'« un gabarit ensuite retouché point
+        par point », les deux valent `source: "preset"`. Inventer une
+        3ᵉ catégorie aurait affiché une distinction que la donnée ne
+        porte pas — pas de badge du tout pour une pose sans sidecar,
+        même raison. **Alignement corrigé après une capture d'écran** :
+        la première version posait le badge en haut à gauche de la
+        vignette, à côté du bouton retirer (haut à droite) — sur une
+        carte de ~100px de large (grille `minmax(96px,1fr)`, inchangée),
+        les deux se chevauchaient. Déplacé dans le bandeau du bas, à
+        côté du libellé plutôt qu'en overlay sur l'image — même vigilance
+        d'alignement que l'audit UX/UI de l'écran avancé, cette fois
+        repérée sur une capture plutôt qu'en la lisant
+      - **confirmation de suppression nommant les scènes concernées**.
+        Calculée entièrement côté client, sans nouvelle route : `drafts`
+        (`ScenesStoreContext`, déjà chargé pour la sous-vue Scènes) porte
+        déjà `.pose` par brouillon — `drafts.filter(d => d.pose === nom)`
+        suffit. Deux textes de confirmation distincts : nommée si
+        référencée, rassurante (« peut être retiré sans rien casser »)
+        sinon — `test_pose_extract.js` [5] attendait l'ancien texte
+        générique, mis à jour ; le cas RÉFÉRENCÉ n'avait, lui, aucune
+        couverture — vérifié en vrai (script one-off : squelette assigné
+        à une scène réelle via l'UI, confirmation de suppression relue,
+        `scenes.json` restauré depuis un instantané, même méthode que
+        `test_bank.js` [16]), pas ajouté à la suite officielle
+    - **Banque de poses, deuxième passe, fait, 2026-09-02** — jugée
+      « trop sommaire » une fois les 3 points ci-dessus en place ; l'écran
+      promu de fichier plat à dossier (`screens/bank/poses/{PosesView.tsx,
+      usePoseBank.ts, PoseCard.tsx}`, même précédent que `composer/`) tant
+      la surface a grossi. Trois décisions de design tranchées en session
+      (menu « ⋯ » unique plutôt que boutons multiples ou icônes au survol ;
+      grille compact/confortable plutôt qu'une seule taille ; renommage
+      SUR PLACE plutôt qu'une modale) avant de coder :
+      - **recherche + filtres (provenance, utilisation) + tri** (récent /
+        alphabétique / plus utilisées), entièrement client — `usePoseBank`
+        dérive `rows` depuis `poses` + le détail de `/api/pose/bank` +
+        `drafts` (usage), aucune route de plus
+      - **renommer une pose existante SANS route dédiée** : réutilise le
+        chemin d'enregistrement normal — `GET /api/pose/keypoints` puis
+        `POST /api/pose/save` avec `label` corrigé, même `nom`. Idem pour
+        **dupliquer** (même GET, `POST .../save` avec `name: null` et
+        `created_at: null` — sinon la copie hérite de la date de naissance
+        de l'originale, ce qui aurait faussé le tri « plus récent »).
+        Aucune des deux n'a de sens sur une pose sans sidecar (rien à
+        charger) : le menu les désactive sur ce signal-là précisément
+        (`source === null`), pas un champ ajouté pour l'occasion — un
+        sidecar existant stampe TOUJOURS `source`, jamais `None`
+      - **densité compact/confortable**, mémorisée en `localStorage`
+        (même garde try/catch que `ChromeContext`'s rail/focus flags — un
+        stockage bloqué doit rendre une grille NORMALE, jamais une erreur)
+      - **menu « ⋯ »** (les 4 actions dessous : éditer / dupliquer /
+        renommer / retirer), choisi sur 3 maquettes ASCII plutôt que
+        deviné — la carte reste calme à ~100px, une carte plus large plus
+        tard n'imposerait pas un redesign
+      Deux bugs réels trouvés en testant, pas en relisant le code :
+      1. les `<button>` du menu (contrairement aux `<a>`/`.btn`) captaient
+         le fond GRIS PAR DÉFAUT du navigateur — aucun reset global
+         `button{background}` n'existe dans `base.css` (`input,select,
+         textarea` en ont un, `button` en est délibérément exclu, les
+         boutons stylés passent par `.btn`). Repéré sur une capture, pas
+         en relisant le JSX
+      2. **dupliquer** faisait courir une vraie course : `duplicate()`
+         relançait `reloadScenes(true)` (qui fait apparaître la nouvelle
+         carte via `poses`) SANS attendre le rechargement du détail de
+         banque — la nouvelle carte naissait donc pour UN rendu sans
+         libellé (repli sur le nom de fichier brut) avant de se corriger.
+         Corrigé en attendant `reloadBankDetail()` PUIS `reloadScenes`,
+         dans cet ordre précis (pas `Promise.all`) : le détail de banque
+         doit déjà connaître la nouvelle entrée avant que `poses` ne la
+         fasse naître à l'écran, sinon la carte existe un instant sans
+         savoir quoi afficher
+      **Incident réel en testant, pas dans le produit** : un premier
+      script de vérification de "dupliquer" identifiait la copie par
+      motif de nom (`n.startsWith('pose__')`) plutôt que par différence
+      d'ensemble avant/après — sur une banque à 4 squelettes, il a
+      supprimé UN SQUELETTE RÉEL PRÉEXISTANT au lieu de la copie de test.
+      Aucune scène ne le référençait (vérifié après coup), mais le
+      fichier n'était pas récupérable. Le bug était dans le SCRIPT de
+      test, pas dans la route `/api/pose/delete` elle-même ni dans
+      l'écran — mais la discipline qui l'aurait évité manquait :
+      `test_pose_bank.js` (nouveau, suite officielle) identifie
+      désormais TOUJOURS la carte créée par différence d'ensemble
+      (avant/après), jamais par motif de nom ou position de liste — en
+      commentaire d'en-tête, pour que la prochaine fumigation de ce
+      dossier reparte de la même règle
+      `test_pose_editor.js` [8] réparé au passage (pas une régression de
+      cette session, une hypothèse devenue fausse : il supposait que
+      « toute pose plus vieille que celle du test n'a pas de sidecar »,
+      vrai avant le sidecar JSON, plus du tout depuis — vérifie
+      maintenant via `/api/pose/keypoints` plutôt que de le supposer).
+      Suite complète (`test_pose_editor.js`, `test_pose_extract.js`,
+      `test_pose_bank.js`, `test_bank.js`) rejouée 4 fois d'affilée sans
+      résidu entre les runs
   - Créateur de lumière (probable remplaçant du placeholder « template de
     lumière » du compositeur de scène)
   - Importeur d'assets (ex. vêtements) avec résumé automatique par vision

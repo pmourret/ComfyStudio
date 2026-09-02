@@ -2,7 +2,7 @@
 
 Un monde est le CADRE d'un personnage : forets et feux de camp d'une voyageuse,
 cafes et lumiere douce d'une influenceuse slow-life. Il porte un ton, un jeton de
-peau UI, une amorce de banque de scenes, et surtout des ASSETS (LoRA de monde,
+peau UI, un catalogue de LIEUX (`places`), et surtout des ASSETS (LoRA de monde,
 prompt_add) qui entrent dans le rendu.
 
 Trois choses qu'un monde n'est PAS :
@@ -14,9 +14,12 @@ Trois choses qu'un monde n'est PAS :
   - il n'est pas un simple decor. Ses assets sont mesures pour le visage du
     personnage au meme titre que le verrou d'identite ; un monde livre sans
     mesure est une dette declaree, pas un monde pret.
-  - il n'est pas modifiable apres la creation du personnage. En changer
-    reviendrait a creer un autre personnage (CLAUDE.md §3-§4), pour la meme
-    raison que le style : la mesure du verrou deviendrait fausse en silence.
+  - CE QUI EST FIGE A LA CREATION D'UN PERSONNAGE, c'est son APPARTENANCE a ce
+    monde (CLAUDE.md §3-§4) : en changer reviendrait a creer un autre
+    personnage, pour la meme raison que le style. Le catalogue `places`
+    LUI-MEME reste vivant apres coup (ADR-0015) : un lieu s'edite depuis la
+    Banque (routes `/api/worlds/<id>/places`, jamais `POST /api/scenes`), et
+    toute scene qui le reference en herite en direct — voir `merge_scene()`.
 
 Comme UNIVERS/, ce registre est VERSIONNE : aucune donnee personnelle, un fichier
 plat par monde (WORLDS/<id>.json), decouverte par scan.
@@ -25,6 +28,7 @@ J7bis : le registre existe et se valide, mais RIEN ne consomme encore ses assets
 — leur cablage dans le runner est explicitement hors perimetre (ROADMAP).
 """
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -32,15 +36,21 @@ HERE = Path(__file__).resolve().parent
 OFM = HERE.parent
 WORLDS_DIR = OFM / "WORLDS"
 
-# Pour que `python AUTOMATION/worlds.py` retrouve ses modules freres (universe,
-# dans le diagnostic) meme sous l'interpreteur embarque de ComfyUI, dont le
-# ._pth ne met pas le dossier du script sur le path. Meme repli que wf_check.py.
+# Pour que `python AUTOMATION/worlds.py` retrouve ses modules freres (universe)
+# meme sous l'interpreteur embarque de ComfyUI, dont le ._pth ne met pas le
+# dossier du script sur le path. Meme repli que wf_check.py.
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
+
+import universe  # noqa: E402 — apres le repli de sys.path ci-dessus
 
 
 class UnknownWorldError(ValueError):
     """Un id de monde demande n'a pas de fichier WORLDS/<id>.json."""
+
+
+class UnknownPlaceError(ValueError):
+    """Un id de lieu demande n'existe pas dans le catalogue de ce monde."""
 
 
 class IncompatibleWorldError(ValueError):
@@ -83,6 +93,63 @@ def list_worlds():
 
 def exists(wid):
     return bool(wid) and world_path(wid).is_file()
+
+
+# Meme forme que `_CID_RE` de runner/prompt.py : un id de monde devient un nom
+# de fichier et une valeur d'URL, meme regle qu'un id de personnage.
+_WID_RE = re.compile(r"[a-z][a-z0-9_-]*$")
+
+
+def create_world(wid, label, pack, tone=""):
+    """Cree WORLDS/<wid>.json pour l'ecran « Mondes » — catalogue `places`
+    VIDE, un pack deja curate pour en deriver `compatible_families` /
+    `suggested_styles` sans les faire taper a la main.
+
+    LE PACK EST UNE PROPOSITION, PAS UN AIGUILLAGE (ADR-0016) : il sert une
+    fois, ici, a deriver la famille et les styles suggeres. Il n'est ecrit
+    nulle part comme un lien dur — `universe.resolve()` continue de deriver
+    le pack d'un personnage depuis (type, style) exclusivement, et ce monde
+    reste ensuite proposable a tout personnage d'un pack de la MEME famille,
+    pas seulement celui choisi ici.
+
+    N'ECRIT QUE ce fichier : aucun acces a CHARACTERS/, aucune ecriture dans
+    UNIVERS/resolution.json. Le gel (« n'assigne ce monde a aucun
+    personnage ») est vrai par construction, pas par un garde-fou en plus.
+
+    Leve avant toute ecriture : ValueError (id invalide, pack inconnu),
+    FileExistsError (id deja pris). Rend le wid.
+    """
+    if not _WID_RE.match(wid or ""):
+        raise ValueError(f"identifiant de monde invalide : {wid!r} — attendu un "
+                         f"slug minuscule (^[a-z][a-z0-9_-]*$)")
+    if exists(wid):
+        raise FileExistsError(f"le monde {wid!r} existe deja : {world_path(wid)}")
+    if not universe.exists(pack):
+        raise ValueError(f"pack inconnu : {pack!r} — packs declares : "
+                         f"{', '.join(universe.list_universes()) or '(aucun)'}")
+
+    family = universe.model_family(pack)
+    data = {
+        "id": wid,
+        "label": (label or "").strip() or wid,
+        "compatible_families": [family],
+        "suggested_styles": universe.style_names(pack),
+        "assets": {"lora": None, "lora_strength": None, "prompt_add": ""},
+        "tone": (tone or "").strip(),
+        "ui_skin_token": f"world-{wid}",
+        "places": [],
+        "_notes": [
+            f"Cree par l'ecran « Mondes ». Pack {pack!r} choisi pour en deriver",
+            f"compatible_families ({family!r}) et suggested_styles — UNE",
+            "PROPOSITION, pas un aiguillage : universe.resolve() continue de",
+            "deriver le pack d'un personnage de (type, style) exclusivement",
+            "(ADR-0016). Catalogue de lieux vide, a construire depuis l'ecran",
+            "d'edition (ADR-0015). Assets a mesurer avant un monde pret.",
+        ],
+    }
+    world_path(wid).write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+                               encoding="utf-8")
+    return wid
 
 
 def load_world(wid):
@@ -130,28 +197,88 @@ def ui_skin_token(wid):
 # verrou qui suit. Le format et le compte, eux, se deduisent de la fiche.
 CHARACTER_ONLY_SCENE_KEYS = ("wardrobe", "pose", "format", "count", "variants")
 
+# Cles d'overlay qu'une scene de personnage peut porter EN PLUS des cinq
+# ci-dessus, quand elle est liee a un lieu du catalogue (ADR-0015). Toutes
+# restent des reglages de personnage (tons/tags/intensite/guidance) : jamais
+# le cadre (label/intention/prompt), qui vient toujours du lieu.
+SCENE_OVERLAY_KEYS = CHARACTER_ONLY_SCENE_KEYS + ("tones", "tags", "intensity", "guidance")
 
-def starter_scenes(wid):
-    """Amorce de banque de scenes pour un nouveau personnage de ce monde.
 
-    Consommee par le wizard (J7bis etape 5) ; rien ne la lit avant. La banque
-    reelle d'un personnage grandit ensuite a la main depuis le Dashboard.
+def places(wid):
+    """Catalogue de lieux du monde — le CADRE que chaque personnage de ce
+    monde peut composer (ADR-0015). Vivant : lu a la creation du personnage
+    (amorce de banque, J7bis) ET tant qu'il vit, chaque fois que sa Banque
+    charge ou enregistre une scene qui reference un lieu (`world_ref`).
 
-    Un catalogue de monde decrit des CADRES, pas des garde-robes : une amorce
+    Un catalogue de monde decrit des CADRES, pas des garde-robes : un lieu
     qui porte une tenue (ou une pose, un format, un compte) est une erreur
-    explicite ici, pas un silence qui se propage a chaque naissance.
+    explicite ici, pas un silence qui se propage a chaque personnage qui le
+    reference.
     """
-    scenes = list(load_world(wid).get("starter_scenes", []))
-    for i, s in enumerate(scenes):
+    entries = list(load_world(wid).get("places", []))
+    for i, s in enumerate(entries):
         if not isinstance(s, dict):
-            raise ValueError(f"monde {wid!r} : starter_scenes[{i}] n'est pas un objet")
+            raise ValueError(f"monde {wid!r} : places[{i}] n'est pas un objet")
         intrus = [k for k in CHARACTER_ONLY_SCENE_KEYS if k in s]
         if intrus:
             raise ValueError(
-                f"monde {wid!r} : la scene d'amorce {s.get('id', i)!r} declare "
+                f"monde {wid!r} : le lieu {s.get('id', i)!r} declare "
                 f"{', '.join(intrus)} — un catalogue de monde n'habille pas ses "
-                f"scenes, ces reglages appartiennent au personnage (ADR-0014)")
-    return scenes
+                f"lieux, ces reglages appartiennent au personnage (ADR-0014)")
+    return entries
+
+
+def place(wid, place_id):
+    """Un lieu du catalogue de `wid`. Leve UnknownPlaceError si absent —
+    monde inconnu leve deja UnknownWorldError via `places()`."""
+    for p in places(wid):
+        if p.get("id") == place_id:
+            return p
+    raise UnknownPlaceError(f"lieu inconnu : {place_id!r} dans le monde {wid!r}")
+
+
+def save_places(wid, new_places):
+    """Reecrit UNIQUEMENT la cle `places` de WORLDS/<wid>.json, le reste du
+    fichier intact (lecture-modification-ecriture) — jamais depuis
+    `POST /api/scenes`, toujours depuis une route monde dediee (ADR-0015).
+
+    La validation de forme (ids uniques, prompt non vide, aucune cle de
+    personnage) vit cote service HTTP (`api/services/worlds.py`) ; cette
+    fonction fait confiance a son appelant et se contente d'ecrire.
+    """
+    path = world_path(wid)
+    data = _read_json(path)
+    data["places"] = list(new_places)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8")
+
+
+def merge_scene(wid, place_id, overlay):
+    """La fusion vivante d'ADR-0015 : le CADRE du lieu (`label`/`intention`/
+    `prompt`), toujours relu depuis le catalogue actuel, jamais fiable depuis
+    `overlay` — plus l'OVERLAY du personnage (`SCENE_OVERLAY_KEYS`), recopie
+    tel quel depuis `overlay` quand il le porte.
+
+    `overlay` est la scene telle que le personnage la possede (ou un objet
+    partiel a la creation) : ce que `merge_scene` en lit ne sert jamais a
+    ecraser le catalogue, seulement a construire la scene fusionnee rendue a
+    l'appelant. Leve UnknownWorldError / UnknownPlaceError si le monde ou le
+    lieu a disparu — a l'appelant de decider quoi en faire.
+    """
+    p = place(wid, place_id)
+    merged = {
+        "id": overlay.get("id") or p["id"],
+        "world": wid,
+        "origin": "world",
+        "world_ref": place_id,
+        "label": p.get("label", ""),
+        "intention": p.get("intention", ""),
+        "prompt": p.get("prompt", ""),
+    }
+    for k in SCENE_OVERLAY_KEYS:
+        if k in overlay:
+            merged[k] = overlay[k]
+    return merged
 
 
 def is_compatible(wid, family):
@@ -186,7 +313,6 @@ def _diagnostic():
 
     familles_reelles = set()
     try:
-        import universe
         familles_reelles = {universe.model_family(u) for u in universe.list_universes()}
     except Exception as e:  # noqa: BLE001
         print(f"  (cross-check des familles indisponible : {type(e).__name__})")
@@ -204,7 +330,7 @@ def _diagnostic():
               + (f"   <- inconnues : {', '.join(inconnues)}" if inconnues else ""))
         print(f"    styles    : {', '.join(suggested_styles(wid)) or '(aucun)'}")
         print(f"    assets    : {etat}")
-        print(f"    scenes    : {len(starter_scenes(wid))} d'amorce")
+        print(f"    lieux     : {len(places(wid))}")
     for fam in sorted(familles_reelles):
         print(f"\n  famille {fam:8} -> mondes : {', '.join(worlds_for_family(fam)) or '(aucun)'}")
     return 1 if drift else 0

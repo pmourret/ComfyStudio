@@ -1,7 +1,15 @@
 /* Same editor as PoseEditorScreen, in a Dialog — opened from the scene
    composer's Pose tab for a quick in-context tweak, no navigation away from
    the scene being edited. Props/Dialog usage mirror PhotoEditor.tsx exactly
-   (`open`, `onDismiss`, `initialFocus`, `className`/`cardClassName`).
+   (`open`, `onDismiss`, `initialFocus`, `className`/`cardClassName`) — sized
+   the same near-fullscreen work surface (`photoEditorStyles.BOX`) rather
+   than the ~900px it shipped with first: `dialog{max-width:...}` in
+   chrome.css is a plain element selector, so a `className` that sets `width`
+   without ALSO overriding `max-width` (as PhotoEditor's BOX does) gets
+   clamped to chrome.css's own 560px default regardless of what `width` asks
+   for — the two properties don't conflict, so nothing about it looks wrong
+   until you measure the rendered box. Point-by-point correction needs the
+   room, doubly so now that zooming in is possible.
 
    KNOWN ROUGH EDGE: overwriting a pose IN PLACE changes its PNG's bytes
    under the same file name, and `/img/pose` carries no cache-busting token
@@ -16,7 +24,9 @@
 import { Dialog } from '../../chrome/Dialog'
 import { useToast } from '../../chrome/ToastContext'
 import { PoseCanvas } from './PoseCanvas'
+import { UndoRedoButtons } from './UndoRedoButtons'
 import { usePoseEditor, type PoseEditorSource } from './usePoseEditor'
+import { useSelection } from './useSelection'
 
 export function PoseEditorModal({
   source,
@@ -29,7 +39,10 @@ export function PoseEditorModal({
       plain overwrite, a fresh one otherwise. */
   onSaved: (name: string) => void
 }) {
-  const { pose, loading, loadError, saving, dirty, update, save } = usePoseEditor(source)
+  const {
+    pose, loading, loadError, saving, dirty, update, save, undo, redo, canUndo, canRedo,
+  } = usePoseEditor(source)
+  const { selected, onSelect, onToggleSelect, onSelectMany } = useSelection()
   const toast = useToast()
 
   const onSave = async () => {
@@ -47,10 +60,10 @@ export function PoseEditorModal({
       open
       onDismiss={onClose}
       initialFocus="#poseModalClose"
-      className="w-[min(900px,calc(100vw-32px))]"
-      cardClassName="w-[min(900px,100%)]!"
+      className="h-[min(880px,92vh)] max-h-[92vh] w-[min(1320px,95vw)] max-w-[95vw]"
+      cardClassName="flex h-full! w-full! flex-col"
     >
-      <div className="mb-[12px] flex items-center justify-between">
+      <div className="mb-[12px] flex shrink-0 items-center justify-between">
         <h3 className="m-0">Éditeur de pose</h3>
         <button id="poseModalClose" type="button" className="link" onClick={onClose}>
           fermer
@@ -64,14 +77,24 @@ export function PoseEditorModal({
       )}
       {pose && (
         <>
-          <div className="h-[480px]">
-            <PoseCanvas pose={pose} onChange={update} />
+          <div className="min-h-0 flex-1">
+            <PoseCanvas
+              pose={pose}
+              onChange={update}
+              onUndo={undo}
+              onRedo={redo}
+              selected={selected}
+              onSelect={onSelect}
+              onToggleSelect={onToggleSelect}
+              onSelectMany={onSelectMany}
+            />
           </div>
-          <div className="mt-[12px] flex items-center gap-[12px]">
+          <div className="mt-[12px] flex shrink-0 items-center gap-[12px]">
+            <UndoRedoButtons canUndo={canUndo} canRedo={canRedo} onUndo={undo} onRedo={redo} />
             <button className="btn primary" disabled={saving} onClick={() => void onSave()}>
               Enregistrer
             </button>
-            {dirty && <span className="tiny">modifications non enregistrées</span>}
+            {dirty && <span className="tiny">Modifications non enregistrées</span>}
           </div>
         </>
       )}

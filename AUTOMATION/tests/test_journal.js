@@ -3,7 +3,7 @@
    FIRST SCREEN OF THE REACT MIGRATION, and the one that locks the foundations
    every following screen stands on. What this test holds:
 
-     1. The shell paints: header, the six navbar destinations carrying their
+     1. The shell paints: header, the seven navbar destinations carrying their
         `data-s` contract, and the Application entry lit on /app/journal — the
         journal is a SUB-SCREEN, it has no tab of its own, and leaving the
         chrome without a marker would lose the reader.
@@ -59,10 +59,10 @@ const JOURNAL = `${BASE}/app/journal?character=lena`;
   dire(await page.evaluate(() => location.pathname) === '/app/journal',
        'le chemin est /app/journal — plus de hash');
 
-  console.log('\n[2] le chrome : six destinations, contrat data-s intact');
+  console.log('\n[2] le chrome : sept destinations, contrat data-s intact');
   const dests = await page.$$eval('.tabs [data-s]', els => els.map(e => e.dataset.s));
-  dire(dests.length === 6, `${dests.length} destination(s)`);
-  ['character', 'produce', 'review', 'gallery', 'bank', 'application']
+  dire(dests.length === 7, `${dests.length} destination(s)`);
+  ['character', 'produce', 'review', 'gallery', 'bank', 'worlds', 'application']
     .forEach(k => dire(dests.includes(k), `data-s="${k}"`));
   const allume = await page.$$eval('.tabs .nav-item.on', els => els.map(e => e.dataset.s));
   dire(allume.length === 1 && allume[0] === 'application',

@@ -87,11 +87,20 @@ try:
             "preset / formats repris du gabarit du pack")
 
     sc = json.loads((d / "scenes.json").read_text(encoding="utf-8"))
-    attendu = [s["id"] for s in worlds.starter_scenes("terres-sauvages")]
+    catalogue = worlds.places("terres-sauvages")
+    attendu = [s["id"] for s in catalogue]
     verifie([s["id"] for s in sc["scenes"]] == attendu,
             f"scenes amorcees depuis le monde ({attendu})")
     verifie(all({"id", "prompt", "format", "intensity"} <= set(s) for s in sc["scenes"]),
             "chaque scene amorcee a la forme attendue par build_jobs")
+    # ADR-0015 : la scene amorcee ne fige pas le prompt, elle herite en direct
+    # du lieu via `world_ref` — et le prompt materialise a la naissance est
+    # deja celui du catalogue au moment de l'appel.
+    par_id = {p["id"]: p for p in catalogue}
+    verifie(all(s.get("world_ref") == s["id"] for s in sc["scenes"]),
+            "chaque scene amorcee porte world_ref == son id de lieu")
+    verifie(all(s["prompt"] == par_id[s["id"]]["prompt"] for s in sc["scenes"]),
+            "le prompt amorce est celui du catalogue au moment de la creation")
 
     cr = json.loads((d / "creative.json").read_text(encoding="utf-8"))
     verifie(cr["intensity"][0]["destination"] == "PROD/WIZTEST_RPG",
@@ -159,7 +168,7 @@ try:
             (_tmp / f"{wid}.json").write_text(json.dumps({
                 "id": wid, "label": wid, "compatible_families": ["sdxl"],
                 "suggested_styles": ["realiste"],
-                "starter_scenes": [{"id": scene, "intention": "portrait",
+                "places": [{"id": scene, "intention": "portrait",
                                     "prompt": f"prompt for {scene}"}],
             }), encoding="utf-8")
         cree("wiztest_wa", "WA", "rpg-personnage", "realiste", "monde-a", "a.png")

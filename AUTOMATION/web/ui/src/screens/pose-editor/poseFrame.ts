@@ -91,3 +91,87 @@ export function withPoint(pose: PoseFrame, group: PointGroup, index: number, x: 
   points[index] = { x, y, c: 1 }
   return { ...pose, [group]: points }
 }
+
+/** One joint's identity as a plain string — the shape a `Set` (pinned
+    joints) or a `Record` key needs, since `Selected` itself isn't
+    comparable across renders. Not saved anywhere: pinning is an editing
+    convenience, never part of the PoseFrame that reaches the server. */
+export function pointKey(group: PointGroup, index: number): string {
+  return `${group}:${index}`
+}
+
+/** The inverse of `pointKey` — every caller that needs to walk a `Set` of
+    keys back into (group, index) pairs (multi-selection: group-drag,
+    group-nudge, group-pin) goes through this ONE place rather than
+    re-deriving the split/parse by hand at each call site. */
+export function parsePointKey(key: string): { group: PointGroup; index: number } {
+  const [group, indexText] = key.split(':')
+  return { group: group as PointGroup, index: Number(indexText) }
+}
+
+/** Moves every point in `origins` (its OWN key -> its position AT DRAG
+    START) by the SAME (dx, dy) — a rigid group translation, so dragging one
+    member of a multi-selection carries the rest along without losing their
+    relative shape. Takes the ORIGINAL positions, not `pose`'s current ones:
+    every pointermove during a drag recomputes from the same fixed start,
+    exactly like the single-point drag it generalizes — applying a delta to
+    an already-moved position would double it up. */
+export function withPointsMoved(
+  pose: PoseFrame,
+  origins: ReadonlyMap<string, Point>,
+  dx: number,
+  dy: number,
+): PoseFrame {
+  let next = pose
+  for (const [key, orig] of origins) {
+    const { group, index } = parsePointKey(key)
+    next = withPoint(next, group, index, orig.x + dx, orig.y + dy)
+  }
+  return next
+}
+
+/* Right/left index pairs among BODY_JOINT_NAMES — same order as the source
+   in poseTopology.ts. Nose(0) and neck(1) sit ON the mirror axis, not
+   paired with anything. */
+const BODY_MIRROR_PAIRS: readonly [number, number][] = [
+  [2, 5], [3, 6], [4, 7], [8, 11], [9, 12], [10, 13], [14, 15], [16, 17],
+]
+
+/** Copies one side's placed body points onto the other, reflected around
+    the NECK's own x — body-18 has no single spine/pelvis point to mirror
+    against (that is body-25's addition), and the neck is already every
+    limb's root (poseTopology's `parentOf`), so it is the practical stand-in
+    for a mirror axis. Y is untouched: an anatomically mirrored joint sits
+    at the same height, only x flips. A source point that is not placed
+    (`c<=0`) is skipped — its target keeps whatever it already had, rather
+    than being overwritten with nothing. */
+export function mirrorBody(pose: PoseFrame, direction: 'rightToLeft' | 'leftToRight'): PoseFrame {
+  const axisX = pose.body[1].x
+  const points = pose.body.slice()
+  for (const [r, l] of BODY_MIRROR_PAIRS) {
+    const [sourceIndex, targetIndex] = direction === 'rightToLeft' ? [r, l] : [l, r]
+    const source = points[sourceIndex]
+    if (source.c <= 0) continue
+    points[targetIndex] = { x: 2 * axisX - source.x, y: source.y, c: 1 }
+  }
+  return { ...pose, body: points }
+}
+
+/** Copies one hand's SHAPE onto the other, mirrored around the SOURCE
+    hand's own wrist and re-anchored at the TARGET hand's CURRENT wrist —
+    the target hand stays where it physically is, only its finger splay
+    changes. Copying raw coordinates across would be meaningless: the two
+    hands can sit anywhere on the canvas, unrelated to each other. A no-op
+    if either wrist isn't placed yet — nothing to anchor the copy to. */
+export function mirrorHand(pose: PoseFrame, from: 'handLeft' | 'handRight'): PoseFrame {
+  const to = from === 'handLeft' ? 'handRight' : 'handLeft'
+  const source = pose[from]
+  const targetWrist = pose[to][0]
+  if (source[0].c <= 0 || targetWrist.c <= 0) return pose
+  const points = source.map((p) => {
+    if (p.c <= 0) return p
+    return { x: targetWrist.x - (p.x - source[0].x), y: targetWrist.y + (p.y - source[0].y), c: 1 }
+  })
+  points[0] = targetWrist
+  return { ...pose, [to]: points }
+}

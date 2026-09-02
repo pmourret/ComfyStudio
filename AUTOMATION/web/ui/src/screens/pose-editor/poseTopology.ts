@@ -6,6 +6,7 @@
    code across the Python/TypeScript boundary. Keep the two in sync by hand
    if this ever changes; it is a fixed, decades-old visualization
    convention, not something expected to move. */
+import type { PointGroup } from './poseFrame'
 
 export const BODY_JOINT_NAMES = [
   'nose', 'neck', 'Rsho', 'Relb', 'Rwri', 'Lsho', 'Lelb', 'Lwri', 'Rhip',
@@ -40,3 +41,58 @@ export function handEdgeColor(index: number): string {
 }
 
 export const HAND_JOINT_COLOR = '#0000ff'
+
+export const HAND_JOINT_NAMES = [
+  'wrist',
+  'thumb1', 'thumb2', 'thumb3', 'thumb4',
+  'index1', 'index2', 'index3', 'index4',
+  'middle1', 'middle2', 'middle3', 'middle4',
+  'ring1', 'ring2', 'ring3', 'ring4',
+  'pinky1', 'pinky2', 'pinky3', 'pinky4',
+] as const
+
+export type JointGroup = { label: string; indices: readonly number[] }
+
+/* Anatomical groupings for the outliner (PoseInspector) — collapsible so 18
+   or 21 flat rows don't have to stay on screen at once. Purely a display
+   grouping: doesn't change BODY_LIMBS/HAND_EDGES or anything the renderer
+   or the save format depend on. */
+export const BODY_JOINT_GROUPS: readonly JointGroup[] = [
+  { label: 'Tête', indices: [0, 14, 15, 16, 17] },
+  { label: 'Tronc', indices: [1] },
+  { label: 'Bras droit', indices: [2, 3, 4] },
+  { label: 'Bras gauche', indices: [5, 6, 7] },
+  { label: 'Jambe droite', indices: [8, 9, 10] },
+  { label: 'Jambe gauche', indices: [11, 12, 13] },
+]
+
+/* Same grouping for either hand — HAND_JOINT_NAMES/HAND_EDGES are already
+   shared between handLeft and handRight, this just follows suit. */
+export const HAND_JOINT_GROUPS: readonly JointGroup[] = [
+  { label: 'Poignet', indices: [0] },
+  { label: 'Pouce', indices: [1, 2, 3, 4] },
+  { label: 'Index', indices: [5, 6, 7, 8] },
+  { label: 'Majeur', indices: [9, 10, 11, 12] },
+  { label: 'Annulaire', indices: [13, 14, 15, 16] },
+  { label: 'Auriculaire', indices: [17, 18, 19, 20] },
+]
+
+/** The joint one step closer to the root along `edges` — BODY_LIMBS and
+    HAND_EDGES both list the more distal joint second (an elbow's edge is
+    `[shoulder, elbow]`, never the reverse), so "whoever has `index` as their
+    SECOND element" is the parent. `null` for a root joint (body's neck,
+    each hand's wrist): nothing to measure an angle or bone length against. */
+export function parentOf(edges: readonly [number, number][], index: number): number | null {
+  const edge = edges.find(([, b]) => b === index)
+  return edge ? edge[0] : null
+}
+
+/** Same as `parentOf`, but picks BODY_LIMBS or HAND_EDGES from `group` —
+    the lookup every caller outside this module actually wants, now that
+    there are two of them (PoseInspector's readout, PoseCanvas's Shift-drag
+    rotation): duplicating the `group === 'body' ? BODY_LIMBS : HAND_EDGES`
+    ternary a third time would be the sign to extract it, so it's done at
+    the second. */
+export function parentIndexOf(group: PointGroup, index: number): number | null {
+  return parentOf(group === 'body' ? BODY_LIMBS : HAND_EDGES, index)
+}

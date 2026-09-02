@@ -10,19 +10,23 @@ rest of the pose bank rather than a new router for four routes.
     /api/pose/extract   a photo -> an OpenPose skeleton
     /api/pose/delete    removes a skeleton
     /api/pose/keypoints the editable frame behind a skeleton PNG
-    /api/pose/presets   starter templates for a pose made from scratch
-    /api/pose/preset    the frame of one starter template
-    /api/pose/save      renders + writes an edited or brand-new skeleton
+    /api/pose/bank          every skeleton, with its label and provenance
+    /api/pose/presets       starter templates for a pose made from scratch
+    /api/pose/preset  GET   the frame of one starter template
+    /api/pose/preset  POST  saves the current frame AS a new template
+    /api/pose/save          renders + writes an edited or brand-new skeleton
+    /api/pose/render        renders WITHOUT writing — an on-demand preview
 
 `/static/*` is not here: it is mounted in api/main.py, with the rest of the
 assembly, exactly as `web.static` was registered in web/app.py.
 """
 import asyncio
 import base64
+import io
 from typing import Optional
 
 from fastapi import APIRouter, Query
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 import env_config
 import pose_tools
@@ -31,8 +35,9 @@ import shared_state as ss
 from ..dependencies import RequiredCharacterId
 from ..schemas.common import ActionResponse, ERROR_RESPONSES
 from ..schemas.images import (
-    ImageNotFound, PoseDeleteRequest, PoseExtractRequest, PoseExtractResponse,
-    PoseSaveRequest, PoseSaveResponse, PosePresetsResponse,
+    ImageNotFound, PoseBankResponse, PoseDeleteRequest, PoseExtractRequest,
+    PoseExtractResponse, PosePresetSaveRequest, PosePresetSaveResponse,
+    PosePresetsResponse, PoseRenderRequest, PoseSaveRequest, PoseSaveResponse,
 )
 
 router = APIRouter(responses=ERROR_RESPONSES)
@@ -212,6 +217,17 @@ async def get_pose_keypoints(
         return JSONResponse({"ok": False, "erreur": str(e)}, status_code=404)
 
 
+@router.get("/api/pose/bank", response_model=PoseBankResponse,
+            summary="Squelettes de la banque, avec libellé et provenance")
+async def get_pose_bank():
+    """`poses: list[str]` on `/api/scenes` is enough for a picker (name +
+    thumbnail); `PosesView.tsx`'s OWN grid additionally needs a label under
+    each thumbnail and a provenance badge (gabarit / photo), which is why
+    this is its own route rather than a change to the scenes bank shape
+    every OTHER pose picker in the app also reads."""
+    return {"poses": pose_tools.poses_disponibles_detail()}
+
+
 @router.get("/api/pose/presets", response_model=PosePresetsResponse,
             summary="Gabarits de pose disponibles")
 async def get_pose_presets():
@@ -232,6 +248,23 @@ async def get_pose_preset(
         return JSONResponse({"ok": False, "erreur": str(e)}, status_code=404)
 
 
+@router.post("/api/pose/preset", response_model=PosePresetSaveResponse,
+             summary="Enregistrer le squelette courant comme gabarit réutilisable")
+async def save_pose_preset(payload: PosePresetSaveRequest):
+    """« Créer un template » sur une pose from-scratch — jamais appelée
+    seule, toujours À CÔTÉ d'un `/api/pose/save` normal (voir
+    `pose_tools.enregistrer_preset`). Le libellé devient le nom du fichier
+    (slugifié) : un gabarit n'est jamais numéroté comme une pose, il se
+    retrouve par son nom dans le sélecteur."""
+    if not payload.keypoints.get("people"):
+        ss.bad_request("points-clés manquants ou illisibles")
+    if not payload.label.strip():
+        ss.bad_request("un gabarit a besoin d'un nom")
+    nom = pose_tools.enregistrer_preset(payload.keypoints, payload.label)
+    ss.push_log(f"gabarit enregistré : {nom}")
+    return {"ok": True, "nom": nom}
+
+
 @router.post("/api/pose/save", response_model=PoseSaveResponse,
              summary="Enregistrer un squelette édité ou neuf")
 async def save_pose(payload: PoseSaveRequest):
@@ -247,3 +280,18 @@ async def save_pose(payload: PoseSaveRequest):
     written = pose_tools.enregistrer_points(payload.keypoints, nom=(name or None))
     ss.push_log(f"squelette enregistré : {written}")
     return {"ok": True, "name": written}
+
+
+@router.post("/api/pose/render", responses=_IMAGE_RESPONSES,
+             summary="Aperçu du rendu d'un squelette, sans l'enregistrer")
+async def render_pose_preview(payload: PoseRenderRequest):
+    """Same rendering as `/api/pose/save` (`pose_tools.rendre_apercu`, itself
+    `pose_render` — no ComfyUI), but returns the PNG bytes directly and
+    writes nothing to INPUTS/POSE/. The advanced editor's on-demand render,
+    next to a reference photo — refreshed on request, not on every drag."""
+    if not payload.keypoints.get("people"):
+        ss.bad_request("points-clés manquants ou illisibles")
+    image = pose_tools.rendre_apercu(payload.keypoints)
+    buf = io.BytesIO()
+    image.save(buf, format="PNG")
+    return Response(content=buf.getvalue(), media_type="image/png")

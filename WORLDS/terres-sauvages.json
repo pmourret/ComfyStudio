@@ -10,7 +10,7 @@
   },
   "tone": "wilderness travel: forests and dusk, campfires, worn traveller's gear, low muted light",
   "ui_skin_token": "world-terres-sauvages",
-  "starter_scenes": [
+  "places": [
     {
       "id": "lisiere_foret",
       "label": "Lisiere de foret",
@@ -36,7 +36,12 @@
     "doit etre compatible avec celle que (type, style) a deja resolue.",
     "FIGE a la creation du personnage (CLAUDE.md §3-§4) : ses assets entrent dans",
     "le rendu et la mesure du verrou les valide pour ce visage.",
-    "starter_scenes : amorce de banque, consommee par le wizard (J7bis etape 5).",
-    "Les scenes reelles d'Abyssiaelle vivent dans CHARACTERS/abyssiaelle/scenes.json."
+    "places : catalogue VIVANT (ADR-0015), pas une simple amorce. Consomme a la",
+    "creation du personnage (wizard, J7bis etape 5) ET tant qu'il vit : une scene",
+    "de personnage qui reference un lieu (`world_ref`) en herite en direct --",
+    "prompt/intention toujours relus d'ici, jamais figes dans scenes.json. Edite",
+    "par ses propres routes (/api/worlds/<id>/places), jamais par POST /api/scenes.",
+    "Les scenes reelles d'Abyssiaelle (overlay de personnage : tenue, pose...)",
+    "vivent dans CHARACTERS/abyssiaelle/scenes.json."
   ]
 }

@@ -24,6 +24,9 @@ from .routers import app as app_router
 from .routers import (
     bank, images, production, review, state,
 )
+# aliased: this module's own name would otherwise shadow AUTOMATION/worlds.py,
+# which `bank.py` and `state.py` already import as the bare `worlds` module
+from .routers import worlds as worlds_router
 from .security import BodySizeLimitMiddleware, LocalOriginGuardMiddleware
 from .spa import mount_frontend
 
@@ -72,6 +75,7 @@ def create_app() -> FastAPI:
     app.include_router(images.router)
     app.include_router(production.router)
     app.include_router(review.router)
+    app.include_router(worlds_router.router)
 
     # LAST. `mount_frontend` registers a catch-all for the React router's deep
     # links, so everything that owns a real path must already be declared above

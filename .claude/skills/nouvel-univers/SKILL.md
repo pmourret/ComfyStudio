@@ -121,11 +121,17 @@ Le scan de `UNIVERS/` découvre le pack — pas de fichier registre central.
 
 Le wizard exige **au moins un monde** dont `compatible_families` inclut la
 famille de ce pack (`WORLDS/<id>.json` : `id`, `label`, `compatible_families`,
-`suggested_styles`, `assets`, `tone`, `ui_skin_token`, `starter_scenes`). Un
-monde n'invente ni la famille ni le mécanisme d'identité — il apporte des
-assets qui entrent dans le rendu, à **mesurer** comme le reste (un monde
-livré avec des `assets` placeholder est une dette déclarée, pas un monde
-prêt).
+`suggested_styles`, `assets`, `tone`, `ui_skin_token`, `places`). Un monde
+n'invente ni la famille ni le mécanisme d'identité — il apporte des assets
+qui entrent dans le rendu, à **mesurer** comme le reste (un monde livré avec
+des `assets` placeholder est une dette déclarée, pas un monde prêt).
+
+`places` est un catalogue VIVANT (ADR-0015), pas une simple amorce : chaque
+lieu (`id`, `label`, `intention`, `prompt` — un cadre, jamais une garde-robe)
+sert à la naissance d'un personnage de ce monde ET tant qu'il vit, via
+`world_ref` sur ses scènes. Il s'édite depuis l'écran Banque
+(`/api/worlds/<id>/places`), jamais à la main dans le fichier une fois le
+monde livré.
 
 ## Étape 7 — Premier personnage comme validation
 

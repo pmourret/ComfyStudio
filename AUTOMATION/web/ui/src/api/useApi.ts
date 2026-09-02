@@ -6,11 +6,12 @@
 import { useMemo } from 'react'
 
 import { useCharacter } from '../character/CharacterContext'
-import { apiFetch, apiPost, imageUrl, type ActionLike, type ImageRef } from './client'
+import { apiFetch, apiPost, apiPostForBlob, imageUrl, type ActionLike, type ImageRef } from './client'
 
 export type BoundApi = {
   get: <T>(url: string) => Promise<T & ActionLike>
   post: <T>(url: string, body?: unknown) => Promise<T & ActionLike>
+  postForBlob: (url: string, body?: unknown) => Promise<Blob | null>
   image: (ref: ImageRef) => string
 }
 
@@ -20,6 +21,7 @@ export function useApi(): BoundApi {
     () => ({
       get: <T,>(url: string) => apiFetch<T>(url, claimed),
       post: <T,>(url: string, body?: unknown) => apiPost<T>(url, body, claimed),
+      postForBlob: (url: string, body?: unknown) => apiPostForBlob(url, body, claimed),
       image: (ref: ImageRef) => imageUrl(ref, claimed),
     }),
     [claimed],

@@ -59,6 +59,17 @@ class PoseSaveRequest(BaseModel):
     keypoints: dict = {}
 
 
+class PoseRenderRequest(BaseModel):
+    """Same `keypoints` shape as `PoseSaveRequest` — renders the CURRENT
+    in-progress frame to a PNG and returns the bytes directly. No `name`:
+    unlike a save, this writes nothing to INPUTS/POSE/, so there is nothing
+    to overwrite or number. The advanced editor's on-demand "what will
+    ControlNet actually see" preview, next to a reference photo."""
+    model_config = ConfigDict(extra="allow")
+
+    keypoints: dict = {}
+
+
 class PoseSaveResponse(BaseModel):
     """`name` is the skeleton actually written — the request's `name` on a
     plain overwrite, `save_as` or a fresh `pose__NNNNN_.png` otherwise."""
@@ -76,6 +87,44 @@ class PosePreset(BaseModel):
 
 class PosePresetsResponse(BaseModel):
     presets: list[PosePreset]
+
+
+class PosePresetSaveRequest(BaseModel):
+    """Saves the CURRENT edited frame as a new reusable starting template
+    (AUTOMATION/pose_presets/) — the "create a template too" option on a
+    from-scratch pose, alongside (never instead of) saving it as a normal
+    pose. `label` is what a person reads in the template picker
+    (`PosePreset.label`); the file's own name is derived from it, never
+    chosen separately — the same reasoning as a pose's own auto-numbered
+    filename, just slugified from the label instead of counted."""
+    model_config = ConfigDict(extra="allow")
+
+    label: str = ""
+    keypoints: dict = {}
+
+
+class PosePresetSaveResponse(BaseModel):
+    """`nom` is the template's own file stem — what `/api/pose/preset?nom=`
+    will read back."""
+    ok: bool
+    nom: str
+
+
+class PoseBankEntry(BaseModel):
+    """One skeleton of the bank, WITH its metadata — what `PosesView.tsx`
+    needs to show under a thumbnail (label) and as a provenance badge
+    (source), neither of which the plain `poses: list[str]` on
+    `/api/scenes` carries. `label`/`source` are `None` for a pose extracted
+    before this had a JSON sidecar at all (`pose_tools.poses_disponibles_detail`)
+    — a real, expected state, not an error."""
+    nom: str
+    label: Optional[str] = None
+    source: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class PoseBankResponse(BaseModel):
+    poses: list[PoseBankEntry]
 
 
 class ImageNotFound(BaseModel):

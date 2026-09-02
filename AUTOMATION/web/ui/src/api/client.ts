@@ -103,6 +103,25 @@ export function apiPost<T>(
   })
 }
 
+/* Same request shape as `apiPost` — same header, so the origin guard still
+   sees a real POST — but the response is bytes (a rendered pose PNG), not
+   JSON: `apiFetch`'s `.json()` would reject it. `null` on any failure
+   (network or non-2xx): a caller compares against that rather than reading
+   an `.ok` field bytes don't carry. */
+export async function apiPostForBlob(
+  url: string,
+  body: unknown,
+  characterId: CharacterId,
+): Promise<Blob | null> {
+  const response = await fetch(withCharacter(url, characterId), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body ?? {}),
+  })
+  if (!response.ok) return null
+  return response.blob()
+}
+
 /* An API response does not have the expected shape. `apiFetch` never throws: on
    a 500 with an HTML body it yields {ok:false, erreur}. Loaders took that object
    for a scene bank or a taxonomy, and the first access to `.scenes` threw —
