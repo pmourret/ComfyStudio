@@ -102,7 +102,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   dire(await vu('#bankScenes'), 'la sous-vue Scenes est montee');
   dire(!(await vu('#bankPoses')), 'la sous-vue Poses ne l est pas — une route, pas un attribut');
   const onglets = await page.$$eval('#bankView [data-vue]', e => e.map(x => x.dataset.vue));
-  dire(onglets.join(',') === 'scenes,poses', 'les deux sous-vues sont offertes');
+  dire(onglets.join(',') === 'scenes,poses,tones', 'les trois sous-vues sont offertes');
   const allume = await page.$$eval('.tabs .nav-item.on', e => e.map(x => x.dataset.s));
   dire(allume.join(',') === 'bank', "l'entree Banque de la navbar est allumee");
 
@@ -544,6 +544,24 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   // rail ici a replier ou a marquer.
   dire(!(await vu('#toolRail')),
        "l'editeur de pose a son propre outillage — le rail n'y ajoute plus rien");
+
+  console.log('\n[15bis] sous-vue TONS : une carte par ton, lien vers son propre editeur (2026-09-03)');
+  await page.click('#bankView [data-vue="tones"]');
+  await page.waitForTimeout(400);
+  dire(await page.evaluate(() => location.pathname) === '/bank/tones', 'chemin /bank/tones');
+  dire(await vu('#bankTones'), 'la sous-vue Tons est montee');
+  dire(!(await vu('#bankPoses')), 'la sous-vue Poses ne l est plus');
+  const infobulleTons = await page.$eval('#btnSaveScenes', e => e.dataset.hintText || '');
+  dire(infobulleTons.toLowerCase().includes('propre'),
+       `l'infobulle precise que la plage d'un ton s'enregistre ailleurs (« ${infobulleTons} »)`);
+  const tons = await page.$$eval('[data-tone-card]', e => e.map(x => x.dataset.key));
+  dire(tons.length > 0, `au moins un ton est propose (${tons.join(', ')})`);
+  await page.click('[data-tone-card] a:has-text("éditer l’expression")');
+  await page.waitForTimeout(400);
+  dire((await page.evaluate(() => location.pathname)).startsWith('/bank/tones/edit/'),
+       'le lien de la carte ouvre bien le propre editeur du ton');
+  await page.goBack();
+  await page.waitForTimeout(400);
 
   console.log('\n[16] REMISE EN ETAT : scenes.json revient a son instantane');
   const remis = await page.evaluate(async avant => {

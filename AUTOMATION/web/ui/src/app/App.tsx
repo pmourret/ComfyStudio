@@ -24,7 +24,7 @@ import { ServerLogProvider } from '../state/ServerLogContext'
 import { TaxonomyProvider } from '../state/TaxonomyContext'
 import { ConfigProvider } from '../state/ConfigContext'
 import { LightboxProvider } from '../chrome/LightboxContext'
-import { BankPosesScreen, BankScenesScreen } from '../screens/bank/BankScreen'
+import { BankPosesScreen, BankScenesScreen, BankTonesScreen } from '../screens/bank/BankScreen'
 import { ExpressionEditorScreen } from '../screens/expression-editor/ExpressionEditorScreen'
 import { PoseEditorScreen } from '../screens/pose-editor/PoseEditorScreen'
 import { WorldPlacesScreen } from '../screens/worlds/WorldPlacesScreen'
@@ -79,6 +79,7 @@ export function App() {
                       always meant « sub-view of », and now the router says it. */}
                   <Route path={PATHS.bankScenes} element={<BankScenesScreen />} />
                   <Route path={PATHS.bankPoses} element={<BankPosesScreen />} />
+                  <Route path={PATHS.bankTones} element={<BankTonesScreen />} />
                   {/* :name? absent -> "new pose", starting from a chosen preset
                       (2026-09-02) — same list-then-editor shape as worlds/
                       places just below. */}

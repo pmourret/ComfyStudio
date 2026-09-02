@@ -50,6 +50,7 @@ import { PlaceInspector } from '../worlds/PlaceInspector'
 import { useWorldPlaces } from '../worlds/useWorldPlaces'
 import { PosesView } from './poses/PosesView'
 import { SceneListPanel, type ScenePreview } from './SceneList'
+import { TonesView } from './tones/TonesView'
 import { DocumentPane, SceneInspector } from './SceneInspector'
 import { useSceneWorkbench } from './useSceneWorkbench'
 import { WorldBanner } from './WorldBanner'
@@ -66,14 +67,19 @@ import { WorldBanner } from './WorldBanner'
    on demand rather than permanently.
 
    A two-entry table, not a growing `if`: the day the bank gains a third
-   sub-view, it adds a line. */
+   sub-view, it adds a line — Tons is that third line (2026-09-03): its own
+   document is creative.json, saved from ITS OWN editor screen, never from
+   this button — the hint says so, rather than implying a tone's expression
+   range rides along with a scenes.json save it has nothing to do with. */
 const SAVE_HINT = {
   scenes: 'Enregistrer scenes.json — une sauvegarde .bak est faite à chaque fois',
   poses:
     'Enregistrer les attributions de pose dans scenes.json — jamais les squelettes, déjà sur le disque',
+  tones:
+    'Enregistrer scenes.json — la plage d\'expression d\'un ton s\'enregistre depuis son propre éditeur, pas ici',
 } as const
 
-export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
+export function BankScreen({ view }: { view: 'scenes' | 'poses' | 'tones' }) {
   const api = useApi()
   const toast = useToast()
   const {
@@ -156,6 +162,7 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
           <nav className="seg" id="bankView" aria-label="Sous-vue de la banque">
             <SubViewLink to={PATHS.bankScenes} label="Scènes" active={view === 'scenes'} vue="scenes" />
             <SubViewLink to={PATHS.bankPoses} label="Poses" active={view === 'poses'} vue="poses" />
+            <SubViewLink to={PATHS.bankTones} label="Tons" active={view === 'tones'} vue="tones" />
           </nav>
 
           <div className="flex flex-wrap items-center gap-[10px]">
@@ -388,8 +395,10 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' }) {
               </aside>
             </div>
           </div>
-        ) : (
+        ) : view === 'poses' ? (
           <PosesView />
+        ) : (
+          <TonesView />
         )}
       </div>
     </div>
@@ -434,4 +443,7 @@ export function BankScenesScreen() {
 }
 export function BankPosesScreen() {
   return <BankScreen view="poses" />
+}
+export function BankTonesScreen() {
+  return <BankScreen view="tones" />
 }
