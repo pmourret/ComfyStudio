@@ -189,6 +189,44 @@ const volsDeDonnees = [];
   await page.waitForTimeout(300);
   dire(!(await vu('#lightbox img')), 'Echap la referme');
 
+  console.log('\n[5bis] zoom in-place sur #stageImg (design pass ecran 5, §C) — separe de la loupe');
+  const stageBox = await page.locator('#stageImg').locator('xpath=..').boundingBox();
+  const zcx = stageBox.x + stageBox.width / 2;
+  const zcy = stageBox.y + stageBox.height / 2;
+
+  dire((await texte('[aria-live="polite"]')) === '100 %', 'etiquette 100% au repos');
+  await page.click('button[aria-label="Zoomer"]');
+  await page.waitForTimeout(150);
+  await page.click('button[aria-label="Zoomer"]');
+  await page.waitForTimeout(150);
+  dire((await texte('[aria-live="polite"]')) === '200 %', 'les boutons +/- font avancer par paliers fixes');
+  dire(await page.isDisabled('button[aria-label="Zoomer"]'), 'plafonne a 200%, le bouton + s inerte');
+
+  await page.mouse.move(zcx, zcy);
+  await page.mouse.down();
+  await page.mouse.move(zcx + 40, zcy + 25);
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  dire((await page.getAttribute('#stageImg', 'style')).includes('translate(40px, 25px)'),
+       'le glisser deplace la vue une fois zoome (1:1, pas de loupe declenchee)');
+  dire(!(await vu('#lightbox img')), 'un glisser n ouvre jamais la loupe');
+
+  await page.mouse.click(zcx, zcy);
+  await page.waitForTimeout(300);
+  dire(!(await vu('#lightbox img')),
+       'zoome, un clic SANS glisser n ouvre pas non plus la loupe (evite la course avec le double-clic)');
+
+  await page.mouse.dblclick(zcx, zcy);
+  await page.waitForTimeout(300);
+  dire((await texte('[aria-live="polite"]')) === '100 %', 'le double-clic reinitialise a 100%');
+  dire((await page.getAttribute('#stageImg', 'style')).includes('translate(0px, 0px)'), 'et le glisser aussi');
+
+  await page.mouse.click(zcx, zcy);
+  await page.waitForTimeout(300);
+  dire(await vu('#lightbox img'), 'de retour a 100%, un clic simple rouvre bien la loupe — comportement d origine intact');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+
   console.log('\n[6] REVUE : l autre destination, les gestes de tri reviennent');
   await page.goto(BASE + '/review?character=lena', { waitUntil: 'networkidle' });
   await page.waitForTimeout(600);
