@@ -381,6 +381,8 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' | 'tones' }) {
                     onPatch={(patch) => patchDraft(bench.selectedIndex, patch)}
                     onRemove={() => void bench.remove(bench.selectedIndex)}
                     onDuplicate={() => bench.duplicate(bench.selectedIndex)}
+                    onPrevScene={bench.hasPrevScene ? () => bench.stepScene(-1) : undefined}
+                    onNextScene={bench.hasNextScene ? () => bench.stepScene(1) : undefined}
                     onClose={bench.close}
                     onSaveDocument={onSave}
                   />

@@ -17,6 +17,18 @@ import type { SceneDraft } from '../../state/ScenesStoreContext'
 import { SceneComposer } from './composer/SceneComposer'
 import type { ScenePreview } from './SceneList'
 
+/** Same guard as `pose-editor/PoseCanvas.tsx`'s own `isTextEntry`, duplicated
+    rather than shared (that one lives in a different screen's module) — a
+    `<select>` needs the same protection here that a `<textarea>`/`<input>`
+    does, which the pose editor's own version does not need to worry about. */
+function isEditableControl(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  if (target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return true
+  if (target.tagName !== 'INPUT') return false
+  const NOT_TEXT = ['checkbox', 'radio', 'button', 'submit', 'reset', 'file', 'color']
+  return !NOT_TEXT.includes((target as HTMLInputElement).type)
+}
+
 export function SceneInspector({
   draft,
   creative,
@@ -27,6 +39,8 @@ export function SceneInspector({
   onPatch,
   onRemove,
   onDuplicate,
+  onPrevScene,
+  onNextScene,
   onClose,
   onSaveDocument,
 }: {
@@ -44,6 +58,12 @@ export function SceneInspector({
   onRemove: () => void
   /** Clones this scene and opens the clone (design pass écran 7, §B1). */
   onDuplicate: () => void
+  /** Steps to the previous/next scene in `useSceneWorkbench`'s `shown` list
+      (design pass écran 7, §B2) — `undefined` at either end, same convention
+      as the composer's own Suivant/Précédent (only rendered when there is
+      somewhere to go). */
+  onPrevScene: (() => void) | undefined
+  onNextScene: (() => void) | undefined
   onClose: () => void
   /** The document-level save, offered again from the composer's JSON panel. */
   onSaveDocument: () => void
@@ -62,11 +82,32 @@ export function SceneInspector({
       aria-label={`Scène ${draft.id}`}
       /* Escape closes the panel and hands the focus back to its card — the same
          gesture as every overlay of the studio, even though this one is a
-         column and not a dialog. */
+         column and not a dialog.
+
+         Up/Down step to the previous/next SCENE (design pass écran 7, §B2) —
+         same keys `onListKeyDown` uses on the list itself, ELEVATED here so
+         they work with focus anywhere in the composer, not just on a list
+         row (same "elevate the listener" reasoning as the pose editor's own
+         `handlePoseKeyDown`, design-pass screen-6 §A2). Guarded by
+         `isEditableControl`: a textarea/input/select needs its OWN Up/Down
+         (cursor movement, a number spinner, changing an option) more than
+         this screen needs a global accelerator on top of it. */
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
           e.stopPropagation()
           onClose()
+          return
+        }
+        if (
+          (e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
+          !e.altKey && !e.ctrlKey && !e.metaKey &&
+          !isEditableControl(e.target)
+        ) {
+          const step = e.key === 'ArrowUp' ? onPrevScene : onNextScene
+          if (step) {
+            e.preventDefault()
+            step()
+          }
         }
       }}
       /* `h-full`: the ASIDE around this section is capped, not forced
@@ -92,6 +133,8 @@ export function SceneInspector({
         onPatch={onPatch}
         onRemove={onRemove}
         onDuplicate={onDuplicate}
+        onPrevScene={onPrevScene}
+        onNextScene={onNextScene}
         onSaveDocument={onSaveDocument}
       />
     </section>

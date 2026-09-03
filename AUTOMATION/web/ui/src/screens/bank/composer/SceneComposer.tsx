@@ -116,6 +116,8 @@ export function SceneComposer({
   onPatch,
   onRemove,
   onDuplicate,
+  onPrevScene,
+  onNextScene,
   onSaveDocument,
 }: {
   draft: SceneDraft
@@ -133,6 +135,10 @@ export function SceneComposer({
   onRemove: () => void
   /** Clones this scene and opens the clone (design pass écran 7, §B1). */
   onDuplicate: () => void
+  /** Scene-to-scene chevrons in the header (design pass écran 7, §B2) —
+      `undefined` at either end of the (filtered) list. */
+  onPrevScene: (() => void) | undefined
+  onNextScene: (() => void) | undefined
   /** The document-level save — same action as the launch bar's "Enregistrer",
       offered again from the JSON panel for a "I've checked it, ship it" close. */
   onSaveDocument: () => void
@@ -207,7 +213,14 @@ export function SceneComposer({
       onValueChange={(v) => setTab(v as TabKey)}
       className="flex h-full flex-col"
     >
-      <SceneHeader draft={draft} produced={produced} preview={preview} imageUrl={imageUrl} />
+      <SceneHeader
+        draft={draft}
+        produced={produced}
+        preview={preview}
+        imageUrl={imageUrl}
+        onPrevScene={onPrevScene}
+        onNextScene={onNextScene}
+      />
 
       <Tabs.List
         ref={tabsRef}
@@ -354,11 +367,18 @@ function SceneHeader({
   produced,
   preview,
   imageUrl,
+  onPrevScene,
+  onNextScene,
 }: {
   draft: SceneDraft
   produced: number | null
   preview: ScenePreview | undefined
   imageUrl: (ref: Record<string, unknown>) => string
+  /** Scene-to-scene chevrons (design pass écran 7, §B2) — `undefined` at
+      either end of the list, same "only render what is possible" rule as
+      the composer's own Suivant/Précédent. */
+  onPrevScene: (() => void) | undefined
+  onNextScene: (() => void) | undefined
 }) {
   const composed = composePrompt(draft)
   // Mirror of `lb.scene_band` / the old grid card's own call: the ceiling
@@ -418,7 +438,41 @@ function SceneHeader({
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-between">
         <div>
-          <b className="block truncate text-[17px]">{draft.id || '(sans identifiant)'}</b>
+          {/* Scene-to-scene chevrons (design pass écran 7, §B2) — discreet,
+              next to the id rather than a bar of their own: Suivant/Précédent
+              below already own the visual weight of "move", these are a
+              lighter accelerator for the one gesture (Échap, arrow, reopen)
+              this replaces. Same Up/Down keys as `onListKeyDown`, elevated to
+              the whole composer (`SceneInspector.tsx`). */}
+          <div className="flex items-center gap-[6px]">
+            <button
+              type="button"
+              className="shrink-0 cursor-pointer rounded-[5px] border-0 bg-transparent p-0
+                         text-[13px] leading-none text-dim2 hover:text-txt
+                         disabled:cursor-not-allowed disabled:opacity-30
+                         focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
+              aria-label="Scène précédente"
+              data-hint-text="Scène précédente — même liste que la banque, flèche Haut"
+              disabled={!onPrevScene}
+              onClick={onPrevScene}
+            >
+              ◂
+            </button>
+            <b className="block min-w-0 flex-1 truncate text-[17px]">{draft.id || '(sans identifiant)'}</b>
+            <button
+              type="button"
+              className="shrink-0 cursor-pointer rounded-[5px] border-0 bg-transparent p-0
+                         text-[13px] leading-none text-dim2 hover:text-txt
+                         disabled:cursor-not-allowed disabled:opacity-30
+                         focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
+              aria-label="Scène suivante"
+              data-hint-text="Scène suivante — même liste que la banque, flèche Bas"
+              disabled={!onNextScene}
+              onClick={onNextScene}
+            >
+              ▸
+            </button>
+          </div>
           <span className="text-[12px] text-dim">
             {produced ? `${produced} image${produced > 1 ? 's' : ''} produite${produced > 1 ? 's' : ''}` : 'jamais produite'}
           </span>

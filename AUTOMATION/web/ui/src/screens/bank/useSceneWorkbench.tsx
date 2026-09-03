@@ -64,6 +64,29 @@ export function useSceneWorkbench() {
     setInspectorMode('character')
   }, [])
 
+  /* Scene-to-scene stepping (design pass écran 7, §B2) — the composer's own
+     Suivant/Précédent only walk the 7 TABS of the scene that is open;
+     changing SCENE used to mean Échap (back to the list), an arrow, then
+     reopening. Walks `shown` in its OWN order (the filtered document order,
+     not the grouped/alphabetised order `SceneListPanel` renders it in) —
+     the header this feeds has no reason to reimplement that grouping for a
+     quick nudge. A no-op at either end, same as `onListKeyDown` running off
+     the list: nothing to step to is not an error. */
+  const shownIndex = useMemo(
+    () => shown.findIndex(({ draft }) => draft.uid === selectedUid),
+    [shown, selectedUid],
+  )
+  const hasPrevScene = shownIndex > 0
+  const hasNextScene = shownIndex >= 0 && shownIndex < shown.length - 1
+  const stepScene = useCallback(
+    (delta: 1 | -1) => {
+      const target = shownIndex + delta
+      if (shownIndex < 0 || target < 0 || target >= shown.length) return
+      select(shown[target].draft.uid)
+    },
+    [shownIndex, shown, select],
+  )
+
   /* Arrows walk the list. An ACCELERATOR, not a composite widget: every row
      keeps its natural place in the tab order, so nothing regresses for whoever
      navigates by Tab alone. What it removes is the many tabulations it took
@@ -186,6 +209,9 @@ export function useSceneWorkbench() {
     selected,
     selectedIndex,
     select,
+    stepScene,
+    hasPrevScene,
+    hasNextScene,
     close,
     add,
     duplicate,
