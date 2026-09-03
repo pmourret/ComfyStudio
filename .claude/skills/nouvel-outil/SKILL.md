@@ -29,20 +29,37 @@ prête (voir « Point d'entrée découvrable » plus bas).
 
 ### Décider la portée avant d'écrire du code
 
-- **Outil global** : utile à tout univers (ex. édition d'image, modification
-  live par IA). Ne pas dupliquer un outil global existant pour un univers en
-  particulier — vérifier `DOCS/architecture.md` §5 avant d'en créer un nouveau
-- **Outil propre à un univers** : n'a de sens que dans ce monde (ex. un
-  éditeur de lore pour un univers narratif). Reste déclaré uniquement dans
-  le(s) `tools.json` de cet/ces univers
+Deux questions distinctes, à ne pas confondre (ADR-0017 : quatre couches de
+responsabilité — voir aussi `DOCS/architecture.md` §5) :
 
-Un outil peut démarrer propre à un univers et devenir global plus tard si un
+1. **Quelle couche implémente l'outil ?**
+   - **Couche plateforme** : agnostique du modèle, s'applique à une image
+     déjà produite (ex. éditeur de pose, éditeur d'image). Ne dépend
+     d'aucune famille de modèle — vit correctement hors de `identity/`
+   - **Couche pack** : liée à la famille de modèle (ex. modification live
+     par IA, `edit_workflow`, ADR-0013). Son graphe est injecté par le
+     mécanisme d'identité d'un pack précis ; un pack qui n'a pas encore ce
+     graphe n'a pas l'outil, jamais un repli sur celui d'un autre pack
+   - Seules ces deux couches ont le droit de porter un graphe ComfyUI ;
+     monde et personnage n'en portent jamais
+2. **Qui voit l'outil dans son panel ?** (`scope` de `tools.json`, orthogonal
+   à la couche ci-dessus)
+   - **`scope: global`** : utile à tout univers — un outil plateforme l'est
+     presque toujours ; un outil pack peut l'être aussi (ex. modification
+     live par IA, globale dans `tools.json` mais implémentée par la couche
+     pack). Ne pas dupliquer un outil global existant pour un univers en
+     particulier — vérifier `DOCS/architecture.md` §5 avant d'en créer un nouveau
+   - **`scope: universe`** : n'a de sens que dans ce monde (ex. un éditeur
+     de lore pour un univers narratif). Reste déclaré uniquement dans
+     le(s) `tools.json` de cet/ces univers
+
+Un outil peut démarrer `scope: universe` et devenir `global` plus tard si un
 second univers en a l'usage — mais ce n'est jamais l'inverse (ne pas
 construire "global" par précaution si un seul univers l'utilise aujourd'hui).
 
 ### Contrat
 
-Une entrée de `tools.json` (`UNIVERS/<nom>/tools.json`) : `id`, `label`,
+Une entrée de `tools.json` (`PACKS/<nom>/tools.json`) : `id`, `label`,
 `scope` (`global`/`universe`), `surface` — la SEULE chose que le rail sait
 interpréter (`chrome/ToolRail.tsx`, table des surfaces connues), jamais un
 `if` sur le personnage ou l'univers (`CLAUDE.md` §7). Une surface absente de

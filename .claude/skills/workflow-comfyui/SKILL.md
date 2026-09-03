@@ -20,6 +20,13 @@ y **attache** la fiche (`config.json` / `workflow`), il n'en génère ni n'en
 copie aucun (`CLAUDE.md` §8.11, ADR-0012). Le libellé « attribuer un
 workflow au personnage » est banni — le verbe est **attacher au pack**.
 
+**Un graphe n'a le droit d'exister que dans deux couches** (ADR-0017) : la
+**plateforme** (agnostique du modèle, appliqué à une image déjà produite —
+éditeur de pose, éditeur d'expression) ou le **pack** (lié à une famille de
+modèle — graphe de production, `edit_workflow`). Un monde ou un personnage
+ne portent jamais de graphe, seulement les données qu'un graphe de l'une de
+ces deux couches consomme.
+
 ## Format : deux formats JSON coexistent
 
 - **Format UI** (`Save`) : `nodes`, `links`, positions, widgets. Éditable
@@ -169,7 +176,7 @@ comme définitivement acquis.
 - `references/pieges-noeuds-custom.md` — pièges connus par nœud custom,
   à consulter avant de toucher à PuLID, IPAdapter, ControlNet aux, ou
   `comfyui_essentials`
-- `references/modeles-par-univers.md` — quelle famille de modèle et quels
+- `references/modeles-par-pack.md` — quelle famille de modèle et quels
   nœuds appartiennent à quel pack / « univers » (voir `CLAUDE.md` §4)
 - `references/format-ui-mecanique.md` — mécanique interne du format UI
   (triplication des liens, compteurs d'ID, modes de nœud, `widgets_values`

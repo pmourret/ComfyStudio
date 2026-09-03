@@ -7,7 +7,7 @@ description: A utiliser pour developper un noeud ComfyUI inedit en Python (API V
 
 Référence de développement, **pas** un catalogue de nœuds. L'inventaire des
 nœuds déjà disponibles sur cette machine vit dans
-`workflow-comfyui/references/modeles-par-univers.md` — ce skill ne le
+`workflow-comfyui/references/modeles-par-pack.md` — ce skill ne le
 redocumente pas.
 
 Vérifié contre l'installation locale : **ComfyUI 0.26.0**, `comfy_api/latest`.

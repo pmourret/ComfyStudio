@@ -7,7 +7,7 @@ le visage a dérivé est un échec, pas un compromis.
 
 Les chiffres de ce fichier sont **mesurés**, pas estimés. Ils viennent des
 campagnes A/B de l'univers `instagram-influenceur` (famille Flux + PuLID,
-scoring InsightFace `antelopev2`) — voir `references/modeles-par-univers.md`.
+scoring InsightFace `antelopev2`) — voir `references/modeles-par-pack.md`.
 Ils sont reportés ici **tels quels**, sans arrondi ni résumé, parce que
 c'est leur précision qui donne au protocole son autorité : « 0.70 donne
 0.44 » se discute, « ça dégrade l'identité » ne se discute pas.

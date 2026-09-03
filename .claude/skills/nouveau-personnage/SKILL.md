@@ -8,7 +8,7 @@ description: A utiliser pour onboarder un nouveau personnage sur un pack (ex-uni
 Depuis J7bis, le **wizard « nouveau personnage »** (écran `#wizard`,
 `create_character`) fait le scaffolding : parcours `type → style → monde →
 base d'identité → écriture de la fiche`, `config.json` aux **défauts du
-pack** (`UNIVERS/<pack>/character_defaults.json`). Ce skill reste la
+pack** (`PACKS/<pack>/character_defaults.json`). Ce skill reste la
 référence pour tout ce que le wizard **ne fait pas** : mesurer le verrou
 d'identité pour ce visage, écrire l'assembleur de prompt et son test à
 l'octet près, curer la banque de scènes. Un personnage sorti du wizard est
@@ -20,7 +20,7 @@ Trois choix humains, figés à la création : **type de personnage**, **style
 de sortie**, **monde**. Le **pack** (famille de modèle + mécanisme
 d'identité + graphe de production — ex-« univers ») n'est **pas choisi** :
 il se déduit de `(type, style)` par `universe.resolve()` /
-`UNIVERS/resolution.json`. En changer l'un des trois = créer un autre
+`PACKS/resolution.json`. En changer l'un des trois = créer un autre
 personnage.
 
 ## Prérequis
@@ -29,7 +29,7 @@ Le pack visé doit déjà exister (`universe.json` avec `identity` / `workflow`
 / `types`, implémentation `AUTOMATION/identity/` correspondante,
 `character_defaults.json`, panel d'outils) **et au moins un monde
 compatible** (`WORLDS/<id>.json` dont `compatible_families` inclut la
-famille du pack). Sinon, suivre `nouvel-univers` d'abord — ce skill-ci ne
+famille du pack). Sinon, suivre `nouvel-pack` d'abord — ce skill-ci ne
 crée jamais de pack ni de monde en cours de route.
 
 ## Étape 1 — Base personnage (identité de référence)
@@ -49,7 +49,7 @@ chaque contenu produit — c'est la cause n°1 de dérive de personnage.
 ## Étape 2 — Mesurer le verrou d'identité pour CE personnage
 
 L'implémentation du verrou d'identité vient du **pack** (voir
-`workflow-comfyui/references/modeles-par-univers.md`), mais ses **réglages
+`workflow-comfyui/references/modeles-par-pack.md`), mais ses **réglages
 sont propres à ce personnage** — ne jamais copier les seuils/poids d'un
 autre personnage du même pack, même famille de modèle.
 
@@ -90,7 +90,7 @@ CHARACTERS/<nom>/
 QC `threshold_ok`/`threshold_watch`/`threshold_high`, grain) se mesure pour
 ce personnage — ce sont des observations empiriques sur son visage et son
 esthétique, pas des constantes de la plateforme. Le wizard part des
-**défauts du pack** (`UNIVERS/<pack>/character_defaults.json`, `identity` et
+**défauts du pack** (`PACKS/<pack>/character_defaults.json`, `identity` et
 `qc` marqués `measured: false`) : les valider par la mesure et **retirer le
 marqueur** avant de les considérer acquis.
 

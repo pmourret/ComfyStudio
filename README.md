@@ -44,7 +44,7 @@ ROADMAP.md                           # séquencement du développement
 ## Prérequis
 
 Une instance ComfyUI locale avec les nœuds custom listés dans
-`.claude/skills/workflow-comfyui/references/modeles-par-univers.md`. GPU
+`.claude/skills/workflow-comfyui/references/modeles-par-pack.md`. GPU
 recommandé : 16 Go de VRAM ou plus (développé sur RTX 4070 Ti Super).
 
 **Node.js 20+** pour construire l'interface. C'est le seul prérequis en

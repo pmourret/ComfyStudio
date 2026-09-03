@@ -1,16 +1,18 @@
 ---
-name: nouvel-univers
-description: A utiliser pour creer un nouveau pack (ex-« univers ») - famille de modele, mecanisme d'identite, graphe de production, entree de resolution.json, character_defaults.json, panel d'outils. Chantier plus lourd et plus rare que l'onboarding d'un personnage, a ne lancer que si ROADMAP.md le prevoit.
+name: nouvel-pack
+description: A utiliser pour creer un nouveau pack technique (ex-« univers ») - famille de modele, mecanisme d'identite, graphe de production, entree de resolution.json, character_defaults.json, panel d'outils. Chantier plus lourd et plus rare que l'onboarding d'un personnage, a ne lancer que si ROADMAP.md le prevoit.
 ---
 
-# Créer un nouveau pack (« univers »)
+# Créer un nouveau pack technique
 
 Depuis ADR-0012, ce qu'on appelait **univers** est un **pack** : famille de
 modèle + mécanisme d'identité + graphe de production + panel d'outils,
-servant un ou plusieurs **types de personnage**. Le dossier reste `UNIVERS/`
-(renommage `UNIVERS/`→`PACKS/` hors périmètre). Le personnage ne choisit
-jamais son pack — il se **déduit** de `(type, style)` par
-`universe.resolve()` / `UNIVERS/resolution.json`.
+servant un ou plusieurs **types de personnage**. Le pack est l'une des
+quatre couches de responsabilité de la plateforme (ADR-0017) — avec la
+plateforme elle-même, il a le droit de porter un graphe ComfyUI ; monde et
+personnage n'en portent jamais. Le dossier est `PACKS/`. Le personnage ne
+choisit jamais son pack — il se **déduit** de `(type, style)` par
+`universe.resolve()` / `PACKS/resolution.json`.
 
 ## Avant de commencer
 
@@ -26,7 +28,7 @@ un pack existant.
 
 Déterminée par l'esthétique et les besoins de contenu visés par l'univers,
 pas par préférence technique. Vérifier `workflow-comfyui/references/
-modeles-par-univers.md` pour ce qui existe déjà avant d'introduire une
+modeles-par-pack.md` pour ce qui existe déjà avant d'introduire une
 troisième famille — deux univers qui pourraient partager une famille de
 modèle ne doivent pas en avoir deux implémentations séparées.
 
@@ -62,33 +64,39 @@ mesure d'identité claire n'est pas prêt à accueillir un premier personnage.
 
 ## Étape 3 — Posing, si prévu pour cet univers
 
-Le posing est un outil global au niveau interface, mais son modèle
-ControlNet sous-jacent dépend de la famille de modèle (voir
-`workflow-comfyui/references/modeles-par-univers.md`). Identifier/valider
-le modèle ControlNet compatible avant d'activer cet outil pour le nouvel
-univers plutôt que de supposer que celui d'un autre univers fonctionne.
+Le posing (modèle ControlNet utilisé à la génération) est une capacité de
+**couche pack** — son identifiant dépend de la famille de modèle (voir
+`workflow-comfyui/references/modeles-par-pack.md`), à ne pas confondre avec
+l'éditeur de squelette OpenPose lui-même, qui est un outil de **couche
+plateforme** (ADR-0017 : agnostique du modèle, appliqué à une image déjà
+produite). Identifier/valider le modèle ControlNet compatible avant
+d'activer cet outil pour le nouvel univers plutôt que de supposer que celui
+d'un autre univers fonctionne.
 
 ## Étape 4 — Panel d'outils initial
 
-- Lister les outils globaux existants qui s'appliquent tels quels
-  (`CLAUDE.md` §5 : édition d'image, modification live par IA, posing si
-  étape 3 validée) — ne rien reconstruire qui existe déjà
+- Lister les outils de **couche plateforme** existants qui s'appliquent tels
+  quels (`CLAUDE.md` §5, ADR-0017 : éditeur de pose, éditeur d'image) — ne
+  rien reconstruire qui existe déjà
+- Vérifier que les outils de **couche pack** déjà globaux (modification live
+  par IA, `edit_workflow`, ADR-0013) ont un graphe pour cette famille de
+  modèle, sinon l'outil reste absent pour ce pack tant qu'il n'existe pas
 - Lister les outils propres à ce monde (ex. un éditeur de lore pour un
   univers narratif) — ce sont des chantiers à part, pas à improviser dans
   la foulée de la création de l'univers si ROADMAP.md les place plus tard
-- Écrire `UNIVERS/<nom>/tools.json` avec ce qui est réellement prêt, pas
+- Écrire `PACKS/<nom>/tools.json` avec ce qui est réellement prêt, pas
   une liste d'intentions
 
 ## Étape 5 — Structure et enregistrement
 
 ```
-UNIVERS/<pack>/
+PACKS/<pack>/
   universe.json            # id, label, model_family, identity, posing,
                             #   output_styles, types, workflow
   character_defaults.json  # gabarit stampé par le wizard dans un nouveau
                             #   CHARACTERS/<id>/ (config aux défauts du pack)
   tools.json               # panel d'outils (étape 4)
-UNIVERS/resolution.json    # règles (type, style) -> pack + un default par type
+PACKS/resolution.json      # règles (type, style) -> pack + un default par type
 ```
 
 `universe.json` (versionné — aucune donnée personnelle, cf. ADR-0010) :
@@ -104,7 +112,7 @@ UNIVERS/resolution.json    # règles (type, style) -> pack + un default par type
   **attache** un nouveau personnage (`config.json` / `workflow`) — jamais un
   fichier de graphe par personnage (`CLAUDE.md` §8.11).
 
-`UNIVERS/resolution.json` : ajouter une règle `{ type, style, pack }` par
+`PACKS/resolution.json` : ajouter une règle `{ type, style, pack }` par
 couple exercé, **plus un `default` par type**. Sans règle applicable,
 `universe.resolve()` lève `UnresolvedPackError` — jamais de repli silencieux
 (ADR-0012).
@@ -115,7 +123,7 @@ l'impl), `preset` / `formats` / `export_sizes` / `qc`, `scenes_seed`,
 stampe, la mesure par personnage (skill `nouveau-personnage`, étapes 2 et 4)
 les remplace.
 
-Le scan de `UNIVERS/` découvre le pack — pas de fichier registre central.
+Le scan de `PACKS/` découvre le pack — pas de fichier registre central.
 
 ## Étape 6 — Un monde compatible
 
