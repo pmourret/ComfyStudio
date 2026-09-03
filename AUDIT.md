@@ -447,8 +447,8 @@ la conversion vit à un seul endroit (`ss.espace_db()`).
 **Fichiers de configuration** (contrat implicite front↔back, ni schéma ni
 validation déclarative) : `character.json` (registre personnage),
 `config.json` (réglages mesurés), `scenes.json`, `creative.json`,
-`UNIVERS/<pack>/universe.json`, `tools.json`, `character_defaults.json`,
-`UNIVERS/resolution.json`, `WORLDS/<id>.json`.
+`PACKS/<pack>/universe.json`, `tools.json`, `character_defaults.json`,
+`PACKS/resolution.json`, `WORLDS/<id>.json`.
 
 **Journaux CSV** (`;` comme séparateur) :
 
@@ -556,7 +556,7 @@ dépôt doit pouvoir passer public sans tri d'urgence. Contraintes concrètes :
 **Quatre axes**, dont trois sont des choix humains figés à la création :
 **type de personnage**, **style de sortie**, **monde**. Le **pack** n'est pas
 un choix — il se **résout** depuis `(type, style)` par `universe.resolve()`,
-lu dans `UNIVERS/resolution.json` (table de données, **ni `if` ni
+lu dans `PACKS/resolution.json` (table de données, **ni `if` ni
 dictionnaire en dur**). Aucune règle applicable → `UnresolvedPackError`,
 **jamais de repli silencieux**.
 

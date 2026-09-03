@@ -1,6 +1,6 @@
 """Verrou d'identite cote GENERATION, choisi par l'univers (CLAUDE.md §4).
 
-L'univers decide du mecanisme (UNIVERS/<id>/universe.json, cle `identity`) ;
+L'univers decide du mecanisme (PACKS/<id>/universe.json, cle `identity`) ;
 tous ses personnages partagent la meme implementation, seuls les reglages
 mesures (config.json, cle `identity`) et les assets de reference (`base_gelee`)
 changent par personnage.

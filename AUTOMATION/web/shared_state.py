@@ -163,7 +163,7 @@ def character(character_id):
       - un id qui n'est pas un slug simple (`?character=../x`) ;
       - un dossier CHARACTERS/<id>/ absent ;
       - un dossier sans character.json (registre personnage manquant, J4) ;
-      - un character.json dont l'univers declare n'existe pas dans UNIVERS/ ;
+      - un character.json dont l'univers declare n'existe pas dans PACKS/ ;
       - un output_style hors des styles declares par l'univers (J5) ;
       - un couple (type, style) qui ne resout pas le pack ecrit dans `universe`
         (ADR-0012 : le pack est deduit, pas choisi — s'il diverge, le registre

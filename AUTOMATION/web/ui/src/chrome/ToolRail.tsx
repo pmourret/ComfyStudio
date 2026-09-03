@@ -4,7 +4,7 @@
    the chrome, and none of them is copied here.
 
    WHAT IT IS: the TOOLS of the current character's pack, read from
-   `UNIVERS/<pack>/tools.json` through /api/universe/tools, plus the workshop
+   `PACKS/<pack>/tools.json` through /api/universe/tools, plus the workshop
    shortcuts that are not primary destinations.
 
    The rail knows nothing about the character nor the pack (CLAUDE.md §8.7): it

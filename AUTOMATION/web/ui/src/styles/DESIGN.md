@@ -166,7 +166,7 @@ servie, au-delà on afficherait un fichier remonté au-dessus de sa résolution.
 ## Le rail d'outils n'est pas une seconde navigation
 
 `.rail` (200 px, hors de `<main>`, dans `.shell`) porte les **outils du pack**
-— lus dans `UNIVERS/<pack>/tools.json` via `/api/universe/tools` — et les
+— lus dans `PACKS/<pack>/tools.json` via `/api/universe/tools` — et les
 raccourcis d'atelier. Les **cinq destinations de la navbar restent le chrome** :
 aucune n'est recopiée dans le rail. Les deux colonnes se lisent côte à côte et
 ne se confondent pas — la navbar dit **où aller** dans l'application, le rail

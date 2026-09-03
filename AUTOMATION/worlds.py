@@ -21,7 +21,7 @@ Trois choses qu'un monde n'est PAS :
     Banque (routes `/api/worlds/<id>/places`, jamais `POST /api/scenes`), et
     toute scene qui le reference en herite en direct — voir `merge_scene()`.
 
-Comme UNIVERS/, ce registre est VERSIONNE : aucune donnee personnelle, un fichier
+Comme PACKS/, ce registre est VERSIONNE : aucune donnee personnelle, un fichier
 plat par monde (WORLDS/<id>.json), decouverte par scan.
 
 J7bis : le registre existe et se valide, mais RIEN ne consomme encore ses assets
@@ -113,7 +113,7 @@ def create_world(wid, label, pack, tone=""):
     pas seulement celui choisi ici.
 
     N'ECRIT QUE ce fichier : aucun acces a CHARACTERS/, aucune ecriture dans
-    UNIVERS/resolution.json. Le gel (« n'assigne ce monde a aucun
+    PACKS/resolution.json. Le gel (« n'assigne ce monde a aucun
     personnage ») est vrai par construction, pas par un garde-fou en plus.
 
     Leve avant toute ecriture : ValueError (id invalide, pack inconnu),

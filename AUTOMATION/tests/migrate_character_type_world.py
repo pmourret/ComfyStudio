@@ -37,7 +37,7 @@ _NOTE = (
     "J7bis). type et world sont figes a la creation, au meme titre que "
     "output_style ; world doit etre compatible avec la famille du pack. Le "
     "pack lui-meme reste dans `universe`, il n'est pas choisi mais deduit de "
-    "(type, output_style) via UNIVERS/resolution.json.")
+    "(type, output_style) via PACKS/resolution.json.")
 
 _KEYS_AFTER_UNIVERSE = ("type", "world")
 

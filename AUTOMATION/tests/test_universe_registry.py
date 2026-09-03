@@ -7,8 +7,8 @@ une copie l'un de l'autre — familles de modele distinctes, sinon rien n'aurait
 ete generalise —, (3) rendre une erreur PROPRE sur un id inconnu, jamais un
 chemin nu ni un FileNotFoundError brut qui remonterait en 500 cote web.
 
-Le chemin heureux tourne contre le vrai UNIVERS/ (versionne, toujours present).
-Les cas limites tournent contre un UNIVERS/ jetable (monkeypatch UNIVERS_DIR).
+Le chemin heureux tourne contre le vrai PACKS/ (versionne, toujours present).
+Les cas limites tournent contre un PACKS/ jetable (monkeypatch PACKS_DIR).
 
 Lancer :  python_embeded\\python.exe AUTOMATION\\tests\\test_universe_registry.py
 """
@@ -85,12 +85,12 @@ verifie(universe.exists("") is False and universe.exists(None) is False,
         "exists() faux sur '' et None (jamais un chemin construit avec du vide)")
 
 # --------------------------------------------------------- [5] registre jetable
-print("\n[5] cas limites sur un UNIVERS/ jetable")
-_vrai = universe.UNIVERS_DIR
+print("\n[5] cas limites sur un PACKS/ jetable")
+_vrai = universe.PACKS_DIR
 _tmp = Path(tempfile.mkdtemp(prefix="univers_test_"))
 try:
-    universe.UNIVERS_DIR = _tmp
-    verifie(universe.list_universes() == [], "UNIVERS/ vide -> list_universes() == []")
+    universe.PACKS_DIR = _tmp
+    verifie(universe.list_universes() == [], "PACKS/ vide -> list_universes() == []")
 
     (_tmp / "cassé").mkdir()
     (_tmp / "cassé" / "universe.json").write_text("{ pas du json", encoding="utf-8")
@@ -109,7 +109,7 @@ try:
     verifie(universe.load_tools("sans-outils") == [],
             "univers sans tools.json -> load_tools() == [] (fichier optionnel)")
 finally:
-    universe.UNIVERS_DIR = _vrai
+    universe.PACKS_DIR = _vrai
     shutil.rmtree(_tmp, ignore_errors=True)
 
 print("\n" + "=" * 70)

@@ -9,11 +9,11 @@ contenu actifs, dans character.json).
 Contrairement a CHARACTERS/, ce registre est VERSIONNE : il ne contient aucune
 donnee personnelle, seulement des choix d'architecture (quel checkpoint, quel
 verrou d'identite, quels outils). Un fichier par univers, decouverte par scan de
-UNIVERS/<id>/ — pas de fichier central a merger.
+PACKS/<id>/ — pas de fichier central a merger.
 
-    UNIVERS/<id>/universe.json   famille de modele, identite, posing, styles, types
-    UNIVERS/<id>/tools.json      panel d'outils du Dashboard pour cet univers
-    UNIVERS/resolution.json      table (type de personnage, style) -> pack (ADR-0012)
+    PACKS/<id>/universe.json   famille de modele, identite, posing, styles, types
+    PACKS/<id>/tools.json      panel d'outils du Dashboard pour cet univers
+    PACKS/resolution.json      table (type de personnage, style) -> pack (ADR-0012)
 
 En J4, les champs `model_family` / `identity` / `posing` sont des chaines
 declaratives : elles seront cablees a du code en J5 (AUTOMATION/identity/).
@@ -29,11 +29,11 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 OFM = HERE.parent
-UNIVERS_DIR = OFM / "UNIVERS"
+PACKS_DIR = OFM / "PACKS"
 
 
 class UnknownUniverseError(ValueError):
-    """Un id d'univers demande n'a pas de dossier UNIVERS/<id>/universe.json."""
+    """Un id d'univers demande n'a pas de dossier PACKS/<id>/universe.json."""
 
 
 class UnresolvedPackError(ValueError):
@@ -46,11 +46,11 @@ class UnresolvedPackError(ValueError):
 
 
 def universe_dir(uid):
-    return UNIVERS_DIR / uid
+    return PACKS_DIR / uid
 
 
 def resolution_path():
-    return UNIVERS_DIR / "resolution.json"
+    return PACKS_DIR / "resolution.json"
 
 
 def _short(path):
@@ -73,10 +73,10 @@ def _read_json(path, quoi):
 
 
 def list_universes():
-    """Ids des univers declares, ordre alphabetique. [] si UNIVERS/ absent."""
-    if not UNIVERS_DIR.is_dir():
+    """Ids des univers declares, ordre alphabetique. [] si PACKS/ absent."""
+    if not PACKS_DIR.is_dir():
         return []
-    return sorted(p.name for p in UNIVERS_DIR.iterdir()
+    return sorted(p.name for p in PACKS_DIR.iterdir()
                   if (p / "universe.json").is_file())
 
 
@@ -85,12 +85,12 @@ def exists(uid):
 
 
 def load_universe(uid):
-    """Contenu de UNIVERS/<uid>/universe.json. Leve UnknownUniverseError si absent."""
+    """Contenu de PACKS/<uid>/universe.json. Leve UnknownUniverseError si absent."""
     return _read_json(universe_dir(uid) / "universe.json", "universe.json")
 
 
 def load_tools(uid):
-    """Liste d'outils de UNIVERS/<uid>/tools.json.
+    """Liste d'outils de PACKS/<uid>/tools.json.
 
     tools.json est optionnel : un univers sans outil declare rend []. Un
     universe.json manquant, lui, reste une erreur (l'univers n'existe pas)."""
@@ -165,7 +165,7 @@ def require_edit_workflow(uid):
 
 
 def load_character_defaults(uid):
-    """UNIVERS/<uid>/character_defaults.json : le gabarit que le wizard stampe
+    """PACKS/<uid>/character_defaults.json : le gabarit que le wizard stampe
     dans un nouveau CHARACTERS/<id>/ (config aux defauts du pack, amorces de
     banque et de taxonomie). Pack inconnu -> UnknownUniverseError ; pack sans
     gabarit -> {}."""
@@ -215,7 +215,7 @@ def style_effect(uid, name):
 # (CLAUDE.md §3-§4, ADR-0012). La table est une donnee versionnee, pas du
 # code : un troisieme pack est un diff de resolution.json, jamais un if ici.
 def _load_resolution():
-    """(rules, defaults) de UNIVERS/resolution.json.
+    """(rules, defaults) de PACKS/resolution.json.
 
     Fichier absent -> UnresolvedPackError : sans table, aucun couple ne se
     resout, et le dire tout de suite vaut mieux qu'un pack devine.
@@ -238,7 +238,7 @@ def resolve(character_type, output_style):
 
     Cherche d'abord une regle exacte (type, style) dans resolution.json, sinon
     le `default` du type. Aucune correspondance -> UnresolvedPackError (jamais
-    un repli silencieux). Le pack rendu est garanti exister (UNIVERS/<pack>/).
+    un repli silencieux). Le pack rendu est garanti exister (PACKS/<pack>/).
     """
     rules, defaults = _load_resolution()
     pack = next((r.get("pack") for r in rules
@@ -255,7 +255,7 @@ def resolve(character_type, output_style):
         raise UnresolvedPackError(
             f"la table de resolution renvoie le pack {pack!r} pour "
             f"(type={character_type!r}, style={output_style!r}), mais "
-            f"UNIVERS/{pack}/universe.json est absent")
+            f"PACKS/{pack}/universe.json est absent")
     return pack
 
 
@@ -265,7 +265,7 @@ def _diagnostic():
     print("=" * 72)
     ids = list_universes()
     if not ids:
-        print(f"aucun univers dans {UNIVERS_DIR}")
+        print(f"aucun univers dans {PACKS_DIR}")
         return 1
     for uid in ids:
         u = load_universe(uid)

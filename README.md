@@ -29,7 +29,7 @@ mais pas encore construits — voir `ROADMAP.md`.
 
 ```
 CHARACTERS/<nom>/     # données de chaque personnage — non versionnées
-UNIVERS/<nom>/          # panel d'outils par univers (tools.json)
+PACKS/<nom>/            # panel d'outils par pack (tools.json)
 AUTOMATION/                # moteur partagé : exécution, conversion de
                               # workflows, verrous d'identité, base
 DOCS/
