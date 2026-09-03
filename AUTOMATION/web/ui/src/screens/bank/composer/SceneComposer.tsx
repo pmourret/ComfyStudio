@@ -87,11 +87,22 @@ function intentionOptions(creative: Creative | null, current: string) {
   return entries
 }
 
+/** Filename + human label (design pass écran 7, §A1) — the same shape
+    `usePoseBank`/`PoseCard` already resolve for the Poses screen, fetched
+    separately here (`/api/pose/bank`) rather than widening `poses:
+    string[]` on `/api/scenes`: that route stays "enough for a picker" for
+    whichever other consumer reads it (its own doc comment,
+    `api/routers/images.py`), this composer just asks the richer route for
+    itself, same as `usePoseBank` already does. */
+type PoseSummary = { name: string; label: string | null }
+
 /* Skeletons of INPUTS/POSE/, served by /api/scenes. A scene pointing at a
    missing skeleton (file moved, renamed) KEEPS it in the list rather than lose
    it in silence — same rule as an out-of-taxonomy intention. */
-function poseOptions(poses: string[], current: string) {
-  return current && !poses.includes(current) ? [...poses, current] : poses
+function poseOptions(poses: PoseSummary[], current: string) {
+  return current && !poses.some((p) => p.name === current)
+    ? [...poses, { name: current, label: null }]
+    : poses
 }
 
 export function SceneComposer({
@@ -126,6 +137,29 @@ export function SceneComposer({
   const [tab, setTab] = useState<TabKey>('general')
   const tabsRef = useRef<HTMLDivElement | null>(null)
   const idRef = useRef<HTMLInputElement | null>(null)
+  const api = useApi()
+
+  /* Labels for `poses` (design pass écran 7, §A1) — refetched whenever the
+     filename list itself changes, same trigger `usePoseBank`'s own
+     `reloadBankDetail` uses. A pose with no sidecar (legacy, or the fetch
+     hasn't landed yet) falls back to its filename below, same as
+     `PoseCard`'s own `label || name`. */
+  const [poseLabels, setPoseLabels] = useState<Record<string, string | null>>({})
+  useEffect(() => {
+    let cancelled = false
+    void api
+      .get<{ poses?: { nom: string; label: string | null }[] }>('/api/pose/bank')
+      .then((response) => {
+        if (cancelled) return
+        const map: Record<string, string | null> = {}
+        for (const entry of response.poses ?? []) map[entry.nom] = entry.label
+        setPoseLabels(map)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [api, poses])
+  const posesWithLabels: PoseSummary[] = poses.map((name) => ({ name, label: poseLabels[name] ?? null }))
 
   /* Opening a DIFFERENT scene always starts on Général and puts the cursor in
      its name — the same "opening focuses the identifier" contract the flat
@@ -252,7 +286,7 @@ export function SceneComposer({
                 {t.key === 'pose' && (
                   <PosePanel
                     draft={draft}
-                    poses={poses}
+                    poses={posesWithLabels}
                     worldLinked={worldLinked}
                     lockedNote={lockedNote}
                     onPatch={onPatch}
@@ -759,12 +793,14 @@ function PosePanel({
   onPatch,
 }: {
   draft: SceneDraft
-  poses: string[]
+  poses: PoseSummary[]
   worldLinked: boolean
   lockedNote: string
   onPatch: (patch: Partial<SceneDraft>) => void
 }) {
   const options = poseOptions(poses, draft.pose)
+  // Same `label || name` fallback as `PoseCard`'s own accessible name.
+  const currentLabel = options.find((p) => p.name === draft.pose)?.label || draft.pose
   const [editing, setEditing] = useState(false)
   /* "+ Nouvelle pose" (design pass écran 7, §V3): two steps, both without
      leaving the scene. `naming` collects name + starting template (the same
@@ -801,7 +837,7 @@ function PosePanel({
             <button
               type="button"
               className="btn sm"
-              aria-label={`Modifier « ${draft.pose} » point par point`}
+              aria-label={`Modifier « ${currentLabel} » point par point`}
               data-hint-text="Retoucher ce squelette, sans quitter la scène"
               onClick={() => setEditing(true)}
             >
@@ -841,22 +877,27 @@ function PosePanel({
             aucun squelette en banque — l'éditeur de pose en extrait depuis une photo
           </div>
         ) : (
-          options.map((name) => (
+          options.map(({ name, label }) => (
             <button
               key={name}
               type="button"
               aria-pressed={draft.pose === name}
-              title={name}
+              title={label || name}
               className={`relative aspect-square overflow-hidden rounded-[8px] border bg-black ${
                 draft.pose === name ? 'border-acc' : 'border-line2'
               }`}
               onClick={() => onPatch({ pose: name })}
             >
+              {/* `alt` carries the button's accessible name — same
+                  `label || name` fallback as `PoseCard`'s own thumbnail
+                  (design pass écran 7, §A1): a screen reader used to hear
+                  the raw filename (`leaning-doorway-standing-01`) with no
+                  route to the human label PoseCard already shows. */}
               <img
                 className="h-full w-full object-contain"
                 loading="lazy"
                 src={`/img/pose?name=${encodeURIComponent(name)}`}
-                alt={name}
+                alt={label || name}
               />
             </button>
           ))
