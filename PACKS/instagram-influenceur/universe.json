@@ -13,9 +13,9 @@
   "_notes": [
     "model_family / identity / posing : chaines declaratives en J4, cablees en J5",
     "(identity -> AUTOMATION/identity/pulid_flux.py). Source de verite des valeurs :",
-    ".claude/skills/workflow-comfyui/references/modeles-par-univers.md.",
+    ".claude/skills/workflow-comfyui/references/modeles-par-pack.md.",
     "types : types de personnage que ce pack sert (ADR-0012, J7bis). Liste des le",
-    "premier jour meme si la relation reste 1-1 en V1. UNIVERS/resolution.json",
+    "premier jour meme si la relation reste 1-1 en V1. PACKS/resolution.json",
     "aiguille (type, style) -> pack ; ce champ est le lien inverse.",
     "workflow : graphe de PRODUCTION du pack. Le wizard « nouveau personnage » y",
     "RATTACHE le nouveau personnage (config.json/workflow) — il ne cree jamais de",

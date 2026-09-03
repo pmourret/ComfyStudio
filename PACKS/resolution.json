@@ -15,7 +15,7 @@
     "technique (ADR-0012, CLAUDE.md §3-§4). Lue par AUTOMATION/universe.py :",
     "resolve(character_type, output_style) -> pack_id.",
     "",
-    "VERSIONNEE, comme UNIVERS/<id>/ : aucun choix personnel, seulement",
+    "VERSIONNEE, comme PACKS/<id>/ : aucun choix personnel, seulement",
     "l'aiguillage d'architecture. Ajouter un troisieme pack est un diff ici, jamais",
     "un if ni un dictionnaire en dur dans le code.",
     "",
