@@ -25,7 +25,7 @@ résolution (§4, ADR-0012).
 - **Type**, **style** et **monde** sont trois choix humains, figés à la
   création : en changer, c'est créer un autre personnage (§8.8).
 - Le **pack** n'est pas un choix. Il se résout depuis `(type, style)` par
-  `universe.resolve()`, lu dans `UNIVERS/resolution.json` (table de
+  `universe.resolve()`, lu dans `PACKS/resolution.json` (table de
   données, ni `if` ni dictionnaire en dur). Aucune règle applicable →
   erreur explicite, **jamais de repli silencieux sur un pack par défaut**
   (ADR-0012).
@@ -39,7 +39,7 @@ résolution (§4, ADR-0012).
   premier jour**, même si la relation reste 1-1 en V1.
 - Le **wizard « nouveau personnage »** (`create_character`, écran
   `#wizard`) est le seul à écrire une fiche : il résout le pack, stampe
-  `config.json` aux défauts du pack (`UNIVERS/<pack>/character_defaults.json`),
+  `config.json` aux défauts du pack (`PACKS/<pack>/character_defaults.json`),
   amorce la banque depuis le monde, et n'édite jamais un des trois axes
   figés. Les valeurs mesurées du personnage remplacent ensuite les défauts
   dans Réglages (`measured: false` tant que ce n'est pas fait). Cet écran
@@ -62,7 +62,7 @@ modèle différentes (Flux + PuLID pour le pack servant
 `instagram-influenceur`, SDXL/Pony + LoRA pour celui servant
 `rpg-personnage`) — c'est le **pack** qui porte ce choix, résolu depuis
 `(type, style)` (§3), pas chaque personnage. Détail des modèles/nœuds par
-pack : `workflow-comfyui/references/modeles-par-univers.md`.
+pack : `workflow-comfyui/references/modeles-par-pack.md`.
 
 Conséquence : le « verrou d'identité » est une **interface choisie par le
 pack** (`AUTOMATION/identity/`), pas une fonction par personnage. Tous les
@@ -108,8 +108,8 @@ Dashboard — l'outillage disponible change selon l'univers du personnage
 (Léna → `instagram-influenceur`, outils lifestyle/Instagram ; Abyssiaelle →
 `rpg-personnage`, outils orientés monde/lore). L'utilisateur peut ajouter
 des outils à un univers via le paramétrage — le panel n'est pas figé à ce
-qui existe au lancement. Structure et exemple : skill `nouvel-univers`
-(`UNIVERS/<nom>/tools.json` + `CHARACTERS/<nom>/config.json` référençant
+qui existe au lancement. Structure et exemple : skill `nouvel-pack`
+(`PACKS/<nom>/tools.json` + `CHARACTERS/<nom>/config.json` référençant
 son univers).
 
 - Un **outil** est un module autonome (route(s) backend + écran/composant
@@ -117,9 +117,18 @@ son univers).
   dans `tools.json`, ne modifie jamais le Dashboard au cas par cas
 - Pas de chargeur de plugins dynamique pour la V1 — un registre déclaratif
   suffit tant qu'un seul développeur ajoute les outils
-- Les outils peuvent servir à plusieurs univers (édition d'image,
-  modification live par IA, posing sont **globaux**, pas propres à un
-  univers) — seule l'isolation des données compte, pas le code
+- Les outils peuvent servir à plusieurs univers, mais « servir à plusieurs
+  univers » recouvre deux couches différentes (**quatre couches de
+  responsabilité**, ADR-0017 — voir aussi §3-§4 pour les axes de création,
+  un modèle distinct) :
+  - **couche plateforme** — agnostique du modèle, appliquée à une image déjà
+    produite : posing (édition de squelette OpenPose), édition d'image
+  - **couche pack** — liée à la famille de modèle, même quand elle est
+    déclarée `scope: global` dans `tools.json` : modification live par IA
+    (`edit_workflow`, ADR-0013), dont le graphe est injecté par le
+    mécanisme d'identité d'une famille précise
+  - Seules ces deux couches ont le droit de porter un graphe ComfyUI ; un
+    monde ou un personnage n'en portent jamais (ADR-0017)
 - La banque de scènes reste un outil parmi d'autres, pas LE mécanisme
   central. `compose.py` en est un exemple pour Léna
 - Invariant : **une référence de scène sert à la composition, jamais à

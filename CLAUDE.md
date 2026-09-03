@@ -8,7 +8,8 @@ réordonner ; (3) ajouter des fonctionnalités seulement ensuite.
 
 ## Architecture
 
-Le fond (axes de création, packs, verrou d'identité, outils, NSFW, registre,
+Le fond (quatre couches — plateforme, pack, monde, personnage, ADR-0017 —,
+axes de création, packs, verrou d'identité, outils, NSFW, registre,
 hors-scope) vit dans `DOCS/architecture.md`. **Ne l'ouvrir que si la tâche
 touche la création d'un personnage, un univers/pack, l'identité ou le NSFW.**
 Sinon les invariants ci-dessous suffisent.
@@ -37,8 +38,14 @@ repo et skills en **français**.
 5. L'ordre QC → expression → grain reste l'ordre, si la chaîne l'utilise.
 6. `assert_no_face()` s'applique à tout personnage dont le mécanisme
    d'identité l'exige.
-7. Le panel d'outils vient du registre univers — **jamais de
-   `if character == "lena"`** en dur, frontend ou backend.
+7. Le panel d'outils vient des quatre couches de la plateforme (plateforme,
+   pack, monde, personnage — ADR-0017) — **jamais de
+   `if character == "lena"`** en dur, frontend ou backend. Seules la
+   plateforme et le pack ont le droit de porter un graphe ; monde et
+   personnage n'en portent jamais.
+   **Amendé le 2026-09-03** — c'était « vient du registre univers » : ça ne
+   couvrait que le pack, pas les outils plateforme (posing, expression,
+   édition d'image) qui existaient déjà, sans couche nommée.
 8. Type, style de sortie et monde sont figés à la création ; le pack en dérive
    et suit le même gel.
 9. Le NSFW ne construit jamais de sous-système propre — il recompose les
