@@ -427,6 +427,61 @@ prouvent la généralisation — pas juste Léna renommée.
   avant ET après, aucun changé sur le fond (seuls les chemins renommés et
   `universe.UNIVERS_DIR` → `universe.PACKS_DIR`)
 
+**J8.2 — Carte de capacités** ✅ *(terminé 2026-09-03)*
+- `universe.json` gagne `capabilities` (dict id -> `{graph, roles}`),
+  remplace les deux champs nommés en dur `workflow`/`edit_workflow`
+  (ADR-0018). Une capacité absente est une **clé absente**, jamais une
+  valeur `null` — même principe qu'`edit_workflow: null` (ADR-0013), rendu
+  générique : `rpg-personnage` n'a aucune clé `edit` dans sa carte.
+  `roles` volontairement dissymétrique : réel pour `edit` (copié de
+  `NsfwRunner.roles`, seule donnée qui n'existait nulle part ailleurs sous
+  forme structurée) ; `[]` pour `produce` (déjà porté par `REQUIRED_ROLES`
+  de l'implémentation d'identité du pack — le dupliquer aurait créé une 2ᵉ
+  source de vérité). Ni l'un ni l'autre n'est câblé dans la résolution
+  réelle des nœuds — déclaratif, pas un branchement, pour ne pas risquer la
+  garantie « chemin de production byte-identique » de ce chantier
+- **Écart constaté par rapport à l'énoncé du chantier** : seulement **10**
+  comparaisons `"flux+edit"` trouvées en code exécutable (9 Python + 1
+  TypeScript), pas 17. Explication trouvée dans le handoff du 29/08 :
+  les 17 dataient du frontend JS vanille d'avant la migration React
+  (30/08/2026), qui avait déjà centralisé le côté frontend dans un seul
+  point (`isEditTier`, `useProduceState.ts`). Ce même handoff annonçait déjà
+  l'intention (« le helper existe déjà des deux côtés, il reste à
+  généraliser les comparaisons ») — ce chantier la termine, avec un
+  vocabulaire capacité-générique (`"produce"`/`"edit"`) plutôt que le
+  `sdxl+edit` encore préfixé par famille qu'il envisageait
+- `services/creative.py` gagne `is_edit_tier(tier)` — l'unique endroit qui
+  compare désormais `pipeline` à la capacité `edit` ; `edit_tier()` et les 4
+  comparaisons inline restantes du même fichier, plus celles de
+  `services/batch.py` (`nsfw_chaining_hook`), `routers/bank.py` (`/api/creative`),
+  `routers/production.py` (`/api/decline`) et `routers/state.py`
+  (`seconds_per_image`), l'utilisent toutes — 9 comparaisons Python
+  consolidées en une. Le pendant frontend, déjà unique (`isEditTier`), garde
+  sa forme, seul son littéral change (`'flux+edit'` → `'edit'`)
+- Migration des données : `pipeline` renommé `"flux"`/`"sdxl"` → `"produce"`,
+  `"flux+edit"` → `"edit"` dans les deux `character_defaults.json`
+  (versionnés) et, via un script neuf idempotent
+  (`migrate_pipeline_capability_ids.py`, gabarit de
+  `migrate_character_type_world.py`) sur les deux `CHARACTERS/*/creative.json`
+  réels de ce poste (hors dépôt, ADR-0005) — règle générique par suffixe
+  `+edit`, sans nom de famille en dur dans le script lui-même
+- Le panel du studio dérivait déjà de la carte pour l'essentiel
+  (`AdultContentSection.tsx` lit `tool.has_graph` depuis `/api/nsfw/state`,
+  aucun `pack ===` en dur trouvé dans tout `web/ui/src`) — seule
+  l'implémentation interne d'`edit_tool_state()` change de source
+- Nouveau `test_pack_capabilities.py` : les deux packs réels, régression
+  byte-identique des deux chemins de production (comparés à des chaînes
+  écrites en dur dans le test, pas seulement à la fonction), `require_capability`
+  sur capacité absente et sur pack inconnu, `is_edit_tier`/`edit_tier`.
+  `test_character_create.py` et `test_nsfw_isolation.py` adaptés à la
+  nouvelle API sans changer une seule assertion de comportement
+- Aucun ADR accepté n'est réédité (0013 continue de dire `edit_workflow` —
+  exact pour son époque ; ADR-0018 le complète, ne le supersède pas).
+  `DOCS/ROADMAP-finition-studio.md`/`CHECKLIST-finition-studio.md` portent un
+  F5.5 qui ressemble à cette tâche mais vit dans une session GPU différente
+  (mains/inpaint/edit SDXL, hors périmètre) — non touchés, signalés pour la
+  personne qui tient ce second document
+
 **Studio IA — chaque écran au niveau d'un outil professionnel** *(ouvert
 2026-09-01 — exigence transverse, pas un jalon avec une date de fin)*
 - Périmètre inchangé : personnage → univers → scènes, le pipeline actuel.

@@ -22,12 +22,22 @@ The messages returned are French: they are displayed as-is.
 import nsfw_batch
 import runner as lb
 import shared_state as ss
+from universe import EDIT
+
+
+def is_edit_tier(tier):
+    """True when TIER's pipeline is the `edit` capability (ADR-0018) rather
+    than `produce`. The one place that compares — every other module in the
+    codebase (server and browser alike) calls this instead of inlining the
+    comparison, so a pack's edit pipeline id never has to be spelled out
+    twice (J8.2; the frontend counterpart is `isEditTier`,
+    `screens/produce/useProduceState.ts`)."""
+    return bool(tier) and tier.get("pipeline") == EDIT
 
 
 def edit_tier(creative):
     """The tier that edits an image instead of generating one, if it exists."""
-    return next((p for p in creative.get("intensity", [])
-                 if p.get("pipeline") == "flux+edit"), None)
+    return next((p for p in creative.get("intensity", []) if is_edit_tier(p)), None)
 
 
 def guard_intensity(level, character, *, confirm=False, edit_instruction="",
@@ -51,10 +61,10 @@ def guard_intensity(level, character, *, confirm=False, edit_instruction="",
         return f"le niveau « {tier['label']} » demande une confirmation"
     if requires == "armed" and not nsfw_batch.is_armed(character):
         return f"le niveau « {tier['label']} » demande la branche NSFW armee"
-    if tier.get("pipeline") == "flux+edit" and not (edit_instruction or "").strip():
+    if is_edit_tier(tier) and not (edit_instruction or "").strip():
         return (f"le niveau « {tier['label']} » demande une instruction "
                 f"d'édition")
-    if tier.get("pipeline") == "flux+edit" and no_qc:
+    if is_edit_tier(tier) and no_qc:
         # In `generer_avant` mode the QC is the only filter protecting the
         # chaining (`nsfw_chaining_hook`): without it `execute_jobs` codes every
         # verdict "OK" and absolutely everything gets edited, face detected or
@@ -134,7 +144,7 @@ def payload_at_generation_level(payload, character):
     what the log header and STATE["intensity"] must announce.
     """
     tier = lb.by_level(lb.load_creative(character), int(payload.intensity or 0))
-    if tier and tier.get("pipeline") == "flux+edit":
+    if is_edit_tier(tier):
         return payload.model_copy(update={"intensity": tier.get("base_level", 1)})
     return payload
 
@@ -153,8 +163,7 @@ def is_edit_mode(payload, character):
     pass (~55 s) to reproduce an image already on the disk.
     """
     tier = lb.by_level(lb.load_creative(character), int(payload.intensity or 0))
-    return bool(tier and tier.get("pipeline") == "flux+edit"
-                and not payload.generer_avant)
+    return bool(is_edit_tier(tier) and not payload.generer_avant)
 
 
 def valid_sources(payload, character):

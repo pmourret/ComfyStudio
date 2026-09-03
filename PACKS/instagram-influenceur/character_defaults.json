@@ -25,9 +25,9 @@
     "intentions": [],
     "tones": [],
     "intensity": [
-      { "level": 0, "key": "sfw", "label": "SFW strict", "pipeline": "flux",
+      { "level": 0, "key": "sfw", "label": "SFW strict", "pipeline": "produce",
         "prompt_add": "", "export": true, "requires": null },
-      { "level": 1, "key": "edition", "label": "NSFW", "pipeline": "flux+edit",
+      { "level": 1, "key": "edition", "label": "NSFW", "pipeline": "edit",
         "base_level": 0, "wardrobe": "", "edit_instruction": "",
         "export": false, "requires": "armed" }
     ],
@@ -45,8 +45,8 @@
     "Le wizard ajoute par-dessus : `workflow` (= universe.json/workflow, le graphe",
     "DU PACK — jamais un graphe par personnage, §8.11) et `base_gelee` (l'image",
     "d'identite gelee, fournie ou generee).",
-    "creative_seed.intensity porte le palier d'EDITION (`pipeline` flux+edit,",
-    "`requires` armed) depuis J7 : c'est le pack qui le stampe, plus une entree",
+    "creative_seed.intensity porte le palier d'EDITION (`pipeline` = capacite",
+    "'edit', ADR-0018 ; `requires` armed) : c'est le pack qui le stampe, plus une entree",
     "ecrite a la main dans un seul character.json. Il n'apparait dans l'interface",
     "que si le personnage est arme ET que le pack declare un `edit_workflow`",
     "(universe.json) — les deux conditions, voir /api/creative. Un personnage",

@@ -154,7 +154,7 @@ def create_character(cid, name, character_type, output_style, world, base_gelee)
     }
 
     config = {
-        "workflow": universe.workflow(pack),
+        "workflow": universe.capability_graph(pack, universe.PRODUCE),
         "base_gelee": base_gelee,
         "identity": dict(dft.get("identity") or {}),
         "preset": dict(dft.get("preset") or {}),

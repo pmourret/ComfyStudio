@@ -32,6 +32,7 @@ from ..services.bank import (
     category_order, refresh_world_scenes, rotate_backup, scene_previews,
     scene_stats, stamp_world, validate_scene_bank,
 )
+from ..services.creative import is_edit_tier
 
 router = APIRouter(responses=ERROR_RESPONSES)
 
@@ -136,7 +137,7 @@ async def get_creative_taxonomy(character_id: RequiredCharacterId):
     tiers = []
     for p in creative.get("intensity", []):
         requires = p.get("requires")
-        edits = p.get("pipeline") == "flux+edit"
+        edits = is_edit_tier(p)
         # A tier that demands arming and does not have it IS NOT EMITTED: the
         # notch is absent from the interface, not greyed out (ADR-0003: NSFW is
         # off by default, and a greyed notch is still an invitation). The slider

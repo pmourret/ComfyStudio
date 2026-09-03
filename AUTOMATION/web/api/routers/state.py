@@ -39,6 +39,7 @@ from ..schemas.state import (
     JournalResponse, NsfwStateResponse, SystemStateResponse,
     UniverseToolsResponse, WizardOptionsResponse,
 )
+from ..services.creative import is_edit_tier
 
 router = APIRouter(responses=ERROR_RESPONSES)
 
@@ -58,7 +59,7 @@ def seconds_per_image():
     cid = ss.STATE["character"]
     base = ss.avg_duration(cid)
     tier = lb.by_level(lb.load_creative(cid), ss.STATE.get("intensity") or 0)
-    if tier and tier.get("pipeline") == "flux+edit":
+    if is_edit_tier(tier):
         base += ss._moyenne_duree(nsfw_batch.journal_path(cid), 60.0)
     return base
 

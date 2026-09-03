@@ -29,6 +29,7 @@ from datetime import datetime
 import nsfw_batch
 import runner as lb
 import shared_state as ss
+from .creative import is_edit_tier
 
 
 def nsfw_chaining_hook(configuration, use_qc, batch_id, character):
@@ -40,7 +41,7 @@ def nsfw_chaining_hook(configuration, use_qc, batch_id, character):
     """
     level = configuration.get("_intensity", 0)
     tier = lb.by_level(lb.load_creative(character), level)
-    if not tier or tier.get("pipeline") != "flux+edit":
+    if not is_edit_tier(tier):
         return None
     instruction = configuration.get("_edit_instruction", "")
     state = {"runner": None, "rows": []}

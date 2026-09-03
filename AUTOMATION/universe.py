@@ -121,47 +121,52 @@ def types(uid):
     return list(load_universe(uid).get("types", []))
 
 
-def workflow(uid):
-    """Chemin (relatif au repo) du graphe de PRODUCTION du pack (`universe.json`
-    / `workflow`). Le wizard « nouveau personnage » y RATTACHE le nouveau
-    personnage (config.json/workflow) — il ne cree jamais de fichier de graphe
-    (CLAUDE.md §8.11)."""
-    return load_universe(uid).get("workflow")
+# ------------------------------------------------------------- capacites (J8.2)
+# Une capacite est declaree par la couche qui la fournit (ADR-0017) ; en J8.2
+# seul le pack en declare (`universe.json` / `capabilities`). La forme (id ->
+# {graph, roles}) est deliberement generale : la couche plateforme (J8.4) y
+# entrera sans que ce schema change (ADR-0018).
+PRODUCE = "produce"    # capacite de production : un graphe, jamais absente
+EDIT = "edit"          # capacite d'edition live par IA : nullable (ADR-0013)
 
 
-class EditToolUnavailableError(ValueError):
-    """The pack declares no live-AI-edit graph, so the edit tool does not exist
-    for it yet.
-
-    NSFW is a composition of two GLOBAL tools (ADR-0003), and that ADR is
-    explicit: adding a pack costs no NSFW-specific work *as long as both tools
-    exist for it*. The edit graph's identity stage is model-family bound (PuLID
-    Flux + FaceDetailer for the flux pack), so it is a PACK asset, never a
-    per-character file (CLAUDE.md §8.11). A pack without one says so loudly
-    instead of falling back on another family's graph.
+class CapabilityUnavailableError(ValueError):
+    """The pack declares no such capability — it is simply absent from its
+    `capabilities` map, never a null placeholder (CLAUDE.md §6/ADR-0013's
+    rule, generalised beyond the edit tool alone: an absent capability makes
+    the tool disappear, it is never greyed out).
     """
 
 
-def edit_workflow(uid):
-    """Path (repo-relative) of the pack's live-AI-edit graph, or None.
+def capabilities(uid):
+    """Carte de capacites du pack (`universe.json` / `capabilities`), brute.
 
-    `universe.json` / `edit_workflow`, nullable by design: a pack that has no
-    such graph yet returns None, and the edit step of the intensity ladder is
-    simply not offered for its characters (see /api/creative).
-    """
-    return load_universe(uid).get("edit_workflow")
+    Cle -> {graph, roles}. Jamais de cle pour une capacite absente (pas de
+    `null`) : `capability()`/`require_capability()` rendent None / levent."""
+    return load_universe(uid).get("capabilities") or {}
 
 
-def require_edit_workflow(uid):
-    """Same, but raises EditToolUnavailableError when the pack has none —
-    for the runner, which cannot proceed without a graph."""
-    wf = edit_workflow(uid)
-    if not wf:
-        raise EditToolUnavailableError(
-            f"le pack {uid!r} ne declare aucun graphe d'edition "
-            f"(universe.json / edit_workflow) : l'outil de modification live "
-            f"par IA n'existe pas encore pour ce pack")
-    return wf
+def capability(uid, cap_id):
+    """Une entree de la carte, ou None si le pack ne declare pas `cap_id`."""
+    return capabilities(uid).get(cap_id)
+
+
+def capability_graph(uid, cap_id):
+    """Raccourci : juste le chemin (repo-relatif) de la capacite, ou None."""
+    entry = capability(uid, cap_id)
+    return entry.get("graph") if entry else None
+
+
+def require_capability(uid, cap_id):
+    """Same as `capability`, but raises CapabilityUnavailableError when the
+    pack has none — for callers that cannot proceed without it."""
+    entry = capability(uid, cap_id)
+    if not entry:
+        raise CapabilityUnavailableError(
+            f"le pack {uid!r} ne declare pas la capacite {cap_id!r} "
+            f"(universe.json / capabilities) : l'outil correspondant "
+            f"n'existe pas encore pour ce pack")
+    return entry
 
 
 def load_character_defaults(uid):
@@ -271,15 +276,16 @@ def _diagnostic():
         u = load_universe(uid)
         outils = load_tools(uid)
         print(f"  {uid}")
-        wf = workflow(uid)
-        wf_ok = "" if (wf and (OFM / wf).is_file()) else "  <- INTROUVABLE" if wf else ""
         print(f"    modele   : {u.get('model_family')}  |  identite : {u.get('identity')}")
         print(f"    styles   : {', '.join(style_names(uid))}")
         print(f"    types    : {', '.join(types(uid)) or '(aucun)'}")
-        print(f"    workflow : {wf or '(aucun)'}{wf_ok}")
-        ew = edit_workflow(uid)
-        ew_ok = "" if (ew and (OFM / ew).is_file()) else "  <- INTROUVABLE" if ew else ""
-        print(f"    edition  : {ew or '(aucun - outil NSFW indisponible)'}{ew_ok}")
+        caps = capabilities(uid)
+        if not caps:
+            print(f"    capacites: (aucune)")
+        for cap_id, entry in caps.items():
+            graph = entry.get("graph")
+            ok = "" if (graph and (OFM / graph).is_file()) else "  <- INTROUVABLE" if graph else ""
+            print(f"    capacite '{cap_id}' : {graph or '(aucun graphe)'}{ok}")
         print(f"    defauts  : {'oui' if load_character_defaults(uid) else 'aucun gabarit'}")
         print(f"    outils   : {', '.join(o['id'] for o in outils) or '(aucun)'}")
 

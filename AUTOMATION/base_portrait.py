@@ -106,7 +106,7 @@ def _synthetic_cfg(pack):
     dft = universe.load_character_defaults(pack)
     return {
         "comfy_url": dft.get("comfy_url", "http://127.0.0.1:8188"),
-        "workflow": universe.workflow(pack),
+        "workflow": universe.capability_graph(pack, universe.PRODUCE),
         "preset": dict(dft.get("preset") or {}),
         "formats": dict(dft.get("formats") or {}),
         "export_sizes": dict(dft.get("export_sizes") or dft.get("formats") or {}),

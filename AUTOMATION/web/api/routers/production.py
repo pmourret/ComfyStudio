@@ -41,8 +41,8 @@ from ..schemas.production import (
 from ..services.batch import start_batch, start_edit_batch
 from ..services.creative import (
     apply_export_rule, apply_nsfw_overrides, edit_tier, guard_intensity,
-    guard_intensity_of, is_edit_mode, payload_at_generation_level,
-    valid_sources,
+    guard_intensity_of, is_edit_mode, is_edit_tier,
+    payload_at_generation_level, valid_sources,
 )
 from ..services.preview import prompt_preview
 
@@ -291,8 +291,7 @@ async def decline_image(payload: DeclineRequest, character_id: RequiredCharacter
             "edition_verrouillee": bool(edit and edit.get("requires") == "armed"
                                         and not tool["available"]),
             "edition_raison": tool["reason"],
-            "suivant_instruction": bool(following and
-                                        following.get("pipeline") == "flux+edit")})
+            "suivant_instruction": bool(is_edit_tier(following))})
 
     # From here down there is NO `await` until the batch is started. That is what
     # keeps two concurrent requests from both passing the STATE test and

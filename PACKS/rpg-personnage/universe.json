@@ -6,8 +6,12 @@
   "identity_alt": ["ipadapter_faceid"],
   "posing": "controlnet-canny-sdxl",
   "types": ["rpg-personnage"],
-  "workflow": "WORKFLOWS/content/abyssiaelle_master_prod_ui.json",
-  "edit_workflow": null,
+  "capabilities": {
+    "produce": {
+      "graph": "WORKFLOWS/content/abyssiaelle_master_prod_ui.json",
+      "roles": []
+    }
+  },
   "output_styles": {
     "realiste": { "prompt_add": "", "checkpoint": null },
     "fantastique": { "prompt_add": "painterly fantasy illustration, dramatic lighting", "checkpoint": null },
@@ -21,10 +25,13 @@
     "types : types de personnage que ce pack sert (ADR-0012, J7bis). Liste des le",
     "premier jour meme si la relation reste 1-1 en V1. PACKS/resolution.json",
     "aiguille (type, style) -> pack ; ce champ est le lien inverse.",
-    "workflow : graphe de PRODUCTION du pack. Le wizard y RATTACHE le nouveau",
-    "personnage (CLAUDE.md §8.11 : jamais un graphe par personnage). Nomme",
-    "d'apres Abyssiaelle tant que WORKFLOWS/*/abyssiaelle_*.json n'est pas",
-    "renomme (hors perimetre J7bis).",
+    "capabilities (J8.2, ADR-0018) : remplace l'ancien champ `workflow`.",
+    "capabilities.produce.graph : graphe de PRODUCTION du pack. Le wizard y",
+    "RATTACHE le nouveau personnage (CLAUDE.md §8.11 : jamais un graphe par",
+    "personnage). Nomme d'apres Abyssiaelle tant que",
+    "WORKFLOWS/*/abyssiaelle_*.json n'est pas renomme (hors perimetre J7bis).",
+    "roles : [] volontairement, deja portes par REQUIRED_ROLES de",
+    "AUTOMATION/identity/lora_sdxl.py (champ `identity` ci-dessus).",
     "output_styles : map style -> effet (prompt_add ; checkpoint swap si non-null).",
     "Declaratif en J5 : aucun personnage rpg n'existe, seul `realiste` sera exerce",
     "avant J6. prompt_add / checkpoint des styles non-realistes sont a MESURER a",
@@ -38,13 +45,15 @@
     "personnage onboarde, aucune implementation identity/ (J5), aucun build_jobs",
     "(J6). Il sert a prouver que le registre generalise — ce n'est pas une copie",
     "de l'univers de Lena (model_family differente).",
-    "edit_workflow : null — ce pack n'a PAS d'outil de modification live par IA",
-    "(J7). L'etage d'edition lui-meme (Qwen) serait reutilisable, mais l'etage",
-    "« identite restauree » du graphe flux est PuLID + FaceDetailer : il n'a pas",
-    "d'equivalent SDXL/LoRA ici, et l'ecrire demande un graphe neuf plus une",
-    "mesure par personnage (reporte, voir ROADMAP J7). Consequence assumee et",
-    "VISIBLE : un personnage de ce pack peut etre arme (character.json/nsfw), le",
-    "cran d'edition n'apparait pas, et l'ecran Application en donne la raison.",
-    "Jamais de repli sur le graphe d'une autre famille de modele."
+    "capabilities n'a PAS de cle `edit` — ce pack n'a pas (encore) d'outil de",
+    "modification live par IA (J7, ADR-0013/ADR-0018 : absente, jamais une",
+    "cle a `null`). L'etage d'edition lui-meme (Qwen) serait reutilisable, mais",
+    "l'etage « identite restauree » du graphe flux est PuLID + FaceDetailer :",
+    "il n'a pas d'equivalent SDXL/LoRA ici, et l'ecrire demande un graphe neuf",
+    "plus une mesure par personnage (reporte, voir ROADMAP J7). Consequence",
+    "assumee et VISIBLE : un personnage de ce pack peut etre arme",
+    "(character.json/nsfw), le cran d'edition n'apparait pas, et l'ecran",
+    "Application en donne la raison. Jamais de repli sur le graphe d'une",
+    "autre famille de modele."
   ]
 }

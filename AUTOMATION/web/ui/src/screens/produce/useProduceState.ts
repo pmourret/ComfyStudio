@@ -47,7 +47,7 @@ export type IntensityTier = Creative['intensity'][number]
     it, so the answer is the same everywhere (slider, blocks, badge, guards). The
     server has its counterpart, `palier_edition`. */
 export const isEditTier = (tier: IntensityTier | null | undefined) =>
-  Boolean(tier && tier.pipeline === 'flux+edit')
+  Boolean(tier && tier.pipeline === 'edit')
 
 export function usePlan({
   payload,

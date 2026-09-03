@@ -77,7 +77,7 @@ try:
     verifie(ch["nsfw"] is False, "nsfw off par defaut")
 
     cf = json.loads((d / "config.json").read_text(encoding="utf-8"))
-    verifie(cf["workflow"] == universe.workflow("rpg-personnage"),
+    verifie(cf["workflow"] == universe.capability_graph("rpg-personnage", universe.PRODUCE),
             f"workflow = graphe DU PACK ({cf['workflow']})")
     verifie(cf["base_gelee"] == "WIZ_BASE.png", "base_gelee repris tel quel")
     verifie(cf["identity"].get("measured") is False
@@ -120,7 +120,7 @@ try:
          "slow-life", "WIZ2.png")
     cf2 = json.loads((OFM / "CHARACTERS" / "wiztest_insta" / "config.json")
                      .read_text(encoding="utf-8"))
-    verifie(cf2["workflow"] == universe.workflow("instagram-influenceur")
+    verifie(cf2["workflow"] == universe.capability_graph("instagram-influenceur", universe.PRODUCE)
             != cf["workflow"], "graphe du pack insta, distinct du pack rpg")
     verifie("weight_faceidv2" not in cf2["identity"]
             and "weight" in cf2["identity"],

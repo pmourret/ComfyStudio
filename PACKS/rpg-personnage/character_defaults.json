@@ -18,7 +18,7 @@
     "intentions": [],
     "tones": [],
     "intensity": [
-      { "level": 0, "key": "sfw", "label": "SFW strict", "pipeline": "sdxl",
+      { "level": 0, "key": "sfw", "label": "SFW strict", "pipeline": "produce",
         "prompt_add": "", "export": true, "requires": null }
     ],
     "assemblage": { "wardrobe_position": "apres_scene" }

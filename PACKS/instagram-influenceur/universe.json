@@ -5,8 +5,18 @@
   "identity": "pulid_flux",
   "posing": "flux-controlnet-union-pro-2.0",
   "types": ["instagram-influenceur"],
-  "workflow": "WORKFLOWS/content/lena_master_prod_ui.json",
-  "edit_workflow": "WORKFLOWS/nsfw/lena_nsfw_branch_ui.json",
+  "capabilities": {
+    "produce": {
+      "graph": "WORKFLOWS/content/lena_master_prod_ui.json",
+      "roles": []
+    },
+    "edit": {
+      "graph": "WORKFLOWS/nsfw/lena_nsfw_branch_ui.json",
+      "roles": ["source", "ref", "ref_face", "facedetailer", "final_size",
+                "switch", "refiner", "grain", "sharpen", "positive",
+                "latent", "sampler", "save", "lora"]
+    }
+  },
   "output_styles": {
     "realiste": { "prompt_add": "", "checkpoint": null }
   },
@@ -17,20 +27,29 @@
     "types : types de personnage que ce pack sert (ADR-0012, J7bis). Liste des le",
     "premier jour meme si la relation reste 1-1 en V1. PACKS/resolution.json",
     "aiguille (type, style) -> pack ; ce champ est le lien inverse.",
-    "workflow : graphe de PRODUCTION du pack. Le wizard « nouveau personnage » y",
-    "RATTACHE le nouveau personnage (config.json/workflow) — il ne cree jamais de",
-    "fichier de graphe (CLAUDE.md §8.11). Nomme d'apres Lena tant que",
-    "WORKFLOWS/*/lena_*.json n'est pas renomme (hors perimetre J7bis).",
+    "capabilities (J8.2, ADR-0018) : remplace les anciens champs `workflow` /",
+    "`edit_workflow`. Chaque entree = {graph, roles}. Le wizard « nouveau",
+    "personnage » RATTACHE le nouveau personnage a capabilities.produce.graph",
+    "(config.json/workflow) — il ne cree jamais de fichier de graphe (CLAUDE.md",
+    "§8.11). Nomme d'apres Lena tant que WORKFLOWS/*/lena_*.json n'est pas",
+    "renomme (hors perimetre J7bis).",
+    "capabilities.produce.roles : [] volontairement — ces roles sont deja",
+    "portes par REQUIRED_ROLES de AUTOMATION/identity/pulid_flux.py (champ",
+    "`identity` ci-dessus), les dupliquer ici creerait une 2e source de verite.",
     "output_styles : map style -> effet sur le pipeline (prompt_add ajoute au prompt",
     "positif ; checkpoint swap si non-null). Le style d'un personnage est choisi et",
     "fige a sa creation, non modifiable ensuite (CLAUDE.md §3). Cet univers ne",
     "produit que du realiste, sans effet (prompt inchange). Univers de Lena.",
-    "edit_workflow : graphe de l'outil « modification live par IA » DU PACK (J7).",
-    "C'est lui que le NSFW recompose (ADR-0003) : le runner ne connait plus aucun",
-    "chemin de graphe en dur, et le config.json d'un personnage n'en porte plus",
-    "(CLAUDE.md §8.11, jamais un graphe par personnage). Son etage N4 (PuLID Flux",
-    "+ FaceDetailer) est lie a la famille flux : c'est un actif de PACK, pas un",
-    "outil unique pour toute la plateforme. Nomme d'apres Lena tant que",
-    "WORKFLOWS/*/lena_*.json n'est pas renomme (hors perimetre J7)."
+    "capabilities.edit : graphe de l'outil « modification live par IA » DU PACK",
+    "(J7, ADR-0013). C'est lui que le NSFW recompose (ADR-0003) : le runner ne",
+    "connait plus aucun chemin de graphe en dur, et le config.json d'un",
+    "personnage n'en porte plus (CLAUDE.md §8.11, jamais un graphe par",
+    "personnage). Son etage N4 (PuLID Flux + FaceDetailer) est lie a la famille",
+    "flux : c'est un actif de PACK, pas un outil unique pour toute la",
+    "plateforme. Nomme d'apres Lena tant que WORKFLOWS/*/lena_*.json n'est pas",
+    "renomme (hors perimetre J7). roles : cles reelles de NsfwRunner.roles",
+    "(nsfw_batch.py) — seule donnee qui n'existe nulle part ailleurs sous forme",
+    "structuree, donc une vraie source plutot qu'une 2e copie. Pas encore",
+    "consomme par le runner (declaratif seulement, J8.2)."
   ]
 }

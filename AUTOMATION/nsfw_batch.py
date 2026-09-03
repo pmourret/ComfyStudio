@@ -14,10 +14,11 @@ autre. Chaque chemin (sources, sortie, journal, transit ComfyUI, copie
 temporaire) porte le cid.
 
 LE GRAPHE APPARTIENT AU PACK, PAS AU PERSONNAGE. `edit_workflow_path()` le
-resout par `universe.require_edit_workflow(pack)` : il n'existe jamais un
-fichier de graphe par personnage (CLAUDE.md §8.11), et un pack qui n'en declare
-aucun leve EditToolUnavailableError au lieu d'emprunter celui d'une autre
-famille de modele. Cote interface, le cran d'edition n'est alors pas propose.
+resout par `universe.require_capability(pack, universe.EDIT)` (carte de
+capacites, ADR-0018) : il n'existe jamais un fichier de graphe par personnage
+(CLAUDE.md §8.11), et un pack qui ne declare pas cette capacite leve
+CapabilityUnavailableError au lieu d'emprunter celui d'une autre famille de
+modele. Cote interface, le cran d'edition n'est alors pas propose.
 
 GARDE-FOU D'ARMEMENT. Tant que le registre personnage
 (CHARACTERS/<id>/character.json, cle `nsfw`) ne vaut pas true, toute tentative
@@ -56,13 +57,14 @@ GROUPS = ("N1 - ENTREES", "N2 - MODELE NSFW LOCAL", "N3 - EDITION GUIDEE",
 def edit_workflow_path(character_id):
     """Absolute path of the live-AI-edit graph serving THIS character.
 
-    Resolved from the character's pack (`universe.json` / `edit_workflow`), never
-    from a path held by the character: a graph belongs to a pack, never to one
-    character (CLAUDE.md §8.11). A pack with no edit graph raises
-    EditToolUnavailableError rather than falling back on another family's graph.
+    Resolved from the character's pack (`universe.json` / `capabilities.edit`,
+    ADR-0018), never from a path held by the character: a graph belongs to a
+    pack, never to one character (CLAUDE.md §8.11). A pack with no edit
+    capability raises CapabilityUnavailableError rather than falling back on
+    another family's graph.
     """
     pack = lb.character_universe(character_id)
-    return OFM / universe.require_edit_workflow(pack)
+    return OFM / universe.require_capability(pack, universe.EDIT)["graph"]
 
 
 def edit_tool_state(character_id):
@@ -71,9 +73,10 @@ def edit_tool_state(character_id):
     Two conditions, never one (J7):
       - the character's own registry is armed (`character.json` / `nsfw`),
         off by default and armed only by an explicit gesture;
-      - the character's pack declares an edit graph (`universe.json` /
-        `edit_workflow`) — the tool is a PACK asset (ADR-0003: adding a pack
-        costs no NSFW work *as long as both global tools exist for it*).
+      - the character's pack declares the `edit` capability (`universe.json`
+        / `capabilities`, ADR-0018) — the tool is a PACK asset (ADR-0003:
+        adding a pack costs no NSFW work *as long as both global tools exist
+        for it*).
 
     Returns {armed, pack, has_graph, available, reason}. `reason` is the text
     the interface shows instead of the missing step — a pack without the tool
@@ -81,7 +84,7 @@ def edit_tool_state(character_id):
     """
     armed = is_armed(character_id)
     pack = lb.character_universe(character_id)
-    graph = universe.edit_workflow(pack) if pack else None
+    graph = universe.capability_graph(pack, universe.EDIT) if pack else None
     if not graph:
         raison = ("L'outil de modification live par IA n'existe pas encore "
                   f"pour ce pack ({pack}).")

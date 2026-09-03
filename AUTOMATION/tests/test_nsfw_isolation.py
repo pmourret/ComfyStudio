@@ -18,9 +18,10 @@ Et la regle qui rend tout le reste vrai : PLUS AUCUN DEFAUT `character_id`
 l'appelant oubliait le personnage — c'est exactement la forme du bug
 d'isolation du 29/08. Un appel sans personnage doit lever, pas deviner.
 
-Enfin : le graphe d'edition appartient au PACK (`universe.json`/`edit_workflow`),
-jamais au personnage (CLAUDE.md §8.11). Un pack qui n'en declare aucun leve
-EditToolUnavailableError au lieu d'emprunter celui d'une autre famille.
+Enfin : le graphe d'edition appartient au PACK (`universe.json`/`capabilities.edit`,
+ADR-0018), jamais au personnage (CLAUDE.md §8.11). Un pack qui ne declare pas
+cette capacite leve CapabilityUnavailableError au lieu d'emprunter celui
+d'une autre famille.
 
 Aucun appel a ComfyUI : ce test ne verifie que des chemins et des gardes.
 Cree deux personnages jetables (`probe`, `probe2`) et leurs arbres PROD, les
@@ -155,15 +156,15 @@ try:
     # --------------------------------------- [5] le graphe appartient au pack
     print("\n[5] le graphe d'edition appartient au pack, pas au personnage")
     wf = nsfw_batch.edit_workflow_path(A)
-    verifie(wf == OFM / universe.edit_workflow("instagram-influenceur"),
+    verifie(wf == OFM / universe.capability_graph("instagram-influenceur", universe.EDIT),
             f"{A} (pack flux) resout le graphe de SON pack : {wf.name}")
     verifie(wf.is_file(), "le graphe declare par le pack existe sur le disque")
     try:
         nsfw_batch.edit_workflow_path(B)
         verifie(False, f"{B} (pack sans graphe) aurait du lever")
-    except universe.EditToolUnavailableError as e:
+    except universe.CapabilityUnavailableError as e:
         verifie("rpg-personnage" in str(e),
-                "pack sans graphe -> EditToolUnavailableError explicite, "
+                "pack sans capacite -> CapabilityUnavailableError explicite, "
                 "jamais le graphe d'une autre famille")
 
     # ------------------------------- [6] l'armement ne traverse pas les cids
