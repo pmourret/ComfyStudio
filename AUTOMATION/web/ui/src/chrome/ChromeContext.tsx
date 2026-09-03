@@ -62,6 +62,10 @@ type ChromeContextValue = {
      share ONE state: a second settings surface could drift from this one. */
   gearOpen: boolean
   toggleGear: () => void
+  /* Escape must CLOSE, never toggle: gated by `gearOpen` at the call site
+     (useOverlayPanel), but a plain toggle could still reopen it if two
+     events overlapped. Twin of closeIdentityMenu, same file. */
+  closeGear: () => void
   navCollapsed: boolean
   railCollapsed: boolean
   focus: boolean
@@ -90,6 +94,7 @@ export function ChromeProvider({ children }: { children: ReactNode }) {
   const openIdentityMenu = useCallback(() => setIdentityMenuOpen(true), [])
   const closeIdentityMenu = useCallback(() => setIdentityMenuOpen(false), [])
   const toggleGear = useCallback(() => setGearOpen((current) => !current), [])
+  const closeGear = useCallback(() => setGearOpen(false), [])
 
   useEffect(() => {
     const query = window.matchMedia(NARROW)
@@ -145,6 +150,7 @@ export function ChromeProvider({ children }: { children: ReactNode }) {
       closeIdentityMenu,
       gearOpen,
       toggleGear,
+      closeGear,
       navCollapsed,
       railCollapsed,
       focus,
@@ -159,6 +165,7 @@ export function ChromeProvider({ children }: { children: ReactNode }) {
       closeIdentityMenu,
       gearOpen,
       toggleGear,
+      closeGear,
       navCollapsed,
       railCollapsed,
       focus,

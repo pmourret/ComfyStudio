@@ -134,9 +134,10 @@ export function EditStep({
         <div className="mt-[10px] flex max-h-[280px] flex-col gap-[4px] overflow-auto" id="biblioList">
           {history?.length ? (
             history.map((entry, index) => (
-              <div
-                className="flex cursor-pointer items-baseline gap-[10px] rounded-[7px] border
-                           border-transparent px-[10px] py-[7px]
+              <button
+                type="button"
+                className="flex w-full cursor-pointer items-baseline gap-[10px] rounded-[7px]
+                           border border-transparent bg-transparent px-[10px] py-[7px] text-left
                            hover:border-line2 hover:bg-panel"
                 key={`${entry.texte}-${index}`}
                 data-bib
@@ -155,7 +156,7 @@ export function EditStep({
                   <span className="flex-none font-bold text-warn">!</span>
                 )}
                 <span className="flex-none text-[11px] text-dim2">{entry.n}×</span>
-              </div>
+              </button>
             ))
           ) : (
             <div className="empty">le journal d'édition est vide</div>

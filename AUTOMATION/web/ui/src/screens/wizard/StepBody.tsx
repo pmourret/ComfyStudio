@@ -16,8 +16,8 @@
 import type React from 'react'
 
 import { Icon } from '../../chrome/Icon'
+import { useRovingChoice } from '../../chrome/useRovingChoice'
 import { OptionCard } from './OptionCard'
-import { useRovingChoice } from './useRovingChoice'
 import {
   BASE_GRID, CAND, CANDS, CAND_CHOSEN, CAND_ERR, CAND_IDLE, COL_TITLE, FROZEN_HINT,
   FROZEN_IMG, NOTE_ERR, NOTE_OK, SKELETON_CARD, SPIN, candidateUrl,

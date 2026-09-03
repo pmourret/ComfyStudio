@@ -5,6 +5,7 @@
    announces that it engenders nothing and takes back a validated image, and
    it counts SOURCE IMAGES, not scenes (`unite` comes from the server).
    Announcing « 16 scènes » there was false. */
+import { useRovingChoice } from '../../chrome/useRovingChoice'
 import { isEditTier, type IntensityTier } from './useProduceState'
 
 /* The five `.lv*.on` rules of `produce.css`, as a table. FULL ESCALATION over
@@ -41,6 +42,13 @@ export function IntensityBar({
   const unit = tier?.unite || 'scène'
   const plural = tier && tier.scenes > 1 ? 's' : ''
 
+  /* screen-3-produire: a single-choice group like the wizard's type/style/
+     world cards, same mechanics (roving tabindex, arrows select immediately
+     — including the confirm-dialog path some tiers require, since it still
+     goes through `onPick`, never bypassed). */
+  const ids = tiers.map((entry) => String(entry.level))
+  const roving = useRovingChoice(ids, level != null ? String(level) : null)
+
   return (
     <div
       className="mx-[-20px] mt-[-24px] mb-[22px] flex-none border-b border-b-line bg-panel
@@ -50,32 +58,40 @@ export function IntensityBar({
         <span className="text-[12px] font-semibold uppercase tracking-[.9px] text-dim">
           Intensité
         </span>
-        <div className="seg" id="intSel">
-          {tiers.map((entry) => (
-            <button
-              key={entry.level}
-              data-lv={entry.level}
-              data-edit={isEditTier(entry) ? '1' : undefined}
-              /* `!` everywhere: `.seg button` and `.seg button.on` in
-                 `screens.css` are element + class selectors, which outweigh a
-                 plain utility. The tint comes from ONE class, chosen by the
-                 table — chaining a second background would be decided by the
-                 generated sheet, not by this string. */
-              className={`${entry.level === level ? 'on ' : ''}px-[16px]! py-[6px]! ${
-                entry.level === level ? TIER_TINT[tierKey(entry)] ?? '' : ''
-              }`}
-              title={entry.prompt_add || 'aucun ajout de prompt'}
-              data-hint-text={
-                isEditTier(entry)
-                  ? "N'engendre rien : reprend une image déjà validée."
-                  : 'Génère des images nouvelles à ce niveau.'
-              }
-              onClick={() => onPick(entry.level)}
-            >
-              {entry.label}
-              <span className="ml-[6px] text-[11px] tabular-nums opacity-60">{entry.scenes}</span>
-            </button>
-          ))}
+        <div className="seg" id="intSel" role="radiogroup" aria-label="Niveau d'intensité">
+          {tiers.map((entry) => {
+            const id = String(entry.level)
+            return (
+              <button
+                key={entry.level}
+                ref={roving.registerRef(id)}
+                data-lv={entry.level}
+                data-edit={isEditTier(entry) ? '1' : undefined}
+                role="radio"
+                aria-checked={entry.level === level}
+                tabIndex={roving.tabIndexFor(id)}
+                /* `!` everywhere: `.seg button` and `.seg button.on` in
+                   `screens.css` are element + class selectors, which outweigh a
+                   plain utility. The tint comes from ONE class, chosen by the
+                   table — chaining a second background would be decided by the
+                   generated sheet, not by this string. */
+                className={`${entry.level === level ? 'on ' : ''}px-[16px]! py-[6px]! ${
+                  entry.level === level ? TIER_TINT[tierKey(entry)] ?? '' : ''
+                }`}
+                title={entry.prompt_add || 'aucun ajout de prompt'}
+                data-hint-text={
+                  isEditTier(entry)
+                    ? "N'engendre rien : reprend une image déjà validée."
+                    : 'Génère des images nouvelles à ce niveau.'
+                }
+                onClick={() => onPick(entry.level)}
+                onKeyDown={(event) => roving.onKeyDown(event, id, (nextId) => onPick(Number(nextId)))}
+              >
+                {entry.label}
+                <span className="ml-[6px] text-[11px] tabular-nums opacity-60">{entry.scenes}</span>
+              </button>
+            )
+          })}
         </div>
         <span className="tiny" id="intHint">
           {tier

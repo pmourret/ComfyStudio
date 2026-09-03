@@ -15,7 +15,10 @@
    hence the preview, hence the payload — repainting it would make the caret jump
    on every keystroke. It is a controlled input of its own here, and only the
    COMPUTED parts (fragments, echoes, header) follow the plan. */
+import { useRef } from 'react'
+
 import type { Preview } from './useProduceState'
+import { useOverlayPanel } from './useOverlayPanel'
 
 export function PromptPreview({
   preview,
@@ -33,6 +36,17 @@ export function PromptPreview({
   onOverride: (value: string) => void
   onClose: () => void
 }) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  /* Tied to `preview` (not a constant `true`): the panel can mount before a
+     plan has ever loaded, and the container this focuses into does not
+     exist yet at that instant — re-running when content actually appears
+     gives it a real target. `:not([disabled])` on the amendment field: with
+     several scenes ticked it is disabled, and the deliverable's own request
+     ("le champ d'amendement... le premier réglage") assumes it is usable —
+     falls through to the generic first-focusable (the fermer link) rather
+     than focusing nothing. */
+  useOverlayPanel(Boolean(preview), onClose, containerRef, '#sceneOverride:not([disabled])')
+
   if (!preview) return null
   return (
     /* It opens ABOVE the launch bar and takes its width — it is its extension.
@@ -40,6 +54,7 @@ export function PromptPreview({
        column without `min-w-0`. VERTICAL scrolling stays: the full prompt often
        goes past 52vh. */
     <div
+      ref={containerRef}
       className="m-0 mb-[10px] max-h-[52vh] max-w-none overflow-x-hidden overflow-y-auto"
       id="apercuPanel"
     >

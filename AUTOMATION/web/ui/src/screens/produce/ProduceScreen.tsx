@@ -26,6 +26,7 @@ import { useApi } from '../../api/useApi'
 import { useChrome } from '../../chrome/ChromeContext'
 import { useConfirm } from '../../chrome/ConfirmContext'
 import { useToast } from '../../chrome/ToastContext'
+import { useRovingChoice } from '../../chrome/useRovingChoice'
 import { useConfig } from '../../state/ConfigContext'
 import { useScenes } from '../../state/ScenesStoreContext'
 import { useSystemState } from '../../state/SystemStateContext'
@@ -50,6 +51,12 @@ import {
 } from './SettingsPanel'
 import { isEditTier, usePlan, type IntensityTier, type Preview } from './useProduceState'
 
+const QUALITY_OPTIONS = [
+  ['realisme', 'Réalisme', 'Pipeline mesuré (peau, grain). Pas le style du personnage.'],
+  ['rapide', 'Rapide', 'Coupe la repasse de texture — plus vite, peau plus lisse.'],
+  ['brut', 'Brut', 'Coupe repasse, reprise du visage et mise à la taille.'],
+] as const
+
 export function ProduceScreen() {
   const api = useApi()
   const toast = useToast()
@@ -59,7 +66,7 @@ export function ProduceScreen() {
   const { bank, drafts } = useScenes()
   const { config } = useConfig()
   const { state, refresh: refreshCounts } = useSystemState()
-  const { gearOpen, toggleGear } = useChrome()
+  const { gearOpen, toggleGear, closeGear } = useChrome()
 
   const presetRef = (config?.preset ?? {}) as Record<string, unknown>
   const nsfwRef = (config?.nsfw ?? {}) as Record<string, unknown>
@@ -281,6 +288,31 @@ export function ProduceScreen() {
 
   const preview = (plan?.apercu ?? null) as Preview | null
 
+  /* screen-3-produire: three more single-choice groups, same radiogroup
+     mechanics as the wizard and IntensityBar. `#intentVideGrid` (cards with
+     no scene, which lead to the composer) stays OUTSIDE this group: it is a
+     list of actions, never a state that stays checked — same reasoning as
+     the wizard's instruction library. */
+  const intentIds = full.map(([entry]) => entry.key)
+  const intentRoving = useRovingChoice(intentIds, intent)
+  /* The NSFW pipeline disables Rapide/Brut (see the button below) — excluded
+     from the roving id list so arrows skip them exactly as Tab already does
+     for a `disabled` button, rather than "selecting" an option the user
+     could not have reached by mouse. */
+  const qualityAvailable = QUALITY_OPTIONS.filter(
+    ([key]) => !(editTier && key !== 'realisme'),
+  ).map(([key]) => key)
+  const qualityRoving = useRovingChoice(qualityAvailable, quality)
+  const toneIds = (creative?.tones ?? []).map((entry) => entry.key)
+  const toneRoving = useRovingChoice(toneIds, tone)
+
+  const pickQuality = (key: string) => {
+    setQuality(key)
+    // the preset FILLS the panel: one sees what it changes, and can retouch
+    // it right after
+    setValues((current) => withPreset(current, key, presetRef, nsfwRef))
+  }
+
   return (
     <div className="screen" id="creer">
       {/* Two columns: the steps and the execution band on the left, the sticky
@@ -393,7 +425,12 @@ export function ProduceScreen() {
                 <h2 className="flex items-baseline gap-[10px]">
                   <i className="not-italic text-acc" data-num>1</i> · Intention
                 </h2>
-                <div className="intents" id="intentGrid">
+                <div
+                  className="intents"
+                  id="intentGrid"
+                  role="radiogroup"
+                  aria-label="Intention"
+                >
                   {full.map(([entry, n]) => (
                     <IntentCard
                       key={entry.key}
@@ -401,6 +438,11 @@ export function ProduceScreen() {
                       count={n}
                       active={entry.key === intent}
                       onClick={() => pickIntent(entry.key)}
+                      radio={{
+                        tabIndex: intentRoving.tabIndexFor(entry.key),
+                        elementRef: intentRoving.registerRef(entry.key),
+                        onKeyDown: (event) => intentRoving.onKeyDown(event, entry.key, pickIntent),
+                      }}
                     />
                   ))}
                 </div>
@@ -444,14 +486,19 @@ export function ProduceScreen() {
                       })()}
                     </span>
                   </h2>
-                  <div className="chips" id="toneRow">
+                  <div className="chips" id="toneRow" role="radiogroup" aria-label="Ton">
                     {(creative?.tones ?? []).map((entry) => (
                       <button
                         type="button"
                         key={entry.key}
+                        ref={toneRoving.registerRef(entry.key)}
+                        role="radio"
+                        aria-checked={entry.key === tone}
+                        tabIndex={toneRoving.tabIndexFor(entry.key)}
                         className={`chip-t${entry.key === tone ? ' on' : ''}`}
                         data-k={entry.key}
                         onClick={() => setTone(entry.key)}
+                        onKeyDown={(event) => toneRoving.onKeyDown(event, entry.key, setTone)}
                       >
                         {entry.label}
                       </button>
@@ -519,6 +566,7 @@ export function ProduceScreen() {
           setValues(initialValues(presetRef, nsfwRef))
           setQuality('realisme')
         }}
+        onClose={closeGear}
       />
 
       <div className="launch" id="launchBar">
@@ -537,32 +585,35 @@ export function ProduceScreen() {
             <div id="sumT">{sumT}</div>
           </div>
           <div className="flex-1" />
-          <div className="seg" id="qual">
-            {[
-              ['realisme', 'Réalisme', 'Pipeline mesuré (peau, grain). Pas le style du personnage.'],
-              ['rapide', 'Rapide', 'Coupe la repasse de texture — plus vite, peau plus lisse.'],
-              ['brut', 'Brut', 'Coupe repasse, reprise du visage et mise à la taille.'],
-            ].map(([key, label, hint]) => (
-              <button
-                key={key}
-                className={quality === key ? 'on' : undefined}
-                data-q={key}
-                data-hint-text={hint}
-                /* The NSFW pipeline inherits the refiner and grain from the
-                   preset: the presets that cut them are disabled there rather
-                   than left clickable with no effect (double guard, see
-                   guard_intensity server-side). */
-                disabled={editTier && key !== 'realisme'}
-                onClick={() => {
-                  setQuality(key)
-                  // the preset FILLS the panel: one sees what it changes, and
-                  // can retouch it right after
-                  setValues((current) => withPreset(current, key, presetRef, nsfwRef))
-                }}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="seg" id="qual" role="radiogroup" aria-label="Qualité de rendu">
+            {QUALITY_OPTIONS.map(([key, label, hint]) => {
+              /* The NSFW pipeline inherits the refiner and grain from the
+                 preset: the presets that cut them are disabled there rather
+                 than left clickable with no effect (double guard, see
+                 guard_intensity server-side). */
+              const disabled = editTier && key !== 'realisme'
+              return (
+                <button
+                  key={key}
+                  ref={disabled ? undefined : qualityRoving.registerRef(key)}
+                  role="radio"
+                  aria-checked={quality === key}
+                  tabIndex={disabled ? undefined : qualityRoving.tabIndexFor(key)}
+                  className={quality === key ? 'on' : undefined}
+                  data-q={key}
+                  data-hint-text={hint}
+                  disabled={disabled}
+                  onClick={() => pickQuality(key)}
+                  onKeyDown={
+                    disabled
+                      ? undefined
+                      : (event) => qualityRoving.onKeyDown(event, key, pickQuality)
+                  }
+                >
+                  {label}
+                </button>
+              )
+            })}
           </div>
           <button
             className={`btn sm${previewOpen ? ' on' : ''}`}
@@ -575,6 +626,7 @@ export function ProduceScreen() {
           <button
             className="btn"
             id="btnGear"
+            aria-label="Réglages de génération"
             data-hint-text="Réglages de génération — ce que chacun fait, ce qu'il coûte."
             onClick={(event) => {
               event.stopPropagation()

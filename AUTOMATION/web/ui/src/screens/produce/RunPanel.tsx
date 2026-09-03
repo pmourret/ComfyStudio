@@ -145,19 +145,35 @@ export function RunPanel({ state }: { state: SystemState | null }) {
           {recent
             .slice()
             .reverse()
-            .map((entry) => (
-              <img
-                key={entry.name}
-                /* No border colour in the base chain: two utilities that set the
-                   same property are decided by their order in the GENERATED
-                   sheet, not in this string. Each verdict names its own. */
-                className={`h-[104px] cursor-zoom-in rounded-[7px] border-2 ${VERDICT_BORDER[entry.bucket] ?? 'border-line'}`}
-                src={api.image({ ...entry, thumb: true })}
-                alt=""
-                title={`${entry.scene ?? ''}${entry.score ? ` · ${entry.score.toFixed(3)}` : ''}`}
-                onClick={() => openLightbox(api.image(entry))}
-              />
-            ))}
+            .map((entry) => {
+              /* Status never by colour alone: the border stays a visual
+                 reinforcement, the accessible name (button, not the now-
+                 decorative img) is what actually says validated / to review /
+                 rejected. */
+              const verdict = `${VERDICT_LABEL[entry.bucket] ?? 'statut inconnu'}${
+                entry.scene ? ' · ' + entry.scene : ''
+              }`
+              return (
+                <button
+                  key={entry.name}
+                  type="button"
+                  className="cursor-zoom-in rounded-[7px] p-0 [border:0] bg-transparent"
+                  aria-label={verdict}
+                  title={`${entry.scene ?? ''}${entry.score ? ` · ${entry.score.toFixed(3)}` : ''}`}
+                  onClick={() => openLightbox(api.image(entry))}
+                >
+                  {/* No border colour in the base chain: two utilities that set
+                      the same property are decided by their order in the
+                      GENERATED sheet, not in this string. Each verdict names
+                      its own. */}
+                  <img
+                    className={`h-[104px] rounded-[7px] border-2 ${VERDICT_BORDER[entry.bucket] ?? 'border-line'}`}
+                    src={api.image({ ...entry, thumb: true })}
+                    alt=""
+                  />
+                </button>
+              )
+            })}
         </div>
 
         {finishedEditing && (

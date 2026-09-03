@@ -7,9 +7,10 @@
    values. That is the whole point: one sees at a glance how far one has gone.
 
    Ported from `renderReglages` / `majAffichage` in `static/create.js`. */
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 
 import { BY_ID, PRESETS, SECTIONS, fmtVal, type Setting } from './settings'
+import { useOverlayPanel } from './useOverlayPanel'
 
 /** Every control's value, by setting id. Booleans for switches, strings for the
     rest — a numeric field must be able to be EMPTY, which a number cannot say. */
@@ -138,6 +139,7 @@ export function SettingsPanel({
   nsfwLevel,
   onChange,
   onReset,
+  onClose,
 }: {
   open: boolean
   values: SettingValues
@@ -152,7 +154,17 @@ export function SettingsPanel({
   nsfwLevel: boolean
   onChange: (id: string, value: string | boolean) => void
   onReset: () => void
+  /** screen-3-produire: Escape closes the panel, same rule as any overlay
+      (cadrage). Opened from two places (launch bar AND rail gear) — see
+      useOverlayPanel, focus returns to whichever actually opened it. */
+  onClose: () => void
 }) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  /* Scoped to #gearBody: the header's "Valeurs mesurées" reset button comes
+     first in DOM order but is chrome, not a setting — the deliverable asks
+     for "le premier réglage" specifically. */
+  useOverlayPanel(open, onClose, containerRef, '#gearBody :is(input,select,textarea,button):not([disabled])')
+
   /* Deviation count, globally and per section. A folded section must say it
      hides a deviation, otherwise folding hides the very information the counter
      exists to give. */
@@ -174,6 +186,7 @@ export function SettingsPanel({
 
   return (
     <div
+      ref={containerRef}
       className={`fixed right-[20px] bottom-[96px] z-[8] w-[min(620px,calc(100vw-40px))]
                   max-h-[calc(100vh-190px)] overflow-auto rounded-[12px] border border-line2
                   bg-panel p-[18px] shadow-elev ${open ? 'block' : 'hidden'}`}
@@ -308,6 +321,14 @@ function SettingRow({
           <b>{item.label}</b>
         </label>
         <p className={`${HELP} ml-[26px]`} data-rgq>{item.quoi}</p>
+        {/* The `title` above is mouse-only: the same reason, visible, so a
+            keyboard/screen-reader user gets it too (cadrage — pas seulement
+            au survol). */}
+        {disabled && (
+          <p className={`${HELP} ml-[26px]`}>
+            indisponible au niveau NSFW — protège l'enchaînement automatique
+          </p>
+        )}
       </div>
     )
   }

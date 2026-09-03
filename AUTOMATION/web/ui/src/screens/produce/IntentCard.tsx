@@ -19,11 +19,21 @@ export function IntentCard({
   count,
   active,
   onClick,
+  radio,
 }: {
   entry: Intention
   count: number
   active: boolean
   onClick: () => void
+  /** screen-3-produire: present only for `#intentGrid`, a real single-choice
+      group. `#intentVideGrid` (no scene, leads to the composer) omits it —
+      those cards are actions, never a state that stays checked, so they stay
+      plain buttons in the natural tab order. */
+  radio?: {
+    tabIndex: 0 | -1
+    onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void
+    elementRef: (el: HTMLButtonElement | null) => void
+  }
 }) {
   /* `.it` stays a class: it belongs to `wizard.css`, which is not migrated yet.
      What Produire ADDED to it is here — a card with no scene is dimmed, and lifts
@@ -34,12 +44,17 @@ export function IntentCard({
   return (
     <button
       type="button"
+      ref={radio?.elementRef}
+      role={radio ? 'radio' : undefined}
+      aria-checked={radio ? active : undefined}
+      tabIndex={radio?.tabIndex}
       className={`it${active ? ' on' : ''}${
         void_ ? ' opacity-[.72] hover:border-acc hover:opacity-100' : ''
       }`}
       data-k={entry.key}
       data-void={void_ ? '1' : undefined}
       onClick={onClick}
+      onKeyDown={radio?.onKeyDown}
     >
       <span className={`mb-[9px] block text-[22px]! leading-none ${void_ ? 'text-dim2!' : ''}`}>
         {entry.icon}
