@@ -190,8 +190,19 @@ process.on('exit', nettoyer);
   // et la sortie sont absents, pas grises — le recadrage n'est pas
   // indisponible, il n'est simplement pas en cours.
   dire(await vu('#edRatio button[data-r="1:1"]'), 'allume, les formats sont la');
+  // a11y (design-pass ecran 5) : vrai radiogroup, additif a data-r/'on'
+  dire((await page.getAttribute('#edRatio', 'role')) === 'radiogroup',
+       '#edRatio est un role=radiogroup');
+  dire((await page.getAttribute('#edRatio button[data-r="libre"]', 'role')) === 'radio',
+       'chaque format est un role=radio');
+  dire((await page.getAttribute('#edRatio button[data-r="libre"]', 'aria-checked')) === 'true',
+       '« Libre », actif au premier affichage, porte aria-checked=true');
+  dire((await page.getAttribute('#edRatio button[data-r="1:1"]', 'aria-checked')) === 'false',
+       'les autres formats portent aria-checked=false');
   await page.click('#edRatio button[data-r="1:1"]');
   await page.waitForTimeout(350);
+  dire((await page.getAttribute('#edRatio button[data-r="1:1"]', 'aria-checked')) === 'true',
+       'aria-checked suit le clic, comme la classe \'on\'');
   const carre = await page.$eval('#edCropBox', e => {
     const r = e.getBoundingClientRect(); return Math.abs(r.width - r.height);
   });

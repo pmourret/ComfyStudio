@@ -24,6 +24,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 
 import { useApi } from '../../api/useApi'
 import { useLightbox } from '../../chrome/LightboxContext'
+import { useRovingChoice } from '../../chrome/useRovingChoice'
 import { useToast } from '../../chrome/ToastContext'
 import { useConfig } from '../../state/ConfigContext'
 import { useSystemState } from '../../state/SystemStateContext'
@@ -42,6 +43,7 @@ import {
   type ScoreFilter,
   type Space,
   type Trade,
+  type View,
 } from './useTriage'
 
 const SCORE_FILTERS: { key: ScoreFilter; label: string }[] = [
@@ -142,6 +144,18 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
 
   const buckets = state ? (space === 'nsfw' ? state.nsfw_counts : state.counts) : null
 
+  /* Four roving radiogroups (a11y audit, design-pass screen-5) — same
+     gabarit as produce/IntensityBar.tsx: arrows move AND pick immediately,
+     one Tab stop per group. `data-sp`/`data-b`/`data-f`/`data-v` and the
+     `'on'` class are unchanged, additive only. */
+  const spaceRoving = useRovingChoice(['sfw', 'nsfw'], space)
+  const bucketIds = REVIEW_BUCKETS.map((entry) => entry.key)
+  const bucketRoving = useRovingChoice(bucketIds, bucket)
+  const filterIds = SCORE_FILTERS.map((entry) => entry.key)
+  const filterRoving = useRovingChoice(filterIds, filter)
+  const viewIds = ['revue', 'grille']
+  const viewRoving = useRovingChoice(viewIds, view)
+
   return (
     <div className="screen" id="trier" data-metier={trade}>
       {/* The sorting screen ends on its grid: it has no launch bar to clear. */}
@@ -149,20 +163,30 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
         <div className="viewsel">
           {/* `data-sp="sfw"` is the WIRE key sent to /api/gallery and /img: SFW,
               not the name of a character (AUDIT §5.3). */}
-          <div className="seg" id="spaceSel">
+          <div className="seg" id="spaceSel" role="radiogroup" aria-label="Espace">
             <button
+              ref={spaceRoving.registerRef('sfw')}
+              role="radio"
+              aria-checked={space === 'sfw'}
+              tabIndex={spaceRoving.tabIndexFor('sfw')}
               className={space === 'sfw' ? 'on' : undefined}
               data-sp="sfw"
               data-hint-text="Espace SFW — la production normale du personnage."
               onClick={() => setSpace('sfw')}
+              onKeyDown={(event) => spaceRoving.onKeyDown(event, 'sfw', (id) => setSpace(id as Space))}
             >
               SFW
             </button>
             <button
+              ref={spaceRoving.registerRef('nsfw')}
+              role="radio"
+              aria-checked={space === 'nsfw'}
+              tabIndex={spaceRoving.tabIndexFor('nsfw')}
               className={space === 'nsfw' ? 'on' : undefined}
               data-sp="nsfw"
               data-hint-text="Espace NSFW — isolé, jamais exporté."
               onClick={() => setSpace('nsfw')}
+              onKeyDown={(event) => spaceRoving.onKeyDown(event, 'nsfw', (id) => setSpace(id as Space))}
             >
               NSFW
             </button>
@@ -171,16 +195,26 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
           {/* The Galerie does not show the bucket selector at all: its folder is
               said by its tab. */}
           {trade === 'revue' && (
-            <div className="seg" id="bucketSel">
+            <div className="seg" id="bucketSel" role="radiogroup" aria-label="Dossier">
               {REVIEW_BUCKETS.map((entry) => (
                 <button
                   key={entry.key}
+                  ref={bucketRoving.registerRef(entry.key)}
+                  role="radio"
+                  aria-checked={bucket === entry.key}
+                  tabIndex={bucketRoving.tabIndexFor(entry.key)}
                   className={bucket === entry.key ? 'on' : undefined}
                   data-b={entry.key}
                   onClick={() => {
                     setBucket(entry.key)
                     setCursor(0)
                   }}
+                  onKeyDown={(event) =>
+                    bucketRoving.onKeyDown(event, entry.key, (id) => {
+                      setBucket(id)
+                      setCursor(0)
+                    })
+                  }
                 >
                   {entry.label} <span id={`b${entry.key}`}>{buckets?.[entry.key] ?? 0}</span>
                 </button>
@@ -188,17 +222,28 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
             </div>
           )}
 
-          <div className="seg" id="scoreSel">
+          <div className="seg" id="scoreSel" role="radiogroup" aria-label="Filtre de score">
             {SCORE_FILTERS.map((entry) => (
               <button
                 key={entry.key}
+                ref={filterRoving.registerRef(entry.key)}
+                role="radio"
+                aria-checked={filter === entry.key}
+                tabIndex={filterRoving.tabIndexFor(entry.key)}
                 className={filter === entry.key ? 'on' : undefined}
                 data-f={entry.key}
+                aria-label={`${entry.label} — ${scoreFilterTitle(entry.key, qc)}`}
                 title={scoreFilterTitle(entry.key, qc)}
                 onClick={() => {
                   setFilter(entry.key)
                   setCursor(0)
                 }}
+                onKeyDown={(event) =>
+                  filterRoving.onKeyDown(event, entry.key, (id) => {
+                    setFilter(id as ScoreFilter)
+                    setCursor(0)
+                  })
+                }
               >
                 {entry.label}
                 <span className="n">{counts[entry.key] || ''}</span>
@@ -208,18 +253,28 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
 
           <div className="flex-1" />
 
-          <div className="seg" id="viewSel">
+          <div className="seg" id="viewSel" role="radiogroup" aria-label="Affichage">
             <button
+              ref={viewRoving.registerRef('revue')}
+              role="radio"
+              aria-checked={view === 'revue'}
+              tabIndex={viewRoving.tabIndexFor('revue')}
               className={view === 'revue' ? 'on' : undefined}
               data-v="revue"
               onClick={() => setView('revue')}
+              onKeyDown={(event) => viewRoving.onKeyDown(event, 'revue', (id) => setView(id as View))}
             >
               Revue
             </button>
             <button
+              ref={viewRoving.registerRef('grille')}
+              role="radio"
+              aria-checked={view === 'grille'}
+              tabIndex={viewRoving.tabIndexFor('grille')}
               className={view === 'grille' ? 'on' : undefined}
               data-v="grille"
               onClick={() => setView('grille')}
+              onKeyDown={(event) => viewRoving.onKeyDown(event, 'grille', (id) => setView(id as View))}
             >
               Grille
             </button>

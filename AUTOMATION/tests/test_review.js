@@ -129,6 +129,8 @@ const volsDeDonnees = [];
   await page.waitForTimeout(250);
   const vise = await page.$eval('[data-tile][data-cur]', e => e.dataset.k);
   dire(vise === '1', `le curseur avance et se VOIT (tuile ${vise})`);
+  dire((await page.getAttribute('[data-tile][data-cur]', 'aria-current')) === 'true',
+       'et l annonce (aria-current), pas seulement une bordure de couleur');
   await page.keyboard.press('Enter');
   await page.waitForTimeout(400);
   dire(await vu('[data-triage]'), 'Entree ouvre la vue plein cadre');
@@ -138,6 +140,23 @@ const volsDeDonnees = [];
   const triG = await page.$$eval('[data-acts] [data-a]', e => e.map(x => x.dataset.a));
   dire(!triG.some(a => ['valider','rejeter','archiver','revoir'].includes(a)),
        `aucun geste de tri en plein cadre non plus (${triG.join(',')})`);
+
+  console.log('\n[4bis] a11y : les jugements de realisme exposent leur etat (aria-pressed)');
+  dire((await page.getAttribute('[data-f="ok"]', 'aria-pressed')) === 'false',
+       'relache au depart (aucun jugement encore pose)');
+  await page.click('[data-f="ok"]');
+  await page.waitForTimeout(300);
+  dire((await page.getAttribute('[data-f="ok"]', 'aria-pressed')) === 'true',
+       'enfonce apres un clic, pas seulement une couleur');
+  dire((await page.getAttribute('[data-f="ia"]', 'aria-pressed')) === 'false',
+       "l'autre jugement reste relache");
+  // REVERT : un second clic retire le jugement (« clicking again removes it »,
+  // useSortActions.tsx) — cette fumigation touche une image reelle de la
+  // Galerie, elle ne doit rien y laisser de change.
+  await page.click('[data-f="ok"]');
+  await page.waitForTimeout(300);
+  dire((await page.getAttribute('[data-f="ok"]', 'aria-pressed')) === 'false',
+       'et le second clic le retire : rien de laisse sur une image reelle');
 
   console.log('\n[5] la loupe s ouvre et se ferme a Echap');
   await page.click('#stageImg');
@@ -157,6 +176,24 @@ const volsDeDonnees = [];
   const ouvert = await page.$eval('#bucketSel button.on', e => e.dataset.b);
   dire(ouvert === 'A_REVOIR', `elle ouvre sur la file a juger (${ouvert})`);
   dire(await vu('#btnUndo'), "l'annulation y est proposee");
+
+  console.log('\n[6bis] a11y (design-pass ecran 5) : quatre groupes en roving radiogroup');
+  for (const [id, actif] of [['spaceSel', 'sfw'], ['bucketSel', 'A_REVOIR'],
+                              ['scoreSel', 'tout'], ['viewSel', 'grille']]) {
+    dire((await page.getAttribute(`#${id}`, 'role')) === 'radiogroup', `#${id} est un radiogroup`);
+    const etats = await page.$$eval(`#${id} button`, (els, actif) => els.map(e => ({
+      role: e.getAttribute('role'),
+      checked: e.getAttribute('aria-checked'),
+      on: e.classList.contains('on'),
+    })), actif);
+    dire(etats.every(e => e.role === 'radio'), `#${id} : chaque bouton est role=radio`);
+    dire(etats.every(e => (e.checked === 'true') === e.on),
+         `#${id} : aria-checked suit exactement la classe 'on' (${JSON.stringify(etats)})`);
+    dire(etats.filter(e => e.checked === 'true').length === 1, `#${id} : un seul actif`);
+  }
+  dire((await page.getAttribute('#scoreSel button[data-f="tout"]', 'aria-label'))
+         ?.includes('toutes les images'),
+       '#scoreSel : le seuil exact est aussi en aria-label, pas seulement en title');
 
   console.log('\n[7] TRI + ANNULATION, pour de vrai');
   if (!depart.REJET){

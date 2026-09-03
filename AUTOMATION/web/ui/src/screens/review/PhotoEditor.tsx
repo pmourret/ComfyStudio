@@ -43,6 +43,7 @@ import {
 } from './photoEditorStyles'
 import { useConfirm } from '../../chrome/ConfirmContext'
 import { Dialog } from '../../chrome/Dialog'
+import { useRovingChoice } from '../../chrome/useRovingChoice'
 import { useToast } from '../../chrome/ToastContext'
 import type { GalleryItem } from './useTriage'
 
@@ -73,8 +74,14 @@ export function PhotoEditor({
      it on is giving oneself a frame, turning it off is taking it back. */
   const [crop, setCrop] = useState<Crop | null>(null)
   const [ready, setReady] = useState(false)
-  const [message, setMessage] = useState('chargement…')
+  const [message, setMessage] = useState("chargement de l'image…")
   const [busy, setBusy] = useState(false)
+
+  /* #edRatio, roving radiogroup (a11y audit, design-pass screen-5) — same
+     gabarit as the other four groups of ReviewScreen.tsx. `data-r` and the
+     `'on'` class are unchanged, additive only (test_editor.js reads both). */
+  const activeRatioId = !ratio ? 'libre' : `${ratio.w}:${ratio.h}`
+  const ratioRoving = useRovingChoice(RATIOS, activeRatioId)
 
   /* `body.editing` is kept: it is no longer what DISPLAYS the editor (the
      <dialog> does), but it still holds the studio's keyboard shortcuts at bay
@@ -489,30 +496,34 @@ export function PhotoEditor({
               </button>
             ) : (
               <>
-                <div className="seg" id="edRatio">
-                  {RATIOS.map((entry) => (
-                    <button
-                      key={entry}
-                      className={
-                        (entry === 'libre' ? !ratio : ratio && `${ratio.w}:${ratio.h}` === entry)
-                          ? 'on'
-                          : undefined
-                      }
-                      data-r={entry}
-                      onClick={() => {
-                        const next =
-                          entry === 'libre'
-                            ? null
-                            : { w: Number(entry.split(':')[0]), h: Number(entry.split(':')[1]) }
-                        setRatio(next)
-                        // picking a format IS a crop gesture: if it was off it
-                        // turns on, otherwise the click would do nothing visible
-                        setCrop(centredCrop())
-                      }}
-                    >
-                      {entry === 'libre' ? 'Libre' : entry}
-                    </button>
-                  ))}
+                <div className="seg" id="edRatio" role="radiogroup" aria-label="Format de recadrage">
+                  {RATIOS.map((entry) => {
+                    const pick = (id: string) => {
+                      const next =
+                        id === 'libre'
+                          ? null
+                          : { w: Number(id.split(':')[0]), h: Number(id.split(':')[1]) }
+                      setRatio(next)
+                      // picking a format IS a crop gesture: if it was off it
+                      // turns on, otherwise the click would do nothing visible
+                      setCrop(centredCrop())
+                    }
+                    return (
+                      <button
+                        key={entry}
+                        ref={ratioRoving.registerRef(entry)}
+                        role="radio"
+                        aria-checked={entry === activeRatioId}
+                        tabIndex={ratioRoving.tabIndexFor(entry)}
+                        className={entry === activeRatioId ? 'on' : undefined}
+                        data-r={entry}
+                        onClick={() => pick(entry)}
+                        onKeyDown={(event) => ratioRoving.onKeyDown(event, entry, pick)}
+                      >
+                        {entry === 'libre' ? 'Libre' : entry}
+                      </button>
+                    )
+                  })}
                 </div>
                 {/* Turning it off saves nothing and does not modify the image:
                     the crop only exists at save time. We also come back to the
@@ -636,7 +647,7 @@ export function PhotoEditor({
               The COPY is the primary gesture: the source stays intact by
               default. « Écraser la source » is second rank and confirmed. */}
           <div className={ACTIONS}>
-            <p className="tiny" id="edMsg">
+            <p className="tiny" id="edMsg" role="status">
               {message}
             </p>
             <div className={BTNS}>

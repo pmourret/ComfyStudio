@@ -189,7 +189,9 @@ export function DeclineDialog({
     >
       <h3 className="mb-[4px]! text-[16px]!">Décliner</h3>
       {!dry ? (
-        <p className="tiny">chargement…</p>
+        <p className="tiny" role="status">
+          vérification des conditions…
+        </p>
       ) : (
         <>
           <div className="mb-[16px] text-[12.5px] text-dim">

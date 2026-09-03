@@ -49,6 +49,7 @@ export function Tile(props: {
       }${props.current ? 'border-acc [box-shadow:0_0_0_2px_var(--acc)]' : 'border-line'}`}
       data-tile
       data-cur={props.current ? '1' : undefined}
+      aria-current={props.current ? 'true' : undefined}
       data-k={props.index}
       onMouseDown={(event) => {
         // the action buttons place the cursor themselves
