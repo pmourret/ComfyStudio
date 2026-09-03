@@ -8,14 +8,10 @@ import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { InfoHint } from '../bank/composer/InfoHint'
 import {
   BODY_JOINT_GROUPS, BODY_JOINT_NAMES, HAND_JOINT_GROUPS, HAND_JOINT_NAMES,
-  parentIndexOf, type JointGroup,
+  nameOf, parentIndexOf, type JointGroup,
 } from './poseTopology'
 import { parsePointKey, pointKey, withPoint, type Point, type PointGroup, type PoseFrame } from './poseFrame'
 import type { Selected } from './PoseCanvas'
-
-function nameOf(group: PointGroup, index: number): string {
-  return group === 'body' ? BODY_JOINT_NAMES[index] : HAND_JOINT_NAMES[index]
-}
 
 /** Where an unplaced joint (`c<=0`, sitting at the flat-decode default of
     (0,0) — see poseFrame.ts's `flatToPoints`) lands the moment someone
@@ -350,6 +346,7 @@ function JointRow({
     <button
       type="button"
       aria-pressed={isSelected}
+      aria-label={`${label}${isPinned ? ', épinglé' : ''}${isSelected ? ', sélectionné' : ''}`}
       className={`btn sm justify-start ${isSelected ? 'border-acc bg-panel2' : 'border-line2'}`}
       style={{ opacity: placed ? 1 : 0.45 }}
       onClick={onClick}

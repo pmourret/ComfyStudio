@@ -96,3 +96,12 @@ export function parentOf(edges: readonly [number, number][], index: number): num
 export function parentIndexOf(group: PointGroup, index: number): number | null {
   return parentOf(group === 'body' ? BODY_LIMBS : HAND_EDGES, index)
 }
+
+/** A joint's human-readable name. Moved here from `PoseInspector.tsx`
+    (design-pass screen-6, §A3) — `PoseCanvas.tsx` needs it too (per-joint
+    `aria-label`), and `PoseInspector.tsx` already imports `type Selected`
+    FROM `PoseCanvas.tsx`, so importing this the other way would invert
+    that. Both files import the one copy here instead. */
+export function nameOf(group: PointGroup, index: number): string {
+  return group === 'body' ? BODY_JOINT_NAMES[index] : HAND_JOINT_NAMES[index]
+}

@@ -243,7 +243,7 @@ function PoseEditorInner({
               Enregistrer sous (nouvelle pose)
             </button>
           )}
-          {dirty && <p className="tiny">Modifications non enregistrées</p>}
+          {dirty && <p className="tiny" role="status">Modifications non enregistrées</p>}
           <PoseInspector
             pose={pose}
             selected={selected}

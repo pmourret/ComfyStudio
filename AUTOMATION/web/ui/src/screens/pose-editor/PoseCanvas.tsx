@@ -27,7 +27,7 @@ import {
 } from 'react'
 
 import {
-  BODY_COLORS, BODY_LIMBS, HAND_EDGES, HAND_JOINT_COLOR, handEdgeColor, parentIndexOf,
+  BODY_COLORS, BODY_LIMBS, HAND_EDGES, HAND_JOINT_COLOR, handEdgeColor, nameOf, parentIndexOf,
 } from './poseTopology'
 import {
   parsePointKey, pointKey, withPoint, withPointsMoved,
@@ -601,6 +601,17 @@ function jointDecoration(isSelected: boolean, isPinned: boolean) {
   }
 }
 
+/** Design-pass screen-6, §A3 — `aria-label` was on the `<svg>` as a whole
+    before this, never on an individual joint; nothing named WHICH one a
+    screen-reader user had tabbed to. Recomputed on every render rather than
+    `aria-live` on the `<circle>`: SVG has no native live region, and a
+    position changing every pixel of a drag would be announcement noise
+    anyway — the next focus/re-read is the right granularity. */
+function jointAriaLabel(group: PointGroup, index: number, point: Point, isPinned: boolean): string {
+  const where = point.c > 0 ? `x ${Math.round(point.x)}, y ${Math.round(point.y)}` : 'non placé'
+  return `${nameOf(group, index)} — ${where}${isPinned ? ', épinglé' : ''}`
+}
+
 function BodyLayer({
   points, selected, startDrag, onJointKeyDown, pinned,
 }: {
@@ -625,7 +636,8 @@ function BodyLayer({
         )
       })}
       {points.map((p, i) => {
-        const deco = jointDecoration(selected.has(pointKey('body', i)), Boolean(pinned?.has(pointKey('body', i))))
+        const isPinned = Boolean(pinned?.has(pointKey('body', i)))
+        const deco = jointDecoration(selected.has(pointKey('body', i)), isPinned)
         return (
           <circle
             key={i}
@@ -637,6 +649,7 @@ function BodyLayer({
             strokeWidth={2}
             tabIndex={0}
             className={deco.className}
+            aria-label={jointAriaLabel('body', i, p, isPinned)}
             onPointerDown={startDrag('body', i)}
             onKeyDown={onJointKeyDown('body', i)}
           />
@@ -671,7 +684,8 @@ function HandLayer({
         )
       })}
       {points.map((p, i) => {
-        const deco = jointDecoration(selected.has(pointKey(group, i)), Boolean(pinned?.has(pointKey(group, i))))
+        const isPinned = Boolean(pinned?.has(pointKey(group, i)))
+        const deco = jointDecoration(selected.has(pointKey(group, i)), isPinned)
         return (
           <circle
             key={i}
@@ -683,6 +697,7 @@ function HandLayer({
             strokeWidth={1.5}
             tabIndex={0}
             className={deco.className}
+            aria-label={jointAriaLabel(group, i, p, isPinned)}
             onPointerDown={startDrag(group, i)}
             onKeyDown={onJointKeyDown(group, i)}
           />

@@ -127,6 +127,26 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
        && (await stroke(page.locator('#poseEditor svg[data-canvas="full"] circle').nth(7))) === 'rgb(255, 255, 255)',
        'Espace REMPLACE la selection (comme un clic simple), pas de scroll de page declenche');
 
+  console.log('\n[5bis2] a11y (design pass ecran 6, §A3/§A4) : nom + position + epingle annonces');
+  const label7 = await jointB.getAttribute('aria-label');
+  dire(Boolean(label7) && / — x -?\d+, y -?\d+/.test(label7),
+       `le joint porte son nom et sa position (« ${label7} »)`);
+  await page.locator('button:has-text("Épingler")').first().click();
+  await page.waitForTimeout(150);
+  const label7Pinned = await jointB.getAttribute('aria-label');
+  dire(Boolean(label7Pinned) && label7Pinned.includes('épinglé'),
+       `l'etat epingle rejoint le label (« ${label7Pinned} »)`);
+  // La ligne de l'outliner correspondant au MEME joint (7e de la liste
+  // "Corps", ordre BODY_JOINT_NAMES) porte le meme etat, pas seulement le
+  // glyphe 📌 aria-hidden.
+  const rangeeVisible = page.locator('aside button.btn.sm.justify-start[aria-pressed="true"]').first();
+  dire(await rangeeVisible.count() > 0, "l'outliner porte au moins une ligne selectionnee");
+  const ariaLabelRangee = await rangeeVisible.getAttribute('aria-label');
+  dire(Boolean(ariaLabelRangee) && ariaLabelRangee.includes('épinglé') && ariaLabelRangee.includes('sélectionné'),
+       `la ligne de l'outliner annonce nom + epingle + selectionne, pas que le glyphe (« ${ariaLabelRangee} »)`);
+  await page.locator('button:has-text("Libérer")').first().click(); // desepingle, pour ne pas fausser [6]
+  await page.waitForTimeout(150);
+
   console.log('\n[5ter] a11y (design pass ecran 6, §A2) : Ctrl+Z marche SANS clic prealable dans le canvas');
   const cxAvantDrag2 = await tousJoints[0].getAttribute('cx');
   const boite2 = await tousJoints[0].boundingBox();
@@ -137,6 +157,10 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   await page.waitForTimeout(200);
   const cxApresDrag2 = await tousJoints[0].getAttribute('cx');
   dire(cxApresDrag2 !== cxAvantDrag2, 'le glisser deplace bien le joint (avant de tester l annulation)');
+  dire(await page.evaluate(() => {
+    const el = [...document.querySelectorAll('p,span')].find((e) => e.textContent === 'Modifications non enregistrées');
+    return el?.getAttribute('role') === 'status';
+  }), 'a11y §A5 : "Modifications non enregistrees" porte role=status');
 
   // Focus deplace vers un VRAI bouton du panneau, hors du canvas -- jamais
   // clique (aucun effet de bord), juste focus -- le scenario exact du

@@ -97,7 +97,7 @@ export function PoseEditorModal({
             <button className="btn primary" disabled={saving} onClick={() => void onSave()}>
               Enregistrer
             </button>
-            {dirty && <span className="tiny">Modifications non enregistrées</span>}
+            {dirty && <span className="tiny" role="status">Modifications non enregistrées</span>}
           </div>
         </>
       )}
