@@ -56,8 +56,11 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   console.log('\n[2] GATING : rien ne passe sans choix');
   dire(!(await suivantArme()), '« Suivant » est inerte tant qu aucun type n est choisi');
   dire(await page.isDisabled('#wizBack'), '« Retour » aussi, a la premiere etape');
-  dire((await texte('#wizSumT')).includes('choisis un type'),
-       'la barre dit ce qui manque, elle ne se contente pas de refuser');
+  // screen-1-wizard (03/09/2026) : le resume textuel de la barre de lancement
+  // (#wizSumT) a disparu, remplace par le panneau "Fiche en construction",
+  // visible en permanence plutot que relu seulement au moment de valider.
+  dire((await texte('[data-field="type"]')).trim() === '—',
+       'le panneau dit ce qui manque (placeholder), il ne se contente pas de refuser');
 
   console.log('\n[3] les types viennent du registre, avec leur famille de modele');
   const types = await cartes();
@@ -70,7 +73,11 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   await page.click('#wizBody .it:first-child');
   await page.waitForTimeout(200);
   dire(await vu('#wizBody .it.on'), 'la carte choisie est marquee');
-  dire(await page.$eval('#wizBody .it.on', e => e.getAttribute('aria-pressed')) === 'true',
+  // screen-1-wizard (03/09/2026) : motif radiogroup plutot qu'un bouton a
+  // bascule independant — ces cartes forment un choix mutuellement exclusif.
+  dire(await page.$eval('#wizBody .it.on', e => e.getAttribute('role')) === 'radio',
+       'la carte est un vrai bouton radio (choix mutuellement exclusif)');
+  dire(await page.$eval('#wizBody .it.on', e => e.getAttribute('aria-checked')) === 'true',
        'et elle le dit aussi a un lecteur d ecran');
   dire(await suivantArme(), '« Suivant » s arme');
 

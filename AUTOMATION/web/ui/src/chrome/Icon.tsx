@@ -41,6 +41,11 @@ const PATHS: Record<string, string> = {
     '<rect x="2.5" y="4" width="15" height="12" rx="1.5"/><path d="M5.8 8.3l3 2.4-3 2.4M10.8 13.1h3.4"/>',
   info: '<circle cx="10" cy="10" r="7.2"/><path d="M10 9.3v4.3"/><circle cx="10" cy="6.5" r=".9" fill="currentColor" stroke="none"/>',
   save: '<rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7.2 3v4h5.6V3"/><rect x="6.5" y="11" width="7" height="5"/>',
+  // --- status
+  // A selected-state marker that never relies on colour alone (wizard
+  // OptionCard, candidate thumbnails) — first use outside the chrome, but
+  // this registry is already the shared vocabulary meant for that.
+  check: '<path d="M4.5 10.3l3.3 3.3 7.2-7.6"/>',
   // A surface with no declared icon, or an unknown one, takes this: a collapsed
   // rail must never show an EMPTY button.
   default: '<circle cx="10" cy="10" r="6.5"/><circle cx="10" cy="10" r="1.6"/>',

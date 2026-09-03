@@ -17,6 +17,11 @@ export type CandidateState = { file: string; state: string; detail?: string | nu
 export const NOTE = 'rounded-card border px-[16px] py-[14px] text-[13px] leading-[1.55] bg-panel'
 export const NOTE_OK = NOTE + ' border-line text-dim'
 export const NOTE_ERR = NOTE + ' border-danger-line text-danger-txt'
+/* The step-1 loading placeholder: the shape of an `.it` card with nothing in
+   it, never a spinner or a sentence — the four steps have a known layout
+   before the network answers, so the screen shows THAT rather than making
+   the user read "chargement…" for something that has an obvious shape. */
+export const SKELETON_CARD = 'block h-[64px] rounded-card border border-line bg-panel2'
 /* ------------------------------------------------------- identity base */
 export const BASE_GRID = 'mt-[14px] grid grid-cols-2 gap-[20px] max-[720px]:grid-cols-1'
 export const COL_TITLE = 'mt-0 mb-[10px] text-[11.5px] uppercase tracking-[.5px] text-dim'
@@ -25,7 +30,7 @@ export const CANDS = 'mt-[12px] grid grid-cols-[repeat(auto-fill,minmax(92px,1fr
    already gives every <button>, and the two cards that are not buttons cannot
    take focus. */
 export const CAND =
-  'flex aspect-square items-center justify-center overflow-hidden ' +
+  'relative flex aspect-square items-center justify-center overflow-hidden ' +
   'rounded-[8px] border-2 p-0 text-[11px]'
 /* THE CURSOR IS IN THE STATES, not in the base chain — exactly like the colours,
    and for the same reason: `cursor-pointer` and `cursor-default` are two single

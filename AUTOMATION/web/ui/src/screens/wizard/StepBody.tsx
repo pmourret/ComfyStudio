@@ -6,13 +6,21 @@
    would copy that framing four times, and the day it changes three copies get
    forgotten.
 
+   All four `useRovingChoice` calls happen unconditionally at the top, even
+   though only one group is ever shown at a time — the Rules of Hooks forbid
+   calling a hook from inside a branch that might not run, so an empty id list
+   (the groups that do not apply to the current step) is the deliberate,
+   cheap way to keep every call unconditional.
+
    It renders and it calls back: every `on*` prop is the screen's decision. */
 import type React from 'react'
 
+import { Icon } from '../../chrome/Icon'
 import { OptionCard } from './OptionCard'
+import { useRovingChoice } from './useRovingChoice'
 import {
   BASE_GRID, CAND, CANDS, CAND_CHOSEN, CAND_ERR, CAND_IDLE, COL_TITLE, FROZEN_HINT,
-  FROZEN_IMG, NOTE_OK, SPIN, candidateUrl,
+  FROZEN_IMG, NOTE_ERR, NOTE_OK, SKELETON_CARD, SPIN, candidateUrl,
   type CandidateState, type CharacterType, type Step,
 } from './shared'
 
@@ -38,16 +46,45 @@ export function StepBody(props: {
 }) {
   const { step, types, currentType } = props
 
+  const typeIds = types.map((entry) => entry.id)
+  const typeRoving = useRovingChoice(typeIds, props.type)
+
+  const styles = currentType?.styles ?? []
+  const styleRoving = useRovingChoice(styles, props.style)
+
+  const worlds = (currentType?.worlds ?? []).map((entry) => entry.id)
+  const worldRoving = useRovingChoice(worlds, props.world)
+
+  const readyCandidates = (props.candidates ?? []).filter((c) => c.state === 'ready')
+  const chosenCandidate =
+    readyCandidates.find((c) => candidateUrl(c.file) === props.basePreview)?.file ?? null
+  const candidateRoving = useRovingChoice(
+    readyCandidates.map((c) => c.file),
+    chosenCandidate,
+  )
+
   if (step === 'type') {
+    if (!types.length) {
+      return (
+        <p className={NOTE_ERR} data-note>
+          Aucun type de personnage n'est déclaré. Vérifie{' '}
+          <code>PACKS/resolution.json</code> et les <code>universe.json</code> des
+          packs.
+        </p>
+      )
+    }
     return (
-      <div className="intents">
+      <div className="intents" role="radiogroup" aria-label="Type de personnage">
         {types.map((entry) => (
           <OptionCard
             key={entry.id}
             active={props.type === entry.id}
             title={entry.label}
             sub={`machine : ${entry.family}`}
+            tabIndex={typeRoving.tabIndexFor(entry.id)}
+            elementRef={typeRoving.registerRef(entry.id)}
             onClick={() => props.onPickType(entry.id)}
+            onKeyDown={(event) => typeRoving.onKeyDown(event, entry.id, props.onPickType)}
           />
         ))}
       </div>
@@ -57,7 +94,6 @@ export function StepBody(props: {
   if (!currentType) return null
 
   if (step === 'style') {
-    const styles = currentType.styles ?? []
     /* A single style is not a choice: we say so instead of showing one card that
        can only be clicked one way. */
     if (styles.length === 1) {
@@ -69,14 +105,17 @@ export function StepBody(props: {
       )
     }
     return (
-      <div className="intents">
+      <div className="intents" role="radiogroup" aria-label="Style de sortie">
         {styles.map((entry) => (
           <OptionCard
             key={entry}
             active={props.style === entry}
             title={entry}
             hint={FROZEN_HINT}
+            tabIndex={styleRoving.tabIndexFor(entry)}
+            elementRef={styleRoving.registerRef(entry)}
             onClick={() => props.onPickStyle(entry)}
+            onKeyDown={(event) => styleRoving.onKeyDown(event, entry, props.onPickStyle)}
           />
         ))}
       </div>
@@ -84,20 +123,23 @@ export function StepBody(props: {
   }
 
   if (step === 'world') {
-    const worlds = currentType.worlds ?? []
-    if (!worlds.length) {
+    const worldEntries = currentType.worlds ?? []
+    if (!worldEntries.length) {
       return <p className={NOTE_OK} data-note>Aucun monde déclaré pour ce type.</p>
     }
     return (
-      <div className="intents">
-        {worlds.map((entry) => (
+      <div className="intents" role="radiogroup" aria-label="Monde">
+        {worldEntries.map((entry) => (
           <OptionCard
             key={entry.id}
             active={props.world === entry.id}
             title={entry.label}
             sub={entry.tone ?? undefined}
             hint={FROZEN_HINT}
+            tabIndex={worldRoving.tabIndexFor(entry.id)}
+            elementRef={worldRoving.registerRef(entry.id)}
             onClick={() => props.onPickWorld(entry.id)}
+            onKeyDown={(event) => worldRoving.onKeyDown(event, entry.id, props.onPickWorld)}
           />
         ))}
       </div>
@@ -148,7 +190,12 @@ export function StepBody(props: {
           <p className="tiny" id="wizGenMsg">
             {props.genMessage}
           </p>
-          <div className={CANDS} id="wizCands">
+          <div
+            className={CANDS}
+            id="wizCands"
+            role="radiogroup"
+            aria-label="Portraits générés"
+          >
             {(props.candidates ?? []).map((candidate, index) =>
               candidate.state === 'ready' ? (
                 <button
@@ -157,15 +204,25 @@ export function StepBody(props: {
                     props.basePreview === candidateUrl(candidate.file) ? CAND_CHOSEN : CAND_IDLE
                   }`}
                   type="button"
+                  role="radio"
+                  aria-checked={props.basePreview === candidateUrl(candidate.file)}
+                  tabIndex={candidateRoving.tabIndexFor(candidate.file)}
+                  ref={candidateRoving.registerRef(candidate.file)}
                   data-file={candidate.file}
                   data-chosen={props.basePreview === candidateUrl(candidate.file) ? '1' : undefined}
                   onClick={() => props.onFreeze(candidate.file)}
+                  onKeyDown={(event) =>
+                    candidateRoving.onKeyDown(event, candidate.file, props.onFreeze)
+                  }
                 >
                   <img
                     className="block h-full w-full object-cover"
                     alt="portrait candidat"
                     src={candidateUrl(candidate.file)}
                   />
+                  {props.basePreview === candidateUrl(candidate.file) && (
+                    <Icon name="check" className="absolute top-[4px] right-[4px] h-[13px] w-[13px] text-acc" />
+                  )}
                 </button>
               ) : candidate.state === 'error' ? (
                 <div
@@ -196,5 +253,17 @@ export function StepBody(props: {
         )}
       </div>
     </>
+  )
+}
+
+/** Loading placeholder for the type step, before `/api/wizard/options` answers:
+    the shape of three `.it` cards, not a sentence — used by `WizardScreen`. */
+export function StepBodySkeleton() {
+  return (
+    <div className="intents" aria-hidden="true">
+      <div className={SKELETON_CARD} />
+      <div className={SKELETON_CARD} />
+      <div className={SKELETON_CARD} />
+    </div>
   )
 }

@@ -13,7 +13,15 @@
    then never changes.
 
    State stays local to this screen, as it did to the module. The one thing that
-   outlives it is the polling of generated candidates, stopped on unmount. */
+   outlives it is the polling of generated candidates, stopped on unmount.
+
+   LAYOUT (screen-1-wizard design pass, 03/09/2026): moved from the centred
+   `.wrap` model to Produire's two-column workstation grid — the four choices
+   were previously summarised in one line of the launch bar, read only when
+   about to click Next. The right column now shows them building up as they
+   are made. Reuses Produire's REAL pattern (`ProduceScreen.tsx`'s grid +
+   `Inspector`'s sticky classes) — DESIGN.md still names this `.cr-main`/
+   `.cr-side`, a pre-Tailwind naming that matches no class in this build. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { errorOf, type Schema } from '../../api/client'
@@ -21,7 +29,8 @@ import { useApi } from '../../api/useApi'
 import { useCharacter } from '../../character/CharacterContext'
 import { useToast } from '../../chrome/ToastContext'
 import { PATHS } from '../../app/routes'
-import { StepBody } from './StepBody'
+import { BuildSheetPanel } from './BuildSheetPanel'
+import { StepBody, StepBodySkeleton } from './StepBody'
 import {
   NOTE_ERR, STEPS, candidateUrl,
   type CandidateState, type CharacterType, type Step,
@@ -59,12 +68,14 @@ const POLL_MAX = 150
    because Produire lays out the same two components — a sheet named after one
    screen was the wrong home for a thing two screens share. The one `@keyframes`
    of the studio went into `base.css`, next to the reduced-motion rule that
-   governs it: a keyframe name is global whatever sheet declares it.
-
-   `#wizard .wrap` said `max-width:var(--maxw)` a second time — `base.css`
-   already gives it to every `.wrap`. Only the taller bottom padding survives,
-   the room the fixed launch bar needs. */
+   governs it: a keyframe name is global whatever sheet declares it. */
 const WRAP = 'pb-[130px]'
+/* The workstation grid — same shape as `#creer .wrap.split` (ProduceScreen.tsx):
+   full width, sticky right column, right column moves under the left one below
+   1100 px rather than overlaying it. */
+const SPLIT =
+  'wrap m-0 grid w-full max-w-none gap-[22px] pb-[130px] [align-items:start] ' +
+  'grid-cols-[minmax(0,1fr)_clamp(280px,22vw,420px)] max-[1100px]:grid-cols-[1fr]'
 const ID_GRID = 'mt-[6px] mb-[22px] grid grid-cols-2 gap-[16px] max-[720px]:grid-cols-1'
 
 /* THE STEPPER SHOWS where one is; it is not a control — steps are reached by
@@ -128,20 +139,31 @@ export function WizardScreen() {
   // nobody is looking at
   useEffect(() => stopPoll, [stopPoll])
 
-  useEffect(() => {
-    let alive = true
+  /* A ref rather than the effect's own closed-over flag: `loadOptions` is now
+     called from two places (mount, and the Retry button), and both must skip
+     setting state once the screen is gone. */
+  const mounted = useRef(true)
+  useEffect(() => () => {
+    mounted.current = false
+  }, [])
+
+  const loadOptions = useCallback(() => {
+    setLoadFailed(false)
     api
       .get<WizardOptions>('/api/wizard/options')
       .then((response) => {
-        if (!alive) return
+        if (!mounted.current) return
         if (errorOf(response) || !Array.isArray(response.types)) setLoadFailed(true)
         else setTypes(response.types)
       })
-      .catch(() => alive && setLoadFailed(true))
-    return () => {
-      alive = false
-    }
+      .catch(() => {
+        if (mounted.current) setLoadFailed(true)
+      })
   }, [api])
+
+  useEffect(() => {
+    loadOptions()
+  }, [loadOptions])
 
   const currentType = (types ?? []).find((t) => t.id === type) ?? null
   const cidValid = CID_RE.test(cid)
@@ -316,108 +338,116 @@ export function WizardScreen() {
           <p className={NOTE_ERR} data-note>
             Impossible de charger les choix du wizard.
           </p>
+          <button className="btn sm" id="wizRetry" onClick={loadOptions}>
+            Réessayer
+          </button>
         </div>
       </div>
     )
   }
 
+  const worldLabel = currentType?.worlds?.find((entry) => entry.id === world)?.label ?? null
+
   return (
     <div className="screen" id="wizard">
-      <div className={`wrap ${WRAP}`}>
-        <h2>Nouveau personnage</h2>
+      <div className={SPLIT}>
+        <div className="min-w-0">
+          <h2>Nouveau personnage</h2>
 
-        <div className={ID_GRID}>
-          <label className="f">
-            <span>Nom affiché</span>
-            <input
-              id="wizName"
-              autoComplete="off"
-              placeholder="ex : Léna"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </label>
-          <label className="f">
-            <span>
-              Identifiant{' '}
-              {/* `.wiz-ok` / `.wiz-bad` ARE NOT PORTED: neither ever painted.
-                  `label.f span` (chrome.css, a class plus two types) outweighs
-                  them — and outweighs `.tiny` too. Measured on 31/08/2026: this
-                  hint is `--dim` in BOTH states, valid and invalid. Painting it
-                  now would be a VISIBLE change, which a migration meant to be
-                  invisible does not smuggle in; the ✓ and the sentence carry the
-                  state on their own, as they always have. */}
-              <span className="tiny" id="wizCidHint">
-                {!cid ? '' : cidValid ? '✓' : '— minuscules, chiffres, - et _'}
+          <div className={ID_GRID}>
+            <label className="f">
+              <span>Nom affiché</span>
+              <input
+                id="wizName"
+                autoComplete="off"
+                placeholder="ex : Léna"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </label>
+            <label className="f">
+              <span>
+                Identifiant{' '}
+                {/* `.wiz-ok` / `.wiz-bad` ARE NOT PORTED: neither ever painted.
+                    `label.f span` (chrome.css, a class plus two types) outweighs
+                    them — and outweighs `.tiny` too. Measured on 31/08/2026: this
+                    hint is `--dim` in BOTH states, valid and invalid. Painting it
+                    now would be a VISIBLE change, which a migration meant to be
+                    invisible does not smuggle in; the ✓ and the sentence carry the
+                    state on their own, as they always have. */}
+                <span className="tiny" id="wizCidHint">
+                  {!cid ? '' : cidValid ? '✓' : '— minuscules, chiffres, - et _'}
+                </span>
               </span>
-            </span>
-            <input
-              id="wizCid"
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="slug — dossiers, URL, base de données"
-              value={cid}
-              onChange={(event) => onCidChange(event.target.value)}
-            />
-          </label>
+              <input
+                id="wizCid"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="slug — dossiers, URL, base de données"
+                value={cid}
+                onChange={(event) => onCidChange(event.target.value)}
+              />
+            </label>
+          </div>
+
+          <ol className={STEPS_LIST} id="wizSteps" aria-label="Étapes de création">
+            {STEPS.map((key, index) => {
+              const state = index < step ? 'done' : index === step ? 'on' : 'todo'
+              return (
+                <li
+                  key={key}
+                  className={`${STEP} ${STEP_STATE[state]}`}
+                  data-step={state}
+                  aria-current={index === step ? 'step' : undefined}
+                >
+                  <i className={`${BULLET} ${BULLET_STATE[state]}`}>{index + 1}</i>
+                  {LABELS[key]}
+                </li>
+              )
+            })}
+          </ol>
+
+          <div id="wizBody">
+            {types === null ? (
+              <StepBodySkeleton />
+            ) : (
+              <StepBody
+                step={STEPS[step]}
+                types={types}
+                currentType={currentType}
+                type={type}
+                style={style}
+                world={world}
+                cidValid={cidValid}
+                frozenBase={frozenBase}
+                basePreview={basePreview}
+                fileMessage={fileMessage}
+                genMessage={genMessage}
+                candidates={candidates}
+                onPickType={pickType}
+                onPickStyle={setStyle}
+                onPickWorld={setWorld}
+                onFilePicked={onFilePicked}
+                onGenerate={onGenerate}
+                onFreeze={freeze}
+              />
+            )}
+          </div>
         </div>
 
-        <ol className={STEPS_LIST} id="wizSteps">
-          {STEPS.map((key, index) => {
-            const state = index < step ? 'done' : index === step ? 'on' : 'todo'
-            return (
-              <li
-                key={key}
-                className={`${STEP} ${STEP_STATE[state]}`}
-                data-step={state}
-                aria-current={index === step ? 'step' : undefined}
-              >
-                <i className={`${BULLET} ${BULLET_STATE[state]}`}>{index + 1}</i>
-                {LABELS[key]}
-              </li>
-            )
-          })}
-        </ol>
-
-        <div id="wizBody">
-          {types === null ? (
-            <p className="tiny">chargement des choix…</p>
-          ) : (
-            <StepBody
-              step={STEPS[step]}
-              types={types}
-              currentType={currentType}
-              type={type}
-              style={style}
-              world={world}
-              cidValid={cidValid}
-              frozenBase={frozenBase}
-              basePreview={basePreview}
-              fileMessage={fileMessage}
-              genMessage={genMessage}
-              candidates={candidates}
-              onPickType={pickType}
-              onPickStyle={setStyle}
-              onPickWorld={setWorld}
-              onFilePicked={onFilePicked}
-              onGenerate={onGenerate}
-              onFreeze={freeze}
-            />
-          )}
-        </div>
+        <BuildSheetPanel
+          name={name}
+          cid={cid}
+          typeLabel={currentType?.label ?? null}
+          styleLabel={style}
+          worldLabel={worldLabel}
+          frozenBase={frozenBase}
+          basePreview={basePreview}
+        />
       </div>
 
       <div className="launch">
         <div className="inner">
-          <div className="sum">
-            <b id="wizSumN">
-              {step + 1}/{STEPS.length}
-            </b>
-            <div id="wizSumT">
-              {[type, style, world, frozenBase ? 'base ✓' : null].filter(Boolean).join(' · ') ||
-                'choisis un type'}
-            </div>
-          </div>
           <div className="flex-1" />
           <button className="btn" id="wizBack" disabled={step === 0} onClick={() => setStep(step - 1)}>
             Retour
@@ -435,4 +465,3 @@ export function WizardScreen() {
     </div>
   )
 }
-
