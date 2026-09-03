@@ -27,8 +27,8 @@ import {
 } from 'react'
 
 import {
-  BODY_COLORS, BODY_LIMBS, HAND_EDGES, HAND_JOINT_COLOR, handEdgeColor, handEdgeDash, limbDash, nameOf,
-  parentIndexOf,
+  angleAndLength, BODY_COLORS, BODY_LIMBS, HAND_EDGES, HAND_JOINT_COLOR, handEdgeColor, handEdgeDash, limbDash,
+  nameOf, parentIndexOf,
 } from './poseTopology'
 import {
   parsePointKey, pointKey, withPoint, withPointsMoved,
@@ -236,6 +236,11 @@ export function PoseCanvas({
   // The rectangle currently being dragged out (Shift+background-drag), in
   // SVG user-space — null whenever no rectangle-select gesture is active.
   const [rectSelect, setRectSelect] = useState<Rect | null>(null)
+  // Live angle/length readout next to a single joint mid-drag (design-pass
+  // screen-6, §B1) — null whenever no such drag is in progress (a group
+  // drag, or no drag at all). Set from `startDrag`'s `move` closure, same
+  // outside-React-render idiom `rectSelect` above already uses.
+  const [dragHint, setDragHint] = useState<{ x: number; y: number; text: string } | null>(null)
 
   const toSvgPoint = useCallback((clientX: number, clientY: number) => {
     const svg = svgRef.current
@@ -435,11 +440,24 @@ export function PoseCanvas({
           nx = parentPoint.x + (ddx / dist) * boneLength
           ny = parentPoint.y + (ddy / dist) * boneLength
           onChange(withPoint(pose, group, index, nx, ny))
+          setDragHint({ x: nx, y: ny, text: angleAndLength(parentPoint, { x: nx, y: ny }) })
           return
         }
         onChange(withPointsMoved(pose, origins, dx, dy))
+        // Free drag: `withPointsMoved` above already applies `dx`/`dy` to
+        // every moving point, but the readout only ever shows ONE bone (the
+        // single dragged joint against ITS parent) — a group drag has no
+        // single such pair, `parentPoint` stays null and no hint shows.
+        if (single !== null && parentPoint) {
+          const nx = orig.x + dx
+          const ny = orig.y + dy
+          setDragHint({ x: nx, y: ny, text: angleAndLength(parentPoint, { x: nx, y: ny }) })
+        }
       }
-      const stop = () => document.removeEventListener('pointermove', move)
+      const stop = () => {
+        document.removeEventListener('pointermove', move)
+        setDragHint(null)
+      }
       document.addEventListener('pointermove', move)
       document.addEventListener('pointerup', stop, { once: true })
     },
@@ -555,6 +573,18 @@ export function PoseCanvas({
             stroke="#fff"
             strokeDasharray="4,3"
           />
+        )}
+        {dragHint && (
+          // A black stroke UNDER the white fill (paintOrder, not a
+          // background <rect>) keeps the reading legible over the skeleton,
+          // the reference photo, or plain black, without measuring text
+          // width for a box behind it.
+          <text
+            x={dragHint.x + 12} y={dragHint.y - 12}
+            fontSize={14} fill="#fff" stroke="#000" strokeWidth={3} paintOrder="stroke"
+          >
+            {dragHint.text}
+          </text>
         )}
       </svg>
       <div className="absolute right-[8px] top-[8px] flex gap-[4px]">

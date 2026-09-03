@@ -106,6 +106,22 @@ export function nameOf(group: PointGroup, index: number): string {
   return group === 'body' ? BODY_JOINT_NAMES[index] : HAND_JOINT_NAMES[index]
 }
 
+/** Bone angle/length from `parent` to `point`. Moved here from
+    `PoseInspector.tsx` (design-pass screen-6, §B1) for the same reason as
+    `nameOf` above — `PoseCanvas.tsx` needs it too, now for the live drag
+    readout, and importing from `PoseInspector.tsx` would invert the
+    existing `Selected` import direction. Takes `{x,y}` rather than the
+    full `Point` (which also carries `c`, confidence): a live drag position
+    is a plain coordinate mid-gesture, never a placed/confidence-scored
+    `Point` from `pose` itself. */
+export function angleAndLength(parent: { x: number; y: number }, point: { x: number; y: number }): string {
+  const dx = point.x - parent.x
+  const dy = point.y - parent.y
+  const length = Math.round(Math.hypot(dx, dy))
+  const angle = Math.round((Math.atan2(dy, dx) * 180) / Math.PI)
+  return `${angle}° · ${length}px`
+}
+
 /* Non-colour fallback for limbs/fingers (design-pass screen-6, §A6) — colour
    alone (adjacent red/green on the body, a continuous HSL sweep on the
    hands) is the only differentiator today, a real problem for colour-blind

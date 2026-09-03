@@ -223,6 +223,43 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   dire(traitsMainD[0] !== traitsMainD[4],
        `le pouce et l'index n'ont pas le meme motif (${traitsMainD[0]} vs ${traitsMainD[4]})`);
 
+  console.log('\n[5sexies] capacite (design pass ecran 6, §B1) : lecture angle/longueur EN DIRECT pendant le drag');
+  const texteFlottant = () => page.$eval(
+    '#poseEditor svg[data-canvas="full"] text', (el) => el.textContent,
+  ).catch(() => null);
+  dire(!(await texteFlottant()), 'aucun texte flottant avant tout glisser');
+  // tousJoints[3] = Relb (a un parent, Rsho) ; tousJoints[1] = neck (racine,
+  // aucun parent -- rien a mesurer).
+  const boiteRelb = await tousJoints[3].boundingBox();
+  await page.mouse.move(boiteRelb.x + boiteRelb.width / 2, boiteRelb.y + boiteRelb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(boiteRelb.x + boiteRelb.width / 2 + 60, boiteRelb.y + boiteRelb.height / 2 + 40, { steps: 8 });
+  await page.waitForTimeout(80);
+  const texteEnCours = await texteFlottant();
+  dire(Boolean(texteEnCours) && /-?\d+° · \d+px/.test(texteEnCours),
+       `le texte flottant affiche angle/longueur pendant le glisser (« ${texteEnCours} »)`);
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  dire(!(await texteFlottant()), 'le texte flottant disparait au relachement');
+  // La lecture affichee pendant le drag doit correspondre a celle, apres
+  // coup, du panneau lateral pour le MEME joint -- pas juste "un texte
+  // apparait", la bonne valeur.
+  const texteInspecteur = await page.evaluate(() => {
+    const p = [...document.querySelectorAll('aside p.tiny')].find((e) => /° · \d+px/.test(e.textContent || ''));
+    return p ? p.textContent.trim() : null;
+  });
+  dire(Boolean(texteInspecteur) && texteInspecteur.startsWith(texteEnCours),
+       `la valeur pendant le drag correspond a celle de l'inspecteur apres coup (« ${texteEnCours} » vs « ${texteInspecteur} »)`);
+
+  const boiteCou = await tousJoints[1].boundingBox();
+  await page.mouse.move(boiteCou.x + boiteCou.width / 2, boiteCou.y + boiteCou.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(boiteCou.x + boiteCou.width / 2 + 40, boiteCou.y + boiteCou.height / 2 + 20, { steps: 5 });
+  await page.waitForTimeout(80);
+  dire(!(await texteFlottant()), 'glisser la racine (aucun parent a mesurer) ne montre aucun texte flottant');
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+
   console.log('\n[6] sauvegarde — redirige vers la pose reellement ecrite');
   await page.click('button:has-text("Enregistrer")');
   await page.waitForFunction(() => location.pathname.includes('/bank/poses/edit/'), null, { timeout: 5000 });

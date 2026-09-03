@@ -7,7 +7,7 @@ import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react'
 
 import { InfoHint } from '../bank/composer/InfoHint'
 import {
-  BODY_JOINT_GROUPS, BODY_JOINT_NAMES, HAND_JOINT_GROUPS, HAND_JOINT_NAMES,
+  angleAndLength, BODY_JOINT_GROUPS, BODY_JOINT_NAMES, HAND_JOINT_GROUPS, HAND_JOINT_NAMES,
   nameOf, parentIndexOf, type JointGroup,
 } from './poseTopology'
 import { parsePointKey, pointKey, withPoint, type Point, type PointGroup, type PoseFrame } from './poseFrame'
@@ -183,14 +183,6 @@ export function PoseInspector({
       </div>
     </div>
   )
-}
-
-function angleAndLength(parent: Point, point: Point): string {
-  const dx = point.x - parent.x
-  const dy = point.y - parent.y
-  const length = Math.round(Math.hypot(dx, dy))
-  const angle = Math.round((Math.atan2(dy, dx) * 180) / Math.PI)
-  return `${angle}° · ${length}px`
 }
 
 /** A plain controlled `<input type="number">` bound straight to `value`
