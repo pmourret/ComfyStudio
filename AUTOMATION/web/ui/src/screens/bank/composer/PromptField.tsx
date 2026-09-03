@@ -24,6 +24,7 @@ export function PromptField({
   placeholder,
   disabled,
   lockedNote,
+  accentColor,
 }: {
   /** `data-f` on the compact textarea — the browser fumigation's hook. */
   dataField: string
@@ -40,6 +41,11 @@ export function PromptField({
   disabled?: boolean
   /** Said under the field only while `disabled` is true — why it is locked. */
   lockedNote?: string
+  /** Border tint (a CSS color, usually a `var(--frag-*)` token) — used by
+      RecapPanel's 3 fragment mirrors to tie each field to its segment in the
+      composed preview below (design pass écran 7, §V4). Omitted everywhere
+      else: a tab with only ONE fragment has nothing to disambiguate. */
+  accentColor?: string
 }) {
   const [editing, setEditing] = useState(false)
   const fieldId = `scene-prompt-${dataField}`
@@ -57,6 +63,7 @@ export function PromptField({
           id={fieldId}
           data-f={dataField}
           className="min-h-[78px] resize-y"
+          style={accentColor ? { borderColor: accentColor } : undefined}
           value={value}
           placeholder={placeholder}
           disabled={disabled}
@@ -115,6 +122,7 @@ export function PromptField({
         <h3>{label}</h3>
         <textarea
           className="min-h-[320px] resize-y"
+          style={accentColor ? { borderColor: accentColor } : undefined}
           value={value}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}

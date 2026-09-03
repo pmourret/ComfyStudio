@@ -55,6 +55,16 @@ import { PoseEditorModal } from '../../pose-editor/PoseEditorModal'
 
 const FORMATS = ['4:5', '2:3', '9:16', '1:1']
 
+/* Border/highlight tints tying RecapPanel's 3 fragment fields to their
+   segment in the composed preview (design pass écran 7, §V4) — platform
+   tokens (`tokens.css`), not values chosen here: `--frag-light`/`--frag-pose`
+   are new, `--acc` for the base fragment is the app's own existing accent. */
+const FRAGMENT_COLORS = {
+  base: 'var(--acc)',
+  light: 'var(--frag-light)',
+  pose: 'var(--frag-pose)',
+} as const
+
 type TabKey = 'general' | 'light' | 'clothing' | 'pose' | 'recap' | 'ai' | 'json'
 
 const TABS: { key: TabKey; label: string; icon: string }[] = [
@@ -1015,6 +1025,7 @@ function RecapPanel({
         value={draft.promptBase}
         disabled={worldLinked}
         lockedNote={worldLinked ? lockedNote : undefined}
+        accentColor={FRAGMENT_COLORS.base}
         onChange={(value) => onPatch({ promptBase: value })}
       />
       <PromptField
@@ -1023,6 +1034,7 @@ function RecapPanel({
         value={draft.promptLight}
         disabled={worldLinked}
         lockedNote={worldLinked ? lockedNote : undefined}
+        accentColor={FRAGMENT_COLORS.light}
         onChange={(value) => onPatch({ promptLight: value })}
       />
       <PromptField
@@ -1031,6 +1043,7 @@ function RecapPanel({
         value={draft.promptPose}
         disabled={worldLinked}
         lockedNote={worldLinked ? lockedNote : undefined}
+        accentColor={FRAGMENT_COLORS.pose}
         onChange={(value) => onPatch({ promptPose: value })}
       />
 
@@ -1047,9 +1060,52 @@ function RecapPanel({
           prompt composé
           <InfoHint text="Assemble les trois fragments ci-dessus — décor, lumière, pose — séparés par une virgule, dans le même ordre que le studio utilise à la génération. Un fragment vide est ignoré ; la tenue n'y participe jamais." />
         </span>
+        {/* Purely visual annotation of the textarea below, colored by
+            fragment (design pass écran 7, §V4) — the relation between the 3
+            tinted fields above and their place in the join becomes visible
+            on sight, not just stated in a label ("même champ que l'onglet
+            Lumière"). `aria-hidden` : the textarea right below already
+            announces this same text once, correctly — this would only
+            double it. */}
+        <ComposedPromptPreview draft={draft} />
         <textarea className="min-h-[70px] resize-y" readOnly value={composePrompt(draft)} />
       </label>
     </div>
+  )
+}
+
+/* See the `aria-hidden` note above: decorative twin of the composed prompt,
+   fragment-colored, sitting just above the real (accessible, copyable)
+   readonly textarea rather than replacing it. */
+function ComposedPromptPreview({ draft }: { draft: SceneDraft }) {
+  const fragments = [
+    { text: draft.promptBase.trim(), color: FRAGMENT_COLORS.base },
+    { text: draft.promptLight.trim(), color: FRAGMENT_COLORS.light },
+    { text: draft.promptPose.trim(), color: FRAGMENT_COLORS.pose },
+  ].filter((fragment) => fragment.text)
+
+  return (
+    <p
+      aria-hidden="true"
+      className="m-0 mb-[6px] rounded-[8px] border border-line2 bg-panel2 px-[10px] py-[8px]
+                 text-[12.5px] leading-relaxed"
+    >
+      {fragments.length === 0 ? (
+        <span className="text-dim">— vide —</span>
+      ) : (
+        fragments.map((fragment, index) => (
+          <span key={index}>
+            <span
+              className="rounded-[3px] px-[2px] py-px"
+              style={{ color: fragment.color, backgroundColor: `color-mix(in srgb, ${fragment.color} 18%, transparent)` }}
+            >
+              {fragment.text}
+            </span>
+            {index < fragments.length - 1 && <span className="text-dim">, </span>}
+          </span>
+        ))
+      )}
+    </p>
   )
 }
 

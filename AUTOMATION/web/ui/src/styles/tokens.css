@@ -49,6 +49,14 @@
   --danger-bg:#270d0b; --danger-line:#642724; --danger-txt:#f9bdb7;
   --mes-bg:#07180b; --mes-line:#133c1f;
 
+  /* Liaison visuelle des 3 fragments du recapitulatif de scene (bank/
+     composer/SceneComposer.tsx, design pass ecran 7 §V4) : decor=--acc,
+     lumiere/pose ci-dessous. Wayfinding d'interface, pas une ambiance de
+     personnage -- IDEM dans les 3 habillages, jamais redeclare par pack,
+     meme regle que les verdicts ci-dessus. Contraste verifie >=6:1 contre
+     --panel2 (methode identique a --acc). */
+  --frag-light:#8bab93; --frag-pose:#a99bc7;
+
   /* --- profondeur : IDEM, primitives neutres, pas une ambiance de palette --- */
   --elev:0 14px 38px #00000099;
   --scrim:#0b0d10cc;
