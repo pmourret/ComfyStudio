@@ -378,6 +378,55 @@ prouvent la généralisation — pas juste Léna renommée.
 - `"flux+edit"` en dur en 17 endroits pour dire « ce palier édite » — sans
   effet tant que le seul pack qui édite est flux
 
+**J8.1 — ADR des quatre couches + alignement du vocabulaire** ✅ *(terminé
+2026-09-03)*
+- Deux sessions de cadrage avaient fixé un modèle de responsabilité
+  **runtime** à quatre couches (plateforme, pack, monde, personnage),
+  distinct des quatre **axes de création** d'ADR-0012 (qui décrit comment un
+  personnage se résout à un pack à la naissance, pas qui a le droit de
+  porter un graphe à l'exécution). Aucun comportement changé — vocabulaire
+  et renommage seulement, avant que la suite du chantier ne s'appuie dessus
+- `DOCS/adr/0017-quatre-couches-plateforme-pack-monde-personnage.md` : la
+  règle qui décide entre les couches — plateforme et pack peuvent porter un
+  graphe, monde et personnage jamais. Nomme une distinction déjà vraie dans
+  le code (ADR-0013 : `edit_workflow` est un graphe de pack ; ADR-0015/0016 :
+  un monde n'a « aucun graphe ») mais jusque-là non formalisée comme un seul
+  modèle — `architecture.md` §5 et `nouvel-outil` (patron 1) mélangeaient
+  encore « outil global » et « outil de pack » dans la même phrase
+- Renommage mécanique `UNIVERS/` → `PACKS/` : le dossier (6 fichiers, `git
+  mv`) et toute référence à son chemin littéral dans le code vivant
+  (`AUTOMATION/universe.py` : constante `UNIVERS_DIR` → `PACKS_DIR` + tous
+  ses usages, `worlds.py`, `shared_state.py`, `identity/__init__.py`,
+  `ToolRail.tsx`, `DESIGN.md`, `README.md`, `AUDIT.md`, les trois `_notes`
+  internes des fichiers de `PACKS/*.json`). Rien d'autre ne bouge :
+  `AUTOMATION/universe.py`, `universe.json`, la clé `character.json.universe`
+  et les routes `/api/universe/*` restent tels quels — ADR-0012 avait déjà
+  tranché de garder ce vocabulaire-là
+- `CLAUDE.md` : Architecture pointe désormais les quatre couches +
+  ADR-0017 ; invariant 7 réécrit pour les couvrir toutes les quatre (avant :
+  seulement le registre de pack), avec la règle du graphe explicite.
+  `DOCS/architecture.md` §5 nomme les couches à la place de « outil global »
+  / « outil propre à un univers »
+- Skills réalignés : `nouvel-univers` renommé `nouvel-pack` (dossier +
+  frontmatter) ; `nouvel-outil` (patron 1) décide désormais explicitement
+  entre couche plateforme et couche pack avant `scope` (`global`/`universe`,
+  question orthogonale, inchangée) ; `workflow-comfyui` cite ADR-0017 comme
+  critère de légitimité d'un graphe ; `nouveau-personnage` et les chemins
+  `PACKS/` mis à jour partout. Référence
+  `workflow-comfyui/references/modeles-par-univers.md` renommée
+  `modeles-par-pack.md`, reformulée pack au lieu d'univers, toutes ses
+  références croisées mises à jour (y compris `comfyui-custom-nodes` et
+  `protocole-identite.md`, non listés au départ mais qui pointaient ce
+  fichier)
+- Aucun ADR accepté ni entrée datée de ce fichier n'a été réécrit — ils
+  continuent de dire `UNIVERS/`, exact au moment où ils ont été écrits.
+  `DOCS/handoffs/`/`DOCS/cadrage/` non touchés
+- Vérifié : `test_universe_resolution.py`, `test_universe_registry.py`,
+  `test_character_registry.py`, `test_worlds_registry.py`,
+  `test_world_creation_isolation.py`, `test_character_create.py` — verts
+  avant ET après, aucun changé sur le fond (seuls les chemins renommés et
+  `universe.UNIVERS_DIR` → `universe.PACKS_DIR`)
+
 **Studio IA — chaque écran au niveau d'un outil professionnel** *(ouvert
 2026-09-01 — exigence transverse, pas un jalon avec une date de fin)*
 - Périmètre inchangé : personnage → univers → scènes, le pipeline actuel.
