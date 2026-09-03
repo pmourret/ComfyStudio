@@ -22,7 +22,7 @@ export type GalleryResponse = Schema<'GalleryResponse'>
 
 export type Trade = 'revue' | 'galerie'
 export type Space = 'sfw' | 'nsfw'
-export type View = 'grille' | 'revue'
+export type View = 'grille' | 'revue' | 'comparer'
 export type ScoreFilter = 'tout' | 'haut' | 'moyen' | 'bas'
 
 /* Calibration band of one realism sub-score, as /api/gallery hands it over. The

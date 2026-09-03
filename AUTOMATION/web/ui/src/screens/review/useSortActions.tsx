@@ -40,6 +40,7 @@ const SORT_LABEL: Record<string, string> = {
 
 export function useSortActions({
   shown,
+  items,
   safeCursor,
   bucket,
   space,
@@ -50,6 +51,11 @@ export function useSortActions({
   reload,
 }: {
   shown: GalleryItem[]
+  /** The folder's FULL list, filter-independent — `actMany` resolves names
+      against this, not `shown`: a Comparer-mode selection (design-pass
+      screen-5, §B) must survive a score-filter change made after the
+      selection was made. */
+  items: GalleryItem[]
   safeCursor: number
   bucket: string
   space: Space
@@ -152,7 +158,7 @@ export function useSortActions({
      honestly. */
   const actMany = useCallback(
     async (action: string, names: string[]) => {
-      const byName = new Map(shown.map((item) => [item.name, item]))
+      const byName = new Map(items.map((item) => [item.name, item]))
       const succeeded: GalleryItem[] = []
       const failed: { item: GalleryItem; reason: string }[] = []
       for (const name of names) {
@@ -175,7 +181,7 @@ export function useSortActions({
       if (failed.length) message += `, ${failed.length} échec${failed.length > 1 ? 's' : ''} : ${failed[0].reason}`
       toast(message)
     },
-    [shown, bucket, postSort, setItems, refreshCounts, toast],
+    [items, bucket, postSort, setItems, refreshCounts, toast],
   )
 
   const undo = useCallback(async () => {

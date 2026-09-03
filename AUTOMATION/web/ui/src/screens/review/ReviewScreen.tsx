@@ -33,6 +33,7 @@ import { DeclineDialog } from './DeclineDialog'
 import { PhotoEditor } from './PhotoEditor'
 import { EmptyState } from './EmptyState'
 import { FullFrame } from './FullFrame'
+import { SurveyMode } from './SurveyMode'
 import { Tile } from './Tile'
 import { useReviewKeys } from './useReviewKeys'
 import { useSelection } from './useSelection'
@@ -130,6 +131,7 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
 
   const { setFlag, act, actMany, undo, deleteForever, measure, measuring, measureLeft } = useSortActions({
     shown,
+    items,
     safeCursor,
     bucket,
     space,
@@ -187,7 +189,7 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
   const bucketRoving = useRovingChoice(bucketIds, bucket)
   const filterIds = SCORE_FILTERS.map((entry) => entry.key)
   const filterRoving = useRovingChoice(filterIds, filter)
-  const viewIds = ['revue', 'grille']
+  const viewIds = ['revue', 'grille', 'comparer']
   const viewRoving = useRovingChoice(viewIds, view)
 
   const onBulk = useCallback(
@@ -198,22 +200,48 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
     [actMany, selection],
   )
 
+  /* Comparer mode (design-pass screen-5, §B) — resolved from `items`, NOT
+     `shown`: a score-filter change made AFTER selecting must not drop
+     images out of the comparison. Capped at 4, same order as `items`. */
+  const comparedAll = useMemo(
+    () => items.filter((item) => selection.selected.has(item.name)),
+    [items, selection.selected],
+  )
+  const compared = useMemo(
+    () => comparedAll.slice(0, 4).map((item) => ({ item, src: api.image(item) })),
+    [comparedAll, api],
+  )
+  const overflowCount = Math.max(0, comparedAll.length - 4)
+
+  const onKeepInSurvey = useCallback(
+    async (kept: GalleryItem, comparedItems: GalleryItem[]) => {
+      const others = comparedItems.filter((i) => i.name !== kept.name).map((i) => i.name)
+      await actMany('valider', [kept.name])
+      if (others.length) await actMany('rejeter', others)
+      selection.clearSelection()
+      setView('grille')
+    },
+    [actMany, selection, setView],
+  )
+
   return (
     <div className="screen" id="trier" data-metier={trade}>
       {/* The sorting screen ends on its grid: it has no launch bar to clear. */}
       <div className="wrap pb-[24px]">
+        <div className="viewsel">
         {view === 'grille' && selection.selected.size > 0 ? (
-          /* Bulk action bar (design-pass screen-5, §D) — REPLACES the filter
-             row while a selection is live, same slot, never both at once.
+          /* Bulk action bar (design-pass screen-5, §D) — replaces the FILTER
+             controls only (space/bucket/score: not meaningful mid-selection).
+             `#viewSel` stays put, right of it — Comparer (§B) must stay
+             reachable, that is the only way into it after selecting.
              Language of ReviewActions.tsx (`.btn`, `data-a`, `.kbd`) without
              reusing the component itself: that one is bucket-conditional and
              built for the full-frame column. */
-          <div className="viewsel" id="bulkBar">
-            <span className="text-[13px] font-semibold text-txt" role="status">
+          <>
+            <span className="text-[13px] font-semibold text-txt" role="status" id="bulkCount">
               {selection.selected.size} sélectionnée{selection.selected.size > 1 ? 's' : ''}
             </span>
-            <div className="flex-1" />
-            <div className="flex gap-[9px]">
+            <div className="flex gap-[9px]" id="bulkBar">
               <button className="btn" data-a="valider" onClick={() => void onBulk('valider')}>
                 Garder
               </button>
@@ -227,9 +255,9 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
             <button className="link" onClick={clearSelectionAndRefocus}>
               annuler la sélection <span className="kbd">Échap</span>
             </button>
-          </div>
+          </>
         ) : (
-        <div className="viewsel">
+          <>
           {/* `data-sp="sfw"` is the WIRE key sent to /api/gallery and /img: SFW,
               not the name of a character (AUDIT §5.3). */}
           <div className="seg" id="spaceSel" role="radiogroup" aria-label="Espace">
@@ -319,6 +347,8 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
               </button>
             ))}
           </div>
+          </>
+        )}
 
           <div className="flex-1" />
 
@@ -347,6 +377,21 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
             >
               Grille
             </button>
+            {/* Comparer (design-pass screen-5, §B) — reuses the selection
+                already fed by the bulk action bar of Grille (§D), see
+                `useSelection.ts`. */}
+            <button
+              ref={viewRoving.registerRef('comparer')}
+              role="radio"
+              aria-checked={view === 'comparer'}
+              tabIndex={viewRoving.tabIndexFor('comparer')}
+              className={view === 'comparer' ? 'on' : undefined}
+              data-v="comparer"
+              onClick={() => setView('comparer')}
+              onKeyDown={(event) => viewRoving.onKeyDown(event, 'comparer', (id) => setView(id as View))}
+            >
+              Comparer
+            </button>
           </div>
 
           {unmeasured > 0 && (
@@ -365,7 +410,6 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
             </button>
           )}
         </div>
-        )}
 
         <div id="triageBody">
           {notFound && (
@@ -384,7 +428,19 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
             </div>
           )}
 
-          {!shown.length ? (
+          {view === 'comparer' ? (
+            /* Comparer does not depend on `shown` (the score-filtered view) —
+               it has its OWN empty state (0-1 selected), never EmptyState.tsx
+               (bucket-keyed, semantically foreign to this case). */
+            <SurveyMode
+              compared={compared}
+              overflowCount={overflowCount}
+              bands={bands}
+              allItems={items}
+              onFlag={(item, flag) => void setFlag(item, flag)}
+              onKeep={(kept, comparedItems) => void onKeepInSurvey(kept, comparedItems)}
+            />
+          ) : !shown.length ? (
             <EmptyState
               empty={!items.length}
               bucket={bucket}

@@ -265,8 +265,10 @@ const volsDeDonnees = [];
   dire(cocheesApresPlage.join(',') === 'true,true,true',
        `Maj-clic etend la plage (ancre -> celle-ci), jamais un retrait (${cocheesApresPlage.join(',')})`);
   dire(await vu('#bulkBar'), 'la barre groupee apparait des le premier coche');
-  dire(!(await vu('#scoreSel')), 'et remplace la ligne de filtres, pas s y ajouter');
-  dire((await texte('#bulkBar')).includes('3 sélectionnées'), 'elle dit combien');
+  dire(!(await vu('#scoreSel')), 'et remplace la ligne de FILTRES (spaceSel/bucketSel/scoreSel)');
+  dire((await texte('#bulkCount')).includes('3 sélectionnées'), 'elle dit combien');
+  dire(await vu('#viewSel [data-v="comparer"]'),
+       '#viewSel, LUI, reste visible pendant la selection — sinon Comparer serait inatteignable');
 
   console.log('\n[7ter] Echap vide la selection et rend le focus a la grille');
   await page.keyboard.press('Escape');
@@ -304,6 +306,61 @@ const volsDeDonnees = [];
   const apresRestauration = await compteurs();
   dire(JSON.stringify(apresRestauration) === JSON.stringify(avantSelection),
        `les deux images restaurees, rien de reste change (${JSON.stringify(apresRestauration)})`);
+
+  console.log('\n[7quinquies] MODE COMPARER (design pass ecran 5, §B) : 0-1 selection, puis un aller-retour reel');
+  await page.goto(BASE + '/gallery?character=lena', { waitUntil: 'networkidle' });
+  await page.waitForSelector('[data-tile]');
+  const avantComparer = await compteurs();
+
+  await page.click('#viewSel [data-v="comparer"]');
+  await page.waitForTimeout(300);
+  dire((await texte('[role="status"]')).includes('Sélectionne au moins deux'),
+       'sous 2 selections, un message actionnable — jamais un ecran vide muet');
+
+  await page.click('#viewSel [data-v="grille"]');
+  await page.waitForTimeout(200);
+  const nomsComparer = await page.$$eval('[data-tile]', els => els.slice(0, 2).map(e => {
+    const src = e.querySelector('[data-thumb] img').getAttribute('src');
+    return decodeURIComponent(new URL(src, location.origin).searchParams.get('name'));
+  }));
+  const casesComparer = await page.$$('[data-select]');
+  await casesComparer[0].click();
+  await page.waitForTimeout(150);
+  await casesComparer[1].click();
+  await page.waitForTimeout(150);
+
+  // LE BUG TROUVE EN VERIFIANT : la barre groupee remplacait TOUT #viewSel,
+  // rendant Comparer inatteignable une fois une selection commencee. Corrige
+  // avant ce commit — verifie ici en repassant par exactement ce chemin.
+  await page.click('#viewSel [data-v="comparer"]');
+  await page.waitForTimeout(400);
+  dire(await page.$$eval('[data-keep]', e => e.length) === 2,
+       'Comparer reste atteignable MEME depuis l etat "barre groupee visible"');
+
+  await page.locator('[data-keep]').first().click();
+  await page.waitForSelector('dialog[open]');
+  const boiteComparer = await texte('dialog[open]');
+  dire(boiteComparer.includes('sera validée'), 'la confirmation nomme celle qui est gardee');
+  dire(boiteComparer.includes('sera rejetée'), 'et ce qui arrive aux autres du lot compare');
+  await page.click('#cfOui');
+  await page.waitForTimeout(1200);
+  dire((await page.getAttribute('#viewSel [data-v="grille"]', 'aria-checked')) === 'true',
+       'resolu : retour automatique a la Grille');
+
+  // RESTAURATION : la premiere est restee OK (deja la, sans effet), la
+  // seconde est passee en REJET — restauree, comptes verifies.
+  await page.goto(BASE + '/review?character=lena', { waitUntil: 'networkidle' });
+  await page.click('#bucketSel [data-b="REJET"]');
+  await page.waitForTimeout(500);
+  const secondeComparer = nomsComparer[1];
+  const tuileComparer = page.locator(`[data-tile]:has([data-thumb] img[src*="${encodeURIComponent(secondeComparer)}"])`).first();
+  if (await tuileComparer.count()) {
+    await tuileComparer.locator('[data-tacts] [data-a="valider"]').click();
+    await page.waitForTimeout(500);
+  }
+  const apresComparer = await compteurs();
+  dire(JSON.stringify(apresComparer) === JSON.stringify(avantComparer),
+       `rien de reste change apres Comparer (${JSON.stringify(apresComparer)})`);
 
   // section [8] continue dans Revue, dossier REJET — meme etat qu a la fin de [7]
   await page.click('#bucketSel [data-b="REJET"]');
