@@ -380,6 +380,7 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' | 'tones' }) {
                     imageUrl={api.image}
                     onPatch={(patch) => patchDraft(bench.selectedIndex, patch)}
                     onRemove={() => void bench.remove(bench.selectedIndex)}
+                    onDuplicate={() => bench.duplicate(bench.selectedIndex)}
                     onClose={bench.close}
                     onSaveDocument={onSave}
                   />

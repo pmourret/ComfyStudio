@@ -28,7 +28,7 @@ function matches(draft: SceneDraft, needle: string) {
 }
 
 export function useSceneWorkbench() {
-  const { drafts, addScene, removeScene } = useScenes()
+  const { drafts, addScene, removeScene, duplicateScene } = useScenes()
   const confirm = useConfirm()
   const [selectedUid, setSelectedUid] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
@@ -140,6 +140,19 @@ export function useSceneWorkbench() {
     setInspectorMode('character')
   }, [addScene])
 
+  /* Same "opens what it creates" rule as `add` (design pass écran 7, §B1) —
+     a variant of a scene is iterated on immediately, not left to find in a
+     grid of twenty. The filter clears too: a duplicate born hidden behind
+     an active filter would look like nothing happened. */
+  const duplicate = useCallback(
+    (index: number) => {
+      setFilter('')
+      setSelectedUid(duplicateScene(index))
+      setInspectorMode('character')
+    },
+    [duplicateScene],
+  )
+
   /* Removing is destructive — the scene leaves the bank at the next save and
      production stops proposing it. Retiring a POSE skeleton already asks; a
      scene is worth more than a skeleton. */
@@ -175,6 +188,7 @@ export function useSceneWorkbench() {
     select,
     close,
     add,
+    duplicate,
     remove,
     onListKeyDown,
     inspectorMode,

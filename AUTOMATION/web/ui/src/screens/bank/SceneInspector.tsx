@@ -26,6 +26,7 @@ export function SceneInspector({
   imageUrl,
   onPatch,
   onRemove,
+  onDuplicate,
   onClose,
   onSaveDocument,
 }: {
@@ -41,6 +42,8 @@ export function SceneInspector({
   imageUrl: (ref: Record<string, unknown>) => string
   onPatch: (patch: Partial<SceneDraft>) => void
   onRemove: () => void
+  /** Clones this scene and opens the clone (design pass écran 7, §B1). */
+  onDuplicate: () => void
   onClose: () => void
   /** The document-level save, offered again from the composer's JSON panel. */
   onSaveDocument: () => void
@@ -88,6 +91,7 @@ export function SceneInspector({
         worldLinked={worldLinked}
         onPatch={onPatch}
         onRemove={onRemove}
+        onDuplicate={onDuplicate}
         onSaveDocument={onSaveDocument}
       />
     </section>

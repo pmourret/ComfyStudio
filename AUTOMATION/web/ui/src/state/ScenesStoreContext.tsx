@@ -208,6 +208,17 @@ export function bandOf(scene: { intensity?: number | number[]; wardrobe?: Scene[
 let uidCounter = 0
 const nextUid = () => `d${++uidCounter}`
 
+/** `-copie` first; on collision (already taken), `-2`, `-3`, … — never
+    `-copie-2`, and never a random suffix a person would have to rename away
+    before it means anything (design pass écran 7, §B1). */
+function uniqueCopyId(id: string, taken: ReadonlySet<string>): string {
+  const first = `${id}-copie`
+  if (!taken.has(first)) return first
+  let n = 2
+  while (taken.has(`${id}-${n}`)) n++
+  return `${id}-${n}`
+}
+
 export function draftOf(scene: Scene): SceneDraft {
   const band = bandOf(scene)
   return {
@@ -331,6 +342,11 @@ type ScenesStoreValue = {
   /** Adds a scene and returns its draft uid, so the caller can open it. */
   addScene: (scene?: Scene) => string
   removeScene: (index: number) => void
+  /** Clones the draft at `index` (unsaved edits included, not just what is on
+      disk) — its OWN uid, a suffixed id, everything else untouched. Returns
+      the clone's uid so the caller can open it, same convention as
+      `addScene`. */
+  duplicateScene: (index: number) => string
   /** Replaces the whole document from the raw JSON panel. Throws on bad JSON. */
   applyRawJson: (text: string) => void
   rawJson: string
@@ -477,6 +493,25 @@ export function ScenesStoreProvider({ children }: { children: ReactNode }) {
     markDirty()
   }, [markDirty, putDrafts])
 
+  /* Clones the DRAFT, not `draftsToScenes(...)[index]`: unsaved edits in the
+     composer (a fragment typed but not yet saved) come along, same as they
+     would if the person retyped them into a second scene by hand. Only
+     `uid` and `id` change — `base` clones too, so a duplicate of a
+     world-linked scene stays linked to the same place (a second variant of
+     it), exactly what a person duplicating it would expect. */
+  const duplicateScene = useCallback(
+    (index: number) => {
+      const source = draftsRef.current[index]
+      if (!source) return ''
+      const taken = new Set(draftsRef.current.map((d) => d.id))
+      const clone: SceneDraft = { ...source, uid: nextUid(), id: uniqueCopyId(source.id, taken) }
+      putDrafts((current) => [...current.slice(0, index + 1), clone, ...current.slice(index + 1)])
+      markDirty()
+      return clone.uid
+    },
+    [markDirty, putDrafts],
+  )
+
   const document_ = useMemo<SceneDocument>(
     () => ({ ...extra.current, anchor, direction, scenes: draftsToScenes(drafts) }),
     [drafts, anchor, direction],
@@ -534,6 +569,7 @@ export function ScenesStoreProvider({ children }: { children: ReactNode }) {
       patchDraft,
       addScene,
       removeScene,
+      duplicateScene,
       applyRawJson,
       rawJson: JSON.stringify(document_, null, 2),
       world,
@@ -552,6 +588,7 @@ export function ScenesStoreProvider({ children }: { children: ReactNode }) {
       patchDraft,
       addScene,
       removeScene,
+      duplicateScene,
       applyRawJson,
       document_,
       world,

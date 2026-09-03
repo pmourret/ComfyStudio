@@ -115,6 +115,7 @@ export function SceneComposer({
   worldLinked,
   onPatch,
   onRemove,
+  onDuplicate,
   onSaveDocument,
 }: {
   draft: SceneDraft
@@ -130,6 +131,8 @@ export function SceneComposer({
   worldLinked: boolean
   onPatch: (patch: Partial<SceneDraft>) => void
   onRemove: () => void
+  /** Clones this scene and opens the clone (design pass écran 7, §B1). */
+  onDuplicate: () => void
   /** The document-level save — same action as the launch bar's "Enregistrer",
       offered again from the JSON panel for a "I've checked it, ship it" close. */
   onSaveDocument: () => void
@@ -304,9 +307,10 @@ export function SceneComposer({
                   Précédent, never side by side — so the gesture is always in
                   the same place regardless of which panel is open. Only their
                   PRESENCE varies (no Précédent on the first tab, no Suivant on
-                  the last); "Supprimer la scène" is a fourth bar, General
-                  only, always last — a destructive act does not share a row
-                  with navigation. */}
+                  the last); "Dupliquer"/"Supprimer la scène" are General-only,
+                  always last, destructive strictly after neutral (design pass
+                  écran 7, §B1 — a destructive act does not share a row with
+                  navigation, nor come before a constructive one). */}
               <div className="mt-[18px] flex flex-col gap-[10px] border-t border-line pt-[16px]">
                 {activeIndex < TABS.length - 1 && (
                   <button className="btn w-full" onClick={() => goto(activeIndex + 1)}>
@@ -316,6 +320,11 @@ export function SceneComposer({
                 {activeIndex > 0 && (
                   <button className="btn w-full" onClick={() => goto(activeIndex - 1)}>
                     ← Précédent
+                  </button>
+                )}
+                {t.key === 'general' && (
+                  <button className="btn w-full" onClick={onDuplicate}>
+                    Dupliquer la scène
                   </button>
                 )}
                 {t.key === 'general' && (
