@@ -381,10 +381,16 @@ function SceneHeader({
         style={preview ? { backgroundImage: `url('${imageUrl({ ...preview, thumb: true })}')` } : undefined}
       >
         {draft.pose && (
+          // `tabIndex={0}` + `data-hint-text` (design pass écran 7, §A2) —
+          // same contract as `InfoHint` and `PoseCard`'s own provenance
+          // badge (`chrome/HintLayer.tsx`, wired on hover AND focus): a
+          // plain `title` only reaches a mouse, this reaches the keyboard
+          // and a screen reader too. The base fact stays in visible text.
           <div
             className="absolute top-[6px] left-[6px] rounded-[8px] bg-scrim px-[6px] py-px
                        text-[10px] font-bold text-[#9fd8ff]"
-            title={`pose imposée : ${draft.pose}`}
+            tabIndex={0}
+            data-hint-text={`pose imposée : ${draft.pose}`}
           >
             {/* the glyph accompanies a word, so it is not read out on its own */}
             <span aria-hidden="true">⛓ </span>pose
@@ -394,7 +400,8 @@ function SceneHeader({
           <div
             className="absolute right-[6px] bottom-[6px] rounded-[8px] bg-scrim px-[6px]
                        py-px text-[10px] font-bold text-dim"
-            title={`niveaux ${band[0]} à ${band[1]}, déduits des tenues`}
+            tabIndex={0}
+            data-hint-text={`niveaux ${band[0]} à ${band[1]}, déduits des tenues`}
           >
             n{band[0]}–{band[1]}
           </div>
