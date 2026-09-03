@@ -191,6 +191,54 @@ def ui_skin_token(wid):
     return load_world(wid).get("ui_skin_token")
 
 
+# ------------------------------------------- vocabulaire creatif (J8.3, ADR-0019)
+def intentions(wid):
+    """Intentions de base declarees par le monde (`WORLDS/<id>.json` /
+    `intentions`) — un personnage de ce monde en herite (voir
+    `merge_creative_vocab`). Meme forme qu'une entree de creative.json :
+    key, label, icon, defaults, prompt_add, min_intensity."""
+    return list(load_world(wid).get("intentions", []))
+
+
+def tones(wid):
+    """Tons de base declares par le monde (`WORLDS/<id>.json` / `tones`) —
+    ne pas confondre avec `tone()` ci-dessus, l'ambiance UI singuliere
+    d'ADR-0012. Meme forme qu'une entree de creative.json : key, label,
+    prompt_add, expression."""
+    return list(load_world(wid).get("tones", []))
+
+
+def _merge_by_key(base, overrides):
+    """base et overrides : listes d'entrees `{"key": ..., ...}`. Une entree
+    d'`overrides` de meme `key` REMPLACE ENTIEREMENT celle de `base` (jamais
+    une fusion champ a champ — meme logique que config.json sur
+    character_defaults.json) ; une `key` neuve s'ajoute a la suite. Une
+    entree de `base` sans correspondance reste heritee, a sa place. Une
+    entree sans `key` (des deux cotes) n'est jamais une cible de
+    remplacement — elle s'ajoute telle quelle, cote inconnu ne collisionne
+    jamais par accident sur une cle absente."""
+    remplacements = {e["key"]: e for e in overrides
+                     if isinstance(e, dict) and e.get("key")}
+    out = [remplacements.get(e.get("key"), e) if isinstance(e, dict) and e.get("key")
+          else e
+          for e in base]
+    connues = {e.get("key") for e in base if isinstance(e, dict) and e.get("key")}
+    out += [e for e in overrides
+           if not (isinstance(e, dict) and e.get("key") in connues)]
+    return out
+
+
+def merge_creative_vocab(wid, character_intentions, character_tones):
+    """Fusion monde + personnage des deux listes de vocabulaire creatif
+    (J8.3, ADR-0019) : le monde fournit la base, le personnage surcharge une
+    cle existante et ajoute les cles neuves (`_merge_by_key`). Utilisee par
+    `AUTOMATION/runner/prompt.py::load_creative()` — jamais par
+    `build_jobs()` lui-meme, meme principe qu'ADR-0015 §4 pour les scenes :
+    la fusion vit en amont de l'assemblage, jamais dedans."""
+    return (_merge_by_key(intentions(wid), character_intentions or []),
+            _merge_by_key(tones(wid), character_tones or []))
+
+
 # Reglages qui appartiennent au PERSONNAGE, jamais au catalogue d'un monde
 # (ADR-0014 §2). Une tenue livree par le monde habillerait de la meme facon
 # tous les personnages qui y naissent, et rendrait fausse la premiere mesure de

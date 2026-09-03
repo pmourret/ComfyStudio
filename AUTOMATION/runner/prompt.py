@@ -282,12 +282,27 @@ WATCH_FACE = re.compile(r"\b(hair|skin|tanned?|pale|blonde?|brunette|"
 
 
 def load_creative(character_id):
-    """Taxonomie creative du personnage. Absente = le runner retombe sur
-    l'ancien comportement (creative.json est optionnel, contrairement a
-    config.json/scenes.json)."""
+    """Taxonomie creative du personnage, intentions/tons FUSIONNES avec la
+    base de son monde (J8.3, ADR-0019 : `worlds.merge_creative_vocab` — le
+    monde fournit la base, une `key` du personnage la remplace ou s'ajoute).
+    Seul point de fusion sur le chemin de `build_jobs` : ni `build_jobs` ni
+    aucun de ses autres appelants ne savent qu'un monde existe (meme
+    principe qu'ADR-0015 §4 pour les scenes — la fusion vit en amont,
+    jamais dans l'assemblage).
+
+    Absente = le runner retombe sur l'ancien comportement (creative.json est
+    optionnel, contrairement a config.json/scenes.json). `intensity` et
+    `assemblage` ne sont jamais fusionnes : lies au pack (capacites, J8.2),
+    pas au monde."""
     path = creative_path(character_id)
-    return load_json(path) if path.exists() else {"intentions": [], "tones": [],
-                                                  "intensity": []}
+    data = (load_json(path) if path.exists()
+           else {"intentions": [], "tones": [], "intensity": []})
+    world = character_world(character_id)
+    if world and worlds.exists(world):
+        intentions, tones = worlds.merge_creative_vocab(
+            world, data.get("intentions", []), data.get("tones", []))
+        data = {**data, "intentions": intentions, "tones": tones}
+    return data
 
 
 def by_key(items, key):

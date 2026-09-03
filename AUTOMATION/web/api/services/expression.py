@@ -14,7 +14,9 @@ from .bank import rotate_backup
 
 
 def save_tone_expression(character_id, tone_key, params):
-    """Replaces ONE tone's `expression` range in creative.json, in place.
+    """Replaces ONE tone's `expression` range, writing ONLY the character's
+    own creative.json — never the merged monde+personnage view that
+    `lb.load_creative()` returns (J8.3, ADR-0019).
 
     `params` is the dict of INCLUDED parameters only — `{"smile": (0.1,
     0.35), ...}` — a parameter left out simply stops being posed for this
@@ -22,16 +24,34 @@ def save_tone_expression(character_id, tone_key, params):
 
     Raises `ValueError` if the tone does not exist: this route never creates
     one — tones themselves stay hand-authored, only their expression range is
-    edited here.
+    edited here. The tone can come from the character's OWN file or be
+    purely inherited from its world: either way this writes a full
+    character-side override (every field of the resolved tone, `expression`
+    replaced) — never just `{"key", "expression"}`, which would silently
+    drop `label`/`prompt_add` the next time the world's entry is read
+    (`worlds._merge_by_key` replaces a keyed override entirely, it does not
+    merge field by field). Writing the WHOLE merged dict back, as if every
+    tone belonged to this character, would silently un-migrate the world's
+    inherited tones on first use — exactly what this route must not do.
     """
-    creative = lb.load_creative(character_id)
-    tone = lb.by_key(creative.get("tones", []), tone_key)
+    merged = lb.load_creative(character_id)
+    tone = lb.by_key(merged.get("tones", []), tone_key)
     if tone is None:
         raise ValueError(f"ton inconnu : {tone_key!r}")
-    tone["expression"] = params
     target = lb.creative_path(character_id)
+    raw = lb.load_json(target) if target.exists() else {"intentions": [], "tones": [],
+                                                         "intensity": []}
+    own_tones = list(raw.get("tones", []))
+    override = {**tone, "expression": params}
+    for i, t in enumerate(own_tones):
+        if t.get("key") == tone_key:
+            own_tones[i] = override
+            break
+    else:
+        own_tones.append(override)
+    raw["tones"] = own_tones
     rotate_backup(target)
-    target.write_text(json.dumps(creative, ensure_ascii=False, indent=2), encoding="utf-8")
+    target.write_text(json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def resolve_photo(character_id, bucket, space, name):

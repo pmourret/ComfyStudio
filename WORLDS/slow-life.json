@@ -1,8 +1,12 @@
 {
   "id": "slow-life",
   "label": "Slow life",
-  "compatible_families": ["flux"],
-  "suggested_styles": ["realiste"],
+  "compatible_families": [
+    "flux"
+  ],
+  "suggested_styles": [
+    "realiste"
+  ],
   "assets": {
     "lora": null,
     "lora_strength": null,
@@ -12,16 +16,106 @@
   "ui_skin_token": "world-slow-life",
   "places": [
     {
-      "id": "cafe_terrasse",
-      "label": "Terrasse de cafe",
-      "intention": "lifestyle",
-      "prompt": "sitting at a small cafe table outdoors in the morning, soft natural light"
-    },
-    {
       "id": "interieur_lumiere",
       "label": "Interieur clair",
       "intention": "lifestyle",
       "prompt": "at home near a large window, warm diffuse daylight, plants and books around"
+    },
+    {
+      "id": "cafe_terrasse",
+      "label": "Cafe Terrasse",
+      "intention": "lifestyle",
+      "prompt": "sitting at a small table on a cafe terrace in the late afternoon, half body, three-quarter angle, looking slightly away from the camera, warm low sunlight from the side, blurred street behind"
+    },
+    {
+      "id": "cuisine_matin",
+      "label": "Cuisine Matin",
+      "intention": "lifestyle",
+      "prompt": "standing in a sunlit kitchen holding a mug, medium shot, facing the camera with a faint natural smile, soft window light from the left, wooden shelves and plants in the background"
+    },
+    {
+      "id": "salon_lecture",
+      "label": "Salon Lecture",
+      "intention": "lifestyle",
+      "prompt": "curled up on a sofa reading a book, seen from the side, warm lamp light, evening, cluttered living room with a blanket and a cold cup of tea"
+    },
+    {
+      "id": "selfie_miroir_entree",
+      "label": "Selfie Miroir Entree",
+      "intention": "selfie",
+      "prompt": "mirror selfie in a hallway, phone partially visible in one hand, neutral daylight, slight head tilt, coats hanging behind her, imperfect framing"
+    },
+    {
+      "id": "selfie_voiture",
+      "label": "Selfie Voiture",
+      "intention": "selfie",
+      "prompt": "close selfie taken in a parked car, seatbelt visible, daylight through the windscreen, hair loose, slightly off-centre framing"
+    },
+    {
+      "id": "rando_montagne",
+      "label": "Rando Montagne",
+      "intention": "voyage",
+      "prompt": "on a mountain hiking trail, wide shot from the waist up, overcast diffuse light, wind in the hair, valley and low clouds behind"
+    },
+    {
+      "id": "ruelle_ville",
+      "label": "Ruelle Ville",
+      "intention": "voyage",
+      "prompt": "walking in a narrow old town street, half body, looking back over the shoulder, late afternoon shade with a strip of sunlight on the wall"
+    },
+    {
+      "id": "sport_tapis",
+      "label": "Sport Tapis",
+      "intention": "sport",
+      "prompt": "sitting on a yoga mat in a home gym after training, half body, catching her breath, daylight from a large window, water bottle and towel on the floor"
+    },
+    {
+      "id": "sport_course",
+      "label": "Sport Course",
+      "intention": "sport",
+      "prompt": "standing on a park path after a run, hands on hips, medium shot, cool morning light, wet asphalt and bare trees behind"
+    },
+    {
+      "id": "mode_tenue_jour",
+      "label": "Mode Tenue Jour",
+      "intention": "mode",
+      "prompt": "full outfit shot standing against a plain concrete wall, three-quarter body, one hand in a pocket, soft even daylight"
+    },
+    {
+      "id": "mode_detail_atelier",
+      "label": "Mode Detail Atelier",
+      "intention": "mode",
+      "prompt": "seated on a stool in a bright workshop, half body, leaning forward with elbows on the knees, large window light, tools and fabric out of focus behind"
+    },
+    {
+      "id": "soir_balcon",
+      "label": "Soir Balcon",
+      "intention": "lifestyle",
+      "prompt": "leaning on a balcony railing at dusk, half body, looking out at the street, mixed street lighting and blue evening sky"
+    },
+    {
+      "id": "chambre_matin",
+      "label": "Chambre Matin",
+      "intention": "intime",
+      "prompt": "sitting on the edge of an unmade bed in a quiet bedroom, half body, three-quarter angle, one hand resting on the sheets, soft morning light from a window on the left, plain wall and rumpled white linen behind"
+    },
+    {
+      "id": "salle_bain_apres_douche",
+      "label": "Salle Bain Apres Douche",
+      "intention": "intime",
+      "prompt": "standing in front of a bathroom mirror after a shower, half body, facing the mirror with the reflection visible, warm diffuse light from above, tiled wall, condensation on the glass, folded towels on a shelf"
+    },
+    {
+      "id": "lit_reveil_agite",
+      "label": "Lit Reveil Agite",
+      "intention": "intime",
+      "prompt": "lying sideways across an unmade bed just after waking, upper body, seen from slightly above, one arm stretched over a pillow and the other pulling the duvet down toward the waist, sheets twisted and deeply creased, a second pillow fallen off the edge of the mattress, a bedside lamp still switched on, heavy curtains drawn with one thin line of daylight across the bed"
+    },
+    {
+      "id": "chambre_soir",
+      "label": "Chambre Soir",
+      "intention": "intime",
+      "prompt": "lying on her bed with white sheets, full body, facing away from camera, soft amber light from lamp, dark curtains and wooden floor in background"
     }
   ],
   "_notes": [
@@ -42,6 +136,240 @@
     "prompt/intention toujours relus d'ici, jamais figes dans scenes.json. Edite",
     "par ses propres routes (/api/worlds/<id>/places), jamais par POST /api/scenes.",
     "ui_skin_token : jeton de peau UI, declaratif en J7bis -- le look de monde est",
-    "hors perimetre (ROADMAP)."
+    "hors perimetre (ROADMAP).",
+    "J8.3 (ADR-0019) : places/intentions/tones portent desormais le contenu REEL",
+    "de Lena (16 scenes -> 16 lieux + 1 placeholder anterieur non recouvert ;",
+    "9 intentions ; 5 tons), migre par AUTOMATION/tests/migrate_world_catalogs.py.",
+    "L'ancien placeholder `cafe_terrasse` a ete remplace par le lieu reel du meme",
+    "id. intentions/tones sont la BASE qu'un personnage de ce monde herite via",
+    "runner.prompt.load_creative() ; une `key` de personnage la remplace",
+    "entierement ou s'y ajoute, jamais une fusion champ a champ.",
+    "Reserve ecrite (non resolue) : les plages `tones[].expression` sont",
+    "mesurees contre le budget d'identite de Lena, pas contre une notion de",
+    "monde -- indistinguable tant qu'un seul personnage vit ici. Un futur",
+    "second personnage peut les surcharger dans son propre creative.json sans",
+    "toucher a ce fichier."
+  ],
+  "_intentions_note": [
+    "8 intentions, arbitrage du 24/08/2026. 'plage' n'est pas une intention mais un",
+    "tag de scene (c'est un lieu) ; 'story' n'en est pas une non plus (c'est un",
+    "format, il se regle par scene.format = 9:16).",
+    "min_intensity : l'intention n'apparait pas en dessous de ce niveau.",
+    "boudoir (26/08/2026) : intention dont les scenes n'existent QUE pour servir de base a l'edition NSFW. min_intensity 2, donc invisible en dessous de Suggestif. Le preambule de la branche fige pose, cadrage, decor et lumiere : la pose voulue dans la sortie editee doit deja etre dans la base. D'ou des scenes tenues, cadrees large sur le corps, en lumiere douce et sur fond simple - l'edition n'a alors rien a reinventer.",
+    "Deplacee ici depuis CHARACTERS/lena/creative.json par la migration J8.3",
+    "(ADR-0019) -- le compte '8' date d'avant l'ajout de boudoir, jamais corrige,",
+    "laisse tel quel plutot que reecrit au passage."
+  ],
+  "intentions": [
+    {
+      "key": "selfie",
+      "label": "Selfie",
+      "icon": "☺",
+      "defaults": {
+        "format": "9:16",
+        "tone": "joueur"
+      },
+      "prompt_add": "phone camera perspective, slightly imperfect framing"
+    },
+    {
+      "key": "lifestyle",
+      "label": "Lifestyle",
+      "icon": "☕",
+      "defaults": {
+        "format": "4:5",
+        "tone": "doux"
+      },
+      "prompt_add": ""
+    },
+    {
+      "key": "sport",
+      "label": "Sport",
+      "icon": "🏃",
+      "defaults": {
+        "format": "4:5",
+        "tone": "doux"
+      },
+      "prompt_add": "training or post-training setting, athletic context"
+    },
+    {
+      "key": "mode",
+      "label": "Mode",
+      "icon": "👗",
+      "defaults": {
+        "format": "2:3",
+        "tone": "elegant"
+      },
+      "prompt_add": "full outfit visible, styling-focused framing, clean background"
+    },
+    {
+      "key": "voyage",
+      "label": "Voyage",
+      "icon": "✈",
+      "defaults": {
+        "format": "4:5",
+        "tone": "doux"
+      },
+      "prompt_add": "travel location, unfamiliar surroundings, natural available light"
+    },
+    {
+      "key": "selfcare",
+      "label": "Self-care",
+      "icon": "🛁",
+      "defaults": {
+        "format": "4:5",
+        "tone": "intime"
+      },
+      "prompt_add": "quiet self-care moment, soft diffuse light"
+    },
+    {
+      "key": "herbier",
+      "label": "Herbier",
+      "icon": "🌿",
+      "defaults": {
+        "format": "4:5",
+        "tone": "doux"
+      },
+      "prompt_add": "plants, dried flowers, botanical props"
+    },
+    {
+      "key": "intime",
+      "label": "Intime",
+      "icon": "◐",
+      "defaults": {
+        "format": "4:5",
+        "tone": "intime"
+      },
+      "prompt_add": "private domestic setting, close framing, warm low light",
+      "min_intensity": 1
+    },
+    {
+      "key": "boudoir",
+      "label": "Boudoir",
+      "icon": "🕯",
+      "defaults": {
+        "format": "2:3",
+        "tone": "doux"
+      },
+      "prompt_add": "full figure in frame, uncluttered background",
+      "min_intensity": 2
+    }
+  ],
+  "_tones_note": [
+    "Les tons ne portent QUE du prompt. Aucun ne touche la guidance : 2.2 est une",
+    "valeur MESUREE (DOCS/lena-realisme.md) liee a la bande d'identite 0.72-0.78.",
+    "Une guidance par ton reste possible plus tard, apres un A/B a seed fixe ton",
+    "par ton. Arbitrage du 24/08/2026.",
+    "",
+    "expression : plage par parametre du noeud ExpressionEditor, tiree au sort et",
+    "semee par le seed du job. Une valeur fixe remplacerait une expression figee par",
+    "cinq. Applique APRES le controle d'identite - voir AUTOMATION/expression.py.",
+    "Plages volontairement modestes : au-dela le rendu devient caoutchouteux autour",
+    "de la bouche et l'identite chute de 0.06 a 0.11 (mesure du 24/08/2026).",
+    "Plages elargies puis ramenees a ces valeurs le 24/08/2026 : les elargir n'a PAS",
+    "augmente la variation obtenue (2.8 % contre 3.2 %) et a produit 1 abandon sur 12.",
+    "C'est le budget d'identite qui contraint, pas les plages. Aller plus loin demande",
+    "de relever preset.expression_budget, donc d'accepter plus de perte d'identite.",
+    "",
+    "Deplacee ici depuis CHARACTERS/lena/creative.json par la migration J8.3",
+    "(ADR-0019). RESERVE (voir _notes racine) : ces plages `expression` restent",
+    "mesurees contre le budget d'identite de Lena precisement -- un futur second",
+    "personnage de ce monde peut les surcharger dans son propre creative.json."
+  ],
+  "tones": [
+    {
+      "key": "doux",
+      "label": "Doux & naturel",
+      "prompt_add": "relaxed natural expression, soft diffuse light",
+      "expression": {
+        "smile": [
+          0.1,
+          0.35
+        ],
+        "aaa": [
+          0,
+          12
+        ],
+        "eyebrow": [
+          -1,
+          3
+        ]
+      }
+    },
+    {
+      "key": "elegant",
+      "label": "Élégant",
+      "prompt_add": "composed posture, controlled directional light, clean background",
+      "expression": {
+        "smile": [
+          0.0,
+          0.22
+        ],
+        "pupil_y": [
+          -2,
+          1
+        ],
+        "eyebrow": [
+          0,
+          4
+        ]
+      }
+    },
+    {
+      "key": "intime",
+      "label": "Intime",
+      "prompt_add": "close intimate framing, warm low light, private domestic setting",
+      "expression": {
+        "smile": [
+          0.05,
+          0.3
+        ],
+        "aaa": [
+          4,
+          18
+        ],
+        "pupil_y": [
+          -5,
+          0
+        ]
+      }
+    },
+    {
+      "key": "joueur",
+      "label": "Joueur",
+      "prompt_add": "candid movement, slight motion blur, spontaneous gesture",
+      "expression": {
+        "smile": [
+          0.28,
+          0.55
+        ],
+        "aaa": [
+          6,
+          22
+        ],
+        "eyebrow": [
+          1,
+          6
+        ]
+      }
+    },
+    {
+      "key": "melancolique",
+      "label": "Mélancolique",
+      "prompt_add": "still posture, looking away, overcast flat light, muted palette",
+      "expression": {
+        "smile": [
+          -0.12,
+          0.1
+        ],
+        "pupil_y": [
+          -7,
+          -1
+        ],
+        "blink": [
+          0,
+          3
+        ]
+      }
+    }
   ]
 }

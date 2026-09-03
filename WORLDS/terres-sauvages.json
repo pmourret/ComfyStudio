@@ -1,8 +1,13 @@
 {
   "id": "terres-sauvages",
   "label": "Terres sauvages",
-  "compatible_families": ["sdxl"],
-  "suggested_styles": ["realiste", "fantastique"],
+  "compatible_families": [
+    "sdxl"
+  ],
+  "suggested_styles": [
+    "realiste",
+    "fantastique"
+  ],
   "assets": {
     "lora": null,
     "lora_strength": null,
@@ -18,10 +23,16 @@
       "prompt": "at the edge of a forest at dusk, half body, three-quarter angle, cool blue light"
     },
     {
-      "id": "feu_de_camp",
-      "label": "Feu de camp",
+      "id": "portrait_etude",
+      "label": "Portrait Etude",
+      "intention": "portrait",
+      "prompt": "half body portrait against a plain neutral studio backdrop, facing the camera, even soft lighting from the front"
+    },
+    {
+      "id": "camp_soir",
+      "label": "Camp Soir",
       "intention": "exploration",
-      "prompt": "sitting by a small campfire, warm firelight against cool night, half body"
+      "prompt": "sitting by a small campfire at the edge of a forest at dusk, half body, three-quarter angle, gentle warm light from the fire balanced by cool blue dusk light behind her"
     }
   ],
   "_notes": [
@@ -41,7 +52,48 @@
     "de personnage qui reference un lieu (`world_ref`) en herite en direct --",
     "prompt/intention toujours relus d'ici, jamais figes dans scenes.json. Edite",
     "par ses propres routes (/api/worlds/<id>/places), jamais par POST /api/scenes.",
-    "Les scenes reelles d'Abyssiaelle (overlay de personnage : tenue, pose...)",
-    "vivent dans CHARACTERS/abyssiaelle/scenes.json."
+    "J8.3 (ADR-0019) : places/intentions/tones portent desormais le contenu REEL",
+    "d'Abyssiaelle (2 scenes -> 2 lieux + 1 placeholder anterieur non recouvert ;",
+    "2 intentions ; 2 tons), migre par AUTOMATION/tests/migrate_world_catalogs.py.",
+    "L'ancien placeholder `feu_de_camp` a ete retire au profit du lieu reel",
+    "`camp_soir` (meme theme, id different). intentions/tones sont la BASE qu'un",
+    "personnage de ce monde herite via runner.prompt.load_creative() ; une `key`",
+    "de personnage la remplace entierement ou s'y ajoute, jamais une fusion",
+    "champ a champ. CHARACTERS/abyssiaelle/scenes.json ne porte plus que",
+    "l'overlay (tenue, pose...) des 2 scenes migrees, plus jamais leur cadre."
+  ],
+  "intentions": [
+    {
+      "key": "portrait",
+      "label": "Portrait",
+      "icon": "◉",
+      "defaults": {
+        "format": "1:1",
+        "tone": "neutre"
+      },
+      "prompt_add": ""
+    },
+    {
+      "key": "exploration",
+      "label": "Exploration",
+      "icon": "⛰",
+      "defaults": {
+        "format": "1:1",
+        "tone": "sombre"
+      },
+      "prompt_add": "full figure or half body, environment clearly visible around her"
+    }
+  ],
+  "tones": [
+    {
+      "key": "neutre",
+      "label": "Neutre",
+      "prompt_add": "calm composed presence, soft even directional light"
+    },
+    {
+      "key": "sombre",
+      "label": "Sombre",
+      "prompt_add": "moody atmosphere, low ambient light, muted colors"
+    }
   ]
 }

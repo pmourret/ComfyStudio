@@ -35,7 +35,8 @@ OFM = AUTOMATION.parent
 sys.path.insert(0, str(AUTOMATION / "web"))
 sys.path.insert(0, str(AUTOMATION))
 
-from api.main import app                      # noqa: E402
+import runner as lb                            # noqa: E402
+from api.main import app                       # noqa: E402
 from fastapi.testclient import TestClient      # noqa: E402
 
 CHAR_A, CHAR_B = "probe-expr-a", "probe-expr-b"
@@ -79,8 +80,10 @@ try:
     poser_personnage(CHAR_A)
     poser_personnage(CHAR_B)
 
-    creative_a = json.loads((OFM / "CHARACTERS" / CHAR_A / "creative.json").read_text(encoding="utf-8"))
-    tone = creative_a["tones"][0]["key"]
+    # tons herites du monde depuis J8.3 (ADR-0019) : la fiche du personnage
+    # peut n'en porter aucun en propre, la vue fusionnee (load_creative) est
+    # la seule source fiable pour un ton VALIDE, herite ou non.
+    tone = lb.load_creative(CHAR_A)["tones"][0]["key"]
 
     # =================================== [1] la plage d'un ton n'ecrit qu'UN personnage
     print(f"\n[1] POST /api/expression/tone (ton {tone!r}) n'ecrit que {CHAR_A}")

@@ -482,6 +482,70 @@ prouvent la généralisation — pas juste Léna renommée.
   (mains/inpaint/edit SDXL, hors périmètre) — non touchés, signalés pour la
   personne qui tient ce second document
 
+**J8.3 — Héritage des catalogues du monde vers le personnage** ✅ *(terminé
+2026-09-03)*
+- Chantier signalé comme le plus sensible de la série (données réelles hors
+  dépôt) : snapshot avant toute écriture, script idempotent avec `--dry-run`
+  et `--restore`, preuve sur le prompt assemblé plutôt que sur les octets du
+  fichier
+- **Scènes → lieux** : le mécanisme existait déjà (ADR-0014/0015,
+  31/08/2026, jamais exercé sur les vraies données) — `worlds.merge_scene()`
+  et `SCENE_OVERLAY_KEYS` inchangés. Les 16 scènes de Léna et les 2
+  d'Abyssiaelle deviennent des lieux dans `WORLDS/slow-life.json` /
+  `WORLDS/terres-sauvages.json` ; leurs entrées dans `scenes.json` gagnent
+  `world_ref`/`origin: "world"`, cadre toujours matérialisé sur le disque
+  (ADR-0015 §4 : `build_jobs` ne fusionne jamais lui-même — zéro ligne
+  changée dans `build_jobs`). Deux placeholders génériques posés à J7bis
+  sont retirés au profit du contenu réel qui les recouvre (`cafe_terrasse`,
+  même id ; `feu_de_camp` → `camp_soir`, même thème, id différent — les deux
+  autres placeholders sans recouvrement restent)
+- **Intentions/tons → nouveau, symétrique en esprit** : rien de tel
+  n'existait côté monde. `WORLDS/<id>.json` gagne `intentions`/`tones`
+  (même forme que `creative.json`). Résolution par `key`, personnage
+  prioritaire : `worlds.merge_creative_vocab()`/`_merge_by_key()` —
+  remplacement ENTIER d'une clé connue (jamais un champ à champ, même
+  logique que `config.json` sur `character_defaults.json`), ajout d'une clé
+  neuve, héritage silencieux de ce que le personnage ne mentionne pas.
+  Câblé dans `AUTOMATION/runner/prompt.py::load_creative()` — le seul point
+  du chemin `intentions`/`tons` que `build_jobs` traverse avant l'assemblage
+  (contrairement aux scènes, `intention.prompt_add`/`tone.prompt_add` sont
+  résolus au lancement, sans étape de matérialisation équivalente) ; tous
+  les autres appelants (`services/creative.py`, `routers/bank.py`,
+  `routers/state.py`) en héritent sans être eux-mêmes modifiés
+- `DOCS/adr/0019-heritage-monde-personnage.md` : la règle, pourquoi
+  `load_creative()` est le seul endroit touché, la réserve sur
+  `tones[].expression` (mesuré contre le budget d'identité de Léna
+  spécifiquement, indistinguable d'un vocabulaire de monde tant qu'un seul
+  personnage vit dans slow-life — migré tel quel, surchargeable plus tard)
+- **Bug réel trouvé en auditant les consommateurs, pas en relisant** :
+  `services/expression.py::save_tone_expression()` (l'éditeur de plage
+  d'expression d'un ton) lisait déjà via `load_creative()` (donc la vue
+  fusionnée) mais réécrivait CE DICT ENTIER dans le fichier du personnage —
+  un seul appel aurait recopié les 5 tons du monde dans `creative.json` de
+  Léna, annulant la migration au premier usage. Corrigé : le ton touché
+  devient une surcharge complète (tous ses champs, `expression` remplacé)
+  écrite SEULE dans le fichier du personnage ; les tons non touchés restent
+  purement hérités. `test_expression_isolation.py` lisait aussi
+  `tones[0]` en dur sur le fichier brut (devenu vide) — corrigé pour lire la
+  vue fusionnée, seule source fiable d'un ton valide qu'il soit hérité ou non
+- Script `AUTOMATION/tests/migrate_world_catalogs.py` (gabarit de
+  `migrate_scenes_world.py`, seul des trois scripts de migration à avoir
+  déjà résolu ce problème) : calcule les jobs `build_jobs()` avant/après
+  (balayage niveau × intention × ton, 912 jobs pour Léna, 24 pour
+  Abyssiaelle) sur l'état réel puis reconstruit en mémoire, ABANDON sans
+  écrire au moindre écart. `.avant-j83.bak` par fichier personnage touché
+  avant toute écriture réelle, `--restore` pour revenir en arrière
+- Nouveau `test_world_catalogs_inheritance.py` : `_merge_by_key` isolé,
+  `load_creative()` de bout en bout (héritage, surcharge totale, ajout,
+  personnage sans monde), et la contrainte « un monde reste lisible sans
+  personnage » (`worlds.intentions/tones/places` ne prennent jamais de
+  `character_id`)
+- Vérifié : preuve interne du script (0 écart sur le balayage) puis,
+  independamment, `test_build_jobs.py` et `test_build_jobs_abyssiaelle.py`
+  rejoués sur le vrai disque migré sans une assertion changée — c'est ce
+  deuxième filet qui exerce le vrai chemin de code, pas une reconstruction
+  en mémoire. Suite complète (15 tests touchés par J8.1-J8.3) verte
+
 **Studio IA — chaque écran au niveau d'un outil professionnel** *(ouvert
 2026-09-01 — exigence transverse, pas un jalon avec une date de fin)*
 - Périmètre inchangé : personnage → univers → scènes, le pipeline actuel.
