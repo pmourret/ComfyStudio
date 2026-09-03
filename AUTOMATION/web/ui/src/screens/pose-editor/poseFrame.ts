@@ -130,6 +130,29 @@ export function withPointsMoved(
   return next
 }
 
+/** Snaps every PLACED point in `keys` to the mean of their own current
+    position on `axis` — the doc's own call for design-pass screen-6 §B2
+    ("trancher pour la moyenne"): the mean of the points actually being
+    aligned, not an anchor/last-point notion. The OTHER axis is untouched
+    per point (this straightens a row/column, it doesn't collapse the
+    selection to one spot). An unplaced point (`c<=0`) is skipped both from
+    the average and from being written — same rule `mirrorBody` above
+    already applies to a source it can't read a real position from. A
+    single-or-empty `keys` is a no-op: nothing to align relative to. */
+export function alignSelection(pose: PoseFrame, keys: Iterable<string>, axis: 'x' | 'y'): PoseFrame {
+  const placed = [...keys]
+    .map(parsePointKey)
+    .filter(({ group, index }) => pose[group][index].c > 0)
+  if (placed.length < 2) return pose
+  const mean = placed.reduce((sum, { group, index }) => sum + pose[group][index][axis], 0) / placed.length
+  let next = pose
+  for (const { group, index } of placed) {
+    const p = next[group][index]
+    next = withPoint(next, group, index, axis === 'x' ? mean : p.x, axis === 'y' ? mean : p.y)
+  }
+  return next
+}
+
 /* Right/left index pairs among BODY_JOINT_NAMES — same order as the source
    in poseTopology.ts. Nose(0) and neck(1) sit ON the mirror axis, not
    paired with anything. */

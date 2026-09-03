@@ -38,6 +38,7 @@ export function PoseInspector({
   pinned,
   onSetPinned,
   onMirrorBody,
+  onAlign,
 }: {
   pose: PoseFrame
   selected: Selected
@@ -52,6 +53,9 @@ export function PoseInspector({
       one is just the same call with a one-element array). */
   onSetPinned: (keys: string[], value: boolean) => void
   onMirrorBody: (direction: 'rightToLeft' | 'leftToRight') => void
+  /** Snaps every placed point in the CURRENT selection to their shared mean
+      on one axis (design-pass screen-6, §B2) — the other axis untouched. */
+  onAlign: (axis: 'x' | 'y') => void
 }) {
   const selectedKeys = [...selected]
   const single = selectedKeys.length === 1 ? parsePointKey(selectedKeys[0]) : null
@@ -84,6 +88,20 @@ export function PoseInspector({
           </button>
         </div>
       </div>
+
+      {selectedKeys.length > 1 && (
+        <div>
+          <div className="tiny mb-[4px] opacity-70">Alignement</div>
+          <div className="flex items-center gap-[4px]">
+            <button type="button" className="btn sm flex-1" onClick={() => onAlign('x')}>
+              Aligner X
+            </button>
+            <button type="button" className="btn sm flex-1" onClick={() => onAlign('y')}>
+              Aligner Y
+            </button>
+          </div>
+        </div>
+      )}
 
       {single && point ? (
         <div className="rounded-card border border-line2 bg-panel2 p-[10px]">

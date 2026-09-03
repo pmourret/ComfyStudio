@@ -260,6 +260,55 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   await page.mouse.up();
   await page.waitForTimeout(150);
 
+  console.log('\n[5septies] capacite (design pass ecran 6, §B2) : alignement de la selection (X ou Y)');
+  // Rsho/Lelb (PAS Rwri/Lwri) : le poignet du corps et le poignet d'une main
+  // coincident au meme pixel dans le gabarit Debout -- un clic canvas a cet
+  // endroit selectionne la main (dessinee PAR-DESSUS), pas le corps (bug de
+  // methodologie trouve en verifiant : alignSelection() fonctionnait deja
+  // correctement, c'est le clic qui visait le mauvais joint). Passer par
+  // l'outliner (boutons plats, pas de superposition) evite le piege des DEUX
+  // cotes.
+  const montrerLigne = async (texteLigne, texteGroupe) => {
+    const visible = await page.locator(`aside button.btn.sm.justify-start:has-text("${texteLigne}")`).count();
+    if (!visible) await page.click(`aside button:has-text("${texteGroupe}")`);
+  };
+  await montrerLigne('Rsho', 'Bras droit');
+  await montrerLigne('Lelb', 'Bras gauche');
+  await page.waitForTimeout(150);
+  await page.click('aside button.btn.sm.justify-start:has-text("Rsho")');
+  await page.waitForTimeout(100);
+  await page.keyboard.down('Control');
+  await page.click('aside button.btn.sm.justify-start:has-text("Lelb")');
+  await page.keyboard.up('Control');
+  await page.waitForTimeout(150);
+
+  const lireJoint = (nom) => page.evaluate((n) => {
+    const els = [...document.querySelectorAll('#poseEditor svg[data-canvas="full"] circle')];
+    const el = els.find((c) => (c.getAttribute('aria-label') || '').startsWith(n + ' —'));
+    return el ? { x: Number(el.getAttribute('cx')), y: Number(el.getAttribute('cy')) } : null;
+  }, nom);
+
+  const rshoAvant = await lireJoint('Rsho');
+  const lelbAvant = await lireJoint('Lelb');
+  const moyenneX = (rshoAvant.x + lelbAvant.x) / 2;
+
+  await page.locator('button:has-text("Aligner X")').first().click();
+  await page.waitForTimeout(200);
+  const rshoApres = await lireJoint('Rsho');
+  const lelbApres = await lireJoint('Lelb');
+  dire(rshoApres.x === moyenneX && lelbApres.x === moyenneX,
+       `Aligner X place les deux joints sur leur moyenne (${moyenneX}) (Rsho=${rshoApres.x}, Lelb=${lelbApres.x})`);
+  dire(rshoApres.y === rshoAvant.y && lelbApres.y === lelbAvant.y,
+       `Aligner X laisse Y inchange (Rsho ${rshoAvant.y}->${rshoApres.y}, Lelb ${lelbAvant.y}->${lelbApres.y})`);
+
+  await page.locator('button:has-text("Copier depuis la main droite")').first().focus();
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(200);
+  const rshoUndo = await lireJoint('Rsho');
+  const lelbUndo = await lireJoint('Lelb');
+  dire(rshoUndo.x === rshoAvant.x && lelbUndo.x === lelbAvant.x,
+       `un seul Ctrl+Z annule l'alignement des DEUX joints a la fois (Rsho=${rshoUndo.x}, Lelb=${lelbUndo.x}, attendu ${rshoAvant.x}/${lelbAvant.x})`);
+
   console.log('\n[6] sauvegarde — redirige vers la pose reellement ecrite');
   await page.click('button:has-text("Enregistrer")');
   await page.waitForFunction(() => location.pathname.includes('/bank/poses/edit/'), null, { timeout: 5000 });
