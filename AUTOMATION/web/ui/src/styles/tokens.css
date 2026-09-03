@@ -1,33 +1,42 @@
 /* tokens.css — la SEULE couche d'identite visuelle (J3 etape 3).
-   Un pack redefinit sa palette/forme ; base.css / chrome.css / screens.css
-   n'en dependent que par var(), jamais par une valeur en dur qui encoderait
-   un choix de style. Voir DESIGN.md pour le contrat : ce qui est jetonne,
-   ce qui reste brut, et l'inventaire des composants.
+   Un pack redefinit sa forme ; base.css / chrome.css / screens.css n'en
+   dependent que par var(), jamais par une valeur en dur qui encoderait un
+   choix de style. Voir DESIGN.md pour le contrat : ce qui est jetonne, ce
+   qui reste brut, et l'inventaire des composants.
 
-   Phase 0 (03/09/2026, DOCS/design-pass/phase-0-tokens) : identite commune
-   + habillages Lena/instagram-influenceur et Abyssiaelle/rpg-personnage,
-   basculee a l'EXECUTION via l'attribut `data-pack` pose sur <html> par
-   `chrome/usePackTheme.ts` (le personnage est un state React live-switchable
-   sans rechargement -- un import statique unique ne peut pas porter 3
-   identites). `:root` reste la feuille par defaut (sas, #registre, wizard
-   avant que le pack soit resolu) ; `:root[data-pack="..."]` ne redeclare
-   QUE ce qui change reellement d'un pack a l'autre. Ce qui n'y figure pas
-   (verdicts, bandeaux, profondeur, typographie, --maxw) est VOULU identique
-   dans les 3 habillages -- ne pas le dupliquer dans un bloc [data-pack] :
-   la non-duplication est ce qui rend cette egalite structurelle plutot
-   qu'une discipline a maintenir a la main.
+   Phase 0b (03/09/2026, DOCS/design-pass/phase-0b-theme-utilisateur.md) a
+   DETACHE la couleur du pack : un pack ne fixe plus que `--r` (rayon des
+   cartes), bascule a l'EXECUTION via l'attribut `data-pack` pose sur <html>
+   par `chrome/usePackTheme.ts`. Neutre (fond/ligne/texte) et accent restent
+   les valeurs de PLATEFORME ci-dessous — inchangees par ce chantier — pour
+   tout personnage qui n'a rien personnalise. Un personnage AVEC une
+   `appearance` (`character.json`) les fait recalculer en OKLCH et les pose
+   en inline sur <html>, `chrome/useCharacterTheme.ts` : ce chemin ne
+   s'active QUE si au moins un champ est renseigne (jamais au repos) --
+   sinon la valeur "plateforme, intensite 0" recalculee (chroma pur zero)
+   ne retomberait pas exactement sur les hex ci-dessous, qui portent une
+   toute petite teinte des l'origine (methode Phase 0). Pas de difference
+   visible tant que rien n'est touche, PARCE QUE rien n'est touche.
+   L'ancienne Phase 0 (`DOCS/design-pass/.old/phase-0-tokens/`) faisait
+   varier neutre+accent+focus+barres par pack ; ce mecanisme est remplace,
+   pas superpose — un bloc `[data-pack]` ne doit plus jamais redeclarer de
+   couleur. Verdicts, bandeaux, profondeur, typographie, --maxw restent
+   IDENTIQUES pour tout le monde, pack et personnage confondus — signal de
+   securite, pas une ambiance.
 
    Contrastes verifies au ratio WCAG contre les fonds reellement utilises
    (--bg pour le corps, --panel pour les cartes, les fonds de bandeau pour
-   leur propre texte), independamment recalcules pour ce commit : tout texte
-   est a 4.5:1 ou mieux dans les 3 feuilles. Detail par paire dans
-   DOCS/design-pass/phase-0-tokens/README.md. */
+   leur propre texte) : tout texte est a 4.5:1 ou mieux a la valeur de
+   plateforme. Un personnage qui personnalise revalide `--on-acc`/`--focus`
+   a la volee (`chrome/theme/deriveTheme.ts`), jamais figes ici. */
 :root{
-  /* --- palette : fonds, lignes, textes (commune) --- */
+  /* --- palette : fonds, lignes, textes -- valeur de PLATEFORME, seule
+     valeur vue par un personnage sans `appearance` (Phase 0b) --- */
   --bg:#0b1015; --panel:#14191e; --panel2:#20252a;
   --line:#2a3138; --line2:#474e55;
   --txt:#dfe5ec; --dim:#9299a1; --dim2:#889099;
-  /* accent + texte pose SUR un aplat d'accent (ou de warn/ok clair) */
+  /* accent + texte pose SUR un aplat d'accent (ou de warn/ok clair) --
+     IDEM : valeur de plateforme */
   --acc:#90b0c4; --acc-d:#607f91; --on-acc:#050a0d;
 
   /* --- verdicts / bandeaux / mesure : IDENTIQUES dans les 3 habillages.
@@ -44,16 +53,20 @@
   --elev:0 14px 38px #00000099;
   --scrim:#0b0d10cc;
 
-  /* Anneau de :focus-visible. Distinct de --acc dans les 3 feuilles (sinon
-     invisible en outline-offset negatif sur une surface accentuee) --
-     verifie >=3:1 contre --bg et --panel2 pour chaque habillage. Seul token
-     de "signal" qui varie par pack : DOIT rester assorti a l'accent actif
-     pour continuer a se voir dessus. */
+  /* Anneau de :focus-visible. Distinct de --acc (sinon invisible en
+     outline-offset negatif sur une surface accentuee) -- verifie >=3:1
+     contre --bg et --panel2. Depuis Phase 0b varie PAR PERSONNAGE, pas par
+     pack : DOIT rester assorti a l'accent actif pour continuer a se voir
+     dessus, `deriveTheme.ts` le recalcule (+40° de teinte, L remonte par
+     pas de 0.02 jusqu'a 3:1) a chaque personnalisation. */
   --focus:#8fcfff;
 
-  /* Barres de defilement -- varient par pack (assorties a la neutre), le
-     pouce reste un COMPOSANT D'INTERFACE (WCAG 1.4.11, seuil 3:1 contre les
-     3 fonds ou il apparait, revalide pour ce commit). */
+  /* Barres de defilement -- IDEM depuis Phase 0b : ni le pack ni le
+     personnage ne les fait plus varier (l'ancienne Phase 0 les assortissait
+     par pack ; le mecanisme de personnalisation de Phase 0b n'inclut QUE
+     les 12 tokens de `deriveTheme.ts`, --sb/--sb-h n'en font pas partie).
+     Valeur de plateforme fixe. Le pouce reste un COMPOSANT D'INTERFACE
+     (WCAG 1.4.11, seuil 3:1 contre les 3 fonds ou il apparait). */
   --sb:#6b747d; --sb-h:#8d96a0; --sb-l:10px;
 
   /* --- typographie : IDEM. Un vrai changement de famille impliquerait
@@ -69,26 +82,14 @@
 }
 *{box-sizing:border-box}
 
-/* --- Lena / instagram-influenceur -- ambiance du monde slow-life (lumiere
-   naturelle, calme, quotidien). Seuls neutre/accent/forme changent. --- */
+/* --- Lena / instagram-influenceur. Phase 0b (DOCS/design-pass/
+   phase-0b-theme-utilisateur.md) a retire toute couleur des blocs de pack :
+   un pack ne fixe plus que la FORME. --- */
 :root[data-pack="instagram-influenceur"]{
-  --bg:#140e0a; --panel:#1d1713; --panel2:#29231f;
-  --line:#372e29; --line2:#544b45;
-  --txt:#ebe3dd; --dim:#a09690; --dim2:#978d86;
-  --acc:#d5a051; --acc-d:#a26f17; --on-acc:#0c0805;
-  --focus:#e5c379;
-  --sb:#7c7069; --sb-h:#9e938b;
   --r:12px;
 }
 
-/* --- Abyssiaelle / rpg-personnage -- ambiance du monde terres-sauvages
-   (foret, dusk, feu de camp, lumiere sourde). --- */
+/* --- Abyssiaelle / rpg-personnage. Meme regle : forme seule. --- */
 :root[data-pack="rpg-personnage"]{
-  --bg:#091111; --panel:#121a1a; --panel2:#1d2626;
-  --line:#273333; --line2:#445050;
-  --txt:#dce7e8; --dim:#8f9b9c; --dim2:#859293;
-  --acc:#f3896f; --acc-d:#bc5840; --on-acc:#0e0806;
-  --focus:#feb391;
-  --sb:#677677; --sb-h:#899999;
   --r:6px;
 }

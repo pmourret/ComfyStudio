@@ -110,6 +110,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/character/appearance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Personnaliser le theme du personnage courant
+         * @description Writes the character's theme override (Phase 0b). The three fields all
+         *     None (the Apparence panel's `Reinitialiser`) drops the whole override, not
+         *     an empty one — see `services/character.save_appearance`.
+         */
+        post: operations["set_character_appearance_api_character_appearance_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/characters": {
         parameters: {
             query?: never;
@@ -1384,6 +1406,31 @@ export interface components {
             [key: string]: unknown;
         };
         /**
+         * AppearanceBrief
+         * @description The character's theme override (Phase 0b, `DOCS/design-pass/
+         *     phase-0b-theme-utilisateur.md`) — hue/intensity of the neutral scale and
+         *     hue of the accent. All optional: absent means the platform default
+         *     (hue 220°, intensity 0), identical for every character until this is set.
+         *
+         *     Reused as BOTH the response shape (`CharacterSheet.appearance`, always
+         *     present, fields possibly None) and the request body of `POST
+         *     /api/character/appearance` — one shape, not a duplicated pair.
+         *
+         *     Bounds are REJECTED, never silently clamped — same doctrine as
+         *     `schemas/expression.py` (`ExpressionParams._within_bounds`): a human
+         *     moving a wheel should see a rejection, not a silent correction.
+         */
+        AppearanceBrief: {
+            /** Neutral Hue */
+            neutral_hue?: number | null;
+            /** Neutral Intensity */
+            neutral_intensity?: number | null;
+            /** Accent Hue */
+            accent_hue?: number | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * BaseCandidate
          * @description One queued portrait: its seed and its ComfyUI prompt_id.
          */
@@ -1565,6 +1612,7 @@ export interface components {
             nsfw: boolean;
             base: components["schemas"]["FrozenBaseBrief"];
             nsfw_tool: components["schemas"]["EditToolState"];
+            appearance: components["schemas"]["AppearanceBrief"];
         } & {
             [key: string]: unknown;
         };
@@ -3356,6 +3404,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CharacterSheet"];
+                };
+            };
+            /** @description Requête refusée */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_character_appearance_api_character_appearance_post: {
+        parameters: {
+            query?: {
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
+                character?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppearanceBrief"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppearanceBrief"];
                 };
             };
             /** @description Requête refusée */

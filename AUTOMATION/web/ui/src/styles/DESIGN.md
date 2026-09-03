@@ -36,19 +36,39 @@ atterrissaient en PREMIER dans le bundle, pas en dernier.
 `base/components/screens` ne référencent l'identité visuelle **que** par
 `var(--…)`. Aucune valeur en dur qui encoderait un choix de style.
 
-*Mis à jour le 03/09/2026 (Phase 0, `DOCS/design-pass/phase-0-tokens`) :* un
-pack ne fournit plus un `tokens.css` séparé — le personnage est un state React
-qu'on bascule sans recharger la page (§ ci-dessus), donc un import statique
-unique ne peut pas porter plusieurs identités. Les habillages vivent dans **le
-même** `tokens.css`, comme des blocs `:root[data-pack="<id>"]{…}` qui ne
-redéclarent que ce qui change réellement (neutre, accent, `--focus`, barres de
-défilement, `--r`) — jamais les verdicts/bandeaux/profondeur/typographie/
-`--maxw`, volontairement identiques d'un pack à l'autre (signal de sécurité,
-pas une ambiance). `chrome/usePackTheme.ts` pose l'attribut `data-pack` sur
-`<html>` (jamais sur le shell `.app` : un portail vers `<body>`, comme
-l'écran de panne de `ApplicationScreen.tsx`, doit résoudre les mêmes tokens).
-Absent — sas, `#registre`, wizard avant que le pack soit résolu — la feuille
-retombe sur les valeurs communes de `:root`, jamais un nom d'écran en dur.
+*Mis à jour le 03/09/2026 (Phase 0, `DOCS/design-pass/.old/phase-0-tokens`,
+amendée le même jour par la Phase 0b, `DOCS/design-pass/
+phase-0b-theme-utilisateur.md`) :* un pack ne fournit plus un `tokens.css`
+séparé — le personnage est un state React qu'on bascule sans recharger la
+page (§ ci-dessus), donc un import statique unique ne peut pas porter
+plusieurs identités. Un habillage de pack vit dans **le même** `tokens.css`,
+comme un bloc `:root[data-pack="<id>"]{…}` — mais depuis la Phase 0b, ce bloc
+ne redéclare plus que `--r` (rayon des cartes). Neutre, accent, `--focus` et
+les barres de défilement ne varient plus PAR PACK ; ils restent à la valeur
+de plateforme sur `:root` nu jusqu'à ce qu'un **personnage** les
+personnalise (§ ci-dessous). Verdicts, bandeaux, profondeur, typographie,
+`--maxw` restent volontairement identiques quel que soit le pack ET le
+personnage — signal de sécurité, pas une ambiance. `chrome/usePackTheme.ts`
+pose l'attribut `data-pack` sur `<html>` (jamais sur le shell `.app` : un
+portail vers `<body>`, comme l'écran de panne de `ApplicationScreen.tsx`,
+doit résoudre les mêmes tokens). Absent — sas, `#registre`, wizard avant que
+le pack soit résolu — la feuille retombe sur les valeurs communes de
+`:root`, jamais un nom d'écran en dur.
+
+**Personnalisation par personnage (Phase 0b, 03/09/2026).** Neutre (fond,
+lignes, texte) et accent sont détachés du pack et personnalisables **par
+personnage** — panneau « Apparence » de l'écran Application
+(`screens/AppearanceSection.tsx`), donnée `character.json / appearance`
+(`{neutral_hue, neutral_intensity, accent_hue}`, tous optionnels — absent =
+défaut de plateforme, teinte 220°, intensité 0). `chrome/useCharacterTheme.ts`
+(sœur de `usePackTheme.ts`, montée dans `chrome/Shell.tsx`) calcule les 12
+tokens dérivés en OKLCH (`chrome/theme/deriveTheme.ts`) et les pose en
+`style.setProperty` inline sur `<html>` — jamais quand `appearance` est
+entièrement absent : ce chemin ne s'active qu'au premier champ renseigné,
+pour que « rien de personnalisé » reste au pixel près ce que `tokens.css`
+affiche déjà (voir le commentaire de tête de ce fichier). L'écran Application
+prévisualise en direct (avant tout Enregistrer) le même calcul, jamais
+persisté tant que le bouton n'est pas actionné.
 
 ### Jetonné
 
@@ -322,4 +342,8 @@ en colonne) / `.nav-ic` (icône SVG) / `.nav-lab` (libellé) / `.nav-foot` >
 `.rail-foot` (⚙, collé en bas) / `.rail-msg` (+ `.rail-ko` en panne).
 **Sous-vues de la banque** *(29/08/2026)* — `.bankview` (un `.seg`) +
 `#bankScenes` / `#bankPoses`.
+**Panneau Apparence** *(Phase 0b, 03/09/2026)* — `#appearanceBox`, deux
+`chrome/theme/HueWheel.tsx` (`role="slider"`, premier contrôle circulaire du
+studio) + un curseur d'intensité au style `.rg` du gear panel, aperçu en
+direct avant `#btnAppearanceSave` / `#btnAppearanceReset`.
 **Divers** — `#toast`, `.empty` (état vide).

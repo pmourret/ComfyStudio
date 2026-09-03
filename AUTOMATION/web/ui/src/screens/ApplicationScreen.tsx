@@ -23,6 +23,7 @@ import { useSystemState } from '../state/SystemStateContext'
 import { usePolling } from '../state/usePolling'
 import { PATHS } from '../app/routes'
 import { AdultContentSection } from './AdultContentSection'
+import { AppearanceSection } from './AppearanceSection'
 import { ComfyGauges } from './ComfyGauges'
 
 type ActionResponse = Schema<'ActionResponse'>
@@ -294,6 +295,17 @@ export function ApplicationScreen() {
           </span>
         </h2>
         <AdultContentSection />
+
+        {/* APPEARANCE (Phase 0b). Same rank as Contenu adulte just above: a
+            platform capability that writes character-level data, agnostic of
+            the pack (CLAUDE.md §7). */}
+        <h2 className="mt-[34px]">
+          Apparence{' '}
+          <span className="tiny" id="appearanceQui">
+            {sheet?.name ? `— ${sheet.name}` : ''}
+          </span>
+        </h2>
+        <AppearanceSection />
 
         <h2 className="mt-[34px]">Journal des productions</h2>
         <p className="tiny mt-[6px] mb-[10px]">

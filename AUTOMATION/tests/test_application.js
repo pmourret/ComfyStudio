@@ -218,7 +218,55 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   const lien = await page.getAttribute('a.link[href="/app/journal"]', 'href');
   dire(lien === '/app/journal', 'le renvoi mene au journal des productions');
 
-  console.log('\n[14] aucune erreur JS sur tout le parcours');
+  console.log('\n[14] Apparence : la roue de fond repeint en direct, avertit pres d un verdict, et persiste');
+  /* Tourne sur le personnage ACTIF a ce point du parcours (Abyssiaelle, depuis
+     [11]) -- le mecanisme est le meme quel que soit le personnage (Phase 0b),
+     donc aucune hypothese de nom ici. Reinitialise a la fin, meme discipline
+     que [12] qui laisse Abyssiaelle desarmee : ce test ne doit laisser AUCUN
+     personnage avec un theme personnalise derriere lui. */
+  const cssVar = nom => page.evaluate(
+    n => getComputedStyle(document.documentElement).getPropertyValue(n).trim(), nom);
+
+  dire(await vu('#appearanceBox'), 'le panneau Apparence est present');
+  const bgAvant = await cssVar('--bg');
+  dire(await page.isDisabled('#btnAppearanceReset'),
+       'Reinitialiser est inerte : rien n est encore personnalise');
+
+  const roueFond = page.getByRole('slider', { name: 'Teinte du fond' });
+  await roueFond.focus();
+  for (let i = 0; i < 30; i++) await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(150);
+  const bgEnDirect = await cssVar('--bg');
+  dire(bgEnDirect !== bgAvant && bgEnDirect !== '',
+       `la roue de fond repeint --bg en direct (${bgAvant} -> ${bgEnDirect}), avant tout Enregistrer`);
+
+  // 220° (defaut) -> ~140° : a 5° du verdict OK (145°, garde-fou du document)
+  const roueAccent = page.getByRole('slider', { name: "Teinte de l'accent" });
+  await roueAccent.focus();
+  for (let i = 0; i < 8; i++) await page.keyboard.press('PageDown');
+  await page.waitForTimeout(150);
+  dire(await vu('#appearanceVerdictWarning'),
+       'pres d une teinte de verdict, le panneau avertit (jamais sur la roue de fond)');
+
+  await page.click('#btnAppearanceSave');
+  await page.waitForTimeout(500);
+  dire((await texte('#toast')).includes('enregistr'), 'Enregistrer confirme');
+  dire(!(await page.isDisabled('#btnAppearanceReset')),
+       'Reinitialiser redevient actif : quelque chose EST enregistre');
+
+  await page.reload({ waitUntil: 'networkidle' });
+  const bgApresRechargement = await cssVar('--bg');
+  dire(bgApresRechargement === bgEnDirect,
+       `la personnalisation survit au rechargement (${bgApresRechargement})`);
+
+  await page.click('#btnAppearanceReset');
+  await page.waitForTimeout(500);
+  dire((await texte('#toast')).includes('initialis'), 'Reinitialiser confirme');
+  const bgFinal = await cssVar('--bg');
+  dire(bgFinal === bgAvant, `de retour au theme de plateforme (${bgFinal})`);
+  dire(await page.isDisabled('#btnAppearanceReset'), 'Reinitialiser redevient inerte');
+
+  console.log('\n[15] aucune erreur JS sur tout le parcours');
   /* Le mot faux de [12] fait repondre 400 au serveur — c'est le comportement
      VERIFIE, pas un incident. Chromium journalise toute reponse 4xx comme une
      erreur de console : on retire celle-la, et rien d'autre. */

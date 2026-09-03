@@ -5,7 +5,7 @@ lifecycle of the two processes.
 """
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # --------------------------------------------------------------- system state
@@ -104,6 +104,43 @@ class EditToolState(BaseModel):
     reason: Optional[str] = None
 
 
+class AppearanceBrief(BaseModel):
+    """The character's theme override (Phase 0b, `DOCS/design-pass/
+    phase-0b-theme-utilisateur.md`) — hue/intensity of the neutral scale and
+    hue of the accent. All optional: absent means the platform default
+    (hue 220°, intensity 0), identical for every character until this is set.
+
+    Reused as BOTH the response shape (`CharacterSheet.appearance`, always
+    present, fields possibly None) and the request body of `POST
+    /api/character/appearance` — one shape, not a duplicated pair.
+
+    Bounds are REJECTED, never silently clamped — same doctrine as
+    `schemas/expression.py` (`ExpressionParams._within_bounds`): a human
+    moving a wheel should see a rejection, not a silent correction.
+    """
+    model_config = ConfigDict(extra="allow")
+
+    neutral_hue: Optional[float] = None
+    neutral_intensity: Optional[float] = None
+    accent_hue: Optional[float] = None
+
+    @field_validator("neutral_hue", "accent_hue")
+    @classmethod
+    def _hue_range(cls, v, info):
+        if v is not None and not (0 <= v < 360):
+            raise ValueError(f"{info.field_name} hors bornes [0, 360) : {v}")
+        return v
+
+    @field_validator("neutral_intensity")
+    @classmethod
+    def _intensity_range(cls, v):
+        # Plafond bas et volontaire (phase-0b) : au-dela, risque de retomber
+        # sous les seuils WCAG deja valides en Phase 0.
+        if v is not None and not (0 <= v <= 0.05):
+            raise ValueError(f"intensite hors bornes [0, 0.05] : {v}")
+        return v
+
+
 class CharacterSheet(BaseModel):
     """The current character, for the chrome and for its sheet (F1.2)."""
     model_config = ConfigDict(extra="allow")
@@ -118,6 +155,7 @@ class CharacterSheet(BaseModel):
     nsfw: bool
     base: FrozenBaseBrief
     nsfw_tool: EditToolState
+    appearance: AppearanceBrief
 
 
 class CharacterRow(BaseModel):

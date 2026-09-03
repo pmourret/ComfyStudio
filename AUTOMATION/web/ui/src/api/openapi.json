@@ -185,6 +185,75 @@
         }
       }
     },
+    "/api/character/appearance": {
+      "post": {
+        "summary": "Personnaliser le theme du personnage courant",
+        "description": "Writes the character's theme override (Phase 0b). The three fields all\nNone (the Apparence panel's `Reinitialiser`) drops the whole override, not\nan empty one — see `services/character.save_appearance`.",
+        "operationId": "set_character_appearance_api_character_appearance_post",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppearanceBrief"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppearanceBrief"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/characters": {
       "get": {
         "summary": "Registre des personnages",
@@ -3039,6 +3108,47 @@
         "title": "ActionResponse",
         "description": "The universal answer of an action route, `{ok: bool, erreur?: str}`.\n\nAUDIT §5.4: the convention holds on 4xx and 5xx too — `api.js` reads a JSON\nbody on every response, whatever the status.\n\nALWAYS DECLARE IT WITH `response_model_exclude_unset=True`. The old handlers\nreturned `{\"ok\": true}` and nothing else on success; a plain response_model\nwould add `\"erreur\": null` to every one of them. Harmless to `erreurDe()`,\nwhich only tests `ok === false` — but this migration is meant to keep the\nbodies identical, and a shape that drifts once drifts twice."
       },
+      "AppearanceBrief": {
+        "properties": {
+          "neutral_hue": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Neutral Hue"
+          },
+          "neutral_intensity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Neutral Intensity"
+          },
+          "accent_hue": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accent Hue"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "AppearanceBrief",
+        "description": "The character's theme override (Phase 0b, `DOCS/design-pass/\nphase-0b-theme-utilisateur.md`) — hue/intensity of the neutral scale and\nhue of the accent. All optional: absent means the platform default\n(hue 220°, intensity 0), identical for every character until this is set.\n\nReused as BOTH the response shape (`CharacterSheet.appearance`, always\npresent, fields possibly None) and the request body of `POST\n/api/character/appearance` — one shape, not a duplicated pair.\n\nBounds are REJECTED, never silently clamped — same doctrine as\n`schemas/expression.py` (`ExpressionParams._within_bounds`): a human\nmoving a wheel should see a rejection, not a silent correction."
+      },
       "BaseCandidate": {
         "properties": {
           "seed": {
@@ -3484,6 +3594,9 @@
           },
           "nsfw_tool": {
             "$ref": "#/components/schemas/EditToolState"
+          },
+          "appearance": {
+            "$ref": "#/components/schemas/AppearanceBrief"
           }
         },
         "additionalProperties": true,
@@ -3496,7 +3609,8 @@
           "universe",
           "nsfw",
           "base",
-          "nsfw_tool"
+          "nsfw_tool",
+          "appearance"
         ],
         "title": "CharacterSheet",
         "description": "The current character, for the chrome and for its sheet (F1.2)."

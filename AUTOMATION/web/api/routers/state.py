@@ -32,13 +32,14 @@ import worlds
 from ..dependencies import RequiredCharacterId
 from ..schemas.common import ERROR_RESPONSES
 from ..schemas.state import (
-    BaseCandidatesRequest, BaseCandidatesResponse, BaseFreezeRequest,
-    BaseGenerateRequest, BaseGenerateResponse, BaseNameResponse,
-    BaseUploadRequest, CharacterListResponse, CharacterSheet,
+    AppearanceBrief, BaseCandidatesRequest, BaseCandidatesResponse,
+    BaseFreezeRequest, BaseGenerateRequest, BaseGenerateResponse,
+    BaseNameResponse, BaseUploadRequest, CharacterListResponse, CharacterSheet,
     CreateCharacterRequest, CreateCharacterResponse,
     JournalResponse, NsfwStateResponse, SystemStateResponse,
     UniverseToolsResponse, WizardOptionsResponse,
 )
+from ..services.character import save_appearance
 from ..services.creative import is_edit_tier
 
 router = APIRouter(responses=ERROR_RESPONSES)
@@ -201,7 +202,20 @@ async def get_character(character_id: RequiredCharacterId):
         # the Application screen (J7, ADR-0010).
         "base": frozen_base_brief(cid),
         "nsfw_tool": nsfw_batch.edit_tool_state(cid),
+        "appearance": reg.get("appearance") or {},
     }
+
+
+@router.post("/api/character/appearance", response_model=AppearanceBrief,
+             summary="Personnaliser le theme du personnage courant")
+async def set_character_appearance(payload: AppearanceBrief, character_id: RequiredCharacterId):
+    """Writes the character's theme override (Phase 0b). The three fields all
+    None (the Apparence panel's `Reinitialiser`) drops the whole override, not
+    an empty one — see `services/character.save_appearance`."""
+    kept = save_appearance(character_id, payload.neutral_hue,
+                            payload.neutral_intensity, payload.accent_hue)
+    ss.push_log(f"apparence personnalisee ({character_id})")
+    return kept
 
 
 @router.get("/api/characters", response_model=CharacterListResponse,
