@@ -546,6 +546,62 @@ prouvent la généralisation — pas juste Léna renommée.
   deuxième filet qui exerce le vrai chemin de code, pas une reconstruction
   en mémoire. Suite complète (15 tests touchés par J8.1-J8.3) verte
 
+**J8.4 — Couche plateforme, premier habitant l'upscale** ✅ *(terminé
+2026-09-03, validé contre ComfyUI réel)*
+- Symptôme concret trouvé en explorant, pas supposé : l'upscale existe déjà
+  mais enterré dans le graphe de Léna seul (`runner/comfy.py` bascule un
+  groupe de `lena_master_prod_ui.json` selon `preset.upscale_2k`).
+  `abyssiaelle_master_prod_ui.json` n'a que 2 groupes (identité + LoRA),
+  aucun groupe d'upscale — si son `config.json` portait `upscale_2k: true`,
+  ça ne ferait **rien, silencieusement** (`nodes_in_group()` rend `[]` sur
+  un titre introuvable, aucune erreur). Exactement le trou que ce chantier
+  ferme.
+- `PLATFORM/capabilities.json` (nouveau, registre **singleton** — une seule
+  plateforme, pas un dossier par id comme `PACKS/`) + `AUTOMATION/
+  platform_capabilities.py`, jumeau exact des accesseurs de capacité de
+  `universe.py` (J8.2) moins le paramètre `uid`. Même forme `{graph, roles}`
+  qu'ADR-0018, aucune modification du schéma
+- `universe.resolve()` inchangé, dans les deux sens : une capacité de
+  plateforme n'y entre jamais et n'en dépend jamais — toujours disponible,
+  jamais conditionnée au pack ni au personnage (ADR-0020 §2)
+- `WORKFLOWS/platform/upscale_ui.json` (nouveau) : les 3 nœuds réels du
+  groupe « 09 - UPSCALE IMAGE 2K » de Léna (`UpscaleModelLoader` →
+  `4x_NMKD-Siax_200k.pth`, `ImageUpscaleWithModel`, `ImageScale` — mesurés
+  24/08, netteté +31 %, identité -0,004), extraits plutôt que réinventés.
+  Bug de généricité corrigé au passage : la cible `ImageScale` était figée
+  à `1440×1800` (le format 4:5 de Léna en dur) ; le graphe autonome la
+  pilote par job depuis la taille réelle de l'image reçue
+- `AUTOMATION/runner/upscale.py::UpscaleRunner` + `run_upscale_batch()` :
+  passe par `execute_jobs` (son paramètre `runner=` déjà injectable),
+  **jamais une boucle à part** — contrairement au précédent NSFW
+  (`nsfw_batch.run()`, sa propre boucle). `UpscaleRunner` n'importe ni
+  `universe` ni `identity` : preuve dans le code, pas seulement affirmée,
+  que la contrainte « ne consulte jamais le pack » est tenue
+- `test_platform_capabilities.py` (nouveau) : registre, taille cible
+  calculée sur des images réelles de Léna ET d'Abyssiaelle (jamais un
+  format figé), absence d'import `universe`/`identity` vérifiée par grep
+- **Validation réelle, ComfyUI démarré en cours de session** :
+  `wf_check.py WORKFLOWS/platform/upscale_ui.json --essai` refusé une
+  première fois (`LoadImage` pointait le nom placeholder du fichier
+  versionné, qui n'existe pas sur le disque — attendu, ce placeholder est
+  écrasé par `UpscaleRunner.api_for()` à l'exécution réelle, jamais lu tel
+  quel) ; accepté par ComfyUI une fois un vrai fichier substitué le temps du
+  test, confirmant que le seul point en cause était ce placeholder, pas le
+  câblage. Round-trip complet ensuite, sous `python_embeded` (`cv2`/
+  InsightFace absents du venv de dev, même limite connue que les autres
+  tests QC) : upscale réel sur une photo de Léna (pack flux, 1080×1350 →
+  2048×2560, verdict A_REVOIR) PUIS d'Abyssiaelle (pack sdxl, 1024×1024 →
+  2048×2048, verdict OK) — **même code, aucune branche, deux verdicts QC
+  différents parce que les seuils sont par personnage**, pas parce que le
+  chemin diffère. Journal écrit pour les deux, fichiers rangés dans le bon
+  dossier de tri, transit balayé, aucun export parasite (désactivé par
+  `_capability_cfg`). Suite existante rejouée verte après coup
+- Hors périmètre, assumé : pas d'écran studio (mécanisme + point d'entrée
+  programmatique seulement) ; grain/recadrage/correction colorimétrique/
+  watermark restent des candidats non construits, « premier habitant »
+  voulait dire un seul ; aucun résolveur unifié pack+plateforme (pas de
+  second appelant pour le justifier)
+
 **Studio IA — chaque écran au niveau d'un outil professionnel** *(ouvert
 2026-09-01 — exigence transverse, pas un jalon avec une date de fin)*
 - Périmètre inchangé : personnage → univers → scènes, le pipeline actuel.

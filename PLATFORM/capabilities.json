@@ -1,0 +1,30 @@
+{
+  "upscale": {
+    "graph": "WORKFLOWS/platform/upscale_ui.json",
+    "roles": ["source", "upscale_model", "upscale", "resize", "save"]
+  },
+  "_notes": [
+    "Carte de capacites de la couche PLATEFORME (ADR-0017, ADR-0018, ADR-0020,",
+    "J8.4) : agnostique du modele, appliquee a une image deja produite. Meme",
+    "forme {graph, roles} que la carte d'un pack (PACKS/<id>/universe.json /",
+    "capabilities) -- aucune modification du schema, exactement l'engagement",
+    "pris en J8.2.",
+    "",
+    "SINGLETON : une seule plateforme, jamais une par id comme les packs. Ce",
+    "fichier est LE registre, pas un dossier par entree.",
+    "",
+    "upscale.graph : extrait du groupe « 09 - UPSCALE IMAGE 2K » de",
+    "WORKFLOWS/content/lena_master_prod_ui.json (3 noeuds mesures le",
+    "24/08/2026 : nettete +31%, identite -0.004), generalise -- la cible de",
+    "redescente n'est plus figee au format 4:5 de Lena, elle est pilotee par",
+    "job depuis la taille reelle de l'image source (AUTOMATION/runner/",
+    "upscale.py::UpscaleRunner).",
+    "",
+    "resolve() (AUTOMATION/universe.py) ne connait AUCUNE capacite de cette",
+    "carte : une capacite de plateforme est toujours disponible, elle ne",
+    "consulte jamais le pack ni le personnage pour savoir si elle a le droit",
+    "de s'executer (contrainte du chantier, ADR-0020). Aucun graphe de pack",
+    "n'entre jamais ici, et reciproquement une capacite de plateforme n'entre",
+    "jamais dans capabilities d'un pack."
+  ]
+}
