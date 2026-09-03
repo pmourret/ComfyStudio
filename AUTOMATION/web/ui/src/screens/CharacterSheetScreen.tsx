@@ -95,6 +95,22 @@ function AdultContent({ sheet }: { sheet: CharacterSheet }) {
   )
 }
 
+/* One empty `.meta` card, sized by the same padding + row rhythm as a real
+   one rather than a guessed height — three placeholder lines because every
+   real card on this screen carries exactly three `Row`s. */
+function SkeletonMeta() {
+  return (
+    <div className="meta">
+      <div className="h-[10px] w-[70px] rounded-[3px] bg-line" />
+      <div className="mb-[11px] mt-[6px] h-[14px] w-[45%] rounded-[3px] bg-line" />
+      <div className="h-[10px] w-[70px] rounded-[3px] bg-line" />
+      <div className="mb-[11px] mt-[6px] h-[14px] w-[60%] rounded-[3px] bg-line" />
+      <div className="h-[10px] w-[70px] rounded-[3px] bg-line" />
+      <div className="mt-[6px] h-[14px] w-[50%] rounded-[3px] bg-line" />
+    </div>
+  )
+}
+
 function Row({ term, children }: { term: string; children: React.ReactNode }) {
   return (
     <>
@@ -130,7 +146,7 @@ function FrozenBase({ sheet }: { sheet: CharacterSheet }) {
 }
 
 export function CharacterSheetScreen() {
-  const { claimed, sheet, sheetError } = useCharacter()
+  const { claimed, sheet, sheetError, refreshSheet } = useCharacter()
   const { openIdentityMenu } = useChrome()
 
   /* Reached with no character claimed — a pasted /character link, or a switch
@@ -164,6 +180,11 @@ export function CharacterSheetScreen() {
           <div className="empty">
             <b>Fiche indisponible</b>
             Le serveur n'a pas rendu la fiche de <code>{claimed}</code> : {sheetError}.
+            <p className="mt-[14px]">
+              <button className="btn sm" id="ficheRetry" onClick={refreshSheet}>
+                Réessayer
+              </button>
+            </p>
           </div>
         </div>
       </div>
@@ -171,10 +192,27 @@ export function CharacterSheetScreen() {
   }
 
   if (!sheet) {
+    /* The shape of a loaded sheet, not a sentence — same idea as the wizard's
+       loading skeleton (screen-1). No pack is resolved yet at this point (the
+       name that would tell us which is exactly what has not loaded), so this
+       stays on whichever token sheet is already active rather than forcing a
+       flash of the commune one. */
     return (
       <div className="screen" id="registre" data-vue="fiche">
         <div className="wrap">
-          <p className="tiny">chargement de la fiche…</p>
+          <div className="fiche" aria-hidden="true">
+            <div className="mb-[4px] flex items-center gap-[14px]">
+              <span className="h-[46px] w-[46px] flex-none rounded-[50%] bg-panel2" />
+              <div>
+                <div className="h-[19px] w-[160px] rounded-[4px] bg-line" />
+                <div className="mt-[6px] h-[12px] w-[90px] rounded-[4px] bg-line" />
+              </div>
+            </div>
+            <div className="mt-[18px] grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-[14px]">
+              <SkeletonMeta />
+              <SkeletonMeta />
+            </div>
+          </div>
         </div>
       </div>
     )
