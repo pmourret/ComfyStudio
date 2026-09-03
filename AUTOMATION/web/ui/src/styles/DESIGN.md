@@ -34,9 +34,21 @@ atterrissaient en PREMIER dans le bundle, pas en dernier.
 ## Contrat de tokens
 
 `base/components/screens` ne référencent l'identité visuelle **que** par
-`var(--…)`. Aucune valeur en dur qui encoderait un choix de style. Un univers
-fournit son propre `tokens.css` avec **les mêmes noms** et obtient un tableau de
-bord cohérent, de structure identique, d'ambiance différente.
+`var(--…)`. Aucune valeur en dur qui encoderait un choix de style.
+
+*Mis à jour le 03/09/2026 (Phase 0, `DOCS/design-pass/phase-0-tokens`) :* un
+pack ne fournit plus un `tokens.css` séparé — le personnage est un state React
+qu'on bascule sans recharger la page (§ ci-dessus), donc un import statique
+unique ne peut pas porter plusieurs identités. Les habillages vivent dans **le
+même** `tokens.css`, comme des blocs `:root[data-pack="<id>"]{…}` qui ne
+redéclarent que ce qui change réellement (neutre, accent, `--focus`, barres de
+défilement, `--r`) — jamais les verdicts/bandeaux/profondeur/typographie/
+`--maxw`, volontairement identiques d'un pack à l'autre (signal de sécurité,
+pas une ambiance). `chrome/usePackTheme.ts` pose l'attribut `data-pack` sur
+`<html>` (jamais sur le shell `.app` : un portail vers `<body>`, comme
+l'écran de panne de `ApplicationScreen.tsx`, doit résoudre les mêmes tokens).
+Absent — sas, `#registre`, wizard avant que le pack soit résolu — la feuille
+retombe sur les valeurs communes de `:root`, jamais un nom d'écran en dur.
 
 ### Jetonné
 

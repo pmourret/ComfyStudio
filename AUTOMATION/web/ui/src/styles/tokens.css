@@ -1,81 +1,94 @@
 /* tokens.css — la SEULE couche d'identite visuelle (J3 etape 3).
+   Un pack redefinit sa palette/forme ; base.css / chrome.css / screens.css
+   n'en dependent que par var(), jamais par une valeur en dur qui encoderait
+   un choix de style. Voir DESIGN.md pour le contrat : ce qui est jetonne,
+   ce qui reste brut, et l'inventaire des composants.
 
-   Un univers redefinit ce fichier (palette, typographie, forme) ; base.css /
-   components.css / screens.css n'en dependent que par var(), jamais par une
-   valeur en dur qui encoderait un choix de style. Voir DESIGN.md pour le
-   contrat : ce qui est jetonne, ce qui reste brut, et l'inventaire des
-   composants.
-
-   Palette « Chambre noire » (29/08/2026). Elle remplace la palette chaude
-   heritee de Lena, qui datait de J3 et n'avait jamais bouge : c'etait la peau
-   d'UN personnage servant de chrome a TOUS. Celle-ci est neutre et froide —
-   une identite de studio, pas de monde. Un univers qui veut sa propre ambiance
-   redefinit ce fichier ; le chrome commun, lui, reste celui-ci.
+   Phase 0 (03/09/2026, DOCS/design-pass/phase-0-tokens) : identite commune
+   + habillages Lena/instagram-influenceur et Abyssiaelle/rpg-personnage,
+   basculee a l'EXECUTION via l'attribut `data-pack` pose sur <html> par
+   `chrome/usePackTheme.ts` (le personnage est un state React live-switchable
+   sans rechargement -- un import statique unique ne peut pas porter 3
+   identites). `:root` reste la feuille par defaut (sas, #registre, wizard
+   avant que le pack soit resolu) ; `:root[data-pack="..."]` ne redeclare
+   QUE ce qui change reellement d'un pack a l'autre. Ce qui n'y figure pas
+   (verdicts, bandeaux, profondeur, typographie, --maxw) est VOULU identique
+   dans les 3 habillages -- ne pas le dupliquer dans un bloc [data-pack] :
+   la non-duplication est ce qui rend cette egalite structurelle plutot
+   qu'une discipline a maintenir a la main.
 
    Contrastes verifies au ratio WCAG contre les fonds reellement utilises
-   (--bg pour le corps, --panel pour les cartes, les fonds de bandeau pour leur
-   propre texte) : tout texte est a 4.5:1 ou mieux. */
+   (--bg pour le corps, --panel pour les cartes, les fonds de bandeau pour
+   leur propre texte), independamment recalcules pour ce commit : tout texte
+   est a 4.5:1 ou mieux dans les 3 feuilles. Detail par paire dans
+   DOCS/design-pass/phase-0-tokens/README.md. */
 :root{
-  /* --- palette : fonds, lignes, textes --- */
-  --bg:#121418; --panel:#1a1d23; --panel2:#232831;
-  --line:#2e3440; --line2:#434b5a;
-  /* --dim2 porte du 11-12 px (.tiny, .brand-id, crans verrouilles) : il est
-     eclairci par rapport a la valeur d'origine de la palette, qui tombait a
-     3.64:1 sur --panel — sous le seuil AA pour du texte de cette taille. */
-  --txt:#e6e8ee; --dim:#9aa3b2; --dim2:#828b9c;
+  /* --- palette : fonds, lignes, textes (commune) --- */
+  --bg:#0b1015; --panel:#14191e; --panel2:#20252a;
+  --line:#2a3138; --line2:#474e55;
+  --txt:#dfe5ec; --dim:#9299a1; --dim2:#889099;
   /* accent + texte pose SUR un aplat d'accent (ou de warn/ok clair) */
-  --acc:#c4a36a; --acc-d:#9a7d4a; --on-acc:#141208;
-  /* verdicts / etats */
-  --ok:#7d9a7e; --warn:#c4a04a; --bad:#c46b66; --high:#5aa86a; --none:var(--dim2);
-  /* bandeau d'avertissement (fond / bord / texte) */
-  --warn-bg:#2e2718; --warn-line:#544527; --warn-txt:#eddcb0;
-  /* bandeau / bouton de danger (fond / bord / texte) */
-  --danger-bg:#33201f; --danger-line:#6b3a36; --danger-txt:#f0b8b3;
-  /* pastille « mesure » du panneau de reglages */
-  --mes-bg:#1e2c22; --mes-line:#35503c;
+  --acc:#90b0c4; --acc-d:#607f91; --on-acc:#050a0d;
 
-  /* --- profondeur --- */
-  /* Une seule elevation pour toute surface qui FLOTTE au-dessus du contenu :
-     menu d'identite, panneau de reglages, barre de lancement, apercu de
-     prompt, toast, boites de dialogue. Elles avaient cinq geometries d'ombre
-     differentes (26 a 50 px de flou) sans qu'aucune ne le justifie. Les petites
-     ombres de detail — pouce de curseur, pastille de score — n'en relevent pas
-     et restent locales (DESIGN.md). */
+  /* --- verdicts / bandeaux / mesure : IDENTIQUES dans les 3 habillages.
+     Un verdict QC ou une erreur doit se lire pareil quel que soit le pack
+     actif -- c'est un signal de securite, pas une ambiance (decision
+     transverse 1, phase-0-tokens/README.md). Jamais redeclares dans un
+     bloc [data-pack]. */
+  --ok:#639564; --warn:#b5943f; --bad:#cc6660; --high:#42a878; --none:var(--dim2);
+  --warn-bg:#1d1503; --warn-line:#42330a; --warn-txt:#e5d3a8;
+  --danger-bg:#270d0b; --danger-line:#642724; --danger-txt:#f9bdb7;
+  --mes-bg:#07180b; --mes-line:#133c1f;
+
+  /* --- profondeur : IDEM, primitives neutres, pas une ambiance de palette --- */
   --elev:0 14px 38px #00000099;
-  /* Voile pose sur du contenu pour le faire reculer : backdrop des <dialog>,
-     lightbox, et les plaques posees sur une vignette (badge, coche, fleches de
-     navigation). Teinte sur le bleu du fond, pas un noir pur. */
   --scrim:#0b0d10cc;
-  /* Anneau de :focus-visible. Volontairement DISTINCT de --acc : un anneau
-     pose en outline-offset negatif sur une surface accentuee serait invisible
-     s'il valait l'accent lui-meme. 11.5:1 sur --bg, 9.3:1 sur --panel2. */
-  --focus:#e8c98a;
 
-  /* Barres de defilement (30/08/2026). Elles etaient les seules surfaces du
-     studio a ne pas etre peintes : le theme de l'OS s'y invitait, gris clair
-     sur une palette froide et sombre, sur une douzaine de zones.
+  /* Anneau de :focus-visible. Distinct de --acc dans les 3 feuilles (sinon
+     invisible en outline-offset negatif sur une surface accentuee) --
+     verifie >=3:1 contre --bg et --panel2 pour chaque habillage. Seul token
+     de "signal" qui varie par pack : DOIT rester assorti a l'accent actif
+     pour continuer a se voir dessus. */
+  --focus:#8fcfff;
 
-     Le pouce est un COMPOSANT D'INTERFACE, pas une decoration : il releve du
-     contraste non-textuel (WCAG 1.4.11, seuil 3:1) contre les TROIS fonds ou
-     il apparait. Le premier choix, #3a4251, tombait a 1.46:1 sur --panel2 —
-     joli et invisible. Valeurs verifiees : --sb 3.93 / 3.60 / 3.16 et --sb-h
-     6.28 / 5.75 / 5.04 sur --bg / --panel / --panel2. Une palette d'univers
-     doit refaire ce controle.
+  /* Barres de defilement -- varient par pack (assorties a la neutre), le
+     pouce reste un COMPOSANT D'INTERFACE (WCAG 1.4.11, seuil 3:1 contre les
+     3 fonds ou il apparait, revalide pour ce commit). */
+  --sb:#6b747d; --sb-h:#8d96a0; --sb-l:10px;
 
-     La piste reste transparente : peinte, elle dessinerait une colonne
-     permanente le long de chaque panneau. */
-  --sb:#6b7488; --sb-h:#8d97ab; --sb-l:10px;
-
-  /* --- typographie --- */
-  /* Mesure du 29/08/2026 : le header n'herite PAS de --font (ses trois zones
-     ont des tailles propres, 16/14/13 px). Le passer a 14px ne lui gagnait
-     rien — verifie au pixel pres. Il reste donc a 15px/1.55, la taille de
-     lecture du contenu. */
+  /* --- typographie : IDEM. Un vrai changement de famille impliquerait
+     d'embarquer des fichiers de police (hors contrat tokens-only, en
+     tension avec la contrainte de portabilite) -- point laisse ouvert par
+     le design pass, pas tranche ici. */
   --font:15px/1.55 system-ui,'Segoe UI',Roboto,sans-serif;
   --font-mono:12px ui-monospace,monospace;
 
   /* --- forme --- */
-  --r:10px;            /* rayon des cartes */
-  --maxw:1180px;       /* largeur max du contenu centre */
+  --r:10px;            /* rayon des cartes -- varie par pack */
+  --maxw:1180px;       /* largeur max du contenu centre -- JAMAIS par pack (layout, pas ambiance) */
 }
 *{box-sizing:border-box}
+
+/* --- Lena / instagram-influenceur -- ambiance du monde slow-life (lumiere
+   naturelle, calme, quotidien). Seuls neutre/accent/forme changent. --- */
+:root[data-pack="instagram-influenceur"]{
+  --bg:#140e0a; --panel:#1d1713; --panel2:#29231f;
+  --line:#372e29; --line2:#544b45;
+  --txt:#ebe3dd; --dim:#a09690; --dim2:#978d86;
+  --acc:#d5a051; --acc-d:#a26f17; --on-acc:#0c0805;
+  --focus:#e5c379;
+  --sb:#7c7069; --sb-h:#9e938b;
+  --r:12px;
+}
+
+/* --- Abyssiaelle / rpg-personnage -- ambiance du monde terres-sauvages
+   (foret, dusk, feu de camp, lumiere sourde). --- */
+:root[data-pack="rpg-personnage"]{
+  --bg:#091111; --panel:#121a1a; --panel2:#1d2626;
+  --line:#273333; --line2:#445050;
+  --txt:#dce7e8; --dim:#8f9b9c; --dim2:#859293;
+  --acc:#f3896f; --acc-d:#bc5840; --on-acc:#0e0806;
+  --focus:#feb391;
+  --sb:#677677; --sb-h:#899999;
+  --r:6px;
+}

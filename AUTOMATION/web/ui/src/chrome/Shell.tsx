@@ -18,10 +18,12 @@ import { HintLayer } from './HintLayer'
 import { SideNav } from './SideNav'
 import { ToolRail } from './ToolRail'
 import { useChrome } from './ChromeContext'
+import { usePackTheme } from './usePackTheme'
 
 export function Shell() {
   const { isClaimed } = useCharacter()
   const { navCollapsed, railCollapsed, focus, iconsOnly } = useChrome()
+  usePackTheme()
 
   /* Chrome state travels as classes on the shell root, not on <body>: the
      legacy frontend had no choice (its CSS was global), a React tree does. */
