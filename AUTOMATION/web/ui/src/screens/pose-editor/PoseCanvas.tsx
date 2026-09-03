@@ -27,7 +27,8 @@ import {
 } from 'react'
 
 import {
-  BODY_COLORS, BODY_LIMBS, HAND_EDGES, HAND_JOINT_COLOR, handEdgeColor, nameOf, parentIndexOf,
+  BODY_COLORS, BODY_LIMBS, HAND_EDGES, HAND_JOINT_COLOR, handEdgeColor, handEdgeDash, limbDash, nameOf,
+  parentIndexOf,
 } from './poseTopology'
 import {
   parsePointKey, pointKey, withPoint, withPointsMoved,
@@ -632,6 +633,7 @@ function BodyLayer({
             key={i}
             x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y}
             stroke={BODY_COLORS[i]} strokeWidth={8} strokeOpacity={0.75} strokeLinecap="round"
+            strokeDasharray={limbDash(i)}
           />
         )
       })}
@@ -680,6 +682,7 @@ function HandLayer({
             key={i}
             x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y}
             stroke={handEdgeColor(i)} strokeWidth={2.5} strokeLinecap="round"
+            strokeDasharray={handEdgeDash(i)}
           />
         )
       })}

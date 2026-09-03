@@ -105,3 +105,57 @@ export function parentIndexOf(group: PointGroup, index: number): number | null {
 export function nameOf(group: PointGroup, index: number): string {
   return group === 'body' ? BODY_JOINT_NAMES[index] : HAND_JOINT_NAMES[index]
 }
+
+/* Non-colour fallback for limbs/fingers (design-pass screen-6, §A6) — colour
+   alone (adjacent red/green on the body, a continuous HSL sweep on the
+   hands) is the only differentiator today, a real problem for colour-blind
+   use. Additive: `BODY_COLORS`/`handEdgeColor` are untouched (historical
+   choice, mirrors `pose_render.py`). Three patterns are enough, repeated —
+   the doc's own explicit call: "l'info redondante avec la couleur
+   désambiguïse localement", not a claim that every pattern is unique
+   everywhere. `undefined` (not `'0'` or `''`) for solid: an explicit empty
+   dasharray still renders correctly in every browser tested, but omitting
+   the attribute entirely is what a plain solid `<line>` already does
+   elsewhere in this file. */
+const DASH_PATTERNS: readonly (string | undefined)[] = [undefined, '10 4', '4 3']
+
+/* `BODY_LIMBS` is a tree, not a chain — hub joints (the neck has 5 incident
+   limbs, the nose 3) mean `limbIndex % DASH_PATTERNS.length` can put every
+   Nth limb sharing a hub on the same pattern by pure accident of how far
+   apart they land in the array (measured: 4 of the neck's 5 limbs on the
+   same pattern that way — [1,2]/[1,8]/[1,11]/[1,0] are all 3 (or a
+   multiple of 3) apart). Counting per-hub instead — same idea
+   `handEdgeDash` already gets "for free" from `HAND_JOINT_GROUPS`' flat
+   indexing — spreads a hub's own children evenly first: worst case a
+   2-way tie, the best 3 patterns can do for 5 siblings. */
+const bodyHubDashCounts = new Map<number, number>()
+const BODY_LIMB_DASH: readonly (string | undefined)[] = BODY_LIMBS.map(([hub]) => {
+  const seen = bodyHubDashCounts.get(hub) ?? 0
+  bodyHubDashCounts.set(hub, seen + 1)
+  return DASH_PATTERNS[seen % DASH_PATTERNS.length]
+})
+
+/** One pattern per LIMB, by its position in `BODY_LIMBS`. */
+export function limbDash(limbIndex: number): string | undefined {
+  return BODY_LIMB_DASH[limbIndex]
+}
+
+/** Which finger a `HAND_EDGES` entry belongs to — the edge's CHILD joint
+    (`edges[i][1]`, always the more distal one, see `parentOf`'s own
+    comment) is never the wrist (`HAND_JOINT_GROUPS[0]`, "Poignet": nothing
+    in `HAND_EDGES` has it as a child), so this always resolves to one of
+    the five actual fingers. */
+export function handEdgeFinger(edgeIndex: number): JointGroup {
+  const child = HAND_EDGES[edgeIndex][1]
+  // Non-null by construction, per the comment above.
+  return HAND_JOINT_GROUPS.find((g) => g.indices.includes(child))!
+}
+
+/** One pattern per FINGER (not per edge — the doc's own distinction, §A6):
+    every one of a finger's 4 edges shares the same dash, matching how
+    `HAND_JOINT_GROUPS` already groups them for the outliner. Three
+    patterns repeated over five fingers. */
+export function handEdgeDash(edgeIndex: number): string | undefined {
+  const fingerPosition = HAND_JOINT_GROUPS.indexOf(handEdgeFinger(edgeIndex)) - 1 // 0-based among fingers (wrist excluded)
+  return DASH_PATTERNS[fingerPosition % DASH_PATTERNS.length]
+}

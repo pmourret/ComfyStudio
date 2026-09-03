@@ -194,6 +194,35 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
     console.log('      (champ x introuvable — selection differente, verification sautee)');
   }
 
+  console.log('\n[5quinquies] a11y (design pass ecran 6, §A6) : repli motif de trait, hors couleur');
+  const traitsCorps = await page.$$eval(
+    '#poseEditor svg[data-canvas="full"] line',
+    (els) => els.map((e) => e.getAttribute('stroke-dasharray')),
+  );
+  dire(traitsCorps.length >= 17, `au moins les 17 membres du corps sont dessines (${traitsCorps.length} traits)`);
+  // Les 5 membres incidents au cou (joint 1, BODY_LIMBS[0,1,6,9,12]) : avec
+  // seulement 3 motifs pour 5 membres, un doublon est mathematiquement
+  // inevitable (nid de pigeon) -- mais pas plus qu'un doublon par motif
+  // (regression du bug trouve en verifiant : le regroupement naif par
+  // position dans le tableau en avait mis 4 sur le meme motif).
+  const traitsCou = [0, 1, 6, 9, 12].map((i) => traitsCorps[i]);
+  const occurrences = {};
+  for (const t of traitsCou) occurrences[t] = (occurrences[t] || 0) + 1;
+  const pireCollision = Math.max(...Object.values(occurrences));
+  dire(pireCollision <= 2,
+       `au cou (5 membres, 3 motifs), aucun motif ne se repete plus de 2 fois (${JSON.stringify(traitsCou)})`);
+  dire(traitsCorps.some((t) => t !== traitsCorps[0]),
+       'les membres du corps ne portent pas tous le meme motif');
+  const traitsMainD = await page.$$eval(
+    '#poseEditor svg[data-canvas="handRight"] line',
+    (els) => els.map((e) => e.getAttribute('stroke-dasharray')),
+  );
+  dire(traitsMainD.length === 20, `la main droite dessine ses 20 aretes (${traitsMainD.length})`);
+  dire(traitsMainD[0] === traitsMainD[1] && traitsMainD[1] === traitsMainD[2] && traitsMainD[2] === traitsMainD[3],
+       `les 4 aretes du pouce partagent le meme motif, pas un motif par arete (${traitsMainD.slice(0, 4)})`);
+  dire(traitsMainD[0] !== traitsMainD[4],
+       `le pouce et l'index n'ont pas le meme motif (${traitsMainD[0]} vs ${traitsMainD[4]})`);
+
   console.log('\n[6] sauvegarde — redirige vers la pose reellement ecrite');
   await page.click('button:has-text("Enregistrer")');
   await page.waitForFunction(() => location.pathname.includes('/bank/poses/edit/'), null, { timeout: 5000 });
