@@ -77,6 +77,17 @@ export function PhotoEditor({
   const [message, setMessage] = useState("chargement de l'image…")
   const [busy, setBusy] = useState(false)
 
+  /* Avant/après (design-pass screen-5, §E) — a TRANSIENT preview toggle,
+     never routed through `setSettings`/`patch`/`reset`: those persist real
+     edits, this only changes what the canvas DRAWS. `reset()` below is the
+     precedent for what NOT to imitate — it already calls `setSettings
+     (NEUTRAL)`, which zeroes `rot`/`flip`/`straighten` right along with the
+     colour fields, because `Settings` bundles geometry and colorimetry in
+     one flat type. Swapping to NEUTRAL that way here would silently reset
+     rotation/mirror/straighten too — exactly what "sans recadrage ni
+     rotation" forbids. */
+  const [beforeAfter, setBeforeAfter] = useState(false)
+
   /* #edRatio, roving radiogroup (a11y audit, design-pass screen-5) — same
      gabarit as the other four groups of ReviewScreen.tsx. `data-r` and the
      `'on'` class are unchanged, additive only (test_editor.js reads both). */
@@ -192,9 +203,19 @@ export function PhotoEditor({
     const image = imageRef.current!
     const ctx = canvas.getContext('2d')!
     const scale = canvas.width / rotatedDims().w
+    /* Avant/après ONLY swaps colorimetry/grain for the NEUTRAL constant —
+       geometry (`rot`/`flip`/`straighten`, read straight off `settings`
+       below, never off this) stays the real one whether toggled or not. A
+       fresh object each render, deliberately not lifted out of the effect:
+       `useLayoutEffect`'s own dependency array already tracks `settings`
+       and `beforeAfter`, tracking a THIRD derived object too would just be
+       the same two dependencies spelled out twice. */
+    const displaySettings: Settings = beforeAfter
+      ? { ...settings, bright: NEUTRAL.bright, contrast: NEUTRAL.contrast, sat: NEUTRAL.sat, temp: NEUTRAL.temp, grain: NEUTRAL.grain }
+      : settings
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.save()
-    ctx.filter = cssFilter(settings)
+    ctx.filter = cssFilter(displaySettings)
     ctx.translate(canvas.width / 2, canvas.height / 2)
     ctx.rotate(((settings.rot * 90 + settings.straighten) * Math.PI) / 180)
     // the mirror applies AFTER the rotation, on the image as it is seen:
@@ -209,9 +230,9 @@ export function PhotoEditor({
     )
     ctx.restore()
     ctx.filter = 'none'
-    applyGrain(ctx, canvas.width, canvas.height, settings.grain)
-    applyTemperature(ctx, canvas.width, canvas.height, settings.temp)
-  }, [ready, settings, sizeCanvas, rotatedDims])
+    applyGrain(ctx, canvas.width, canvas.height, displaySettings.grain)
+    applyTemperature(ctx, canvas.width, canvas.height, displaySettings.temp)
+  }, [ready, settings, beforeAfter, sizeCanvas, rotatedDims])
 
   /* A 90° rotation swaps width and height: the canvas is recomputed, and an
      existing frame no longer means anything in the new frame of reference — so
@@ -647,8 +668,20 @@ export function PhotoEditor({
               The COPY is the primary gesture: the source stays intact by
               default. « Écraser la source » is second rank and confirmed. */}
           <div className={ACTIONS}>
+            {/* Avant/après (§E) — a real toggle button, `aria-pressed`
+                (edFlip's own precedent), never a held key alone. Crop and
+                rotation are untouched by construction (see `beforeAfter`'s
+                declaration above): only colorimetry/grain swap to NEUTRAL. */}
+            <button
+              className={`btn sm w-full mb-[10px]${beforeAfter ? FLIP_ON : ''}`}
+              id="edBeforeAfter"
+              aria-pressed={beforeAfter}
+              onClick={() => setBeforeAfter((v) => !v)}
+            >
+              {beforeAfter ? 'Afficher les réglages' : 'Avant / après'}
+            </button>
             <p className="tiny" id="edMsg" role="status">
-              {message}
+              {message || (beforeAfter ? 'original — réglages non appliqués' : '')}
             </p>
             <div className={BTNS}>
               <button className="btn sm w-full" id="edReset" onClick={reset}>

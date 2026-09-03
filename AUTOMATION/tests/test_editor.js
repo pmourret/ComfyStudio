@@ -283,6 +283,43 @@ process.on('exit', nettoyer);
   console.log('\n[10] ENREGISTRER UNE COPIE : aller-retour complet');
   await regler('#edBright', 20);
   await page.waitForTimeout(300);
+
+  console.log('\n[10bis] avant/apres (design pass ecran 5, §E) : geometrie intacte, couleur revient, ET la sauvegarde garde le VRAI reglage');
+  const pixelCentre = () => page.evaluate(() => {
+    const c = document.querySelector('#edCanvas');
+    const ctx = c.getContext('2d');
+    return Array.from(ctx.getImageData(Math.floor(c.width / 2), Math.floor(c.height / 2), 1, 1).data);
+  });
+  const dimsCanvas = () => page.evaluate(() => {
+    const c = document.querySelector('#edCanvas');
+    return [c.width, c.height];
+  });
+  dire((await page.getAttribute('#edBeforeAfter', 'aria-pressed')) === 'false', 'relache au depart');
+
+  // La rotation d'ABORD : le pixel « edite » de reference et celui du FICHIER
+  // ECRIT plus bas doivent porter sur la MEME composition (le centre change
+  // de contenu selon l'angle) -- sinon la comparaison de luminosite compare
+  // deux pixels d'image differents, pas deux etats du meme pixel.
+  await page.click('#edRotR'); // geometrie -- doit survivre au bascule ci-dessous
+  await page.waitForTimeout(400);
+  const dimsApresRotation = await dimsCanvas();
+  const pixelEdite = await pixelCentre();
+
+  await page.click('#edBeforeAfter');
+  await page.waitForTimeout(300);
+  dire((await page.getAttribute('#edBeforeAfter', 'aria-pressed')) === 'true', 'enfonce apres un clic');
+  dire((await page.textContent('#edMsg')).includes('original'), 'edMsg dit lequel des deux s affiche');
+  const dimsPendantBascule = await dimsCanvas();
+  dire(JSON.stringify(dimsPendantBascule) === JSON.stringify(dimsApresRotation),
+       `la rotation (geometrie) survit au bascule (${dimsPendantBascule} vs ${dimsApresRotation})`);
+  const pixelAvant = await pixelCentre();
+  dire(pixelAvant[0] < pixelEdite[0],
+       `la couleur revient vers le neutre (rouge ${pixelAvant[0]} < ${pixelEdite[0]} edite)`);
+
+  // SAUVEGARDE DEPUIS L'ETAT "avant" (bouton toujours enfonce) : le fichier
+  // ecrit doit porter le VRAI reglage (luminosite +20 + rotation), jamais le
+  // neutre affiche a l'ecran a cet instant precis -- c'est le risque exact
+  // que ce bouton introduit s'il touchait `setSettings`.
   await page.click('#edSave');
   await page.waitForTimeout(3500);
   dire(!(await vu('#editorBox[open]')), "l'editeur se ferme apres l'enregistrement");
@@ -296,6 +333,22 @@ process.on('exit', nettoyer);
   dire(Boolean(copie), `une copie est apparue : ${copie}`);
   dire(Boolean(copie) && copie.includes('_edit'), 'son nom porte bien `_edit`');
   dire(apres.includes(SOURCE), "et la SOURCE est intacte, elle n'a pas ete remplacee");
+
+  if (copie) {
+    const pixelFichier = await page.evaluate(async (nom) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      const url = `/img?bucket=OK&space=sfw&name=${encodeURIComponent(nom)}&character=lena`;
+      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      return Array.from(ctx.getImageData(Math.floor(c.width / 2), Math.floor(c.height / 2), 1, 1).data);
+    }, copie);
+    dire(pixelFichier[0] >= pixelEdite[0] - 12,
+         `le FICHIER ECRIT sur le disque porte le vrai reglage, pas le neutre affiche a la sauvegarde (rouge ${pixelFichier[0]}, edite ${pixelEdite[0]})`);
+  }
 
   console.log('\n[11] NETTOYAGE : la copie est supprimee par l interface');
   await page.reload({ waitUntil: 'networkidle' });
