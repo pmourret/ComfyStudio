@@ -602,6 +602,75 @@ prouvent la généralisation — pas juste Léna renommée.
   voulait dire un seul ; aucun résolveur unifié pack+plateforme (pas de
   second appelant pour le justifier)
 
+**J8.5 — Banc de comparaison de variantes, deuxième capacité de plateforme**
+✅ *(terminé 2026-09-03, validé contre ComfyUI réel)*
+- Formalise ce qui se faisait à la main (le sweep IPAdapter d'Abyssiaelle en
+  J6, qui a renversé l'hypothèse « IPAdapter verrouille l'identité »).
+  Différence de nature avec l'upscale (J8.4) : le banc compare des réglages
+  de GÉNÉRATION (poids d'identité, steps, guidance, sampler, scheduler,
+  étage optionnel) — il ne porte donc **aucun graphe à lui** (invariant 10),
+  il orchestre le graphe de production que le pack fournit déjà
+  (`WorkflowRunner`, déjà pack-aware, inchangée dans son rôle)
+- **Le changement le plus sensible du chantier** : `execute_jobs` gagne un
+  paramètre `sink=None` (`AUTOMATION/runner/sortie.py::Sink`). `None` =
+  comportement strictement inchangé pour tout appelant existant — vérifié
+  par toute la suite dépendante rejouée sans une assertion changée + un
+  test d'isolation dédié (`test_execute_jobs_sink.py`). Fourni, `sink`
+  redirige TROIS choses à la fois (pas seulement le rangement) :
+  `sort_and_export` range hors de `PROD/<CID>/<verdict>/` et n'exporte
+  jamais ; `sink.record()` remplace `ranger_mesures()` (jamais les deux) ;
+  le journal CSV/`ecrire_en_base` partagés sont sautés entièrement — les
+  trois surfaces qui auraient pollué la Revue/l'export/les tables de
+  production sinon
+- `AUTOMATION/base.py` gagne 3 tables dédiées (`bench_run`/
+  `bench_variant`/`bench_score`), **jamais une réutilisation taguée** de
+  `image`/`score`/`batch` — `test_coherence_base.py` et
+  `reference_set`/`reference_member` n'ont donc rien à apprendre du banc.
+  Disque : `PROD/<CID>/_BENCH/<bench_id>/<variante>/<verdict>/`, invisible
+  par construction pour Revue/Galerie (elles ne font jamais un `iterdir()`
+  de `PROD/<CID>/`, toujours un chemin depuis un bucket connu — même
+  garantie que `_NSFW/` déjà)
+- `AUTOMATION/bench.py` (nouveau) : liste blanche d'axes (`CFG_AXES` dans
+  `cfg`, `JOB_AXES` — `sampler_name`/`scheduler`, jamais pilotés jusqu'ici,
+  petite extension rétrocompatible de `WorkflowRunner.api_for()` dans
+  `runner/comfy.py`). `validate_variant_cfg()` calcule la différence
+  structurelle entre le cfg de chaque variante et la référence et **lève**
+  si elle touche autre chose que l'axe déclaré — la garantie « un seul axe
+  change » est vérifiée par le code, jamais laissée à la discipline de
+  l'appelant. Seeds toujours explicites (`run_bench(..., seeds=[...])`),
+  jamais générés par le banc — rejouer le même run reproduit les mêmes jobs
+- Verdict (`verdict_bench()`) : agrégation par genre déjà mesuré (identité
+  ET chaque genre que `qc_realisme` rend, pas une liste figée), comparée à
+  la référence (valeur ACTUELLE du personnage, dérivée automatiquement —
+  jamais déclarée par l'appelant, pour ne jamais diverger de la vraie
+  config). **Aucun seuil en dur** (invariant 4) : `min_seeds`/`margin`
+  viennent de `cfg["bench"]`, section neuve — absente,
+  `BenchConfigMissingError` explicite plutôt qu'une constante Python de
+  repli. `PACKS/*/character_defaults.json` gagnent un gabarit `bench`
+  (`measured: false`, même statut que `qc`) ; `migrate_bench_config.py`
+  (nouveau, gabarit des scripts `migrate_*` déjà écrits) a backfillé les
+  fiches réelles de Léna/Abyssiaelle — sans quoi elles ne pouvaient pas
+  lancer de banc du tout
+- `PLATFORM/capabilities.json` gagne `bench` avec `graph: null` — cas
+  légitime de la forme d'ADR-0018 (documenté dans ADR-0021) : une capacité
+  de plateforme *peut* porter un graphe (upscale), elle n'y est pas
+  obligée quand elle orchestre un graphe qu'une autre couche possède déjà
+- **Validation réelle, ComfyUI démarré en cours de session** :
+  `run_bench()`, MÊME CODE, exécuté pour de vrai sur Léna (pack flux,
+  scène `cafe_terrasse`) PUIS Abyssiaelle (pack sdxl, scène
+  `portrait_etude`), axe `steps`, 2 seeds fixes rejoués à l'identique.
+  Verdict `"insuffisant"` pour les deux (2 seeds < `min_seeds=5`) — preuve
+  que le gate anti-petit-échantillon marche aussi sur de vraies données,
+  pas seulement en synthèse. Images réelles produites sous
+  `PROD/<CID>/_BENCH/`, confirmé absentes de `PROD/<CID>/OK`/`A_REVOIR`.
+  `test_platform_capabilities.py` (J8.4) rejoué vert après coup : aucune
+  régression du mécanisme d'upscale depuis les changements d'
+  `execute_jobs`/`comfy.py`
+- Hors périmètre, assumé : pas d'écran studio (comme l'upscale) ; aucun
+  résolveur unifié pack+plateforme (pas de second appelant) ; le câblage de
+  `roles` (contrat de rôles ComfyUI) dans une résolution réelle des nœuds
+  reste déclaratif, pas branché — cohérent avec ADR-0020/J8.4
+
 **Studio IA — chaque écran au niveau d'un outil professionnel** *(ouvert
 2026-09-01 — exigence transverse, pas un jalon avec une date de fin)*
 - Périmètre inchangé : personnage → univers → scènes, le pipeline actuel.

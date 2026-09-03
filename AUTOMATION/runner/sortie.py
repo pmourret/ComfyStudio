@@ -5,9 +5,28 @@ import csv
 import shutil
 from datetime import datetime
 from pathlib import Path
+from typing import Callable, NamedTuple
 
 from . import OFM, COMFY, COMFY_OUTPUT, load_json, log
 from .comfy import WorkflowRunner
+
+
+class Sink(NamedTuple):
+    """Redirige execute_jobs HORS de la production normale (J8.5, banc de
+    comparaison de variantes) : ni PROD/<CID>/<verdict>/, ni export
+    automatique, ni mesures.json/tables partagees (image/score/batch), ni
+    journal CSV. `sink=None` (defaut) laisse execute_jobs strictement
+    inchange pour tout appelant existant — c'est le seul point d'extension
+    qui permet a un appelant comme le banc de passer par execute_jobs
+    (invariant 2) sans polluer la Revue, l'export, ou les tables de
+    production.
+
+    `record(job, verdict, score, reel, dest)` est appele PAR IMAGE, a la
+    place de `ranger_mesures()` (jamais les deux) : c'est la ou un banc
+    persiste ses propres scores (bench_score), avec tous les genres que
+    `reel` porte, pas seulement l'identite."""
+    dest_root: Path
+    record: Callable
 
 
 # ------------------------------------------------------------------- tri/export
@@ -29,7 +48,7 @@ def nom_libre(stem, racine, ext=".png"):
     return nom
 
 
-def sort_and_export(src, job, verdict, score, cfg, batch_id, character_id):
+def sort_and_export(src, job, verdict, score, cfg, batch_id, character_id, sink=None):
     """Range l'image selon le verdict QC et produit l'export publiable.
 
     Dossier de tri derive de `character_id` (`character_id.upper()`, ex.
@@ -38,6 +57,10 @@ def sort_and_export(src, job, verdict, score, cfg, batch_id, character_id):
     personnage obtient le sien sans `if character == "lena"` (CLAUDE.md §8.7).
     L'export est namespace par personnage (PROD/EXPORT/<character_id>/<categorie>)
     pour que deux personnages ne melangent jamais leurs publications.
+
+    `sink` (J8.5) : range sous `sink.dest_root` au lieu de `PROD/<CID>/`, et
+    n'exporte JAMAIS (un banc ne publie pas automatiquement) quel que soit
+    `cfg["export"]["enabled"]`.
     """
     day = datetime.now().strftime("%Y%m%d")
     suffix = f"_{job['index']:02d}"
@@ -45,14 +68,14 @@ def sort_and_export(src, job, verdict, score, cfg, batch_id, character_id):
     label = (job["scene"] if job["scene"].startswith(job["category"])
              else f"{job['category']}_{job['scene']}")
     stem = f"{label}_{day}{suffix}"
-    racine_tri = OFM / "PROD" / character_id.upper()
+    racine_tri = sink.dest_root if sink else OFM / "PROD" / character_id.upper()
     dest_dir = racine_tri / verdict
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / nom_libre(stem, racine_tri)
     shutil.move(str(src), str(dest))
 
     export_path = ""
-    if cfg["export"]["enabled"] and verdict == "OK":
+    if not sink and cfg["export"]["enabled"] and verdict == "OK":
         try:
             from PIL import Image
             exp_dir = OFM / "PROD" / "EXPORT" / character_id / job["category"]
@@ -288,7 +311,7 @@ def make_checker(cfg):
 
 
 def execute_jobs(jobs, cfg, checker, batch_id, character_id, runner=None,
-                 on_event=None, should_stop=None, after=None):
+                 on_event=None, should_stop=None, after=None, sink=None):
     """Execute la liste de jobs. Utilise par la CLI et par la web UI.
 
     Seule fonction d'execution du projet (CLAUDE.md §8.2) : jamais dupliquee
@@ -304,6 +327,10 @@ def execute_jobs(jobs, cfg, checker, batch_id, character_id, runner=None,
     NSFW sur la sortie SFW. Ce module n'a pas a connaitre cette branche — il offre
     un crochet, rien de plus. Une exception dans le crochet ne fait jamais echouer
     le batch : l'image SFW est deja produite et rangee.
+
+    sink (J8.5, `Sink` ci-dessus) : redirige le rangement, la mesure et le
+    journal hors de la production normale. `None` (defaut) = comportement
+    strictement inchange.
     """
     runner = runner or WorkflowRunner(cfg, character_id)
     on_event = on_event or (lambda kind, **kw: None)
@@ -351,8 +378,11 @@ def execute_jobs(jobs, cfg, checker, batch_id, character_id, runner=None,
                             bbox = m2["bbox"]
                     reel = mesurer_realisme(src, bbox)
                     dest, export = sort_and_export(src, job, verdict, score, cfg,
-                                                   batch_id, character_id=character_id)
-                    if reel or score is not None:
+                                                   batch_id, character_id=character_id,
+                                                   sink=sink)
+                    if sink:
+                        sink.record(job, verdict, score, reel, dest)
+                    elif reel or score is not None:
                         ranger_mesures(dest.name, score, reel,
                                        embedding=(m or {}).get("embedding"),
                                        apres_expression=apres,
@@ -394,6 +424,6 @@ def execute_jobs(jobs, cfg, checker, batch_id, character_id, runner=None,
                 d.rmdir()
         if not any(racine.iterdir()):
             racine.rmdir()
-    if rows:
+    if rows and not sink:
         append_log(rows, character_id=character_id)
     return rows, stats

@@ -117,6 +117,42 @@ CREATE TABLE IF NOT EXISTS reference_member (
   image_id INTEGER NOT NULL REFERENCES image(id) ON DELETE CASCADE,
   PRIMARY KEY (set_id, image_id)
 );
+
+-- Banc de comparaison de variantes (J8.5, capacite de plateforme, ADR-0021).
+-- TROIS TABLES SEPAREES de image/score/batch, jamais une reutilisation taguee :
+-- un banc ne doit rien risquer pour ce qui lit image/score en supposant que
+-- ca ne contient QUE de la vraie production (test_coherence_base.py,
+-- reference_set/reference_member). La mesure elle-meme (checker.mesure,
+-- qc_realisme.mesure) reste la MEME fonction ; seule la persistance change
+-- de table quand `execute_jobs` recoit un `sink` (AUTOMATION/runner/sortie.py).
+CREATE TABLE IF NOT EXISTS bench_run (
+  id           TEXT PRIMARY KEY,
+  character_id TEXT NOT NULL,
+  axis         TEXT NOT NULL,
+  scene        TEXT,
+  cree_le      TEXT,
+  seeds_json   TEXT              -- liste des seeds, fixee a la creation du banc
+);
+
+CREATE TABLE IF NOT EXISTS bench_variant (
+  id            INTEGER PRIMARY KEY,
+  bench_run_id  TEXT NOT NULL REFERENCES bench_run(id) ON DELETE CASCADE,
+  label         TEXT NOT NULL,
+  batch_id      TEXT,            -- le batch_id passe a execute_jobs pour cette variante
+  override_json TEXT,            -- {"axis": ..., "value": ...} — un seul axe (bench.py)
+  est_reference INTEGER DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bench_variant_unique
+  ON bench_variant(bench_run_id, label);
+
+CREATE TABLE IF NOT EXISTS bench_score (
+  variant_id INTEGER NOT NULL REFERENCES bench_variant(id) ON DELETE CASCADE,
+  seed       INTEGER NOT NULL,
+  genre      TEXT NOT NULL,      -- identite | nettete | texture_visage | ... (comme score.genre)
+  valeur     REAL,
+  fichier    TEXT,
+  PRIMARY KEY (variant_id, seed, genre)
+);
 """
 
 # Seuil de sante du centroide, en RAPPORT et non en valeur absolue.
@@ -209,6 +245,53 @@ def enregistrer_jugement(cx, image_id, flag, juge_le=None):
                "ON CONFLICT(image_id) DO UPDATE SET flag=excluded.flag, "
                "juge_le=excluded.juge_le",
                (image_id, flag, juge_le or datetime.now().isoformat(timespec="seconds")))
+
+
+# ------------------------------------------------------ banc (J8.5, ADR-0021)
+def bench_creer_run(cx, run_id, character_id, axis, scene, seeds):
+    """Idempotent (ON CONFLICT DO NOTHING) : rejouer le meme run_id ne
+    duplique rien, les seeds restent celles de la premiere creation."""
+    cx.execute(
+        "INSERT INTO bench_run (id, character_id, axis, scene, cree_le, seeds_json) "
+        "VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING",
+        (run_id, character_id, axis, scene,
+         datetime.now().isoformat(timespec="seconds"), json.dumps(list(seeds))))
+
+
+def bench_enregistrer_variante(cx, bench_run_id, label, batch_id, override,
+                               est_reference=False):
+    """Insere ou met a jour une variante par (bench_run_id, label). Retourne
+    son id."""
+    cx.execute(
+        "INSERT INTO bench_variant (bench_run_id, label, batch_id, override_json, "
+        "est_reference) VALUES (?,?,?,?,?) "
+        "ON CONFLICT(bench_run_id, label) DO UPDATE SET batch_id=excluded.batch_id, "
+        "override_json=excluded.override_json, est_reference=excluded.est_reference",
+        (bench_run_id, label, batch_id, json.dumps(override), int(bool(est_reference))))
+    return cx.execute(
+        "SELECT id FROM bench_variant WHERE bench_run_id = ? AND label = ?",
+        (bench_run_id, label)).fetchone()[0]
+
+
+def bench_enregistrer_score(cx, variant_id, seed, genre, valeur, fichier=None):
+    if valeur is None:
+        return
+    cx.execute(
+        "INSERT INTO bench_score (variant_id, seed, genre, valeur, fichier) "
+        "VALUES (?,?,?,?,?) ON CONFLICT(variant_id, seed, genre) "
+        "DO UPDATE SET valeur=excluded.valeur, fichier=excluded.fichier",
+        (variant_id, seed, genre, float(valeur), fichier))
+
+
+def bench_scores(cx, bench_run_id):
+    """Toutes les lignes (label, est_reference, seed, genre, valeur) d'un
+    banc — prete a agreger cote appelant (AUTOMATION/bench.py), cette
+    fonction ne calcule aucune moyenne elle-meme."""
+    return cx.execute(
+        "SELECT v.label, v.est_reference, s.seed, s.genre, s.valeur "
+        "FROM bench_variant v JOIN bench_score s ON s.variant_id = v.id "
+        "WHERE v.bench_run_id = ? ORDER BY v.est_reference DESC, v.label, s.genre, s.seed",
+        (bench_run_id,)).fetchall()
 
 
 def enregistrer_embedding(cx, image_id, vecteur, modele="antelopev2"):

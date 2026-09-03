@@ -3,6 +3,10 @@
     "graph": "WORKFLOWS/platform/upscale_ui.json",
     "roles": ["source", "upscale_model", "upscale", "resize", "save"]
   },
+  "bench": {
+    "graph": null,
+    "roles": []
+  },
   "_notes": [
     "Carte de capacites de la couche PLATEFORME (ADR-0017, ADR-0018, ADR-0020,",
     "J8.4) : agnostique du modele, appliquee a une image deja produite. Meme",
@@ -25,6 +29,15 @@
     "consulte jamais le pack ni le personnage pour savoir si elle a le droit",
     "de s'executer (contrainte du chantier, ADR-0020). Aucun graphe de pack",
     "n'entre jamais ici, et reciproquement une capacite de plateforme n'entre",
-    "jamais dans capabilities d'un pack."
+    "jamais dans capabilities d'un pack.",
+    "",
+    "bench.graph : null (J8.5, ADR-0021) -- cas legitime, pas une entorse a la",
+    "forme {graph, roles} d'ADR-0018. Le banc de comparaison de variantes ne",
+    "porte AUCUN graphe a lui (invariant 10) : il orchestre le graphe de",
+    "PRODUCTION que le pack fournit deja (WorkflowRunner, deja pack-aware),",
+    "en faisant varier UN champ de config a la fois. C'est ce qui le rend",
+    "agnostique de la famille de modele malgre des reglages qui, eux, sont",
+    "pack-specifiques -- le banc ne les comprend pas, il applique une",
+    "surcharge generique (AUTOMATION/bench.py::CFG_AXES/JOB_AXES)."
   ]
 }

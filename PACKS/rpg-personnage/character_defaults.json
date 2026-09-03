@@ -7,6 +7,11 @@
   "formats": { "1:1": [1024, 1024] },
   "export_sizes": { "1:1": [1024, 1024] },
   "qc": { "threshold_ok": 0.5, "threshold_watch": 0.35, "threshold_high": 0.6, "measured": false },
+  "bench": {
+    "min_seeds": 5,
+    "margin": { "identite": 0.02, "_defaut": 0.05 },
+    "measured": false
+  },
   "export": { "enabled": true, "format": "jpg", "quality": 92 },
   "scenes_seed": {
     "prefix": "raw, unedited photo of",
@@ -33,6 +38,10 @@
     "depart d'Abyssiaelle repris comme defaut de pack.",
     "Un LoRA de personnage (identity.lora : name / strength / trigger_word) ne",
     "s'ajoute qu'apres entrainement hors plateforme (kohya_ss) — jamais pose par",
-    "le wizard. Le wizard ajoute `workflow` (graphe DU PACK) et `base_gelee`."
+    "le wizard. Le wizard ajoute `workflow` (graphe DU PACK) et `base_gelee`.",
+    "bench (J8.5, ADR-0021) : min_seeds/margin du banc de comparaison de",
+    "variantes — capacite de PLATEFORME, mais ses seuils restent une mesure",
+    "PAR PERSONNAGE (invariant 4), meme logique que qc. `measured: false` :",
+    "provisoires, jamais valides par un vrai banc pour ce visage."
   ]
 }

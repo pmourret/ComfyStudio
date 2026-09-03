@@ -235,6 +235,15 @@ class WorkflowRunner:
             # direct du KSampler, meme cle de config que Flux (`preset.
             # guidance`) pour garder un seul vocabulaire cross-univers.
             node("sampler")["inputs"]["cfg"] = p["guidance"]
+        # sampler_name/scheduler : jamais pilotes jusqu'ici (le graphe garde sa
+        # valeur figee). Optionnels, poses SEULEMENT si job["overrides"] les
+        # fournit — absent pour tout appelant existant, donc aucun changement
+        # hors banc de comparaison de variantes (J8.5, AUTOMATION/bench.py).
+        overrides = job.get("overrides", {})
+        if "sampler_name" in overrides:
+            node("sampler")["inputs"]["sampler_name"] = overrides["sampler_name"]
+        if "scheduler" in overrides:
+            node("sampler")["inputs"]["scheduler"] = overrides["scheduler"]
         node("save")["inputs"]["filename_prefix"] = (
             f"OFM/PROD/_BASE/{self.character_id}/{job['seed']}"
             if self.base_portrait

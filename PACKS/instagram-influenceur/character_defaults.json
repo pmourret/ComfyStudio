@@ -14,6 +14,11 @@
     "4:5": [1080, 1350], "2:3": [1080, 1620], "9:16": [1080, 1920], "1:1": [1080, 1080]
   },
   "qc": { "threshold_ok": 0.72, "threshold_watch": 0.6, "threshold_high": 0.74, "measured": false },
+  "bench": {
+    "min_seeds": 5,
+    "margin": { "identite": 0.02, "_defaut": 0.05 },
+    "measured": false
+  },
   "export": { "enabled": true, "format": "jpg", "quality": 92 },
   "scenes_seed": {
     "prefix": "raw candid smartphone photo of",
@@ -52,6 +57,11 @@
     "(universe.json) — les deux conditions, voir /api/creative. Un personnage",
     "neuf n'est jamais arme (character.json/nsfw = false), donc le cran est",
     "absent a la creation, pas grise (ADR-0003, CLAUDE.md §6).",
-    "`base_level` 0 : l'edition part d'une image deja validee du niveau de base."
+    "`base_level` 0 : l'edition part d'une image deja validee du niveau de base.",
+    "bench (J8.5, ADR-0021) : min_seeds/margin du banc de comparaison de",
+    "variantes — capacite de PLATEFORME (PLATFORM/capabilities.json), pas du",
+    "pack, mais ses seuils restent une mesure PAR PERSONNAGE (invariant 4),",
+    "meme logique que qc. `measured: false` : min_seeds=5/margin provisoires,",
+    "jamais valides par un vrai banc pour ce visage."
   ]
 }
