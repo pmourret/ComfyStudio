@@ -111,6 +111,14 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
   const safeCursor = Math.min(cursor, Math.max(0, shown.length - 1))
   const current = shown[safeCursor]
 
+  /* Filmstrip thumbnails (design-pass screen-5, §A) — the same `thumb:true`
+     URL already resolved for the grid, no extra request. Sub-components
+     never call the API themselves (frontend.md): plain strings down. */
+  const filmstripItems = useMemo(
+    () => shown.map((item) => ({ name: item.name, thumbSrc: api.image({ ...item, thumb: true }) })),
+    [shown, api],
+  )
+
   const step = useCallback(
     (delta: number) => {
       if (!shown.length) return
@@ -360,7 +368,9 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
                 items={items}
                 references={references}
                 src={api.image(current)}
+                filmstripItems={filmstripItems}
                 onStep={step}
+                onSelectIndex={setCursor}
                 onMagnify={() => openLightbox(api.image(current))}
                 onAct={(action) => act(action)}
                 onFlag={(flag) => setFlag(current, flag)}

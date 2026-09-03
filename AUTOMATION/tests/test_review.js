@@ -158,6 +158,29 @@ const volsDeDonnees = [];
   dire((await page.getAttribute('[data-f="ok"]', 'aria-pressed')) === 'false',
        'et le second clic le retire : rien de laisse sur une image reelle');
 
+  console.log('\n[4ter] filmstrip (design-pass ecran 5, §A) : role, clic, et UN SEUL pas au clavier');
+  dire((await page.getAttribute('#filmstrip', 'role')) === 'listbox', '#filmstrip est un role=listbox');
+  const optionsAvant = await page.$$eval('#filmstrip [role="option"]', e => e.length);
+  dire(optionsAvant === avantClavier, `autant d options que de vignettes de la grille (${optionsAvant})`);
+  dire((await page.getAttribute('#filmstrip [role="option"]:nth-child(2)', 'aria-selected')) === 'true',
+       "l'option courante suit le curseur (tuile 1, deja avance par la fleche de [4])");
+
+  const srcAvant = await page.getAttribute('#stageImg', 'src');
+  await page.click('#filmstrip [role="option"]:nth-child(4)');
+  await page.waitForTimeout(300);
+  const srcApresClic = await page.getAttribute('#stageImg', 'src');
+  dire(srcApresClic !== srcAvant, 'un clic sur une vignette du filmstrip change bien l image plein cadre');
+  dire((await page.getAttribute('#filmstrip [role="option"]:nth-child(4)', 'aria-selected')) === 'true',
+       'et la vignette cliquee devient l option selectionnee');
+
+  await page.focus('#filmstrip [role="option"][aria-selected="true"]');
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(300);
+  const selectionnees = await page.$$eval('#filmstrip [role="option"]',
+    e => e.map((x, i) => [i, x.getAttribute('aria-selected')]).filter(([, s]) => s === 'true'));
+  dire(selectionnees.length === 1 && selectionnees[0][0] === 4,
+       `UNE fleche = UN pas, jamais deux (useReviewKeys.ts et le filmstrip ne se marchent pas dessus) : ${JSON.stringify(selectionnees)}`);
+
   console.log('\n[5] la loupe s ouvre et se ferme a Echap');
   await page.click('#stageImg');
   await page.waitForTimeout(300);

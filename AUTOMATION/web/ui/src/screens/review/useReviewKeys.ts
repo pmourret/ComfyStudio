@@ -44,6 +44,15 @@ export function useReviewKeys({
       if (document.querySelector('dialog[open]')) return
       if (lightboxSrc) return
       if (document.body.classList.contains('editing')) return
+      /* The filmstrip (design-pass screen-5, §A) is a `role="listbox"` with
+         its OWN ArrowLeft/Right handling (chrome/useRovingChoice.ts) that
+         already calls `onSelectIndex` -> `setCursor`. This listener is a raw
+         `document` listener, outside React's synthetic event tree: a
+         `stopPropagation()` inside the filmstrip's own `onKeyDown` would
+         NOT stop it from also firing here and calling `step()` a second
+         time for the same keypress. Same guard idiom as the four checks
+         above. */
+      if (target?.closest('[role="listbox"]')) return
 
       const key = event.key.toLowerCase()
       if (key === 'arrowright') return step(1)

@@ -2,6 +2,7 @@
    trade. Same rule as the tile — it renders, the screen decides. */
 import { ScoreBars, calibration } from './ScoreBars'
 import { FlagButtons } from './FlagButtons'
+import { Filmstrip } from './Filmstrip'
 import { GalleryActions, ReviewActions } from './ReviewActions'
 import { scoreClass, type GalleryItem, type Trade } from './useTriage'
 
@@ -23,7 +24,9 @@ export function FullFrame(props: {
   items: GalleryItem[]
   references: { mesurees: number; total: number }
   src: string
+  filmstripItems: { name: string; thumbSrc: string }[]
   onStep: (delta: number) => void
+  onSelectIndex: (index: number) => void
   onMagnify: () => void
   onAct: (action: string) => void
   onFlag: (flag: string) => void
@@ -36,31 +39,43 @@ export function FullFrame(props: {
 
   return (
     <div className="grid grid-cols-[1fr_300px] gap-[22px] [align-items:start]" data-triage>
-      <div
-        className="relative flex min-h-[62vh] items-center justify-center overflow-hidden
-                   rounded-card border border-line bg-panel"
-      >
-        <button
-          className={`${NAV} left-0 rounded-r-[8px]`}
-          aria-label="Image précédente"
-          onClick={() => props.onStep(-1)}
+      {/* `min-w-0`: this wrapper is now the grid item (the stage `<div>` used
+          to be it directly) — without it, a flex/grid item's default
+          min-width is content-based ("auto"), and the tall portrait `<img>`
+          inside blew the 1fr track past the 300px meta column, pushing it
+          off-screen (found live, screenshot before this fix). */}
+      <div className="flex min-w-0 flex-col">
+        <div
+          className="relative flex min-h-[62vh] items-center justify-center overflow-hidden
+                     rounded-card border border-line bg-panel"
         >
-          <span aria-hidden="true">‹</span>
-        </button>
-        <img
-          className="block max-h-[72vh] max-w-full cursor-zoom-in"
-          src={props.src}
-          id="stageImg"
-          alt=""
-          onClick={props.onMagnify}
+          <button
+            className={`${NAV} left-0 rounded-r-[8px]`}
+            aria-label="Image précédente"
+            onClick={() => props.onStep(-1)}
+          >
+            <span aria-hidden="true">‹</span>
+          </button>
+          <img
+            className="block max-h-[72vh] max-w-full cursor-zoom-in"
+            src={props.src}
+            id="stageImg"
+            alt=""
+            onClick={props.onMagnify}
+          />
+          <button
+            className={`${NAV} right-0 rounded-l-[8px]`}
+            aria-label="Image suivante"
+            onClick={() => props.onStep(1)}
+          >
+            <span aria-hidden="true">›</span>
+          </button>
+        </div>
+        <Filmstrip
+          items={props.filmstripItems}
+          currentIndex={props.index}
+          onSelectIndex={props.onSelectIndex}
         />
-        <button
-          className={`${NAV} right-0 rounded-l-[8px]`}
-          aria-label="Image suivante"
-          onClick={() => props.onStep(1)}
-        >
-          <span aria-hidden="true">›</span>
-        </button>
       </div>
       <div className="sticky top-[12px] flex flex-col gap-[14px]">
         <div className="meta">
