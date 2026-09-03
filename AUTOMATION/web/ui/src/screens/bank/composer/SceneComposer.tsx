@@ -35,6 +35,8 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import * as Tabs from '@radix-ui/react-tabs'
 import { Link } from 'react-router-dom'
 
+import { useApi } from '../../../api/useApi'
+import { Dialog } from '../../../chrome/Dialog'
 import { Icon } from '../../../chrome/Icon'
 import type { Creative } from '../../../state/TaxonomyContext'
 import {
@@ -753,6 +755,18 @@ function PosePanel({
 }) {
   const options = poseOptions(poses, draft.pose)
   const [editing, setEditing] = useState(false)
+  /* "+ Nouvelle pose" (design pass écran 7, §V3): two steps, both without
+     leaving the scene. `naming` collects name + starting template (the same
+     decision `NewPoseModal` collects for the Poses screen, minus "créer
+     aussi un gabarit réutilisable" — a one-off pose for this scene has no
+     reason to also seed the shared preset library; that path stays on the
+     Poses screen's own "+ Nouvelle pose"). Once named, `creating` opens the
+     SAME `PoseEditorModal` the pencil above already uses to correct an
+     ASSIGNED pose in place — here with a `preset` source instead of a
+     `pose` one — and its `onSaved` assigns the result to `draft.pose`
+     directly, instead of returning to the pose list. */
+  const [naming, setNaming] = useState(false)
+  const [creating, setCreating] = useState<{ presetName: string; label: string } | null>(null)
   return (
     <div>
       <PromptField
@@ -802,6 +816,15 @@ function PosePanel({
         >
           aucune
         </button>
+        <button
+          type="button"
+          className="flex aspect-square items-center justify-center rounded-[8px]
+                     border border-dashed border-line2 text-[11px] text-dim hover:text-txt"
+          data-hint-text="Créer une pose depuis un gabarit, sans quitter la scène"
+          onClick={() => setNaming(true)}
+        >
+          <span aria-hidden="true">+ </span>nouvelle
+        </button>
         {options.length === 0 ? (
           <div className="empty col-span-full p-[16px] text-[12px]">
             aucun squelette en banque — l'éditeur de pose en extrait depuis une photo
@@ -839,7 +862,131 @@ function PosePanel({
           }}
         />
       )}
+
+      {naming && (
+        <NewPoseDialog
+          onCancel={() => setNaming(false)}
+          onStart={(intent) => {
+            setCreating(intent)
+            setNaming(false)
+          }}
+        />
+      )}
+      {creating && (
+        <PoseEditorModal
+          source={{ kind: 'preset', nom: creating.presetName, initialLabel: creating.label }}
+          onClose={() => setCreating(null)}
+          onSaved={(name) => {
+            onPatch({ pose: name })
+            setCreating(null)
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+/* Name + starting-template step for a from-scratch pose, opened by the "+
+   Nouvelle pose" tile above. Deliberately a SMALLER form than the Poses
+   screen's own `NewPoseModal` (no "créer aussi un gabarit réutilisable" — a
+   one-off pose for this scene has no reason to also seed the shared preset
+   library) and it hands its result to a CALLBACK instead of navigating: the
+   scene composer stays open, `PosePanel` above opens `PoseEditorModal` next
+   rather than routing to `PATHS.poseEditor`. */
+function NewPoseDialog({
+  onCancel,
+  onStart,
+}: {
+  onCancel: () => void
+  onStart: (intent: { presetName: string; label: string }) => void
+}) {
+  const api = useApi()
+  const [presets, setPresets] = useState<{ nom: string; label: string }[] | null>(null)
+  const [chosenPreset, setChosenPreset] = useState<string | null>(null)
+  const [label, setLabel] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    void api
+      .get<{ presets?: { nom: string; label: string }[] }>('/api/pose/presets')
+      .then((response) => {
+        if (cancelled) return
+        const list = response.presets ?? []
+        setPresets(list)
+        setChosenPreset((current) => current ?? list[0]?.nom ?? null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [api])
+
+  const canStart = Boolean(chosenPreset) && label.trim() !== ''
+
+  return (
+    <Dialog
+      id="newPoseInlineBox"
+      open
+      onDismiss={onCancel}
+      initialFocus="#newPoseInlineName"
+      className="w-[min(460px,calc(100vw-32px))] max-w-[min(460px,calc(100vw-32px))]"
+      cardClassName="w-[min(460px,100%)]! p-[20px]!"
+    >
+      <h3 className="mb-[4px]! text-[16px]!">Nouvelle pose</h3>
+      <p className="tiny mb-[14px]">
+        Coordonnées entièrement inventées, jamais issues d'une photo — le point
+        de départ se corrige ensuite point par point, sans quitter la scène.
+      </p>
+
+      <label className="tiny mb-[4px] block" htmlFor="newPoseInlineName">
+        Nom
+      </label>
+      <input
+        id="newPoseInlineName"
+        className="mb-[14px] w-full"
+        value={label}
+        placeholder="ex. assise sur un tabouret"
+        onChange={(event) => setLabel(event.target.value)}
+      />
+
+      <div className="tiny mb-[6px]">Gabarit de départ</div>
+      {presets === null ? (
+        <p className="tiny mb-[14px]">chargement…</p>
+      ) : presets.length === 0 ? (
+        <div className="empty mb-[14px] rounded-card border border-line bg-panel px-[12px] py-[16px] text-[13px]">
+          aucun gabarit disponible.
+        </div>
+      ) : (
+        <div className="mb-[14px] grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-[8px]">
+          {presets.map((p) => (
+            <button
+              key={p.nom}
+              type="button"
+              aria-pressed={chosenPreset === p.nom}
+              className={`rounded-[8px] border px-[12px] py-[8px] text-[13px] ${
+                chosenPreset === p.nom ? 'border-acc bg-panel2' : 'border-line2 bg-panel'
+              }`}
+              onClick={() => setChosenPreset(p.nom)}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center gap-[12px]">
+        <button
+          type="button"
+          className="btn primary"
+          disabled={!canStart}
+          onClick={() => chosenPreset && onStart({ presetName: chosenPreset, label: label.trim() })}
+        >
+          Continuer
+        </button>
+        <button type="button" className="link" onClick={onCancel}>
+          annuler
+        </button>
+      </div>
+    </Dialog>
   )
 }
 
