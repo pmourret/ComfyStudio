@@ -48,7 +48,7 @@ import { PATHS } from '../../../app/routes'
 import type { ScenePreview } from '../SceneList'
 import { InfoHint } from './InfoHint'
 import { PromptField } from './PromptField'
-import { appendWardrobeLine, WARDROBE_CATALOG } from './wardrobeCatalog'
+import { joinWardrobeByLevel, splitWardrobeByLevel, WARDROBE_CATALOG, WARDROBE_LEVELS } from './wardrobeCatalog'
 import { PoseEditorModal } from '../../pose-editor/PoseEditorModal'
 
 const FORMATS = ['4:5', '2:3', '9:16', '1:1']
@@ -585,7 +585,18 @@ function LightPanel({
 /* --------------------------------------------------------------- Vêtements
    Never gated by `worldLinked`: `wardrobe` is an OVERLAY key (ADR-0015 §2),
    the one thing a world-linked scene always keeps as its own — unlike the
-   three prompt fragments, it is never re-derived nor discarded at save. */
+   three prompt fragments, it is never re-derived nor discarded at save.
+
+   FOUR FIELDS, ONE PER LEVEL (design pass écran 7, §V2) — replaces the single
+   free-text zone prefixed by hand (« 0: a linen shirt… »), where a mistyped
+   prefix silently dropped the line into no level at all. `draft.wardrobe`
+   stays the SAME flat "N: description" text underneath (`composePrompt`/
+   `bandOf` never see this split); `splitWardrobeByLevel`/`joinWardrobeByLevel`
+   (wardrobeCatalog.ts) are the round trip, done fresh on every render rather
+   than held as separate state — the same "derived, never stored" rule
+   `useSceneWorkbench.tsx` already follows, so this panel can never drift from
+   `draft.wardrobe` itself. A line that does not parse (typed elsewhere, via
+   the Recap tab's raw mirror) rides along as `extra`, untouched. */
 function ClothingPanel({
   draft,
   onPatch,
@@ -605,27 +616,52 @@ function ClothingPanel({
      floor level — the exact mechanic (`bandOf`) this whole tab exists to
      feed. Defaults to the scene's OWN minimum rather than a flat 0: a scene
      already living at niveau 1 most likely wants its next garment there
-     too, not silently back at 0. */
+     too, not silently back at 0. Also which of the 4 fields below "+" writes
+     into — the active level the panel's own hint refers to. */
   const [level, setLevel] = useState(() => Math.min(3, Math.max(0, Number.parseInt(draft.bandLo, 10) || 0)))
   const items = filter
     ? (WARDROBE_CATALOG.find((c) => c.category === filter)?.items ?? [])
     : WARDROBE_CATALOG.flatMap((c) => c.items)
 
+  const { byLevel, extra } = splitWardrobeByLevel(draft.wardrobe)
+  const setLevelText = (targetLevel: number, text: string) =>
+    onPatch({ wardrobe: joinWardrobeByLevel({ ...byLevel, [targetLevel]: text }, extra) })
+
   return (
     <div>
-      <PromptField
-        dataField="wardrobe"
-        label="Prompt de vêtement"
-        hint="Une tenue par ligne, préfixée de son niveau : « 0: a linen shirt and jeans ». Le niveau le plus haut déclaré ici fixe jusqu'où la scène peut monter. Jamais fondu dans le prompt final envoyé au modèle : la tenue est injectée séparément selon le niveau de génération — c'est ce que le studio veut dire par « jamais la tenue »."
-        placeholder="0: a beige knit sweater and jeans"
-        value={draft.wardrobe}
-        onChange={(value) => onPatch({ wardrobe: value })}
-      />
+      <span className="text-[12px] text-dim">
+        Prompt de vêtement, par niveau
+        <InfoHint text="Une tenue par ligne — le champ EST le niveau, plus besoin de le taper devant. Le niveau le plus haut renseigné ici fixe jusqu'où la scène peut monter. Jamais fondu dans le prompt final envoyé au modèle : la tenue est injectée séparément selon le niveau de génération — c'est ce que le studio veut dire par « jamais la tenue »." />
+      </span>
+      <div className="mt-[8px] grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-[10px]">
+        {WARDROBE_LEVELS.map((lvl) => (
+          <label className="f" key={lvl}>
+            <span>
+              niveau {lvl}
+              {lvl === 0 && ' — repli des niveaux au-dessus tant qu ils sont vides'}
+            </span>
+            <textarea
+              className="min-h-[56px] resize-y"
+              data-f={`wardrobe_${lvl}`}
+              placeholder={lvl === 0 ? 'a beige knit sweater and jeans' : undefined}
+              value={byLevel[lvl]}
+              onChange={(e) => setLevelText(lvl, e.target.value)}
+            />
+          </label>
+        ))}
+      </div>
+      {extra.length > 0 && (
+        <p className="tiny mt-[8px] mb-0">
+          {extra.length} ligne{extra.length > 1 ? 's' : ''} sans niveau reconnu, laissée
+          {extra.length > 1 ? 's' : ''} intacte{extra.length > 1 ? 's' : ''} — visible
+          {extra.length > 1 ? 's' : ''} et modifiable{extra.length > 1 ? 's' : ''} dans l'onglet Prompt global.
+        </p>
+      )}
 
       <div className="mt-[16px] flex flex-wrap items-center justify-between gap-[10px]">
         <span className="text-[12px] text-dim">
           Sélecteur de vêtement
-          <InfoHint text="Vocabulaire de départ en texte — des images de collection remplaceront ces cases à terme. Filtre par catégorie, sélectionne une pièce, choisis le niveau, puis « + » l'ajoute comme nouvelle ligne au prompt ci-dessus, sans toucher aux lignes déjà là." />
+          <InfoHint text="Vocabulaire de départ en texte — des images de collection remplaceront ces cases à terme. Filtre par catégorie, sélectionne une pièce, choisis le niveau, puis « + » l'ajoute au champ de ce niveau, sans toucher aux autres." />
         </span>
         <div className="flex items-center gap-[8px]">
           <label className="sr-only" htmlFor="wardrobeFilter">
@@ -648,7 +684,7 @@ function ClothingPanel({
             ))}
           </select>
           <label className="sr-only" htmlFor="wardrobeLevel">
-            niveau de la ligne ajoutée
+            niveau du champ où ajouter la pièce
           </label>
           <select
             id="wardrobeLevel"
@@ -656,7 +692,7 @@ function ClothingPanel({
             value={level}
             onChange={(e) => setLevel(Number(e.target.value))}
           >
-            {[0, 1, 2, 3].map((n) => (
+            {WARDROBE_LEVELS.map((n) => (
               <option key={n} value={n}>
                 niveau {n}
               </option>
@@ -667,7 +703,7 @@ function ClothingPanel({
             className="btn sm"
             aria-label="Ajouter la pièce sélectionnée comme nouvelle ligne"
             disabled={!selected}
-            onClick={() => onPatch({ wardrobe: appendWardrobeLine(draft.wardrobe, selected, level) })}
+            onClick={() => setLevelText(level, byLevel[level] ? `${byLevel[level]}\n${selected}` : selected)}
           >
             +
           </button>

@@ -234,7 +234,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   const parOnglet = {
     general: ['id', 'intention', 'format', 'count', 'guidance', 'band_lo', 'tones', 'tags'],
     light: ['prompt_light', 'variants'],
-    clothing: ['wardrobe'],
+    clothing: ['wardrobe_0', 'wardrobe_1', 'wardrobe_2', 'wardrobe_3'],
     pose: ['prompt_pose', 'pose'],
     recap: ['prompt_base', 'prompt_light_recap', 'prompt_pose_recap', 'wardrobe_recap'],
   };
@@ -330,19 +330,31 @@ const SCENES = BASE + '/bank/scenes?character=lena';
        `barre de nav a ${Math.round(basBoutons)}px, bas du panneau a ${Math.round(basPanneau)}px — pas de grand vide`);
 
   console.log('\n[7] le plafond de niveau se DEDUIT des tenues, a la frappe — meme lu depuis un AUTRE onglet');
+  // le compositeur (31/08/2026) est un tablist : un champ n'est dans le DOM
+  // que si son onglet est ouvert — voir bank/composer/SceneComposer.tsx.
+  // Le prompt de vetement (25/08/2026) est desormais 4 champs, un par
+  // niveau (design pass ecran 7, §V2) — `tenues` snapshotte/restaure le
+  // TEXTE BRUT du niveau 3 seul, celui que ce bloc modifie.
   await onglet('clothing');
-  const tenues = await page.$eval(champ('wardrobe'), e => e.value);
-  await page.fill(champ('wardrobe'), tenues + '\n3: a test outfit');
+  const tenues = await page.$eval(champ('wardrobe_3'), e => e.value);
+  await page.fill(champ('wardrobe_3'), tenues ? `${tenues}\na test outfit` : 'a test outfit');
   await page.waitForTimeout(200);
   await onglet('general');
-  const plafond = () => page.$eval(champ('band_lo'),
-    e => e.closest('.f').querySelector('span b').textContent);
+  // la jauge de bande (design pass ecran 7, §V1) remplace le texte "jusqu'a
+  // N" — son etat se lit dans son aria-label, pas dans un <b> qui n'existe
+  // plus
+  const plafond = () => page.$eval(
+    '[data-tabpanel="general"] button[aria-label^="Niveaux"]',
+    e => e.getAttribute('aria-label').match(/Niveaux (\d+) à (\d+)/)[2]);
   dire(await plafond() === '3', `le plafond (onglet General) suit la tenue tapee (onglet Vetements) (${await plafond()})`);
   await onglet('clothing');
-  await page.fill(champ('wardrobe'), tenues);
+  await page.fill(champ('wardrobe_3'), tenues);
   await page.waitForTimeout(200);
 
   console.log('\n[7bis] le selecteur de vetement : filtre, SELECTION puis "+" — jamais un ajout au simple survol/clic de la piece');
+  // le "+" ecrit desormais dans le CHAMP du niveau actif (§V2), sans prefixe
+  // — le niveau par defaut du selecteur suit `band_lo`, verifie zero plus haut
+  const niveau0Avant = await page.$eval(champ('wardrobe_0'), e => e.value);
   const filtre = 'select#wardrobeFilter';
   const options = await page.$$eval(`${filtre} option`, e => e.map(o => o.value).filter(Boolean));
   dire(options.length > 0, `${options.length} categorie(s) au filtre (Haut, Bas, ...)`);
@@ -355,31 +367,33 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   await piece.click();
   await page.waitForTimeout(100);
   dire(await piece.getAttribute('aria-pressed') === 'true', 'cliquer une piece la SELECTIONNE (ne touche pas encore la tenue)');
-  const avantAjout = await page.$eval(champ('wardrobe'), e => e.value);
-  dire(avantAjout === tenues, 'la selection seule n a rien ecrit dans le prompt de vetement');
+  const avantAjout = await page.$eval(champ('wardrobe_0'), e => e.value);
+  dire(avantAjout === niveau0Avant, 'la selection seule n a rien ecrit dans le prompt de vetement');
   dire(!(await page.isDisabled(boutonAjout)), 'le bouton "+" s active une fois une piece choisie');
   await page.click(boutonAjout);
   await page.waitForTimeout(150);
-  const apresAjout = await page.$eval(champ('wardrobe'), e => e.value);
-  dire(apresAjout === `${avantAjout}\n0: ${libellePiece}`,
-       `« + » a ajoute la ligne "0: ${libellePiece}" sans toucher au reste`);
-  await page.fill(champ('wardrobe'), tenues);
+  const apresAjout = await page.$eval(champ('wardrobe_0'), e => e.value);
+  dire(apresAjout === (avantAjout ? `${avantAjout}\n${libellePiece}` : libellePiece),
+       `« + » a ajoute "${libellePiece}" au champ niveau 0, sans prefixe a taper, sans toucher au reste`);
+  await page.fill(champ('wardrobe_0'), niveau0Avant);
   await page.waitForTimeout(200);
 
   console.log('\n[7ter] le niveau de la ligne ajoutee se choisit — plus limite au niveau 0 (audit UX/UI, M4)');
   await page.selectOption('select#wardrobeLevel', '2');
   await page.waitForTimeout(100);
+  const niveau2Avant = await page.$eval(champ('wardrobe_2'), e => e.value);
   const [autrePiece] = await page.$$(`#sceneInspector [aria-pressed]`);
   const libelleAutre = (await autrePiece.textContent()).trim();
   await autrePiece.click();
   await page.waitForTimeout(100);
-  const avantAjout2 = await page.$eval(champ('wardrobe'), e => e.value);
   await page.click(boutonAjout);
   await page.waitForTimeout(150);
-  const apresAjout2 = await page.$eval(champ('wardrobe'), e => e.value);
-  dire(apresAjout2 === `${avantAjout2}\n2: ${libelleAutre}`,
-       `le niveau choisi (2) est utilise, plus fige a 0 : "2: ${libelleAutre}"`);
-  await page.fill(champ('wardrobe'), tenues);
+  const apresAjout2 = await page.$eval(champ('wardrobe_2'), e => e.value);
+  dire(apresAjout2 === (niveau2Avant ? `${niveau2Avant}\n${libelleAutre}` : libelleAutre),
+       `le niveau choisi (2) est utilise, plus fige a 0 : le champ niveau 2 recoit "${libelleAutre}"`);
+  dire((await page.$eval(champ('wardrobe_0'), e => e.value)) === niveau0Avant,
+       'et le champ niveau 0 n a pas bouge — chaque "+" ne touche que le niveau actif');
+  await page.fill(champ('wardrobe_2'), niveau2Avant);
   await page.waitForTimeout(200);
   await onglet('general');
 
@@ -399,7 +413,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   await page.click(CARTE);
   await page.waitForSelector('#sceneInspector');
   await onglet('clothing');
-  dire(await page.$eval(champ('wardrobe'), e => e.value) === tenues,
+  dire(await page.$eval(champ('wardrobe_3'), e => e.value) === tenues,
        'la saisie est intacte au retour');
 
   console.log('\n[10] FILTRER retrecit la grille, jamais le document');
@@ -503,8 +517,12 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   await page.click(CARTE);
   await page.waitForSelector('#sceneInspector');
   await page.fill('#sceneFilter', '');
-  await onglet('clothing');
-  await page.fill(champ('wardrobe'), 'une tenue sans niveau');
+  // les 4 champs de l'onglet Vetements (§V2) prefixent le niveau eux-memes —
+  // taper une ligne SANS niveau n'y est plus possible. Le mirroir texte brut
+  // du recapitulatif (meme etat que `wardrobe`) reste le seul champ libre qui
+  // peut encore produire ce cas, donc c'est lui que ce test tape desormais.
+  await onglet('recap');
+  await page.fill(champ('wardrobe_recap'), 'une tenue sans niveau');
   await page.waitForTimeout(150);
   await page.click('#btnSaveScenes');
   await page.waitForTimeout(600);
