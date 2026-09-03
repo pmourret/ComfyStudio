@@ -14,7 +14,7 @@ import { useToast } from '../../chrome/ToastContext'
 import { InfoHint } from '../bank/composer/InfoHint'
 import { handlePoseKeyDown, PoseCanvas } from './PoseCanvas'
 import { PoseInspector } from './PoseInspector'
-import { alignSelection, mirrorBody, mirrorHand } from './poseFrame'
+import { alignSelection, mirrorBody, mirrorHand, withPointsMoved, type Point } from './poseFrame'
 import { ReferenceControls } from './ReferenceControls'
 import { UndoRedoButtons } from './UndoRedoButtons'
 import { usePoseEditor, type PoseEditorSource } from './usePoseEditor'
@@ -128,6 +128,8 @@ function PoseEditorInner({
   const onMirrorBody = (direction: 'rightToLeft' | 'leftToRight') => applyAction(mirrorBody(pose, direction))
   const onMirrorHand = (from: 'handLeft' | 'handRight') => applyAction(mirrorHand(pose, from))
   const onAlign = (axis: 'x' | 'y') => applyAction(alignSelection(pose, selected, axis))
+  const onOffset = (origins: ReadonlyMap<string, Point>, dx: number, dy: number) =>
+    applyAction(withPointsMoved(pose, origins, dx, dy))
 
   return (
     <div className="screen" id="poseEditor">
@@ -255,6 +257,7 @@ function PoseEditorInner({
             onSetPinned={setPinnedMany}
             onMirrorBody={onMirrorBody}
             onAlign={onAlign}
+            onOffset={onOffset}
             onRecenter={() => setRecenterTrigger((t) => t + 1)}
             onClearSelection={clearSelection}
           />

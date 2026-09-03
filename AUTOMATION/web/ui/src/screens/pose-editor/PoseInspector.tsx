@@ -3,7 +3,7 @@
    radius on a hand is a small target even zoomed in, a named row in a list
    never is. Screen-only (not the modal): needs real width, and the modal's
    whole point is staying a fast, minimal in-context tweak. */
-import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 
 import { InfoHint } from '../bank/composer/InfoHint'
 import {
@@ -39,6 +39,7 @@ export function PoseInspector({
   onSetPinned,
   onMirrorBody,
   onAlign,
+  onOffset,
 }: {
   pose: PoseFrame
   selected: Selected
@@ -56,6 +57,13 @@ export function PoseInspector({
   /** Snaps every placed point in the CURRENT selection to their shared mean
       on one axis (design-pass screen-6, §B2) — the other axis untouched. */
   onAlign: (axis: 'x' | 'y') => void
+  /** Moves every point in `origins` by (dx, dy) as ONE history step
+      (design-pass screen-6, §B3) — `origins` is the caller's own snapshot
+      (captured on the offset field's focus, see `OffsetField` below), not
+      re-read from `pose` here: by the time this fires, `pose` may already
+      reflect an EARLIER offset from the same gesture pair (dx committed,
+      then dy). */
+  onOffset: (origins: ReadonlyMap<string, Point>, dx: number, dy: number) => void
 }) {
   const selectedKeys = [...selected]
   const single = selectedKeys.length === 1 ? parsePointKey(selectedKeys[0]) : null
@@ -63,6 +71,22 @@ export function PoseInspector({
   const parentIndex = single ? parentIndexOf(single.group, single.index) : null
   const parentPoint = single && parentIndex !== null ? pose[single.group][parentIndex] : null
   const allPinned = selectedKeys.length > 0 && selectedKeys.every((k) => pinned.has(k))
+  // §B3's origin snapshot — a ref, not state: capturing it is a side effect
+  // of focusing a field, not something that should itself trigger a
+  // render. Re-captured on EVERY focus (not once per selection) so a
+  // dx-then-dy pair composes: dy's origins are whatever the group's
+  // position actually is by the time dy gains focus, dx's own commit
+  // included.
+  const offsetOrigins = useRef<Map<string, Point>>(new Map())
+  const captureOffsetOrigins = () => {
+    const snapshot = new Map<string, Point>()
+    for (const key of selectedKeys) {
+      const { group, index } = parsePointKey(key)
+      const p = pose[group][index]
+      if (p.c > 0) snapshot.set(key, p)
+    }
+    offsetOrigins.current = snapshot
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-[10px]">
@@ -183,6 +207,18 @@ export function PoseInspector({
               {allPinned ? 'Libérer tout' : 'Épingler tout'}
             </button>
           </div>
+          <div className="mt-[8px] flex gap-[8px]">
+            <OffsetField
+              label="dx"
+              onFocus={captureOffsetOrigins}
+              onCommit={(dx) => onOffset(offsetOrigins.current, dx, 0)}
+            />
+            <OffsetField
+              label="dy"
+              onFocus={captureOffsetOrigins}
+              onCommit={(dy) => onOffset(offsetOrigins.current, 0, dy)}
+            />
+          </div>
         </div>
       ) : (
         <p className="tiny">aucun joint sélectionné</p>
@@ -233,6 +269,52 @@ function NumberField({
           setText(event.target.value)
           const parsed = Number(event.target.value)
           if (event.target.value.trim() !== '' && Number.isFinite(parsed)) onCommit(parsed)
+        }}
+      />
+    </label>
+  )
+}
+
+/** A discrete offset, not a live preview (design-pass screen-6, §B3) —
+    unlike `NumberField` above, this never commits per keystroke: `NumberField`'s
+    `useEffect(() => setText(...), [value])` only resynchronizes when its
+    `value` PROP changes, which never happens here (this field always means
+    "how much MORE to move from here", not a joint's own coordinate) — so
+    nothing would ever reset the displayed text back to `0` after a commit
+    if this reused that component as-is. Commits on Enter or blur, then
+    resets itself to `'0'` — a plain local reset, no prop round-trip needed
+    since there is no `value` to diverge from. `onFocus` lets the CALLER
+    (this field never reads `pose`) snapshot the group's current position
+    the moment the user starts typing, not once per selection — so a
+    dx-then-dy pair composes onto the position dx already moved to. */
+function OffsetField({
+  label, onFocus, onCommit,
+}: {
+  label: string
+  onFocus: () => void
+  onCommit: (delta: number) => void
+}) {
+  const [text, setText] = useState('0')
+
+  const commit = () => {
+    const parsed = Number(text)
+    if (text.trim() !== '' && Number.isFinite(parsed) && parsed !== 0) onCommit(parsed)
+    setText('0')
+  }
+
+  return (
+    <label className="f flex-1">
+      <span>{label}</span>
+      <input
+        type="number"
+        value={text}
+        onFocus={onFocus}
+        onChange={(event) => setText(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter') return
+          event.preventDefault()
+          commit()
         }}
       />
     </label>

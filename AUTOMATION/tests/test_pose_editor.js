@@ -309,6 +309,46 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   dire(rshoUndo.x === rshoAvant.x && lelbUndo.x === lelbAvant.x,
        `un seul Ctrl+Z annule l'alignement des DEUX joints a la fois (Rsho=${rshoUndo.x}, Lelb=${lelbUndo.x}, attendu ${rshoAvant.x}/${lelbAvant.x})`);
 
+  console.log('\n[5octies] capacite (design pass ecran 6, §B3) : decalage numerique dx/dy pour un groupe');
+  // Rsho/Lelb restent selectionnes depuis [5septies].
+  const dxField = page.locator('label:has-text("dx") input[type="number"]').first();
+  await dxField.click();
+  await dxField.fill('40');
+  await dxField.press('Enter');
+  await page.waitForTimeout(200);
+  dire((await dxField.inputValue()) === '0', 'le champ dx revient a 0 apres validation');
+  const rshoApresDx = await lireJoint('Rsho');
+  const lelbApresDx = await lireJoint('Lelb');
+  dire(rshoApresDx.x === rshoUndo.x + 40 && lelbApresDx.x === lelbUndo.x + 40,
+       `dx=40 deplace le groupe de 40px en X (Rsho ${rshoUndo.x}->${rshoApresDx.x}, Lelb ${lelbUndo.x}->${lelbApresDx.x})`);
+  dire(rshoApresDx.y === rshoUndo.y && lelbApresDx.y === lelbUndo.y, 'dx laisse Y inchange');
+
+  // dy immediatement apres, SANS re-selectionner -- doit composer depuis la
+  // position DEJA deplacee par dx (origines re-capturees au focus), pas
+  // depuis la position d'avant dx.
+  const dyField = page.locator('label:has-text("dy") input[type="number"]').first();
+  await dyField.click();
+  await dyField.fill('25');
+  await dyField.press('Enter');
+  await page.waitForTimeout(200);
+  const rshoApresDy = await lireJoint('Rsho');
+  const lelbApresDy = await lireJoint('Lelb');
+  dire(rshoApresDy.y === rshoApresDx.y + 25 && lelbApresDy.y === lelbApresDx.y + 25,
+       `dy=25 compose depuis la position deja deplacee par dx, pas l'originale (Rsho ${rshoApresDx.y}->${rshoApresDy.y})`);
+  dire(rshoApresDy.x === rshoApresDx.x && lelbApresDy.x === lelbApresDx.x, 'dy laisse X inchange');
+
+  await page.locator('button:has-text("Copier depuis la main droite")').first().focus();
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(200);
+  const apresUndoDy = { Rsho: await lireJoint('Rsho'), Lelb: await lireJoint('Lelb') };
+  dire(apresUndoDy.Rsho.y === rshoApresDx.y && apresUndoDy.Rsho.x === rshoApresDx.x,
+       'un Ctrl+Z annule SEULEMENT le decalage dy (retour a l\'etat post-dx)');
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(200);
+  const apresUndoDx = { Rsho: await lireJoint('Rsho'), Lelb: await lireJoint('Lelb') };
+  dire(apresUndoDx.Rsho.x === rshoUndo.x && apresUndoDx.Lelb.x === lelbUndo.x,
+       `un second Ctrl+Z annule le decalage dx, retour a l'etat d'origine (Rsho=${apresUndoDx.Rsho.x}, attendu ${rshoUndo.x})`);
+
   console.log('\n[6] sauvegarde — redirige vers la pose reellement ecrite');
   await page.click('button:has-text("Enregistrer")');
   await page.waitForFunction(() => location.pathname.includes('/bank/poses/edit/'), null, { timeout: 5000 });
