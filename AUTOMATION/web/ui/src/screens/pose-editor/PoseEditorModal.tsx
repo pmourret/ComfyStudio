@@ -23,7 +23,7 @@
    matter in practice. */
 import { Dialog } from '../../chrome/Dialog'
 import { useToast } from '../../chrome/ToastContext'
-import { PoseCanvas } from './PoseCanvas'
+import { handlePoseKeyDown, PoseCanvas } from './PoseCanvas'
 import { UndoRedoButtons } from './UndoRedoButtons'
 import { usePoseEditor, type PoseEditorSource } from './usePoseEditor'
 import { useSelection } from './useSelection'
@@ -62,6 +62,11 @@ export function PoseEditorModal({
       initialFocus="#poseModalClose"
       className="h-[min(880px,92vh)] max-h-[92vh] w-[min(1320px,95vw)] max-w-[95vw]"
       cardClassName="flex h-full! w-full! flex-col"
+      // Elevated Undo/Redo/nudge listener (design-pass screen-6, §A2) — same
+      // reasoning as PoseEditorScreen.tsx's own wrap div: PoseCanvas no
+      // longer owns this itself. No `pinned` here: the modal never offers
+      // pinning (PoseCanvas's own doc comment on that prop).
+      onKeyDown={(event) => pose && handlePoseKeyDown(event, { pose, selected, onChange: update, onUndo: undo, onRedo: redo })}
     >
       <div className="mb-[12px] flex shrink-0 items-center justify-between">
         <h3 className="m-0">Éditeur de pose</h3>
@@ -81,8 +86,6 @@ export function PoseEditorModal({
             <PoseCanvas
               pose={pose}
               onChange={update}
-              onUndo={undo}
-              onRedo={redo}
               selected={selected}
               onSelect={onSelect}
               onToggleSelect={onToggleSelect}

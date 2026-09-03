@@ -12,7 +12,7 @@ import { PATHS } from '../../app/routes'
 import { useApi } from '../../api/useApi'
 import { useToast } from '../../chrome/ToastContext'
 import { InfoHint } from '../bank/composer/InfoHint'
-import { PoseCanvas } from './PoseCanvas'
+import { handlePoseKeyDown, PoseCanvas } from './PoseCanvas'
 import { PoseInspector } from './PoseInspector'
 import { mirrorBody, mirrorHand } from './poseFrame'
 import { ReferenceControls } from './ReferenceControls'
@@ -130,7 +130,19 @@ function PoseEditorInner({
 
   return (
     <div className="screen" id="poseEditor">
-      <div className="wrap flex h-[calc(100vh-24px)] w-full max-w-none gap-[16px]">
+      <div
+        className="wrap flex h-[calc(100vh-24px)] w-full max-w-none gap-[16px]"
+        /* Elevated Undo/Redo/nudge listener (design-pass screen-6, §A2) —
+           replaces PoseCanvas's own removed `<svg onKeyDown>`, not added
+           alongside it: this container wraps every canvas AND the inspector,
+           so a keydown bubbles here regardless of where focus actually is
+           (a joint, or nowhere in particular after clicking Annuler). The
+           guard against text-entry targets (NumberField/OffsetField) lives
+           inside `handlePoseKeyDown` itself. */
+        onKeyDown={(event) =>
+          handlePoseKeyDown(event, { pose, selected, pinned, onChange: update, onUndo: undo, onRedo: redo })
+        }
+      >
         {/* Both close-ups and the full view share the SAME pose/selected —
             dragging a fingertip here and watching it move on the full-body
             canvas is one edit, not a sync between two. Wireframed in
@@ -149,8 +161,6 @@ function PoseEditorInner({
             <PoseCanvas
               pose={pose}
               onChange={update}
-              onUndo={undo}
-              onRedo={redo}
               selected={selected}
               onSelect={onSelect}
               onToggleSelect={onToggleSelect}
@@ -171,8 +181,6 @@ function PoseEditorInner({
             <PoseCanvas
               pose={pose}
               onChange={update}
-              onUndo={undo}
-              onRedo={redo}
               selected={selected}
               onSelect={onSelect}
               onToggleSelect={onToggleSelect}
@@ -203,8 +211,6 @@ function PoseEditorInner({
           <PoseCanvas
             pose={pose}
             onChange={update}
-            onUndo={undo}
-            onRedo={redo}
             selected={selected}
             onSelect={onSelect}
             onToggleSelect={onToggleSelect}

@@ -15,7 +15,9 @@
    injected into a single shared `#armCard`. The legacy frontend had one dialog
    element reused by the confirm, the NSFW arming and the decline modal, and
    whoever wrote into it last owned it. */
-import { useEffect, useRef, type ReactNode } from 'react'
+import {
+  useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type ReactNode,
+} from 'react'
 
 export function Dialog({
   open,
@@ -25,6 +27,7 @@ export function Dialog({
   id,
   className,
   cardClassName,
+  onKeyDown,
   children,
 }: {
   open: boolean
@@ -45,6 +48,12 @@ export function Dialog({
       `dialog .card` with an element + class selector, so an override coming
       from here needs `!`. */
   cardClassName?: string
+  /** Passthrough for a caller that needs its own keydown contract inside the
+      box (the pose editor modal's elevated Undo/Redo/nudge listener,
+      design-pass screen-6 §A2) — attached to the rendered `<dialog>` itself.
+      Independent of this file's own native `cancel`/Escape handling above:
+      disjoint key sets, neither interferes with the other. */
+  onKeyDown?: (event: ReactKeyboardEvent<HTMLDialogElement>) => void
   children: ReactNode
 }) {
   const ref = useRef<HTMLDialogElement | null>(null)
@@ -104,7 +113,7 @@ export function Dialog({
   }, [dismissable, onDismiss])
 
   return (
-    <dialog id={id} className={className} ref={ref}>
+    <dialog id={id} className={className} ref={ref} onKeyDown={onKeyDown}>
       <div className={cardClassName ? `card ${cardClassName}` : 'card'}>{children}</div>
     </dialog>
   )

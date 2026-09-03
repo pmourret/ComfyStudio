@@ -100,6 +100,76 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   dire(Number(cxApres) === Number(cxAvant) + 2,
        `2x fleche droite avance le joint de 2px (${cxAvant} -> ${cxApres})`);
 
+  console.log('\n[5bis] a11y (design pass ecran 6, §A1) : selection clavier des joints');
+  const stroke = (loc) => loc.evaluate((el) => getComputedStyle(el).stroke);
+  const tousJoints = await page.$$('#poseEditor svg[data-canvas="full"] circle');
+  const jointA = tousJoints[6];
+  const jointB = tousJoints[7];
+  await jointA.evaluate((el) => el.focus());
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(150);
+  dire((await stroke(page.locator('#poseEditor svg[data-canvas="full"] circle').nth(6))) === 'rgb(255, 255, 255)',
+       'Entree selectionne le joint focus (meme semantique que le clic simple)');
+
+  await jointB.evaluate((el) => el.focus());
+  await page.keyboard.down('Control');
+  await page.keyboard.press('Enter');
+  await page.keyboard.up('Control');
+  await page.waitForTimeout(150);
+  dire((await stroke(page.locator('#poseEditor svg[data-canvas="full"] circle').nth(6))) === 'rgb(255, 255, 255)'
+       && (await stroke(page.locator('#poseEditor svg[data-canvas="full"] circle').nth(7))) === 'rgb(255, 255, 255)',
+       'Ctrl+Entree AJOUTE a la selection (meme semantique que Ctrl+clic), ne la remplace pas');
+
+  await jointB.evaluate((el) => el.focus());
+  await page.keyboard.press(' ');
+  await page.waitForTimeout(150);
+  dire((await stroke(page.locator('#poseEditor svg[data-canvas="full"] circle').nth(6))) === 'none'
+       && (await stroke(page.locator('#poseEditor svg[data-canvas="full"] circle').nth(7))) === 'rgb(255, 255, 255)',
+       'Espace REMPLACE la selection (comme un clic simple), pas de scroll de page declenche');
+
+  console.log('\n[5ter] a11y (design pass ecran 6, §A2) : Ctrl+Z marche SANS clic prealable dans le canvas');
+  const cxAvantDrag2 = await tousJoints[0].getAttribute('cx');
+  const boite2 = await tousJoints[0].boundingBox();
+  await page.mouse.move(boite2.x + boite2.width / 2, boite2.y + boite2.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(boite2.x + boite2.width / 2 + 30, boite2.y + boite2.height / 2 + 10, { steps: 3 });
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  const cxApresDrag2 = await tousJoints[0].getAttribute('cx');
+  dire(cxApresDrag2 !== cxAvantDrag2, 'le glisser deplace bien le joint (avant de tester l annulation)');
+
+  // Focus deplace vers un VRAI bouton du panneau, hors du canvas -- jamais
+  // clique (aucun effet de bord), juste focus -- le scenario exact du
+  // document : "cliquer Annuler/Retablir/Epingler/Miroir puis Ctrl+Z".
+  await page.locator('button:has-text("Copier depuis la main droite")').first().focus();
+  await page.waitForTimeout(100);
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(300);
+  const cxApresUndo2 = await tousJoints[0].getAttribute('cx');
+  dire(cxApresUndo2 === cxAvantDrag2,
+       `Ctrl+Z annule sans avoir clique dans le canvas (${cxApresDrag2} -> ${cxApresUndo2}, attendu ${cxAvantDrag2})`);
+
+  console.log('\n[5quater] les fleches dans un champ numerique ne nudgent pas le joint EN PLUS du champ lui-meme');
+  // Le glisser de [5ter] a remplace la selection par le SEUL joint glisse
+  // (tousJoints[0]) -- son panneau x/y est donc affiche. Taper dans le champ
+  // x change legitimement cx (c'est son role) ; la question est de savoir si
+  // la fleche Haut, une fois le focus dans ce champ, DEBORDE en plus vers le
+  // nudge clavier du canvas (qui bouge cy, un axe que ce champ ne touche
+  // jamais) -- exactement le risque que la garde de saisie de texte doit
+  // couper avant qu'il atteigne handlePoseKeyDown.
+  const champX = page.locator('label:has-text("x") input[type="number"]').first();
+  if (await champX.count()) {
+    const cyAvant = await tousJoints[0].getAttribute('cy');
+    await champX.click();
+    await page.keyboard.press('ArrowUp'); // pas natif du <input number>, jamais un nudge de joint
+    await page.waitForTimeout(150);
+    const cyApres = await tousJoints[0].getAttribute('cy');
+    dire(cyApres === cyAvant,
+         `la fleche dans le champ ne nudge pas le joint sur l'axe Y (garde de saisie de texte) (${cyAvant} -> ${cyApres})`);
+  } else {
+    console.log('      (champ x introuvable — selection differente, verification sautee)');
+  }
+
   console.log('\n[6] sauvegarde — redirige vers la pose reellement ecrite');
   await page.click('button:has-text("Enregistrer")');
   await page.waitForFunction(() => location.pathname.includes('/bank/poses/edit/'), null, { timeout: 5000 });

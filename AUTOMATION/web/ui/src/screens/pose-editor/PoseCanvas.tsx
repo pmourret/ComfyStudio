@@ -54,6 +54,86 @@ type Rect = { x0: number; y0: number; x1: number; y1: number }
 const IDENTITY_VIEW: View = { scale: 1, x: 0, y: 0 }
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
+/* A11y audit, design-pass screen-6, §A2. Structural type rather than
+   `React.KeyboardEvent` or DOM `KeyboardEvent`: the two call sites (this
+   component's own circles bubbling a synthetic event, and a screen/modal
+   level `<div>`/`Dialog` listener) each carry a different concrete event
+   type, and this function only ever touches the members below. */
+type PoseKeyEvent = {
+  key: string
+  ctrlKey: boolean
+  metaKey: boolean
+  shiftKey: boolean
+  target: EventTarget | null
+  preventDefault: () => void
+}
+
+/** A text field being typed into — never a joint `<circle>` (never an
+    `<input>`/`<textarea>` to begin with) but ALWAYS true for the numeric
+    fields (`NumberField`/`OffsetField` in `PoseInspector.tsx`) once the
+    listener moves up to the shared container (§A2 below): without this,
+    typing "z" there would fire Undo, and the arrow keys would nudge the
+    selected JOINTS instead of stepping the focused number input. */
+function isTextEntry(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  if (target.tagName === 'TEXTAREA') return true
+  if (target.tagName !== 'INPUT') return false
+  const NOT_TEXT = ['checkbox', 'radio', 'range', 'button', 'submit', 'reset', 'file', 'color']
+  return !NOT_TEXT.includes((target as HTMLInputElement).type)
+}
+
+/** Ctrl/Cmd+Z (+Shift for redo), Ctrl/Cmd+Y, and arrow-key nudge of the
+    current selection — the canvas's own keyboard contract, extracted to a
+    pure function so it can be called from a listener ABOVE this component
+    too (design-pass screen-6, §A2: today this only fires while focus stays
+    inside the `<svg>`, so Undo/Redo/pin buttons living outside it — then
+    Ctrl+Z — do nothing). Elevate the LISTENER, don't duplicate it: wiring
+    this at both the `<svg>` and an ancestor would double-fire on every
+    keypress made with focus inside the svg (normal DOM bubbling, no
+    `stopPropagation` here to prevent it). The text-entry guard lives HERE,
+    not at each call site, so neither caller can forget it. */
+export function handlePoseKeyDown(
+  event: PoseKeyEvent,
+  { pose, selected, pinned, onChange, onUndo, onRedo }: {
+    pose: PoseFrame
+    selected: Selected
+    pinned?: ReadonlySet<string>
+    onChange: (pose: PoseFrame) => void
+    onUndo?: () => void
+    onRedo?: () => void
+  },
+): void {
+  if (isTextEntry(event.target)) return
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+    event.preventDefault()
+    if (event.shiftKey) onRedo?.()
+    else onUndo?.()
+    return
+  }
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') {
+    event.preventDefault()
+    onRedo?.()
+    return
+  }
+  if (selected.size === 0) return
+  const step = event.shiftKey ? NUDGE_FAST : NUDGE
+  const delta: Record<string, [number, number]> = {
+    ArrowLeft: [-step, 0], ArrowRight: [step, 0],
+    ArrowUp: [0, -step], ArrowDown: [0, step],
+  }
+  const d = delta[event.key]
+  if (!d) return
+  event.preventDefault()
+  let next = pose
+  for (const key of selected) {
+    if (pinned?.has(key)) continue
+    const { group, index } = parsePointKey(key)
+    const p = next[group][index]
+    next = withPoint(next, group, index, p.x + d[0], p.y + d[1])
+  }
+  onChange(next)
+}
+
 /** The view that frames one hand's own placed points, padded so they don't
     sit flush against the edge — a hand is a small cluster inside a
     768×1024-ish canvas, `IDENTITY_VIEW` would show it as a speck. Falls
@@ -82,8 +162,6 @@ function fitToHand(points: Point[], canvasWidth: number, canvasHeight: number): 
 export function PoseCanvas({
   pose,
   onChange,
-  onUndo,
-  onRedo,
   selected,
   onSelect,
   onToggleSelect,
@@ -96,12 +174,6 @@ export function PoseCanvas({
 }: {
   pose: PoseFrame
   onChange: (pose: PoseFrame) => void
-  /** Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z (or +Y) work from the canvas without
-      needing focus on a dedicated toolbar button — history itself lives in
-      usePoseEditor, this only forwards the keystroke. Omit either to leave
-      that shortcut a no-op, e.g. a caller with no history to offer. */
-  onUndo?: () => void
-  onRedo?: () => void
   /** Controlled, not local state: the advanced screen's outliner and numeric
       readout both need to READ the selection and WRITE it (click a name in
       the list, select the same joints the canvas has highlighted) — a
@@ -396,47 +468,21 @@ export function PoseCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recenterTrigger])
 
-  // KNOWN ROUGH EDGE: this only fires while FOCUS is somewhere inside the
-  // SVG (a joint, via startDrag's own .focus() call) — background clicks go
-  // through startPan/startRectSelect instead, which never focus anything,
-  // and the Undo/Redo/pin buttons live outside this component entirely.
-  // Clicking one of those then pressing Ctrl+Z or an arrow key without
-  // touching the canvas first does nothing; the buttons remain the reliable
-  // path from there. Not fixed here: doing so needs a keydown listener
-  // scoped to the whole modal/screen, not just this canvas, which is more
-  // plumbing than this pass needs while the buttons already cover it.
-  const onKeyDown = useCallback(
-    (event: React.KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
-        event.preventDefault()
-        if (event.shiftKey) onRedo?.()
-        else onUndo?.()
-        return
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') {
-        event.preventDefault()
-        onRedo?.()
-        return
-      }
-      if (selected.size === 0) return
-      const step = event.shiftKey ? NUDGE_FAST : NUDGE
-      const delta: Record<string, [number, number]> = {
-        ArrowLeft: [-step, 0], ArrowRight: [step, 0],
-        ArrowUp: [0, -step], ArrowDown: [0, step],
-      }
-      const d = delta[event.key]
-      if (!d) return
+  /** Keyboard selection of a joint (design-pass screen-6, §A1) — Enter/Space
+      = `onSelect` (same semantics as a plain click), Ctrl/Cmd+Enter =
+      `onToggleSelect` (same as Ctrl/Cmd+click), mirroring `startDrag`'s own
+      curried-by-`(group,index)` shape just above. `preventDefault` on Space:
+      a `tabIndex={0}` `<circle>` carries no form-control role, so the
+      browser's default is to scroll the page on Space — `touch-none` on the
+      svg only governs touch, not this. */
+  const onJointKeyDown = useCallback(
+    (group: PointGroup, index: number) => (event: React.KeyboardEvent<SVGCircleElement>) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return
       event.preventDefault()
-      let next = pose
-      for (const key of selected) {
-        if (pinned?.has(key)) continue
-        const { group, index } = parsePointKey(key)
-        const p = next[group][index]
-        next = withPoint(next, group, index, p.x + d[0], p.y + d[1])
-      }
-      onChange(next)
+      if (event.ctrlKey || event.metaKey) onToggleSelect(group, index)
+      else onSelect(group, index)
     },
-    [pose, selected, onChange, onUndo, onRedo, pinned],
+    [onSelect, onToggleSelect],
   )
 
   // A focus canvas has no fixed "rest" position to compare against — the fit
@@ -454,7 +500,6 @@ export function PoseCanvas({
         viewBox={`${view.x} ${view.y} ${viewBoxWidth} ${viewBoxHeight}`}
         className="h-full w-full touch-none rounded-[8px] bg-black"
         data-canvas={focus ?? 'full'}
-        onKeyDown={onKeyDown}
         onPointerDown={onBackgroundPointerDown}
         role="application"
         aria-label={
@@ -480,16 +525,21 @@ export function PoseCanvas({
         ) : (
           <>
             {!focus && (
-              <BodyLayer points={pose.body} selected={selected} startDrag={startDrag} pinned={pinned} />
+              <BodyLayer
+                points={pose.body} selected={selected} startDrag={startDrag}
+                onJointKeyDown={onJointKeyDown} pinned={pinned}
+              />
             )}
             {(!focus || focus === 'handLeft') && (
               <HandLayer
-                points={pose.handLeft} group="handLeft" selected={selected} startDrag={startDrag} pinned={pinned}
+                points={pose.handLeft} group="handLeft" selected={selected} startDrag={startDrag}
+                onJointKeyDown={onJointKeyDown} pinned={pinned}
               />
             )}
             {(!focus || focus === 'handRight') && (
               <HandLayer
-                points={pose.handRight} group="handRight" selected={selected} startDrag={startDrag} pinned={pinned}
+                points={pose.handRight} group="handRight" selected={selected} startDrag={startDrag}
+                onJointKeyDown={onJointKeyDown} pinned={pinned}
               />
             )}
           </>
@@ -552,11 +602,12 @@ function jointDecoration(isSelected: boolean, isPinned: boolean) {
 }
 
 function BodyLayer({
-  points, selected, startDrag, pinned,
+  points, selected, startDrag, onJointKeyDown, pinned,
 }: {
   points: Point[]
   selected: Selected
   startDrag: (group: PointGroup, index: number) => (event: ReactPointerEvent<SVGCircleElement>) => void
+  onJointKeyDown: (group: PointGroup, index: number) => (event: React.KeyboardEvent<SVGCircleElement>) => void
   pinned?: ReadonlySet<string>
 }) {
   return (
@@ -587,6 +638,7 @@ function BodyLayer({
             tabIndex={0}
             className={deco.className}
             onPointerDown={startDrag('body', i)}
+            onKeyDown={onJointKeyDown('body', i)}
           />
         )
       })}
@@ -595,12 +647,13 @@ function BodyLayer({
 }
 
 function HandLayer({
-  points, group, selected, startDrag, pinned,
+  points, group, selected, startDrag, onJointKeyDown, pinned,
 }: {
   points: Point[]
   group: 'handLeft' | 'handRight'
   selected: Selected
   startDrag: (group: PointGroup, index: number) => (event: ReactPointerEvent<SVGCircleElement>) => void
+  onJointKeyDown: (group: PointGroup, index: number) => (event: React.KeyboardEvent<SVGCircleElement>) => void
   pinned?: ReadonlySet<string>
 }) {
   return (
@@ -631,6 +684,7 @@ function HandLayer({
             tabIndex={0}
             className={deco.className}
             onPointerDown={startDrag(group, i)}
+            onKeyDown={onJointKeyDown(group, i)}
           />
         )
       })}
