@@ -38,6 +38,7 @@ import { Link } from 'react-router-dom'
 import { useApi } from '../../../api/useApi'
 import { Dialog } from '../../../chrome/Dialog'
 import { Icon } from '../../../chrome/Icon'
+import { useToast } from '../../../chrome/ToastContext'
 import type { Creative } from '../../../state/TaxonomyContext'
 import {
   bandOf,
@@ -1152,13 +1153,41 @@ function AiPanel({ draft }: { draft: SceneDraft }) {
 /* --------------------------------------------------------------- JSON final */
 function JsonPanel({ draft, onSaveDocument }: { draft: SceneDraft; onSaveDocument: () => void }) {
   const json = JSON.stringify(draftsToScenes([draft])[0], null, 2)
+  const toast = useToast()
+
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(json)
+      toast('JSON copié')
+    } catch {
+      toast('copie impossible — le presse-papier a refusé')
+    }
+  }
+
   return (
     <div>
       <label className="f">
-        <span>
-          JSON final
-          <InfoHint text="Ce que cette scène deviendra dans scenes.json à l'enregistrement — lecture seule ici, le détail s'édite dans les autres onglets." />
-        </span>
+        {/* `div`, not `span`, for this row: `label.f span{display:block}`
+            (chrome.css) is a descendant selector that would outrank the
+            `.flex` utility on a nested `span` (same trap as the tabpanel/
+            `hidden` note above in this file) and collapse the row. */}
+        <div className="flex items-center justify-between">
+          <span>
+            JSON final
+            <InfoHint text="Ce que cette scène deviendra dans scenes.json à l'enregistrement — lecture seule ici, le détail s'édite dans les autres onglets." />
+          </span>
+          <button
+            type="button"
+            className="cursor-pointer rounded-[6px] border border-line2 bg-panel2 p-[6px]
+                       text-dim hover:text-txt focus-visible:outline-2 focus-visible:outline-focus
+                       focus-visible:outline-offset-2"
+            aria-label="Copier le JSON final"
+            data-hint-text="Copie ce JSON dans le presse-papier — utile en support/debug sans quitter l'écran."
+            onClick={() => void onCopy()}
+          >
+            <Icon name="copy" className="h-[14px] w-[14px]" />
+          </button>
+        </div>
         <textarea className="min-h-[260px] resize-y font-mono text-[12px]" readOnly value={json} />
       </label>
       <button className="btn primary mt-[14px]" onClick={onSaveDocument}>

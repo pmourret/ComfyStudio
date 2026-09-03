@@ -39,6 +39,7 @@ const PATHS: Record<string, string> = {
     '<rect x="5" y="6.2" width="10" height="7.8" rx="2"/><path d="M10 3.5v2.7M4 9.5v3M16 9.5v3"/><circle cx="7.6" cy="10" r=".9" fill="currentColor" stroke="none"/><circle cx="12.4" cy="10" r=".9" fill="currentColor" stroke="none"/>',
   terminal:
     '<rect x="2.5" y="4" width="15" height="12" rx="1.5"/><path d="M5.8 8.3l3 2.4-3 2.4M10.8 13.1h3.4"/>',
+  copy: '<rect x="7" y="7" width="9.5" height="9.5" rx="1.6"/><path d="M13 7V5.6A1.6 1.6 0 0011.4 4h-6.8A1.6 1.6 0 003 5.6v6.8A1.6 1.6 0 004.6 14H7"/>',
   info: '<circle cx="10" cy="10" r="7.2"/><path d="M10 9.3v4.3"/><circle cx="10" cy="6.5" r=".9" fill="currentColor" stroke="none"/>',
   save: '<rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7.2 3v4h5.6V3"/><rect x="6.5" y="11" width="7" height="5"/>',
   // --- status
