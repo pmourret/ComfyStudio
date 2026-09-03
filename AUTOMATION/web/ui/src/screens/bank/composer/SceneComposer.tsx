@@ -138,6 +138,7 @@ export function SceneComposer({
     setTab(key)
     tabsRef.current?.querySelector<HTMLElement>(`[data-tab="${key}"]`)?.focus()
   }
+  const gotoTab = (key: TabKey) => goto(TABS.findIndex((t) => t.key === key))
 
   const lockedNote =
     "hérité du lieu — s'édite dans l'onglet Monde, ce qui serait tapé ici ne survit pas à l'enregistrement (ADR-0015)."
@@ -228,6 +229,7 @@ export function SceneComposer({
                     worldLinked={worldLinked}
                     idRef={idRef}
                     onPatch={onPatch}
+                    onGotoClothing={() => gotoTab('clothing')}
                   />
                 )}
                 {t.key === 'light' && (
@@ -385,6 +387,7 @@ function GeneralPanel({
   worldLinked,
   idRef,
   onPatch,
+  onGotoClothing,
 }: {
   draft: SceneDraft
   creative: Creative | null
@@ -392,6 +395,9 @@ function GeneralPanel({
   worldLinked: boolean
   idRef: RefObject<HTMLInputElement | null>
   onPatch: (patch: Partial<SceneDraft>) => void
+  /** Jumps to the Vêtements tab — the gauge below answers "why this ceiling",
+      this answers "where do I change it". */
+  onGotoClothing: () => void
 }) {
   const band = bandOf({
     intensity: Number.parseInt(draft.bandLo, 10) || 0,
@@ -466,20 +472,23 @@ function GeneralPanel({
             onChange={(e) => onPatch({ guidance: e.target.value })}
           />
         </label>
-        <label className="f">
-          <span>
-            niveau minimum — jusqu'à <b>{band[1]}</b>
-            <InfoHint text="Le maximum n'est pas saisi : il est déduit de la tenue la plus haute déclarée dans l'onglet Vêtements, pour ne pas avoir deux champs qui peuvent se contredire." />
-          </span>
-          <input
-            data-f="band_lo"
-            type="number"
-            min={0}
-            max={3}
-            value={draft.bandLo}
-            onChange={(e) => onPatch({ bandLo: e.target.value })}
-          />
-        </label>
+        <div>
+          <label className="f">
+            <span>
+              niveau minimum
+              <InfoHint text="Le maximum n'est pas saisi : il est déduit de la tenue la plus haute déclarée dans l'onglet Vêtements, pour ne pas avoir deux champs qui peuvent se contredire." />
+            </span>
+            <input
+              data-f="band_lo"
+              type="number"
+              min={0}
+              max={3}
+              value={draft.bandLo}
+              onChange={(e) => onPatch({ bandLo: e.target.value })}
+            />
+          </label>
+          <BandGauge band={band} onJump={onGotoClothing} />
+        </div>
       </div>
 
       <div className="mt-[12px] grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-[14px]">
@@ -498,6 +507,34 @@ function GeneralPanel({
         </label>
       </div>
     </div>
+  )
+}
+
+/* Compact 0→3 gauge — segments `band[0]`..`band[1]` filled in accent, the rest
+   dim. Clickable: jumps to Vêtements, since the ceiling shown here is DEDUCED
+   from what is declared there (design pass écran 7, §V1) — the gauge answers
+   "why this ceiling" on sight, the click answers "where do I change it". */
+function BandGauge({ band, onJump }: { band: [number, number]; onJump: () => void }) {
+  return (
+    <button
+      type="button"
+      className="mt-[6px] flex cursor-pointer items-center gap-[3px] rounded-[6px]
+                 border-0 bg-transparent p-0 focus-visible:outline-2
+                 focus-visible:outline-focus focus-visible:outline-offset-2"
+      aria-label={`Niveaux ${band[0]} à ${band[1]} — ouvrir l'onglet Vêtements pour changer le plafond`}
+      data-hint-text="Le plafond est déduit de la tenue la plus haute déclarée dans l'onglet Vêtements — cliquer pour y aller."
+      onClick={onJump}
+    >
+      {[0, 1, 2, 3].map((level) => (
+        <span
+          key={level}
+          aria-hidden="true"
+          className={`h-[6px] w-[20px] rounded-[2px] ${
+            level >= band[0] && level <= band[1] ? 'bg-acc' : 'bg-line2'
+          }`}
+        />
+      ))}
+    </button>
   )
 }
 
