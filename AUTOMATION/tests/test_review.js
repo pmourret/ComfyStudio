@@ -243,6 +243,73 @@ const volsDeDonnees = [];
          `l'annulation remet tout en place (${JSON.stringify(apresUndo)})`);
   }
 
+  console.log('\n[7bis] SELECTION MULTIPLE + ACTIONS GROUPEES (design pass ecran 5, §D)');
+  await page.goto(BASE + '/gallery?character=lena', { waitUntil: 'networkidle' });
+  await page.waitForSelector('[data-tile]');
+  const avantSelection = await compteurs();
+
+  const noms = await page.$$eval('[data-tile]', els => els.slice(0, 3).map(e => {
+    const src = e.querySelector('[data-thumb] img').getAttribute('src');
+    return decodeURIComponent(new URL(src, location.origin).searchParams.get('name'));
+  }));
+  const cases = await page.$$('[data-select]');
+  dire(!(await vu('#bulkBar')), 'pas de barre groupee tant que rien n est coche');
+
+  await cases[0].click();
+  await page.waitForTimeout(200);
+  await page.keyboard.down('Shift');
+  await cases[2].click();
+  await page.keyboard.up('Shift');
+  await page.waitForTimeout(200);
+  const cocheesApresPlage = await page.$$eval('[data-select]', e => e.slice(0, 3).map(x => x.checked));
+  dire(cocheesApresPlage.join(',') === 'true,true,true',
+       `Maj-clic etend la plage (ancre -> celle-ci), jamais un retrait (${cocheesApresPlage.join(',')})`);
+  dire(await vu('#bulkBar'), 'la barre groupee apparait des le premier coche');
+  dire(!(await vu('#scoreSel')), 'et remplace la ligne de filtres, pas s y ajouter');
+  dire((await texte('#bulkBar')).includes('3 sélectionnées'), 'elle dit combien');
+
+  console.log('\n[7ter] Echap vide la selection et rend le focus a la grille');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  dire(!(await vu('#bulkBar')), 'la barre disparait');
+  const coucheesApresEchap = await page.$$eval('[data-select]', e => e.some(x => x.checked));
+  dire(!coucheesApresEchap, 'plus rien de coche');
+  const focusTag = await page.evaluate(() => document.activeElement.tagName);
+  dire(focusTag !== 'INPUT', 'le focus a quitte la case (rendu a la grille), pas laisse dans le vide');
+
+  console.log('\n[7quater] actMany : UN SEUL toast recapitulatif, et un aller-retour reel VERIFIE puis restaure');
+  await cases[0].click();
+  await page.waitForTimeout(150);
+  await cases[1].click();
+  await page.waitForTimeout(150);
+  await page.click('#bulkBar [data-a="archiver"]');
+  await page.waitForTimeout(900);
+  dire((await texte('#toast')) === '2/2 archivées', `un seul toast recapitulatif ("${await texte('#toast')}")`);
+  const apresArchivage = await compteurs();
+  dire(apresArchivage.ARCHIVE === avantSelection.ARCHIVE + 2 && apresArchivage.OK === avantSelection.OK - 2,
+       `les DEUX images ont bouge en un seul geste (OK ${avantSelection.OK}->${apresArchivage.OK}, ARCHIVE ${avantSelection.ARCHIVE}->${apresArchivage.ARCHIVE})`);
+  dire(!(await vu('#bulkBar')), 'la selection est videe apres le geste');
+
+  // RESTAURATION : actMany n'a pas d'annulation groupee (/api/undo ne defait
+  // qu'UNE action) — cette fumigation ne doit rien laisser bouge sur les
+  // donnees reelles, donc restauration manuelle des DEUX images, verifiee.
+  await page.goto(BASE + '/review?character=lena', { waitUntil: 'networkidle' });
+  await page.click('#bucketSel [data-b="ARCHIVE"]');
+  await page.waitForTimeout(500);
+  for (const nom of noms.slice(0, 2)) {
+    const tuile = page.locator(`[data-tile]:has([data-thumb] img[src*="${encodeURIComponent(nom)}"])`).first();
+    await tuile.locator('[data-tacts] [data-a="valider"]').click();
+    await page.waitForTimeout(500);
+  }
+  const apresRestauration = await compteurs();
+  dire(JSON.stringify(apresRestauration) === JSON.stringify(avantSelection),
+       `les deux images restaurees, rien de reste change (${JSON.stringify(apresRestauration)})`);
+
+  // section [8] continue dans Revue, dossier REJET — meme etat qu a la fin de [7]
+  await page.click('#bucketSel [data-b="REJET"]');
+  await page.waitForSelector('[data-tile]');
+  await page.waitForTimeout(400);
+
   console.log('\n[8] la suppression definitive confirme, et n a AUCUN raccourci');
   const nTuiles = await tuiles();
   await page.keyboard.press('Delete');

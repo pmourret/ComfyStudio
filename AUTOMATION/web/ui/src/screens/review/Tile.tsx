@@ -32,6 +32,8 @@ export function Tile(props: {
   items: GalleryItem[]
   src: string
   fullSrc: string
+  selected: boolean
+  onSelectClick: (name: string, index: number, event: { shiftKey: boolean }) => void
   onAim: () => void
   onOpen: () => void
   onAct: (action: string) => void
@@ -52,11 +54,32 @@ export function Tile(props: {
       aria-current={props.current ? 'true' : undefined}
       data-k={props.index}
       onMouseDown={(event) => {
-        // the action buttons place the cursor themselves
+        // the action buttons and the selection checkbox place the cursor
+        // (or the selection) themselves
         if ((event.target as HTMLElement).closest('[data-tacts]')) return
+        if ((event.target as HTMLElement).closest('[data-select]')) return
         props.onAim()
       }}
     >
+      {/* Selection checkbox (design-pass screen-5, §D/§B) — feeds both the
+          bulk action bar and Comparer mode. Same corner as the score chip,
+          "par-dessus" it (drawn after, in DOM order — genuine layering, not
+          a coincidence): a sibling of the thumbnail button, never nested
+          inside it (a checkbox inside a button is invalid HTML and breaks
+          screen-reader semantics). */}
+      <input
+        type="checkbox"
+        data-select
+        checked={props.selected}
+        aria-label={`Sélectionner ${item.scene || item.name} pour comparer`}
+        className="absolute top-[6px] left-[6px] z-[1] h-[16px] w-[16px] cursor-pointer
+                   accent-acc [box-shadow:0_0_0_2px_#00000099]"
+        onChange={() => {}}
+        onClick={(event) => {
+          event.stopPropagation()
+          props.onSelectClick(item.name, props.index, { shiftKey: event.shiftKey })
+        }}
+      />
       {/* clickable thumbnail: a <button>, for keyboard access to the full frame.
           The ring lands on a PHOTO, of which we know nothing: the dark halo gives
           it a constant ground, without which it vanishes on a light image. */}

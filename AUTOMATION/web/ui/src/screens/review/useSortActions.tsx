@@ -80,6 +80,27 @@ export function useSortActions({
     [api, toast, setItems],
   )
 
+  /* The POST core of a sort, shared by `act` (one image, toasts immediately,
+     offers `annuler`) and `actMany` (a batch, one summary toast at the end —
+     design-pass screen-5, §D). Neither the no-op guard (already in this
+     bucket) nor `decliner`/`skip` belong here: those are gestures of `act`
+     alone, and `actMany`'s own scope is Garder/Rejeter/Archiver only (the
+     document's own wording), so it applies its own no-op guard per item
+     instead of sharing this one. */
+  const postSort = useCallback(
+    async (item: GalleryItem, action: string): Promise<{ ok: true } | { ok: false; reason: string }> => {
+      const response = await api.post<ActionLike>('/api/action', {
+        name: item.name,
+        bucket: item.bucket,
+        space: item.space,
+        action,
+      })
+      const failure = errorOf(response)
+      return failure ? { ok: false, reason: failure || 'action impossible' } : { ok: true }
+    },
+    [api],
+  )
+
   const act = useCallback(
     async (action: string, index?: number) => {
       if (!shown.length) return
@@ -106,15 +127,9 @@ export function useSortActions({
         step(1)
         return
       }
-      const response = await api.post<ActionLike>('/api/action', {
-        name: item.name,
-        bucket: item.bucket,
-        space: item.space,
-        action,
-      })
-      const failure = errorOf(response)
-      if (failure) {
-        toast(failure || 'action impossible')
+      const result = await postSort(item, action)
+      if (!result.ok) {
+        toast(result.reason)
         return
       }
       setItems((list) => list.filter((i) => i.name !== item.name))
@@ -125,7 +140,42 @@ export function useSortActions({
       })
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [api, bucket, shown, safeCursor, step, toast, setItems, setCursor, refreshCounts],
+    [api, bucket, shown, safeCursor, step, toast, setItems, setCursor, refreshCounts, postSort],
+  )
+
+  /* Bulk sort (design-pass screen-5, §D) — sequential, one item at a time
+     (same discipline as `measure()` below: no hammering the server, and the
+     per-item no-op guard stays correct without racing `setItems`). ONE
+     summary toast, distinguishing full/partial/zero success — never per
+     item, never an `annuler` attached: `/api/undo` only ever undoes the
+     LAST action, nothing batch-aware exists server-side to bind here
+     honestly. */
+  const actMany = useCallback(
+    async (action: string, names: string[]) => {
+      const byName = new Map(shown.map((item) => [item.name, item]))
+      const succeeded: GalleryItem[] = []
+      const failed: { item: GalleryItem; reason: string }[] = []
+      for (const name of names) {
+        const item = byName.get(name)
+        if (!item) continue
+        if (SORT_TARGET[action] === bucket) continue // already there: not a failure, just skipped
+        const result = await postSort(item, action)
+        if (result.ok) succeeded.push(item)
+        else failed.push({ item, reason: result.reason })
+      }
+      if (succeeded.length) {
+        const succeededNames = new Set(succeeded.map((i) => i.name))
+        setItems((list) => list.filter((i) => !succeededNames.has(i.name)))
+        refreshCounts()
+      }
+      const total = succeeded.length + failed.length
+      if (!total) return
+      const verb = `${SORT_LABEL[action] || action}${total > 1 ? 's' : ''}`
+      let message = `${succeeded.length}/${total} ${verb}`
+      if (failed.length) message += `, ${failed.length} échec${failed.length > 1 ? 's' : ''} : ${failed[0].reason}`
+      toast(message)
+    },
+    [shown, bucket, postSort, setItems, refreshCounts, toast],
   )
 
   const undo = useCallback(async () => {
@@ -223,5 +273,5 @@ export function useSortActions({
     }
   }
 
-  return { setFlag, act, undo, deleteForever, measure, measuring, measureLeft }
+  return { setFlag, act, actMany, undo, deleteForever, measure, measuring, measureLeft }
 }

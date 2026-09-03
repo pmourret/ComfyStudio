@@ -35,6 +35,7 @@ import { EmptyState } from './EmptyState'
 import { FullFrame } from './FullFrame'
 import { Tile } from './Tile'
 import { useReviewKeys } from './useReviewKeys'
+import { useSelection } from './useSelection'
 import { useSortActions } from './useSortActions'
 import {
   scoreBand,
@@ -127,7 +128,7 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
     [shown.length, setCursor],
   )
 
-  const { setFlag, act, undo, deleteForever, measure, measuring, measureLeft } = useSortActions({
+  const { setFlag, act, actMany, undo, deleteForever, measure, measuring, measureLeft } = useSortActions({
     shown,
     safeCursor,
     bucket,
@@ -138,8 +139,33 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
     step,
     reload,
   })
+
+  /* Multi-select (design-pass screen-5, §D/§B) — one Set feeds the bulk
+     action bar AND Comparer mode's source set. `gridRef` is where focus
+     returns on Échap (a checkbox or the bulk bar's own button could
+     otherwise be left stranded once the bar it was on unmounts). */
+  const selection = useSelection(shown)
+  const gridRef = useRef<HTMLDivElement | null>(null)
+  const clearSelectionAndRefocus = useCallback(() => {
+    selection.clearSelection()
+    gridRef.current?.focus()
+  }, [selection])
+
   const editing = declineFor !== null || editFor !== null
-  useReviewKeys({ trade, view, setView, step, act, setFlag, undo, current, lightboxSrc, editing })
+  useReviewKeys({
+    trade,
+    view,
+    setView,
+    step,
+    act,
+    setFlag,
+    undo,
+    current,
+    lightboxSrc,
+    editing,
+    selectedCount: selection.selected.size,
+    onClearSelection: clearSelectionAndRefocus,
+  })
 
   /* A finished batch means new images in the folder being looked at. */
   const lastBatch = useRef<string | null>(null)
@@ -164,10 +190,45 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
   const viewIds = ['revue', 'grille']
   const viewRoving = useRovingChoice(viewIds, view)
 
+  const onBulk = useCallback(
+    async (action: string) => {
+      await actMany(action, [...selection.selected])
+      selection.clearSelection()
+    },
+    [actMany, selection],
+  )
+
   return (
     <div className="screen" id="trier" data-metier={trade}>
       {/* The sorting screen ends on its grid: it has no launch bar to clear. */}
       <div className="wrap pb-[24px]">
+        {view === 'grille' && selection.selected.size > 0 ? (
+          /* Bulk action bar (design-pass screen-5, §D) — REPLACES the filter
+             row while a selection is live, same slot, never both at once.
+             Language of ReviewActions.tsx (`.btn`, `data-a`, `.kbd`) without
+             reusing the component itself: that one is bucket-conditional and
+             built for the full-frame column. */
+          <div className="viewsel" id="bulkBar">
+            <span className="text-[13px] font-semibold text-txt" role="status">
+              {selection.selected.size} sélectionnée{selection.selected.size > 1 ? 's' : ''}
+            </span>
+            <div className="flex-1" />
+            <div className="flex gap-[9px]">
+              <button className="btn" data-a="valider" onClick={() => void onBulk('valider')}>
+                Garder
+              </button>
+              <button className="btn" data-a="rejeter" onClick={() => void onBulk('rejeter')}>
+                Rejeter
+              </button>
+              <button className="btn" data-a="archiver" onClick={() => void onBulk('archiver')}>
+                Archiver
+              </button>
+            </div>
+            <button className="link" onClick={clearSelectionAndRefocus}>
+              annuler la sélection <span className="kbd">Échap</span>
+            </button>
+          </div>
+        ) : (
         <div className="viewsel">
           {/* `data-sp="sfw"` is the WIRE key sent to /api/gallery and /img: SFW,
               not the name of a character (AUDIT §5.3). */}
@@ -304,6 +365,7 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
             </button>
           )}
         </div>
+        )}
 
         <div id="triageBody">
           {notFound && (
@@ -330,7 +392,11 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
               onShowAll={() => setFilter('tout')}
             />
           ) : view === 'grille' ? (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-[14px]">
+            <div
+              ref={gridRef}
+              tabIndex={-1}
+              className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-[14px] outline-none"
+            >
               {shown.map((item, index) => (
                 <Tile
                   key={item.name}
@@ -343,6 +409,8 @@ export function ReviewScreen({ trade }: { trade: Trade }) {
                   items={items}
                   src={api.image({ ...item, thumb: true })}
                   fullSrc={api.image(item)}
+                  selected={selection.selected.has(item.name)}
+                  onSelectClick={selection.onSelectClick}
                   onAim={() => setCursor(index)}
                   onOpen={() => {
                     setCursor(index)

@@ -12,6 +12,21 @@ import { useEffect } from 'react'
 
 import type { GalleryItem, Trade, View } from './useTriage'
 
+/* A text field being typed into, never a checkbox. `<input>` alone used to
+   be the whole test — found live (design-pass screen-5, §D): a selection
+   checkbox is an `<input>` too and stays focused after a click (expected,
+   accessible behaviour), so Échap pressed right after checking a box never
+   reached this hook at all, silently swallowed by this guard before it
+   could clear the selection. Narrowed to the input TYPES that actually take
+   text, everything else (checkbox/radio/range/button/…) falls through. */
+function isTextEntry(el: HTMLElement | null): boolean {
+  if (!el) return false
+  if (el.tagName === 'TEXTAREA') return true
+  if (el.tagName !== 'INPUT') return false
+  const NOT_TEXT = ['checkbox', 'radio', 'range', 'button', 'submit', 'reset', 'file', 'color']
+  return !NOT_TEXT.includes((el as HTMLInputElement).type)
+}
+
 export function useReviewKeys({
   trade,
   view,
@@ -23,6 +38,8 @@ export function useReviewKeys({
   current,
   lightboxSrc,
   editing,
+  selectedCount,
+  onClearSelection,
 }: {
   trade: Trade
   view: View
@@ -34,11 +51,15 @@ export function useReviewKeys({
   current: GalleryItem | undefined
   lightboxSrc: string | null
   editing: boolean
+  /** Multi-select (design-pass screen-5, §D) — Échap clears it, nothing else
+      here owned this key before. */
+  selectedCount: number
+  onClearSelection: () => void
 }) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
-      if (target && /input|textarea/i.test(target.tagName)) return
+      if (isTextEntry(target)) return
       if (target?.isContentEditable) return
       // an open modal <dialog> swallows the page: its keys must not percolate
       if (document.querySelector('dialog[open]')) return
@@ -55,6 +76,10 @@ export function useReviewKeys({
       if (target?.closest('[role="listbox"]')) return
 
       const key = event.key.toLowerCase()
+      if (key === 'escape' && selectedCount > 0) {
+        onClearSelection()
+        return
+      }
       if (key === 'arrowright') return step(1)
       if (key === 'arrowleft') return step(-1)
       /* Enter on the grid = open the aimed tile full frame (the keyboard
@@ -76,5 +101,8 @@ export function useReviewKeys({
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [act, current, editing, lightboxSrc, setFlag, setView, step, trade, undo, view])
+  }, [
+    act, current, editing, lightboxSrc, setFlag, setView, step, trade, undo, view,
+    selectedCount, onClearSelection,
+  ])
 }
