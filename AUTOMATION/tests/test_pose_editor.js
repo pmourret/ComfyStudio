@@ -349,6 +349,34 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   dire(apresUndoDx.Rsho.x === rshoUndo.x && apresUndoDx.Lelb.x === lelbUndo.x,
        `un second Ctrl+Z annule le decalage dx, retour a l'etat d'origine (Rsho=${apresUndoDx.Rsho.x}, attendu ${rshoUndo.x})`);
 
+  console.log('\n[5novies] capacite (design pass ecran 6, §B4) : grille/snap optionnel');
+  // Trois PoseCanvas partagent le libelle "Grille" (2 mains + le plein
+  // cadre) -- viser le PARENT direct du <svg data-canvas="full"> (le meme
+  // div qui porte sa propre barre d'outils), jamais .first() qui viserait
+  // une main (piege de methodologie deja trouve pour B2/B3).
+  const canvasPlein = page.locator('svg[data-canvas="full"]').locator('xpath=..');
+  const boutonGrille = canvasPlein.locator('button:has-text("Grille")');
+  dire(!(await page.$('#poseEditor svg[data-canvas="full"] pattern')), 'aucune grille visible par defaut');
+  await boutonGrille.click();
+  await page.waitForTimeout(150);
+  dire(Boolean(await page.$('#poseEditor svg[data-canvas="full"] pattern')), 'la grille apparait apres activation');
+  dire((await boutonGrille.getAttribute('aria-pressed')) === 'true', 'le bouton Grille reflete son etat (aria-pressed)');
+
+  const joint = tousJoints[3]; // Relb
+  const boiteAvantSnap = await joint.boundingBox();
+  await page.mouse.move(boiteAvantSnap.x + boiteAvantSnap.width / 2, boiteAvantSnap.y + boiteAvantSnap.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(boiteAvantSnap.x + boiteAvantSnap.width / 2 + 17, boiteAvantSnap.y + boiteAvantSnap.height / 2 + 9, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  const cxSnap = Number(await joint.getAttribute('cx'));
+  const cySnap = Number(await joint.getAttribute('cy'));
+  dire(cxSnap % 20 === 0 && cySnap % 20 === 0,
+       `le glisser libre aimante au multiple de 20 le plus proche (${cxSnap}, ${cySnap})`);
+
+  await boutonGrille.click(); // desactive, pour ne pas fausser [6]
+  await page.waitForTimeout(150);
+
   console.log('\n[6] sauvegarde — redirige vers la pose reellement ecrite');
   await page.click('button:has-text("Enregistrer")');
   await page.waitForFunction(() => location.pathname.includes('/bank/poses/edit/'), null, { timeout: 5000 });

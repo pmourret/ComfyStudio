@@ -23,7 +23,7 @@
    guess whether a still Shift+click was a selection gesture or the start of
    an IK drag that just didn't move yet. */
 import {
-  useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent,
+  useCallback, useEffect, useId, useRef, useState, type PointerEvent as ReactPointerEvent,
 } from 'react'
 
 import {
@@ -39,6 +39,11 @@ const JOINT_RADIUS = 7
 const HAND_JOINT_RADIUS = 4
 const NUDGE = 1
 const NUDGE_FAST = 10
+// Design-pass screen-6, §B4 — the doc's own snap spacing, in canvas pixels
+// (the pattern tile below, and the drag rounding in startDrag, both key off
+// this one constant).
+const GRID_SIZE = 20
+const snapToGrid = (value: number) => Math.round(value / GRID_SIZE) * GRID_SIZE
 const MIN_SCALE = 1
 const MAX_SCALE = 8
 const WHEEL_ZOOM_STEP = 1.2
@@ -241,6 +246,16 @@ export function PoseCanvas({
   // drag, or no drag at all). Set from `startDrag`'s `move` closure, same
   // outside-React-render idiom `rectSelect` above already uses.
   const [dragHint, setDragHint] = useState<{ x: number; y: number; text: string } | null>(null)
+  // Optional grid overlay + drag snap (design-pass screen-6, §B4) — local
+  // like `view`/`rectSelect` above it, not lifted into `usePoseEditor`: a
+  // display/editing preference for THIS canvas instance, never part of the
+  // saved pose.
+  const [showGrid, setShowGrid] = useState(false)
+  // The advanced screen mounts THREE PoseCanvas instances at once (full +
+  // both hands) — a hardcoded `id="grid"` would collide across them, and
+  // `<use href="#grid">`/`fill="url(#grid)"` would then all resolve to
+  // whichever one rendered last.
+  const gridId = `pose-grid-${useId()}`
 
   const toSvgPoint = useCallback((clientX: number, clientY: number) => {
     const svg = svgRef.current
@@ -439,18 +454,35 @@ export function PoseCanvas({
           const dist = Math.hypot(ddx, ddy) || 1
           nx = parentPoint.x + (ddx / dist) * boneLength
           ny = parentPoint.y + (ddy / dist) * boneLength
+          // Grid snap (design-pass screen-6, §B4) rounds the FINAL point
+          // even here — the document's own call, accepting a slightly
+          // approximate bone length over an angle-only snap that would
+          // leave the point itself off-grid.
+          if (showGrid) { nx = snapToGrid(nx); ny = snapToGrid(ny) }
           onChange(withPoint(pose, group, index, nx, ny))
           setDragHint({ x: nx, y: ny, text: angleAndLength(parentPoint, { x: nx, y: ny }) })
           return
         }
-        onChange(withPointsMoved(pose, origins, dx, dy))
-        // Free drag: `withPointsMoved` above already applies `dx`/`dy` to
-        // every moving point, but the readout only ever shows ONE bone (the
-        // single dragged joint against ITS parent) — a group drag has no
-        // single such pair, `parentPoint` stays null and no hint shows.
+        // Snap by correcting the DELTA, not each point separately: every
+        // point in `origins` gets the SAME `appliedDx`/`appliedDy`, so
+        // `withPointsMoved`'s rigid-group-translation guarantee survives
+        // snapping a group drag, not just a single joint. Anchored on
+        // `orig` — the ACTUALLY-GRABBED joint (always defined, whether this
+        // is a solo drag or a group one) — a group has no single nx/ny of
+        // its own to round.
+        let appliedDx = dx
+        let appliedDy = dy
+        if (showGrid) {
+          appliedDx = snapToGrid(orig.x + dx) - orig.x
+          appliedDy = snapToGrid(orig.y + dy) - orig.y
+        }
+        onChange(withPointsMoved(pose, origins, appliedDx, appliedDy))
+        // The readout only ever shows ONE bone (the single dragged joint
+        // against ITS parent) — a group drag has no single such pair,
+        // `parentPoint` stays null and no hint shows.
         if (single !== null && parentPoint) {
-          const nx = orig.x + dx
-          const ny = orig.y + dy
+          const nx = orig.x + appliedDx
+          const ny = orig.y + appliedDy
           setDragHint({ x: nx, y: ny, text: angleAndLength(parentPoint, { x: nx, y: ny }) })
         }
       }
@@ -461,7 +493,7 @@ export function PoseCanvas({
       document.addEventListener('pointermove', move)
       document.addEventListener('pointerup', stop, { once: true })
     },
-    [pose, onChange, onSelect, onToggleSelect, toSvgPoint, pinned, selected],
+    [pose, onChange, onSelect, onToggleSelect, toSvgPoint, pinned, selected, showGrid],
   )
 
   // Fires only on an explicit "Recentrer" click (the trigger prop bumping),
@@ -527,6 +559,24 @@ export function PoseCanvas({
             : 'Squelette — glisser un joint pour le déplacer, flèches pour l\'ajuster au pixel près, molette pour zoomer, glisser le fond pour déplacer la vue, Maj+glisser le fond pour sélectionner un rectangle'
         }
       >
+        {showGrid && (
+          <>
+            {/* `patternUnits="userSpaceOnUse"` ties the tile to the SAME
+                fixed canvas coordinates every point lives in, not to the
+                current viewBox — so it stays a consistent GRID_SIZE apart
+                regardless of pan/zoom, rather than a fixed number of tiles
+                that would re-scale with the view. */}
+            <defs>
+              <pattern id={gridId} width={GRID_SIZE} height={GRID_SIZE} patternUnits="userSpaceOnUse">
+                <path
+                  d={`M ${GRID_SIZE} 0 L 0 0 0 ${GRID_SIZE}`}
+                  fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={1}
+                />
+              </pattern>
+            </defs>
+            <rect x={view.x} y={view.y} width={viewBoxWidth} height={viewBoxHeight} fill={`url(#${gridId})`} />
+          </>
+        )}
         {referenceImage && (
           <image
             href={referenceImage.url}
@@ -588,6 +638,14 @@ export function PoseCanvas({
         )}
       </svg>
       <div className="absolute right-[8px] top-[8px] flex gap-[4px]">
+        <button
+          type="button"
+          className="btn sm"
+          aria-pressed={showGrid}
+          onClick={() => setShowGrid((g) => !g)}
+        >
+          Grille
+        </button>
         <button
           type="button"
           className="btn sm"
