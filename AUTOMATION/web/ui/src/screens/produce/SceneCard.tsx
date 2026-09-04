@@ -30,7 +30,7 @@ export function SceneCard({
 }: {
   scene: Scene
   meta?: { tones?: string[]; tags?: string[]; pose?: string }
-  stats?: { avg: number | null; n: number }
+  stats?: { avg: number | null; n: number; ok?: number | null }
   preview?: { name: string; bucket: string; space?: string; v?: number }
   tone: string
   selected: boolean
@@ -123,6 +123,24 @@ export function SceneCard({
             <span className="text-[11.5px] text-dim2">jamais produite</span>
           )}
         </div>
+        {/* screen-3-produire §S: a mini score bar, in place of the buckets
+            histogram the maquette wanted — `bank.stats` only carries
+            {avg, ok, n}, no per-tier breakdown, and this reads no more than
+            that. Width is the SHARE VALIDATED (`ok`/`n`), a real ratio;
+            colour reuses `dot`, the same avg-score tiers already shown above
+            — no invented data, just the two real numbers made denser.
+            Decorative: the text line above already carries both figures. */}
+        {stats && stats.ok != null && stats.n > 0 && (
+          <div
+            className="mt-[4px] h-[3px] w-full overflow-hidden rounded-[2px] bg-line2"
+            aria-hidden="true"
+          >
+            <div
+              className="h-full rounded-[2px]"
+              style={{ width: `${Math.round((100 * stats.ok) / stats.n)}%`, background: dot }}
+            />
+          </div>
+        )}
         {tags && <div className="mt-[5px] truncate text-[10.5px] text-dim2">{tags}</div>}
       </div>
     </button>

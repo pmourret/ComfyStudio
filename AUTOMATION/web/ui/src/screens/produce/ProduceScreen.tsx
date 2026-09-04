@@ -40,7 +40,7 @@ import { IntensityBar } from './IntensityBar'
 import { IntentRail, type Intention } from './IntentRail'
 import { NewSceneCard, SceneCard } from './SceneCard'
 import { useNsfwSources } from './useNsfwSources'
-import { useSceneChoice } from './useSceneChoice'
+import { useSceneChoice, type SceneSort } from './useSceneChoice'
 import { runSummary } from './runSummary'
 import {
   SettingsPanel,
@@ -107,13 +107,17 @@ export function ProduceScreen() {
      applies the same rule in mode_edition(). */
   const editing = editTier && !values.generavant
 
-  const { meta, scenesOf, visibleScenes } = useSceneChoice({
+  const [sceneSearch, setSceneSearch] = useState('')
+  const [sceneSort, setSceneSort] = useState<SceneSort>('affinity')
+  const { meta, stats, scenesOf, visibleScenes } = useSceneChoice({
     bank,
     drafts,
     tier,
     level,
     intent,
     tone,
+    search: sceneSearch,
+    sortBy: sceneSort,
   })
 
   // ---------------------------------------------------------------- payload
@@ -450,10 +454,37 @@ export function ProduceScreen() {
                   <h2 className="flex items-baseline gap-[10px]">
                     Scènes{' '}
                     <span className="tiny normal-case tracking-normal" id="sceneHint">
-                      {visibleScenes.length} disponible{visibleScenes.length > 1 ? 's' : ''} à ce
-                      niveau
+                      {sceneSearch.trim()
+                        ? `${visibleScenes.length} sur ${scenesOf(intent).length} disponible${scenesOf(intent).length > 1 ? 's' : ''}`
+                        : `${visibleScenes.length} disponible${visibleScenes.length > 1 ? 's' : ''} à ce niveau`}
                     </span>
                   </h2>
+                  <div className="mb-[12px] flex flex-wrap items-center gap-[10px]" id="sceneToolbar">
+                    <input
+                      type="search"
+                      className="min-w-[160px] flex-1 rounded-[8px] border border-line2 bg-panel2
+                                 px-[10px] py-[6px] text-[13px]"
+                      id="sceneSearch"
+                      placeholder="rechercher une scène"
+                      value={sceneSearch}
+                      onChange={(event) => setSceneSearch(event.target.value)}
+                      aria-label="Rechercher une scène par identifiant"
+                    />
+                    <label className="flex items-center gap-[6px] text-[12.5px] text-dim">
+                      trier
+                      <select
+                        className="rounded-[8px] border border-line2 bg-panel2 px-[8px] py-[6px] text-[13px]"
+                        id="sceneSortBy"
+                        value={sceneSort}
+                        onChange={(event) => setSceneSort(event.target.value as SceneSort)}
+                      >
+                        <option value="affinity">affinité de ton</option>
+                        <option value="never">jamais produites</option>
+                        <option value="score">meilleur score</option>
+                        <option value="name">nom</option>
+                      </select>
+                    </label>
+                  </div>
                   <div
                     className="grid gap-[14px] grid-cols-[repeat(auto-fill,minmax(178px,1fr))]"
                     id="sceneGrid"
@@ -463,7 +494,7 @@ export function ProduceScreen() {
                         key={scene.id}
                         scene={scene}
                         meta={meta[scene.id]}
-                        stats={(bank?.stats as Record<string, { avg: number | null; n: number }>)?.[scene.id]}
+                        stats={stats[scene.id]}
                         preview={(bank?.previews as Record<string, { name: string; bucket: string; space?: string; v?: number }>)?.[scene.id]}
                         tone={tone}
                         selected={selected.has(scene.id)}
@@ -473,6 +504,11 @@ export function ProduceScreen() {
                     ))}
 <NewSceneCard onClick={goCompose} />
                   </div>
+                  {visibleScenes.length === 0 && sceneSearch.trim() && (
+                    <div className="empty px-[16px] py-[24px] text-[13px]">
+                      aucune scène ne correspond à « {sceneSearch.trim()} »
+                    </div>
+                  )}
                 </div>
               )}
 

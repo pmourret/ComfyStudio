@@ -38,6 +38,9 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
    et l'etat ouvert du panneau ne sont plus des classes — une classe utilitaire
    n'est plus un nom d'etat, elle est une declaration. */
 const CARTE = '#sceneGrid [data-scene-card]';
+// Same grid, minus the "+" tile (NewSceneCard) — it always stays, search or
+// sort or not, so a count/order/content check on the REAL scenes excludes it.
+const CARTE_REELLE = '#sceneGrid [data-scene-card]:not([data-new])';
 const PANNEAU = '#gearPanel[data-open]';
 
 (async () => {
@@ -106,7 +109,37 @@ const PANNEAU = '#gearPanel[data-open]';
     console.log('      (une seule intention peuplee dans cette banque, rien a changer)');
   }
 
-  console.log('\n[4] PIEGE §5.6-3 : le bouton suit le PLAN, sans clignoter');
+  console.log('\n[4] recherche et tri dans la grille (design pass ecran 3, §S)');
+  const avantRecherche = await page.$$eval(CARTE_REELLE, e => e.length);
+  const id0 = await page.$eval(CARTE_REELLE + ' b', e => e.textContent).catch(() => null);
+  if (id0 && avantRecherche > 1){
+    const aiguille = id0.slice(0, Math.min(4, id0.length));
+    await page.fill('#sceneSearch', aiguille);
+    await page.waitForTimeout(200);
+    const filtres = await page.$$eval(CARTE_REELLE + ' b', e => e.map(x => x.textContent));
+    dire(filtres.length > 0 && filtres.every(t => t.toLowerCase().includes(aiguille.toLowerCase())),
+         `« ${aiguille} » ne garde que les scènes qui la contiennent (${filtres.join(', ')})`);
+    dire(await vu(CARTE + '[data-new]'), 'la tuile « + » reste offerte pendant la recherche');
+    await page.fill('#sceneSearch', 'kxzkxzkxz-introuvable');
+    await page.waitForTimeout(200);
+    dire(await vu('#stepScenes .empty'), 'une recherche sans resultat le dit, plutot qu une grille vide muette');
+    await page.fill('#sceneSearch', '');
+    await page.waitForTimeout(200);
+    const apresRecherche = await page.$$eval(CARTE_REELLE, e => e.length);
+    dire(apresRecherche === avantRecherche, 'vider la recherche redonne la grille complete');
+
+    await page.selectOption('#sceneSortBy', 'name');
+    await page.waitForTimeout(200);
+    const parNom = await page.$$eval(CARTE_REELLE + ' b', e => e.map(x => x.textContent));
+    const tries = [...parNom].sort((a, b) => a.localeCompare(b));
+    dire(JSON.stringify(parNom) === JSON.stringify(tries), `tri « nom » est bien alphabetique (${parNom.join(', ')})`);
+    await page.selectOption('#sceneSortBy', 'affinity');
+    await page.waitForTimeout(200);
+  } else {
+    console.log('      (pas assez de scenes pour exercer la recherche/le tri)');
+  }
+
+  console.log('\n[5] PIEGE §5.6-3 : le bouton suit le PLAN, sans clignoter');
   plans = 0;
   await page.click(CARTE);
   // le plan est debounce : on attend qu'il ait repondu
@@ -128,7 +161,7 @@ const PANNEAU = '#gearPanel[data-open]';
   dire(new Set(etats).size === 1,
        `etat stable sur 1,6 s couvrant deux ticks (${[...new Set(etats)].join(',')})`);
 
-  console.log('\n[5] PIEGE §5.6-2 : /api/plan est rejoue a la frappe, mais debounce');
+  console.log('\n[6] PIEGE §5.6-2 : /api/plan est rejoue a la frappe, mais debounce');
   await page.click('#btnApercu');
   await page.waitForSelector('#apercuPanel');
   await page.waitForTimeout(600);
@@ -140,7 +173,7 @@ const PANNEAU = '#gearPanel[data-open]';
   dire(plans >= 1, `${plans} appel(s) a /api/plan pour ${lettres} frappes — il est bien rejoue`);
   dire(plans < lettres, `et debounce : ${plans} < ${lettres}`);
 
-  console.log('\n[6] L APERCU montre le prompt REELLEMENT envoye');
+  console.log('\n[7] L APERCU montre le prompt REELLEMENT envoye');
   await page.waitForTimeout(600);
   const frags = await page.$$eval('#apFrags [data-source]', e => e.map(x => x.textContent.trim()));
   dire(frags.length >= 3, `${frags.length} fragments, avec leur source : ${frags.join(' · ')}`);
@@ -150,7 +183,7 @@ const PANNEAU = '#gearPanel[data-open]';
        "la scène — le seul fragment que l'utilisateur ecrit — est distinguee");
   dire(/\d+ caractères/.test(await texte('#apMeta')), `l'en-tete compte : « ${await texte('#apMeta')} »`);
 
-  console.log('\n[7] l amendement demande UNE scène, et le dit sinon');
+  console.log('\n[8] l amendement demande UNE scène, et le dit sinon');
   /* Le panneau d'apercu se pose AU-DESSUS de la barre de lancement et recouvre
      le bas de la grille : on le referme pour cocher, comme le ferait quelqu'un
      qui defile. Ce n'est pas un contournement — c'est le geste reel. */
@@ -178,7 +211,7 @@ const PANNEAU = '#gearPanel[data-open]';
   await page.waitForTimeout(300);
   dire(!(await vu('#apercuPanel')), "l'apercu se ferme");
 
-  console.log('\n[8] LE PANNEAU DE REGLAGES : declaratif, et il dit ce qu il coute');
+  console.log('\n[9] LE PANNEAU DE REGLAGES : declaratif, et il dit ce qu il coute');
   await page.click('#btnGear');
   await page.waitForSelector(PANNEAU);
   const sections = await page.$$eval('#gearBody [data-rgs] h4', e => e.map(x => x.textContent));
@@ -196,7 +229,7 @@ const PANNEAU = '#gearPanel[data-open]';
   dire(!(await vu('#gearBody [data-rgs][data-niveau="edit"]')),
        "la section NSFW est absente hors du cran qui edite");
 
-  console.log('\n[9] la pastille « mesuré » suit config.json');
+  console.log('\n[10] la pastille « mesuré » suit config.json');
   /* L'etat de la pastille se lit sur un ATTRIBUT, jamais dans son `class` :
      depuis le passage aux utilitaires, la chaine de classes contient des mots
      comme `outline-offset` — un `includes('off')` y serait vrai partout. */
@@ -207,7 +240,7 @@ const PANNEAU = '#gearPanel[data-open]';
        'toutes allumees a l ouverture : le panneau part des valeurs mesurees');
   dire((await texte('#gearDiff')) === '', 'et le compteur d ecarts est vide');
 
-  console.log('\n[10] un prereglage REMPLIT le panneau au lieu de le court-circuiter');
+  console.log('\n[11] un prereglage REMPLIT le panneau au lieu de le court-circuiter');
   const refiner = () => page.isChecked('#refiner');
   dire(await refiner(), '« Repasse de texture » est active au depart');
   await page.click('#qual button[data-q="rapide"]');
@@ -220,7 +253,7 @@ const PANNEAU = '#gearPanel[data-open]';
   dire(await refiner(), '« Valeurs mesurées » remet tout en place');
   dire((await texte('#gearDiff')) === '', 'et le compteur repart a zero');
 
-  console.log('\n[11] DEUX boutons, UN panneau');
+  console.log('\n[12] DEUX boutons, UN panneau');
   dire(await vu(PANNEAU), 'le panneau est ouvert');
   await page.click('#btnGear');
   await page.waitForTimeout(300);
@@ -232,7 +265,7 @@ const PANNEAU = '#gearPanel[data-open]';
   await page.click('#railGear');
   await page.waitForTimeout(300);
 
-  console.log('\n[12] le curseur d intensite dit ce que chaque cran FAIT');
+  console.log('\n[13] le curseur d intensite dit ce que chaque cran FAIT');
   const crans = await page.$$eval('#intSel button', e => e.map(x => x.textContent.trim()));
   dire(crans.length >= 3, `${crans.length} crans : ${crans.join(' · ')}`);
   dire(/exportable|hors export/.test(await texte('#intHint')),
@@ -272,7 +305,7 @@ const PANNEAU = '#gearPanel[data-open]';
     console.log("      (aucun cran d'edition : personnage desarme ou pack sans graphe)");
   }
 
-  console.log('\n[13] L INSPECTEUR montre du PASSE, et le dit');
+  console.log('\n[14] L INSPECTEUR montre du PASSE, et le dit');
   dire(await vu('#inspector'), 'la colonne de droite est la');
   dire((await texte('#insRole')).includes("pas l'aperçu du prochain run"),
        "elle dit qu'elle ne montre pas l'image a venir");
@@ -280,12 +313,12 @@ const PANNEAU = '#gearPanel[data-open]';
   dire(/dernier batch|banque/.test(src) || src === '',
        `elle nomme sa source : « ${src || '(rien encore)'} »`);
 
-  console.log('\n[14] rien n a ete lance');
+  console.log('\n[15] rien n a ete lance');
   const fin = await compteurs();
   dire(JSON.stringify(fin) === JSON.stringify(depart),
        `les dossiers sont intacts : ${JSON.stringify(fin)}`);
 
-  console.log('\n[15] aucune erreur JS sur tout le parcours');
+  console.log('\n[16] aucune erreur JS sur tout le parcours');
   dire(erreurs.length === 0, `${erreurs.length} erreur(s)`);
   erreurs.forEach(e => console.log('      ' + e.slice(0, 150)));
 
