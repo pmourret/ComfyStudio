@@ -94,24 +94,39 @@ export function SceneInspector({
      every key, `SceneDraft` has none optional, so this is a safe full
      restore, not a partial merge), reset whenever the OPEN scene changes —
      switching to another scene must not let Ctrl+Z reach into a different
-     one's edits. */
+     one's edits.
+
+     COALESCING IS FIELD-AWARE, unlike the pose editor's own (which only
+     ever coalesces ONE continuous drag on ONE joint, nothing else competes
+     for the window). This composer has many distinct fields — measured
+     live (design-pass audit, écran 7): typing into "Prompt de base" then
+     immediately into "Prompt de pose" within the 400ms window merged both
+     into ONE undo step, so a single Ctrl+Z reverted the SECOND field's edit
+     *and* silently ate the first one's too. `lastKeys` tracks which key(s)
+     the last patch touched; a patch to a DIFFERENT key always starts a new
+     step regardless of timing, only same-field bursts still coalesce. */
   const past = useRef<SceneDraft[]>([])
   const future = useRef<SceneDraft[]>([])
   const lastPushAt = useRef(0)
+  const lastKeys = useRef('')
   useEffect(() => {
     past.current = []
     future.current = []
     lastPushAt.current = 0
+    lastKeys.current = ''
   }, [draft.uid])
 
   const patch = useCallback(
     (p: Partial<SceneDraft>) => {
       const now = Date.now()
-      if (now - lastPushAt.current > HISTORY_COALESCE_MS) {
+      const keys = Object.keys(p).sort().join(',')
+      const coalesces = keys === lastKeys.current && now - lastPushAt.current <= HISTORY_COALESCE_MS
+      if (!coalesces) {
         past.current.push(draft)
         if (past.current.length > HISTORY_LIMIT) past.current.shift()
       }
       lastPushAt.current = now
+      lastKeys.current = keys
       future.current = []
       onPatch(p)
     },
@@ -122,6 +137,7 @@ export function SceneInspector({
     if (!prev) return
     future.current.push(draft)
     lastPushAt.current = 0
+    lastKeys.current = ''
     onPatch(prev)
   }, [draft, onPatch])
   const redo = useCallback(() => {
@@ -129,6 +145,7 @@ export function SceneInspector({
     if (!next) return
     past.current.push(draft)
     lastPushAt.current = 0
+    lastKeys.current = ''
     onPatch(next)
   }, [draft, onPatch])
 
