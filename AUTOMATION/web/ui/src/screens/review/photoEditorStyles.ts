@@ -11,8 +11,31 @@ export const FRAME = 'flex h-full overflow-hidden rounded-[12px] border border-l
 /* `#0a0a0a` stays raw: DESIGN.md lists the neutral blacks of the image frames
    and of this work surface among the values a universe re-tints by hand, not
    among the tokens. */
-export const STAGE =
-  'relative flex min-h-0 min-w-0 flex-1 items-center justify-center bg-[#0a0a0a] p-[16px]'
+/* Split in two (2026-09-05, zoom): STAGE is the non-scrolling OUTER box —
+   `position:relative` gives ZoomControls its positioning context. A
+   `position:absolute` child SCROLLS WITH the content of whatever
+   `overflow:auto` ancestor contains it (it only escapes scrolling as
+   `position:fixed` would) — found by testing: the zoom control bar, a
+   direct child of a single combined scroll+relative stage, drifted off
+   past the edge of the viewport after a few zoom-in clicks, because it
+   was positioned against the ever-growing SCROLLABLE CONTENT box, not
+   the visible viewport. STAGE_SCROLL is the actual `overflow-auto`
+   element (ref'd by useZoomPan.ts, canvas.getBoundingClientRect() etc.)
+   — ZoomControls lives OUTSIDE it, a sibling, so it stays pinned to the
+   visible corner regardless of scroll position. */
+export const STAGE = 'relative flex min-h-0 min-w-0 flex-1 bg-[#0a0a0a]'
+/* NOT `items-center justify-center`: CSS Box Alignment's "safe centering"
+   kicks in once content overflows a centered flex container, which shifts
+   the scrollable range in a way `useZoomPan.ts`'s scrollLeft/Top math does
+   not (cannot, generically) account for — found by testing: after a few
+   zoom-in clicks the crop frame measured at NEGATIVE viewport coordinates,
+   hundreds of pixels off. `margin:auto` on CANVAS_WRAP below centers it
+   the exact same way at "fit" (free space still gets absorbed by the auto
+   margins) WITHOUT that scroll-anchor quirk — auto-margin centering isn't
+   part of the Box Alignment "safe/unsafe" machinery, it just collapses to
+   0 once the content overflows, leaving a plain top-left-anchored
+   scrollable box that scrollLeft/Top math behaves normally against. */
+export const STAGE_SCROLL = 'flex h-full w-full overflow-auto p-[16px]'
 
 /* THE FRAME OF REFERENCE OF THE CROP BOX. `#edCropBox` carries CANVAS
    coordinates; its positioned parent must therefore hug the canvas to the
@@ -21,9 +44,15 @@ export const STAGE =
    (332 px of offset measured on 30/08): the veil darkened the whole image and
    the frame looked frozen. `leading-[0]` + `text-[0px]`: without them the
    canvas baseline adds a few pixels under the box and the offset comes back
-   small. */
-export const CANVAS_WRAP = 'relative max-h-full max-w-full text-[0px] leading-[0]'
-export const CANVAS = 'block max-h-full max-w-full rounded-[2px]'
+   small.
+
+   NEITHER wrapper nor canvas caps its own max size any more (dropped
+   max-h-full/max-w-full, 2026-09-05): those bounds used to just mirror
+   `sizeCanvas()`'s own fit-to-window math, but once zoom can size the
+   canvas ABOVE "fit", a lingering max-width:100% would silently clamp it
+   straight back down and zoom would have no visible effect. */
+export const CANVAS_WRAP = 'relative m-auto text-[0px] leading-[0]'
+export const CANVAS = 'block rounded-[2px]'
 /* The 2000 px veil, and the reason the crop opens OFF (F3.1). Its colour is
    deliberately lighter than `--scrim`: one must still SEE the image outside the
    frame — passing it to the scrim would be a functional regression, which is

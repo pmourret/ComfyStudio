@@ -41,12 +41,14 @@ import {
 } from './photoEditorPixels'
 import {
   ACTIONS, BOX, BTNS, BTNS2, CANVAS, CANVAS_WRAP, CARD, CLOSE, CROP_BOX, FLIP_ON,
-  FRAME, HANDLE, HANDLES, HEAD, LAB, ROW, SEC, SIDE, SLIDER, STAGE, VAL,
+  FRAME, HANDLE, HANDLES, HEAD, LAB, ROW, SEC, SIDE, SLIDER, STAGE, STAGE_SCROLL, VAL,
 } from './photoEditorStyles'
 import { useConfirm } from '../../chrome/ConfirmContext'
 import { Dialog } from '../../chrome/Dialog'
 import { useRovingChoice } from '../../chrome/useRovingChoice'
 import { useToast } from '../../chrome/ToastContext'
+import { useZoomPan } from '../../chrome/useZoomPan'
+import { ZoomControls } from '../../chrome/ZoomControls'
 import type { GalleryItem } from './useTriage'
 
 export function PhotoEditor({
@@ -153,16 +155,27 @@ export function PhotoEditor({
     [settings.straighten],
   )
 
-  /* Ratio between the DISPLAYED canvas and the working canvas. It is 1 as long
-     as the sizing did its job, but `max-width:100%` stays a safety net: without
-     this conversion a canvas rescaled by CSS would make the frame drift and drag
-     by as much. */
-  const displayScale = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return 1
-    const rendered = canvas.getBoundingClientRect().width
-    return rendered && canvas.width ? rendered / canvas.width : 1
-  }
+  // `rotatedDims()` reads `imageRef.current!` — guard until the image has
+  // actually loaded, same gate `ready` already exists for everywhere else.
+  const rd = ready ? rotatedDims() : { w: 0, h: 0 }
+  const zoom = useZoomPan({ stageRef, naturalWidth: rd.w, naturalHeight: rd.h })
+
+  /* Ratio between the DISPLAYED canvas and the working canvas — now simply
+     `zoom.displayScale` (2026-09-05). It used to be measured live off
+     `canvas.getBoundingClientRect()`, which was fine as long as the canvas
+     was ALWAYS 1:1 with its own buffer (the only thing that could ever
+     override it was `max-width:100%`, a rare safety net). Once zoom made
+     canvas.style.width diverge from canvas.width on purpose, that DOM read
+     turned out to be structurally one render behind: it reads whatever
+     the LAST layout effect committed, but the crop box renders BEFORE
+     the effect for THIS render has run — so `k` always lagged the size
+     the canvas was about to become, and the crop frame visibly drifted
+     off its region on every zoom step (found by measuring the frame's
+     position as a fraction of the canvas after zooming: it changed, when
+     nothing should have touched `crop` itself). Reading `zoom.displayScale`
+     directly is synchronous with the render that also drives the canvas
+     sizing effect, so there is no lag left to have. */
+  const displayScale = () => zoom.displayScale
 
   const sizeCanvas = useCallback(() => {
     const canvas = canvasRef.current
@@ -246,7 +259,19 @@ export function PhotoEditor({
     ctx.filter = 'none'
     applyGrain(ctx, canvas.width, canvas.height, displaySettings.grain)
     applyTemperature(ctx, canvas.width, canvas.height, displaySettings.temp)
-  }, [ready, settings, beforeAfter, sizeCanvas, rotatedDims])
+
+    /* Zoom only ever touches the CSS size, never canvas.width/height (the
+       pixel buffer stays at sizeCanvas()'s own "fit" resolution) — the
+       crop box and its drag math already read getBoundingClientRect() via
+       displayScale() below, so they pick this up with no changes of their
+       own. Must run AFTER sizeCanvas() so it overrides that call's own
+       1:1 style sizing, and its scroll-adjust must run after THIS, once
+       the new size is actually in the DOM. */
+    const { w: rw, h: rh } = rotatedDims()
+    canvas.style.width = `${Math.round(rw * zoom.displayScale)}px`
+    canvas.style.height = `${Math.round(rh * zoom.displayScale)}px`
+    zoom.applyPendingScrollAdjust()
+  }, [ready, settings, beforeAfter, sizeCanvas, rotatedDims, zoom.displayScale, zoom.applyPendingScrollAdjust])
 
   /* A 90° rotation swaps width and height: the canvas is recomputed, and an
      existing frame no longer means anything in the new frame of reference — so
@@ -325,7 +350,13 @@ export function PhotoEditor({
       nh = Math.min(nh, maxY - ny)
       setCrop({ x: nx, y: ny, w: nw, h: nh })
     },
-    [ratio, safetyMargin],
+    // `zoom.displayScale`: `displayScale()` above now reads it directly
+    // (no more DOM measurement) — without it here, a drag started after
+    // zooming would still convert screen-px deltas with a STALE `k` from
+    // whatever zoom level was current the last time `ratio`/`safetyMargin`
+    // themselves changed (found by testing: dragging the frame after
+    // zooming moved it by the wrong amount).
+    [ratio, safetyMargin, zoom.displayScale],
   )
 
   const startDrag = (mode: string, event: React.PointerEvent) => {
@@ -509,29 +540,41 @@ export function PhotoEditor({
       cardClassName={CARD}
     >
       <div className={FRAME}>
-        <div className={STAGE} ref={stageRef}>
-          <div className={CANVAS_WRAP}>
-            <canvas className={CANVAS} id="edCanvas" ref={canvasRef} />
-            <div
-              className={CROP_BOX}
-              id="edCropBox"
-              style={cropStyle}
-              onPointerDown={(event) => {
-                // a handle carries `data-h`; the box itself does not
-                if ((event.target as HTMLElement).dataset.h) return
-                startDrag('move', event)
-              }}
-            >
-              {['nw', 'ne', 'sw', 'se'].map((handle) => (
-                <div
-                  key={handle}
-                  className={HANDLE + ' ' + HANDLES[handle]}
-                  data-h={handle}
-                  onPointerDown={(event) => startDrag(handle, event)}
-                />
-              ))}
+        <div className={STAGE}>
+          <div className={STAGE_SCROLL} ref={stageRef}>
+            <div className={CANVAS_WRAP}>
+              <canvas className={CANVAS} id="edCanvas" ref={canvasRef} />
+              <div
+                className={CROP_BOX}
+                id="edCropBox"
+                style={cropStyle}
+                onPointerDown={(event) => {
+                  // a handle carries `data-h`; the box itself does not
+                  if ((event.target as HTMLElement).dataset.h) return
+                  startDrag('move', event)
+                }}
+              >
+                {['nw', 'ne', 'sw', 'se'].map((handle) => (
+                  <div
+                    key={handle}
+                    className={HANDLE + ' ' + HANDLES[handle]}
+                    data-h={handle}
+                    onPointerDown={(event) => startDrag(handle, event)}
+                  />
+                ))}
+              </div>
             </div>
           </div>
+          {ready && (
+            <ZoomControls
+              zoomPct={zoom.zoomPct}
+              fitPct={zoom.fitPct}
+              onZoomOut={zoom.zoomOut}
+              onZoomToFit={zoom.zoomToFit}
+              onZoomIn={zoom.zoomIn}
+              className="right-[8px]"
+            />
+          )}
         </div>
 
         <div className={SIDE}>

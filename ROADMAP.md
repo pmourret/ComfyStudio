@@ -1373,6 +1373,78 @@ prouvent la généralisation — pas juste Léna renommée.
     sans rapport avec ces changements.
     **Toujours inerte, volontairement** : Sujet/Ciel/Arrière-plan (pas de
     backend de segmentation), Retouche IA (F5.2 pas branché).
+  - **Zoom sur les deux éditeurs photo, fait, 2026-09-05** — aucun des deux
+    (7a modal simplifié, 7b avancé) ne permettait de grossir l'image ;
+    signalé explicitement, alors que 7b manipule désormais des réglages
+    fins (courbes, HSL, netteté) où voir le détail réel compte.
+    1. **Hook partagé** `chrome/useZoomPan.ts` (générique, aucun couplage
+       photo — même famille que `useRovingChoice.ts`) : bornes
+       `[fitPct..400%]`, boutons `+`/`−`/`Ajuster`, Ctrl/Cmd+molette centré
+       sur le curseur, pan par **défilement natif** (`overflow:auto`) —
+       délibérément pas un geste de drag maison, qui aurait dû cohabiter
+       avec le drag du cadre de recadrage (7a) et la peinture de masque
+       (7b), tous deux déjà posés sur le canvas/son overlay.
+    2. **Deux stratégies de rendu, une seule par écran** : 7a ne touche que
+       `canvas.style.width/height` (le buffer reste à la résolution
+       « ajuster » de `sizeCanvas()`) — son cadre de recadrage lit déjà
+       `getBoundingClientRect()` pour se positionner, donc rien à changer
+       dans sa géométrie. 7b redessine `canvas.width/height` en résolution
+       réelle jusqu'à 100 % (compositing complet à chaque palier de zoom,
+       jamais au-delà — au-delà, agrandissement CSS pur, comme un
+       visualiseur d'image) : son placement de masque étant déjà en
+       coordonnées normalisées 0-1, il reste correct sans changement non
+       plus.
+    Trois bugs réels trouvés EN TESTANT, aucun à la lecture du JSX :
+    - `useZoomPan` initialisait son état AU RENDU où `naturalWidth`/
+      `naturalHeight` valaient encore 0 (image pas chargée) — l'initialiseur
+      one-shot de `useState` retombait alors sur un repli à 100 %, jamais
+      recorrigé vers le vrai « ajuster » une fois les dimensions connues
+      (la logique de re-plancher ne fait que REMONTER un zoom trop bas,
+      jamais redescendre un zoom trop haut). Corrigé par un ref `touched` :
+      tant que l'utilisateur n'a rien demandé lui-même, tout recalcul de
+      `fitPct` RESYNCHRONISE le zoom au lieu de se contenter d'un plancher.
+    - `PhotoEditor.tsx` recalculait `displayScale()` en lisant
+      `canvas.getBoundingClientRect()` — correct tant que le zoom n'existait
+      pas, mais structurellement en retard d'un rendu une fois que
+      `canvas.style.width` devient un choix délibéré : le rendu qui pose le
+      cadre de recadrage lit la taille CSS d'AVANT que l'effet de CE MÊME
+      rendu ne la change. Mesuré : le cadre dérivait hors de sa région à
+      chaque palier de zoom. Corrigé en lisant `zoom.displayScale`
+      directement (une valeur déjà synchrone avec le rendu), plus une
+      lecture DOM du tout.
+    - Molette+Ctrl sur `onWheel` (React, synthétique) ne zoomait pas
+      vraiment : React pose ce gestionnaire en PASSIF par défaut, donc
+      `preventDefault()` ne fait rien (confirmé par l'avertissement console
+      « Unable to preventDefault inside passive event listener
+      invocation ») — le zoom natif de la page aurait pu se déclencher en
+      même temps. Corrigé par un VRAI `addEventListener('wheel', ...,
+      {passive:false})` posé directement sur le stage, hors du système
+      synthétique de React.
+    Un quatrième piège, purement CSS, a été anticipé puis confirmé en
+    testant plutôt que découvert en production : `items-center
+    justify-center` sur un conteneur `overflow:auto` déclenche le
+    « safe centering » de CSS Box Alignment dès que son contenu déborde,
+    ce qui décale la plage de défilement d'une façon que les calculs de
+    `scrollLeft`/`scrollTop` du zoom ne peuvent pas deviner — mesuré : le
+    cadre de recadrage se retrouvait à des coordonnées NÉGATIVES après
+    quelques clics sur « + ». Remplacé par `margin:auto` sur le canvas
+    (ou son wrapper) : un mécanisme de centrage différent, qui ne fait
+    jamais intervenir ce repli « safe » et retombe simplement à 0 dès que
+    le contenu déborde — le calcul de défilement redevient un simple
+    rectangle ancré en haut-à-gauche.
+    Un cinquième, apparenté : les boutons de zoom (et le bandeau « glisser
+    sur l'image » de 7b) doivent vivre HORS du conteneur défilant — un
+    enfant `position:absolute` fait partie du contenu qui défile (seul
+    `position:fixed` y échappe), donc un bouton codé « en bas à droite du
+    stage » dérivait hors champ dès qu'on zoomait, entraînant le
+    `scrollIntoViewIfNeeded()` du test dans une course sans fin. Le stage
+    de chaque écran est désormais scindé en un EXTÉRIEUR non-défilant
+    (`position:relative`, porte les contrôles) et un INTÉRIEUR défilant
+    (`overflow:auto`, porte le canvas).
+    Suite complète rejouée verte (`test_editor.js` +4 étapes, `test_
+    photo_editor_advanced.js` +2 étapes) ; le seul échec restant
+    (`test_review`, venv de dev sans `cv2`) est la même limitation connue
+    et sans rapport, déjà notée dans l'entrée précédente.
 - Le patron d'interface du compositeur de scène (tabs + panneaux + champs
   de prompt + catalogues + navigation Suivant/Précédent) est candidat à
   être repris par les outils ci-dessus, mais **pas généralisé en composant

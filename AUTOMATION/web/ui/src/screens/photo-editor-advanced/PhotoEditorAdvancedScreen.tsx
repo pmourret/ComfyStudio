@@ -15,6 +15,8 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { screenForImage } from '../../app/routes'
 import { useConfirm } from '../../chrome/ConfirmContext'
 import { useToast } from '../../chrome/ToastContext'
+import { useZoomPan } from '../../chrome/useZoomPan'
+import { ZoomControls } from '../../chrome/ZoomControls'
 import { AdvancedColorPanel } from './AdvancedColorPanel'
 import { AiRetouchPanel } from './AiRetouchPanel'
 import { Histogram } from './Histogram'
@@ -57,6 +59,11 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
   const [histogram, setHistogram] = useState<number[] | null>(null)
+  const zoom = useZoomPan({
+    stageRef,
+    naturalWidth: imageEl?.naturalWidth ?? 0,
+    naturalHeight: imageEl?.naturalHeight ?? 0,
+  })
 
   /* Mask placement (design-pass §7b masquage — shared by selective blur
      AND AI retouch, same `Mask` field shape, different `LayerSettings`
@@ -77,14 +84,17 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
     const canvas = canvasRef.current
     const stage = stageRef.current
     if (!canvas || !stage || !imageEl) return
-    const pad = 32 // the stage's own padding, both sides — same margin PhotoEditor.tsx measures against
-    const maxW = Math.max(200, stage.clientWidth - pad)
-    const maxH = Math.max(200, stage.clientHeight - pad)
-    const scale = Math.min(maxW / imageEl.naturalWidth, maxH / imageEl.naturalHeight, 1)
-    canvas.width = Math.max(40, Math.round(imageEl.naturalWidth * scale))
-    canvas.height = Math.max(40, Math.round(imageEl.naturalHeight * scale))
-    canvas.style.width = `${canvas.width}px`
-    canvas.style.height = `${canvas.height}px`
+    /* The pixel BUFFER never exceeds native resolution (real detail up to
+       100%, capped there to keep compositing bounded) — zooming further
+       just magnifies that same native-resolution buffer via CSS, same as
+       any image viewer past 100%. Below "fit", buffer and CSS size match
+       exactly like before this feature existed (bufferScale ==
+       displayScale whenever displayScale <= 1). */
+    const bufferScale = Math.min(zoom.displayScale, 1)
+    canvas.width = Math.max(40, Math.round(imageEl.naturalWidth * bufferScale))
+    canvas.height = Math.max(40, Math.round(imageEl.naturalHeight * bufferScale))
+    canvas.style.width = `${Math.round(imageEl.naturalWidth * zoom.displayScale)}px`
+    canvas.style.height = `${Math.round(imageEl.naturalHeight * zoom.displayScale)}px`
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     // Avant/après (same contract as PhotoEditor.tsx's own): every layer's
@@ -115,7 +125,10 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
         ctx.putImageData(overlay, 0, 0)
       }
     }
-  }, [imageEl, layers, beforeAfter, maskEditTarget, selectedLayer])
+    // Must run after the canvas has actually been resized above — see
+    // useZoomPan.ts's own note on why this isn't an effect inside the hook.
+    zoom.applyPendingScrollAdjust()
+  }, [imageEl, layers, beforeAfter, maskEditTarget, selectedLayer, zoom.displayScale, zoom.applyPendingScrollAdjust])
 
   const toImageSpace = (event: { clientX: number; clientY: number }) => {
     const canvas = canvasRef.current
@@ -344,25 +357,50 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
             )}
           </aside>
 
-          {/* Centre — aperçu composité */}
-          <div
-            className="relative flex min-h-0 min-w-0 items-center justify-center rounded-card border border-line bg-[#0a0a0a] p-[16px]"
-            ref={stageRef}
-          >
-            {imageError ? (
-              <p className="tiny text-danger-txt">échec du chargement de l'image</p>
-            ) : (
-              <canvas
-                id="peCanvas"
-                ref={canvasRef}
-                className={`block max-h-full max-w-full rounded-[2px]${maskEditTarget ? ' cursor-crosshair' : ''}`}
-                onPointerDown={maskEditTarget ? onMaskPointerDown : undefined}
-              />
-            )}
+          {/* Centre — aperçu composité. `position:relative` sur l'EXTÉRIEUR,
+              `overflow-auto` sur l'INTÉRIEUR SEULEMENT : un enfant absolu
+              d'un conteneur qui défile fait partie de son contenu (il
+              défile AVEC lui — seul `position:fixed` y échapperait), donc
+              le bandeau de masque et les boutons de zoom vivent HORS de la
+              zone défilante, sinon ils dérivent hors champ dès qu'on zoome
+              (trouvé en testant : après quelques clics sur « + », le cadre
+              de recadrage — 7a — se retrouvait mesuré à des coordonnées
+              négatives, le bouton de zoom ayant traîné le défilement très
+              loin en tentant de « scrollIntoView » sa propre position qui
+              reculait sans fin). Le défilement natif sert de pan
+              (useZoomPan.ts) — pas de geste personnalisé, donc aucune
+              collision avec le drag de peinture de masque. */}
+          <div className="relative flex min-h-0 min-w-0 rounded-card border border-line bg-[#0a0a0a]">
+            {/* Pas `items-center justify-center` : voir la note de
+                photoEditorStyles.ts (STAGE_SCROLL) — même piège de
+                "safe centering" CSS, même correctif (margin:auto sur le
+                canvas lui-même plutôt qu'un alignement flex). */}
+            <div className="flex h-full w-full overflow-auto p-[16px]" ref={stageRef}>
+              {imageError ? (
+                <p className="tiny text-danger-txt">échec du chargement de l'image</p>
+              ) : (
+                <canvas
+                  id="peCanvas"
+                  ref={canvasRef}
+                  className={`m-auto block rounded-[2px]${maskEditTarget ? ' cursor-crosshair' : ''}`}
+                  onPointerDown={maskEditTarget ? onMaskPointerDown : undefined}
+                />
+              )}
+            </div>
             {maskEditTarget && (
               <p className="tiny absolute bottom-[8px] left-1/2 -translate-x-1/2 rounded-[6px] bg-scrim px-[10px] py-[4px] text-txt" role="status">
                 glisser sur l’image pour placer le masque — teinte rouge = zone couverte
               </p>
+            )}
+            {imageEl && (
+              <ZoomControls
+                zoomPct={zoom.zoomPct}
+                fitPct={zoom.fitPct}
+                onZoomOut={zoom.zoomOut}
+                onZoomToFit={zoom.zoomToFit}
+                onZoomIn={zoom.zoomIn}
+                className="right-[8px]"
+              />
             )}
           </div>
 

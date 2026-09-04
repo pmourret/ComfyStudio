@@ -215,6 +215,79 @@ process.on('exit', nettoyer);
   dire(Math.abs(vertical - 16 / 9) < 0.05,
        `9:16 aussi (rapport ${vertical.toFixed(2)} pour ${(16 / 9).toFixed(2)})`);
 
+  console.log('\n[3bis] ZOOM (2026-09-05) : les boutons agrandissent l affichage SANS toucher au buffer, et le cadre suit');
+  const infoCanvas = () => page.evaluate(() => {
+    const c = document.querySelector('#edCanvas');
+    const r = c.getBoundingClientRect();
+    return { bufW: c.width, bufH: c.height, cssW: Math.round(r.width), cssH: Math.round(r.height) };
+  });
+  const fracCadre = () => page.evaluate(() => {
+    const box = document.querySelector('#edCropBox').getBoundingClientRect();
+    const canvas = document.querySelector('#edCanvas').getBoundingClientRect();
+    return {
+      x: (box.left - canvas.left) / canvas.width, y: (box.top - canvas.top) / canvas.height,
+      w: box.width / canvas.width, h: box.height / canvas.height,
+    };
+  });
+  const zoomIn = page.locator('button[aria-label="Zoom avant"]');
+  const zoomOut = page.locator('button[aria-label="Zoom arrière"]');
+  const zoomFit = page.locator('button[aria-label*="Ajuster"], button[aria-label*="ajust"]');
+  const avantZoom = await infoCanvas();
+  const cadreAvant = await fracCadre();
+  await zoomIn.scrollIntoViewIfNeeded();
+  await zoomIn.click();
+  await zoomIn.click();
+  await page.waitForTimeout(250);
+  const apresZoom = await infoCanvas();
+  dire(apresZoom.cssW > avantZoom.cssW && apresZoom.cssH > avantZoom.cssH,
+       `taille affichee agrandie (${avantZoom.cssW}x${avantZoom.cssH} -> ${apresZoom.cssW}x${apresZoom.cssH})`);
+  dire(apresZoom.bufW === avantZoom.bufW && apresZoom.bufH === avantZoom.bufH,
+       'le buffer du canvas (donc le recadrage, en pixels reels) ne bouge PAS — 7a reste un zoom CSS');
+  const cadreApres = await fracCadre();
+  const proche = (a, b) => Math.abs(a - b) < 0.01;
+  dire(proche(cadreAvant.x, cadreApres.x) && proche(cadreAvant.y, cadreApres.y)
+       && proche(cadreAvant.w, cadreApres.w) && proche(cadreAvant.h, cadreApres.h),
+       'le cadre de recadrage reste a la MEME fraction du canvas apres zoom (aucune derive)');
+
+  console.log('\n[3ter] un glisser du cadre reste exact une fois zoome (conversion des deltas)');
+  const rectCadre = await page.$eval('#edCropBox', (e) => {
+    const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height };
+  });
+  const cx = rectCadre.x + rectCadre.width / 2;
+  const cy = rectCadre.y + rectCadre.height / 2;
+  await page.mouse.move(cx, cy);
+  await page.waitForTimeout(80);
+  await page.mouse.down();
+  await page.waitForTimeout(80);
+  await page.mouse.move(cx + 12, cy + 9, { steps: 8 });
+  await page.waitForTimeout(80);
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+  const rectCadreApres = await page.$eval('#edCropBox', (e) => {
+    const r = e.getBoundingClientRect(); return { x: r.x, y: r.y };
+  });
+  const deplaceX = rectCadreApres.x - rectCadre.x;
+  const deplaceY = rectCadreApres.y - rectCadre.y;
+  dire(Math.abs(deplaceX - 12) < 2 && Math.abs(deplaceY - 9) < 2,
+       `le cadre suit le curseur au pixel pres meme zoome (deplace de ${deplaceX.toFixed(1)},${deplaceY.toFixed(1)}, demande 12,9)`);
+
+  console.log('\n[3quater] Ctrl+molette zoome aussi, et « Ajuster » revient exactement a l etat de depart');
+  const canvasBox = await page.$eval('#edCanvas', (e) => {
+    const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height };
+  });
+  await page.mouse.move(canvasBox.x + canvasBox.width / 2, canvasBox.y + canvasBox.height / 2);
+  await page.keyboard.down('Control');
+  await page.mouse.wheel(0, -200);
+  await page.keyboard.up('Control');
+  await page.waitForTimeout(200);
+  const apresMolette = await infoCanvas();
+  dire(apresMolette.cssW > apresZoom.cssW, 'Ctrl+molette a zoome davantage');
+  await zoomFit.first().click();
+  await page.waitForTimeout(200);
+  const apresAjuster = await infoCanvas();
+  dire(apresAjuster.cssW === avantZoom.cssW && apresAjuster.cssH === avantZoom.cssH,
+       '« Ajuster » revient EXACTEMENT a la taille d ouverture');
+
   console.log('\n[4] eteindre le recadrage retire aussi la contrainte de format');
   await page.click('#edCropOff');
   await page.waitForTimeout(300);

@@ -340,6 +340,73 @@ process.on('exit', nettoyer);
   dire((await page.locator('textarea#pe-ai-prompt').inputValue()) === 'retirer la tache sur le mur',
        'le champ instruction retient le texte saisi (sans consequence, le bouton reste inerte)');
 
+  console.log('\n[8sexies] ZOOM (2026-09-05) : buffer redessine en resolution reelle jusqu au natif, plafonne au-dela');
+  const infoCanvas = () => page.evaluate(() => {
+    const c = document.querySelector('#peCanvas');
+    const r = c.getBoundingClientRect();
+    return { bufW: c.width, bufH: c.height, cssW: Math.round(r.width), cssH: Math.round(r.height) };
+  });
+  const zoomInBtn = page.locator('button[aria-label="Zoom avant"]');
+  const zoomFitBtn = page.locator('button[aria-label*="Ajuster"], button[aria-label*="ajust"]');
+  const avantZoom = await infoCanvas();
+  await zoomInBtn.scrollIntoViewIfNeeded();
+  for (let i = 0; i < 3; i++) await zoomInBtn.click();
+  await page.waitForTimeout(250);
+  const apres3x = await infoCanvas();
+  dire(apres3x.cssW > avantZoom.cssW, `taille affichee agrandie (${avantZoom.cssW} -> ${apres3x.cssW})`);
+  dire(apres3x.bufW >= avantZoom.bufW, `le buffer (resolution reelle composee) a grandi lui aussi (${avantZoom.bufW} -> ${apres3x.bufW})`);
+  for (let i = 0; i < 15; i++) await zoomInBtn.click();
+  await page.waitForTimeout(250);
+  const auMax = await infoCanvas();
+  dire(auMax.cssW > apres3x.cssW, 'le CSS continue de grandir au-dela de 100%');
+  dire(auMax.bufW === apres3x.bufW && auMax.bufW <= 8000,
+       `le buffer plafonne (n a plus grandi entre 3x et 18x de clics) — mesure ${auMax.bufW}px`);
+  await zoomFitBtn.first().click();
+  await page.waitForTimeout(200);
+  const apresAjuster = await infoCanvas();
+  dire(apresAjuster.cssW === avantZoom.cssW && apresAjuster.cssH === avantZoom.cssH,
+       '« Ajuster » revient EXACTEMENT a la taille d ouverture');
+
+  console.log('\n[8septies] apres un zoom + defilement, peindre un masque tombe toujours au bon endroit (espace normalise 0-1)');
+  await netteteDetails.locator('summary').scrollIntoViewIfNeeded();
+  if (!(await netteteDetails.evaluate((e) => e.open))) await netteteDetails.locator('summary').click();
+  await page.waitForTimeout(150);
+  const blurCase = page.locator('label:has-text("flou sélectif") input[type=checkbox]');
+  if (!(await blurCase.isChecked())) await blurCase.check();
+  await page.waitForTimeout(150);
+  await zoomInBtn.click(); await zoomInBtn.click();
+  await page.waitForTimeout(200);
+  const editBtnZoom = page.locator('button:has-text("Modifier sur l’aperçu")').first();
+  await editBtnZoom.scrollIntoViewIfNeeded();
+  await editBtnZoom.click();
+  await page.waitForTimeout(150);
+  const stageZoom = page.locator('#peCanvas').locator('xpath=..');
+  await stageZoom.evaluate((el) => { el.scrollLeft = 0; el.scrollTop = 0; });
+  await page.waitForTimeout(100);
+  const canvasBoxZoom = await page.locator('#peCanvas').boundingBox();
+  const targetX = canvasBoxZoom.x + canvasBoxZoom.width * 0.5;
+  const targetY = canvasBoxZoom.y + canvasBoxZoom.height * 0.5;
+  await page.mouse.move(targetX - 15, targetY);
+  await page.mouse.down();
+  await page.mouse.move(targetX + 15, targetY, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  const strokePlaced = await page.evaluate(() => {
+    // read back the mask overlay's red tint at the target pixel to confirm
+    // the stroke landed near the canvas centre, not offset by the zoom/scroll
+    const c = document.querySelector('#peCanvas');
+    const ctx = c.getContext('2d');
+    const { data } = ctx.getImageData(Math.floor(c.width / 2), Math.floor(c.height / 2), 1, 1);
+    return { r: data[0], g: data[1], b: data[2] };
+  });
+  dire(strokePlaced.r > strokePlaced.g + 15, `le trait peint tombe bien au centre du canvas (teinte rouge mesuree : ${JSON.stringify(strokePlaced)})`);
+  await page.locator('button:has-text("Terminé")').click();
+  await page.waitForTimeout(150);
+  await zoomFitBtn.first().click();
+  await page.waitForTimeout(200);
+  await blurCase.uncheck();
+  await page.waitForTimeout(150);
+
   console.log('\n[9] reordonner, masquer, supprimer un calque non-base — jamais la base elle-meme');
   await page.click('button:has-text("+ Ajouter un calque")');
   await page.waitForSelector('#addLayerBox[open]');
