@@ -24,6 +24,12 @@ Ne pas charger pour un changement Python sans surface UI.
    `CLAUDE.md` lui-même)
 3. ADR-0003 (NSFW), ADR-0004 (trois axes) si le parcours les touche
 4. La grille `references/grille-audit.md`
+5. `references/conventions-ux-ui.md` — checklist d'interaction, couleur/thème
+   et a11y extraite des handoffs (Éditeur d'expression, Phase 0b thème). Ce
+   sont des conventions à **proposer et faire valider avec l'utilisateur**,
+   pas des invariants à appliquer d'office : citer l'écart en finding comme
+   les autres, jamais patcher un écran pour s'y conformer sans que
+   l'utilisateur l'ait validé pour cet écran précis.
 
 Si le scope d'écran n'est pas dit : une question, puis stop.
 
@@ -91,7 +97,10 @@ Findings d'abord, un par problème réel :
 - Fichier:ligne
 - Parcours cassé — la mesure ou la séquence réelle qui le prouve, pas
   seulement une lecture du code
-- Critère : `frontend.md` / invariant CLAUDE.md / ADR / WCAG / effort
+- Critère : `frontend.md` / invariant CLAUDE.md / ADR / WCAG / effort /
+  `conventions-ux-ui.md` (préciser que c'est une convention à faire
+  valider, pas un invariant, si l'utilisateur n'a pas déjà tranché pour cet
+  écran)
 - Coût utilisateur en une phrase
 - Fix minimal
 - Vérif (clavier, overlay, message d'erreur, `?character=`) — refaite EN

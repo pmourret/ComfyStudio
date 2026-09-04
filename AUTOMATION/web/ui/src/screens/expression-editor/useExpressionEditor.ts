@@ -1,8 +1,10 @@
 /* State and gestures of ONE tone's expression range: hydrates from the
    taxonomy (`useTaxonomy` — the same `/api/creative` every tone picker in
-   the app already reads), previews on an already-produced photo, saves the
+   the app already reads), previews on up to 3 already-produced photos at
+   once (design pass, `DOCS/design-pass/screen-expression-editor.md`, B1 —
+   one representative photo was never enough to trust a range), saves the
    range back. */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { errorOf, type ActionLike, type Schema } from '../../api/client'
 import { useApi } from '../../api/useApi'
@@ -26,9 +28,35 @@ export type ParamState = {
   max: number
 }
 
+/** One selected photo's render state — B1: each of the up to 3 selected
+    photos gets its OWN result, so one failing (e.g. no face detected) never
+    hides the others that succeeded. */
+export type PhotoResult = {
+  previewUrl: string | null
+  scoreAfter: number | null
+  viewingOriginal: boolean
+  rendering: boolean
+  renderError: string | null
+  /** Set on a successful render — compared against `paramsChangedAt` (B5) to
+      flag a card whose params moved since it was last rendered. */
+  renderedAt: number | null
+}
+
+const EMPTY_RESULT: PhotoResult = {
+  previewUrl: null, scoreAfter: null, viewingOriginal: false,
+  rendering: false, renderError: null, renderedAt: null,
+}
+
+/** A tone `copyFromTone` can pull a range from — B3. */
+export type CopySource = { key: string; label: string; paramLabels: string[] }
+
 export type SaveResult = { ok: true } | { ok: false; erreur: string }
 
 const PARAM_NAMES = Object.keys(PARAM_BOUNDS) as ExpressionParamName[]
+
+/** Design pass §B1/§B4: "jusqu'à 3" — a 4th selection is rejected, never
+    silently dropped (the caller toasts on `'limit'`). */
+export const MAX_SELECTED_PHOTOS = 3
 
 // Same constants as usePoseEditor.ts's own history: a drag or a burst of
 // keystrokes reports many calls in a row — one undo step per burst, not one
@@ -57,6 +85,11 @@ export function useExpressionEditor(toneKey: string) {
   const past = useRef<Params[]>([])
   const future = useRef<Params[]>([])
   const lastPushAt = useRef(0)
+  /** B5: bumped by every params-changing gesture (`updateParams` AND
+      `applyParamsAction`, so a drag or a discrete action both count), never
+      by the hydration effect below — hydrating is not "the user changed
+      something since the last render". */
+  const paramsChangedAt = useRef(0)
 
   // Re-hydrates when the TONE changes (a different key, navigated to from
   // the picker below) — never on an incidental `creative` refresh for the
@@ -90,40 +123,58 @@ export function useExpressionEditor(toneKey: string) {
     }
   }, [api])
 
-  const [photo, setPhoto] = useState<GalleryItem | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [scoreAfter, setScoreAfter] = useState<number | null>(null)
-  const [viewingOriginal, setViewingOriginal] = useState(false)
-  const [rendering, setRendering] = useState(false)
-  const [renderError, setRenderError] = useState<string | null>(null)
-  const previewUrlRef = useRef<string | null>(null)
+  const [selectedPhotos, setSelectedPhotos] = useState<GalleryItem[]>([])
+  const [results, setResults] = useState<Record<string, PhotoResult>>({})
   const [saving, setSaving] = useState(false)
 
+  const setResultFor = useCallback((name: string, updater: (current: PhotoResult) => PhotoResult) => {
+    setResults((current) => ({ ...current, [name]: updater(current[name] ?? EMPTY_RESULT) }))
+  }, [])
+
+  // Revokes every still-live object URL on unmount only — a ref mirrors
+  // `results` so this effect does not need to re-run (and re-attach a fresh
+  // cleanup) on every render just to stay one render behind.
+  const resultsRef = useRef(results)
+  resultsRef.current = results
   useEffect(
     () => () => {
-      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+      Object.values(resultsRef.current).forEach((r) => {
+        if (r.previewUrl) URL.revokeObjectURL(r.previewUrl)
+      })
     },
     [],
   )
 
-  /** Picking a photo drops whatever preview/score is on screen — found in
-      testing, not reading: without this, choosing a NEW photo after a
-      successful render left the PREVIOUS photo's rendered image and identity
-      score on screen (the grid's own selection highlight moved to the new
-      photo, nothing else did), which reads as belonging to it. */
-  const selectPhoto = useCallback((next: GalleryItem) => {
-    if (previewUrlRef.current) {
-      URL.revokeObjectURL(previewUrlRef.current)
-      previewUrlRef.current = null
-    }
-    setPreviewUrl(null)
-    setScoreAfter(null)
-    setRenderError(null)
-    setViewingOriginal(false)
-    setPhoto(next)
-  }, [])
+  /** Toggles a photo in/out of the up-to-3 selection. Returns what happened
+      so the SCREEN can toast on `'limit'` (B4) — this hook stays state/
+      gestures only, no UI feedback of its own (frontend.md's screen split). */
+  const togglePhotoSelection = useCallback(
+    (next: GalleryItem): 'added' | 'removed' | 'limit' => {
+      const alreadySelected = selectedPhotos.some((p) => p.name === next.name)
+      if (alreadySelected) {
+        setSelectedPhotos((current) => current.filter((p) => p.name !== next.name))
+        setResults((current) => {
+          const entry = current[next.name]
+          if (entry?.previewUrl) URL.revokeObjectURL(entry.previewUrl)
+          const rest = { ...current }
+          delete rest[next.name]
+          return rest
+        })
+        return 'removed'
+      }
+      if (selectedPhotos.length >= MAX_SELECTED_PHOTOS) return 'limit'
+      setSelectedPhotos((current) => [...current, next])
+      return 'added'
+    },
+    [selectedPhotos],
+  )
 
-  const toggleViewingOriginal = useCallback(() => setViewingOriginal((v) => !v), [])
+  const toggleViewingOriginal = useCallback(
+    (name: string) => {
+      setResultFor(name, (r) => ({ ...r, viewingOriginal: !r.viewingOriginal }))
+    },
+    [setResultFor],
+  )
 
   /** Coalesced by time — dragging the trial slider or typing into a field
       fires many calls in a burst; one undo step per burst, matching
@@ -140,14 +191,16 @@ export function useExpressionEditor(toneKey: string) {
       return updater(current)
     })
     future.current = []
+    paramsChangedAt.current = Date.now()
     setDirty(true)
   }, [])
 
   /** Always a FRESH undo step — a discrete click (toggle, "fixer comme
-      min/max") must never merge with an unrelated drag that happened to
-      land in the same coalescing window, matching usePoseEditor.ts's own
-      `applyAction()` and the bug it was written to fix there (two quick
-      discrete actions collapsing into one undo step). */
+      min/max", copier depuis un autre ton) must never merge with an
+      unrelated drag that happened to land in the same coalescing window,
+      matching usePoseEditor.ts's own `applyAction()` and the bug it was
+      written to fix there (two quick discrete actions collapsing into one
+      undo step). */
   const applyParamsAction = useCallback((updater: (current: Params) => Params) => {
     setParams((current) => {
       if (!current) return current
@@ -157,6 +210,7 @@ export function useExpressionEditor(toneKey: string) {
     })
     future.current = []
     lastPushAt.current = 0
+    paramsChangedAt.current = Date.now()
     setDirty(true)
   }, [])
 
@@ -233,31 +287,86 @@ export function useExpressionEditor(toneKey: string) {
     [applyParamsAction],
   )
 
-  const renderPreview = useCallback(async () => {
-    if (!photo || !params) return
-    setRendering(true)
-    setRenderError(null)
-    try {
-      const trial = {} as Record<ExpressionParamName, number>
-      for (const name of PARAM_NAMES) trial[name] = params[name].trial
-      const result = await api.postForBlob('/api/expression/preview', {
-        bucket: photo.bucket, space: photo.space, name: photo.name, params: trial,
+  /** B3 — other tones that already have a saved range to copy from, with
+      the labels of what each includes (the menu's subtitle). */
+  const copySources = useMemo((): CopySource[] => {
+    if (!creative) return []
+    return creative.tones
+      .filter((t) => t.key !== toneKey && t.expression && Object.keys(t.expression).length > 0)
+      .map((t) => ({
+        key: t.key,
+        label: t.label || t.key,
+        paramLabels: (Object.keys(t.expression as SavedRange) as ExpressionParamName[]).map((n) => PARAM_LABELS[n]),
+      }))
+  }, [creative, toneKey])
+
+  /** One undo step for the whole copy (`applyParamsAction`, not
+      `updateParams`) — a single Ctrl+Z must undo the copy entirely, not
+      merge with whatever the user types next (design pass §B3). */
+  const copyFromTone = useCallback(
+    (sourceKey: string) => {
+      const source = creative?.tones.find((t) => t.key === sourceKey)
+      const range = source?.expression
+      if (!range) return
+      applyParamsAction((current) => {
+        const next = { ...current }
+        for (const name of Object.keys(range) as ExpressionParamName[]) {
+          const bounds = range[name]
+          if (!bounds) continue
+          next[name] = { ...next[name], included: true, min: bounds[0], max: bounds[1] }
+        }
+        return next
       })
-      if (!result.ok) {
-        setRenderError(result.erreur)
-        return
+    },
+    [creative, applyParamsAction],
+  )
+
+  /** Renders ONE photo — used both by `renderAll()` and by a single card's
+      "réessayer" (B1). Independent of every other photo's own render: an
+      exception from one never keeps the others from resolving, and a
+      `finally` (not a duplicated `rendering: false` in both branches) turns
+      it off exactly once regardless of which branch ran. */
+  const renderOne = useCallback(
+    async (photo: GalleryItem) => {
+      if (!params) return
+      setResultFor(photo.name, (r) => ({ ...r, rendering: true, renderError: null }))
+      try {
+        const trial = {} as Record<ExpressionParamName, number>
+        for (const name of PARAM_NAMES) trial[name] = params[name].trial
+        const result = await api.postForBlob('/api/expression/preview', {
+          bucket: photo.bucket, space: photo.space, name: photo.name, params: trial,
+        })
+        if (!result.ok) {
+          setResultFor(photo.name, (r) => ({ ...r, renderError: result.erreur }))
+          return
+        }
+        const next = URL.createObjectURL(result.blob)
+        const header = result.headers.get('X-Identity-After')
+        setResultFor(photo.name, (r) => {
+          if (r.previewUrl) URL.revokeObjectURL(r.previewUrl)
+          return {
+            ...r, previewUrl: next, scoreAfter: header ? Number(header) : null,
+            viewingOriginal: false, renderError: null, renderedAt: Date.now(),
+          }
+        })
+      } finally {
+        setResultFor(photo.name, (r) => ({ ...r, rendering: false }))
       }
-      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
-      const next = URL.createObjectURL(result.blob)
-      previewUrlRef.current = next
-      setPreviewUrl(next)
-      setViewingOriginal(false)
-      const header = result.headers.get('X-Identity-After')
-      setScoreAfter(header ? Number(header) : null)
-    } finally {
-      setRendering(false)
-    }
-  }, [api, photo, params])
+    },
+    [api, params, setResultFor],
+  )
+
+  const renderAll = useCallback(() => {
+    void Promise.all(selectedPhotos.map((photo) => renderOne(photo)))
+  }, [selectedPhotos, renderOne])
+
+  const retryPhoto = useCallback(
+    (name: string) => {
+      const photo = selectedPhotos.find((p) => p.name === name)
+      if (photo) void renderOne(photo)
+    },
+    [selectedPhotos, renderOne],
+  )
 
   const save = useCallback(async (): Promise<SaveResult> => {
     if (!params) return { ok: false, erreur: 'rien à enregistrer' }
@@ -288,9 +397,11 @@ export function useExpressionEditor(toneKey: string) {
     params, dirty,
     setTrial, setMin, setMax, toggleIncluded, setAsMin, setAsMax,
     undo, redo, canUndo: past.current.length > 0, canRedo: future.current.length > 0,
-    photos, photosError, photo, selectPhoto,
-    previewUrl, scoreAfter, viewingOriginal, toggleViewingOriginal,
-    rendering, renderError, renderPreview,
+    copySources, copyFromTone,
+    photos, photosError,
+    selectedPhotos, togglePhotoSelection, results,
+    toggleViewingOriginal, renderAll, retryPhoto,
+    paramsChangedAt,
     saving, save,
   }
 }

@@ -73,12 +73,32 @@ const TONE = 'doux';
     dire(Array.isArray(toneApres?.expression?.smile),
          'les paramètres déjà réglés avant ce run (smile) survivent à la sauvegarde');
 
-    console.log('\n[3] choisir une photo déjà produite et rendre un aperçu');
-    const premierePhoto = await page.$('[data-photo]');
-    if (!premierePhoto) {
+    console.log('\n[3] compteur de groupe, puis choisir jusqu’à 3 photos et rendre un aperçu chacune');
+    // "Bouche —" (avec le tiret), pas juste "Bouche" : le modal "Copier
+    // depuis…" (fermé mais toujours dans le DOM, <dialog> natif) porte
+    // aussi un `.tiny` listant "bouche ouverte (a)" en sous-titre — un
+    // match insensible à la casse sur "Bouche" seul choisissait CE texte
+    // au lieu de l'en-tête de groupe, plus tôt dans le DOM depuis que le
+    // modal existe en permanence.
+    const compteurBouche = (await page.textContent('.tiny:has-text("Bouche —")')) || '';
+    dire(/\d+\/4 inclus/.test(compteurBouche), `le groupe « Bouche » affiche son compteur (${compteurBouche.trim()})`);
+
+    const miniatures = await page.$$('[data-photo]');
+    if (miniatures.length === 0) {
       console.log('  IGNORE [3] — aucune photo dans PROD/LENA/OK sur cette machine');
     } else {
-      await premierePhoto.click();
+      const aSelectionner = miniatures.slice(0, Math.min(3, miniatures.length));
+      for (const vignette of aSelectionner) await vignette.click();
+      dire((await page.textContent('.tiny:has-text("sélectionnées")') || '').includes(`${aSelectionner.length}/3`),
+           `${aSelectionner.length} photo(s) sélectionnée(s), compteur à jour`);
+
+      if (miniatures.length > 3) {
+        await miniatures[3].click();
+        const texteToast = (await page.textContent('#toast').catch(() => '')) || '';
+        dire(texteToast.includes('3 photos maximum'),
+             `clic sur une 4ᵉ vignette — toast explicite plutôt qu’un clic mort ("${texteToast}")`);
+      }
+
       await page.click('button:has-text("Rendre l’aperçu")');
       // A flat, bounded wait rather than chasing the button's transient
       // label — the round trip is either a fast local rejection (~0.1s,
@@ -87,9 +107,26 @@ const TONE = 'doux';
       await page.waitForTimeout(5000);
       // Scoped to THIS screen: the chrome mounts its OWN `[role="status"]`
       // regions (DirtyBar, FaultBar, the toast) earlier in the DOM — an
-      // unscoped selector silently reads one of those instead.
+      // unscoped selector silently reads one of those instead. Each card is
+      // its own `[role="status"]` (isolated failure, design pass §B1) —
+      // reading the first one is informational, same as before.
       const statut = (await page.textContent('#expressionEditor [role="status"]').catch(() => null)) || '';
-      dire(true, `rendu tenté — ${statut ? 'erreur affichée : ' + statut : 'pas d’erreur affichée (ou succès)'}`);
+      dire(true, `rendu tenté (${aSelectionner.length} carte(s)) — ${statut ? 'erreur affichée : ' + statut : 'pas d’erreur affichée (ou succès)'}`);
+
+      console.log('\n[3b] modal « Copier depuis… » : ouvre, applique en un geste, se referme');
+      const menuCopie = page.locator('button:has-text("Copier depuis…")');
+      if (await menuCopie.count() === 0) {
+        console.log('  IGNORE [3b] — aucun autre ton n’a de plage enregistrée sur ce personnage');
+      } else {
+        const boite = page.locator('#copyFromToneBox');
+        await menuCopie.click();
+        dire(await boite.isVisible(), 'la boîte s’ouvre sur clic');
+        await boite.locator('button').first().click();
+        dire(!(await boite.isVisible().catch(() => false)),
+             'la boîte se referme après avoir choisi une source');
+        dire((await page.textContent('#expressionEditor')).includes('Modifications non enregistrées'),
+             'la copie marque l’écran non enregistré');
+      }
     }
 
     console.log('\n[4] revisiter la page relit bien la plage tout juste enregistrée');
