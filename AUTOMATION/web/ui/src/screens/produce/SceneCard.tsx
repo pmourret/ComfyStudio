@@ -27,6 +27,7 @@ export function SceneCard({
   selected,
   imageUrl,
   onClick,
+  onPoint,
 }: {
   scene: Scene
   meta?: { tones?: string[]; tags?: string[]; pose?: string }
@@ -36,6 +37,11 @@ export function SceneCard({
   selected: boolean
   imageUrl: (ref: Record<string, unknown>) => string
   onClick: () => void
+  /** screen-3-produire §S: hover or focus makes this scene the develop
+      panel's subject — a separate gesture from ticking it for the run
+      (`onClick`). Optional: only the Produire grid points, the same card
+      renders fine without it. */
+  onPoint?: () => void
 }) {
   const { qc } = useConfig()
   const dot =
@@ -57,6 +63,8 @@ export function SceneCard({
       data-on={selected ? '1' : undefined}
       aria-pressed={selected}
       onClick={onClick}
+      onMouseEnter={onPoint}
+      onFocus={onPoint}
     >
       <div
         className={`relative aspect-[4/5] bg-panel2 bg-cover bg-center ${

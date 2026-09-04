@@ -39,6 +39,7 @@ import { RunPanel } from './RunPanel'
 import { IntensityBar } from './IntensityBar'
 import { IntentRail, type Intention } from './IntentRail'
 import { NewSceneCard, SceneCard } from './SceneCard'
+import { SceneDevelopPanel } from './SceneDevelopPanel'
 import { useNsfwSources } from './useNsfwSources'
 import { useSceneChoice, type SceneSort } from './useSceneChoice'
 import { runSummary } from './runSummary'
@@ -109,7 +110,11 @@ export function ProduceScreen() {
 
   const [sceneSearch, setSceneSearch] = useState('')
   const [sceneSort, setSceneSort] = useState<SceneSort>('affinity')
-  const { meta, stats, scenesOf, visibleScenes } = useSceneChoice({
+  /** The scene under the pointer/focus in the grid — the develop panel's
+      subject, distinct from `selected` (screen-3-produire §S: pointing at a
+      scene and picking it for the run are two different gestures). */
+  const [pointedId, setPointedId] = useState<string | null>(null)
+  const { meta, stats, sceneList, scenesOf, visibleScenes } = useSceneChoice({
     bank,
     drafts,
     tier,
@@ -302,6 +307,18 @@ export function ProduceScreen() {
   }
 
   const preview = (plan?.apercu ?? null) as Preview | null
+
+  /* Falls back to the last-toggled scene when nothing has been pointed at
+     yet this session — a freshly opened screen shows something useful
+     without demanding a hover first. `sceneList`, not `visibleScenes`: the
+     pointed id can outlive a search/sort/tone change that would drop it. */
+  const pointed = pointedId ?? [...selected].slice(-1)[0] ?? null
+  const pointedScene = pointed ? (sceneList.find((s) => s.id === pointed) ?? null) : null
+  const pointedPreview = pointedScene
+    ? (bank?.previews as Record<string, { name: string; bucket: string; space?: string; v?: number }>)?.[
+        pointedScene.id
+      ]
+    : undefined
 
   /* The NSFW pipeline disables Rapide/Brut (see the button below) — excluded
      from the roving id list so arrows skip them exactly as Tab already does
@@ -500,6 +517,7 @@ export function ProduceScreen() {
                         selected={selected.has(scene.id)}
                         imageUrl={api.image}
                         onClick={() => toggleScene(scene.id)}
+                        onPoint={() => setPointedId(scene.id)}
                       />
                     ))}
 <NewSceneCard onClick={goCompose} />
@@ -525,7 +543,20 @@ export function ProduceScreen() {
           )}
         </div>
 
-        <Inspector />
+        {editing ? (
+          <Inspector />
+        ) : (
+          <SceneDevelopPanel
+            scene={pointedScene}
+            meta={pointedScene ? meta[pointedScene.id] : undefined}
+            stats={pointedScene ? stats[pointedScene.id] : undefined}
+            preview={pointedPreview}
+            tone={tone}
+            isSelected={pointedScene ? selected.has(pointedScene.id) : false}
+            onToggleSelect={toggleScene}
+            imageUrl={api.image}
+          />
+        )}
       </div>
 
       <SettingsPanel
