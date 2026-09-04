@@ -35,7 +35,7 @@ import { PATHS } from '../../app/routes'
 import { EditStep } from './EditStep'
 import { Inspector } from './Inspector'
 import { PromptPreview } from './PromptPreview'
-import { RunPanel } from './RunPanel'
+import { QueueRail } from './QueueRail'
 import { IntensityBar } from './IntensityBar'
 import { IntentRail, type Intention } from './IntentRail'
 import { NewSceneCard, SceneCard } from './SceneCard'
@@ -396,8 +396,6 @@ export function ProduceScreen() {
             onPick={setLevel}
           />
 
-          <RunPanel state={state} />
-
           {editing ? (
             <>
               <div className="mb-[30px]" id="stepSource">
@@ -620,6 +618,8 @@ export function ProduceScreen() {
         }}
         onClose={closeGear}
       />
+
+      <QueueRail state={state} />
 
       <div className="launch" id="launchBar">
         {previewOpen && (

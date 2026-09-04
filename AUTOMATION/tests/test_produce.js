@@ -78,6 +78,7 @@ const PANNEAU = '#gearPanel[data-open]';
   dire(await inerte(), '« Générer » reste inerte : aucune scène cochée');
   dire((await texte('#sumT')).includes('sélectionne au moins une scène'),
        'la barre dit ce qui manque desormais — pas « choisis une intention », deja fait');
+  dire(!(await vu('#queueRail')), 'la bande de file (QueueRail) ne se peint pas sans rien a montrer — permanente, pas decorative');
 
   console.log('\n[2] les intentions VIDES ne restent pas grisees dans le rail');
   const pleines = await page.$$eval('#railIntent button',
