@@ -15,10 +15,28 @@
    (`bank.avg_duration`), not a constant: an SDXL pack and a Flux pack do not
    run at the same speed.
 
+   `comfy` (ComfyUI unreachable) and `running` (a batch already in flight)
+   are the two branches of `runDisabled` in `ProduceScreen.tsx` this file
+   used not to cover (screen-3-produire §B1) — the button went dead with no
+   word for either, even though this file claims to be "the only place that
+   says why a launch is not possible". Checked LAST, just before the success
+   branch: whether Comfy is up matters only once there is something to
+   launch — an intention/scene/instruction still missing is the more
+   actionable thing to say first.
+
    Pure function: it reads, it formats, it decides nothing. */
 import { mmss } from '../../chrome/Header'
 import type { Creative } from '../../state/TaxonomyContext'
 import type { IntensityTier, PlanResponse } from './useProduceState'
+
+/** The message for the two operational blockers, shared by both branches —
+    `null` when neither applies, so the caller falls through to its own
+    success text. */
+const operationalBlock = (comfy: boolean, running: boolean): string | null => {
+  if (!comfy) return 'ComfyUI est hors ligne — impossible de lancer'
+  if (running) return 'un lot est déjà en cours — attends qu\'il se termine ou arrête-le'
+  return null
+}
 
 export function runSummary({
   editing,
@@ -33,6 +51,8 @@ export function runSummary({
   tier,
   bank,
   creative,
+  comfy,
+  running,
 }: {
   editing: boolean
   plan: PlanResponse | null
@@ -46,16 +66,21 @@ export function runSummary({
   tier: IntensityTier | null
   bank: { avg_duration?: number } | null | undefined
   creative: Creative | null | undefined
+  /** Whether ComfyUI answered the last probe — `state.comfy`. */
+  comfy: boolean
+  /** Whether a batch is already in flight — `state.running` (optimistic). */
+  running: boolean
 }): { sumN: string; sumT: string } {
   if (editing) {
     const total = plan?.total ?? 0
+    const blocked = !picked.size
+      ? 'coche au moins une image source'
+      : !instructionText
+        ? "écris l'instruction d'édition"
+        : operationalBlock(comfy, running)
     return {
       sumN: total ? `${total} ${total > 1 ? 'images' : 'image'}` : '—',
-      sumT: !picked.size
-        ? 'coche au moins une image source'
-        : !instructionText
-          ? "écris l'instruction d'édition"
-          : `${total} édition${total > 1 ? 's' : ''} · environ ${mmss(total * 82)}`,
+      sumT: blocked ?? `${total} édition${total > 1 ? 's' : ''} · environ ${mmss(total * 82)}`,
     }
   }
   if (!intent) return { sumN: '—', sumT: 'choisis une intention' }
@@ -73,6 +98,11 @@ export function runSummary({
     }
   if (plan?.erreur) return { sumN: '—', sumT: plan.erreur }
   const total = plan?.total ?? 0
+  /* Unlike the branches above, the plan DID resolve here — the count is
+     real, only the launch itself is blocked. Blanking it to "—" would throw
+     away information the operator already has a right to see. */
+  const blocked = operationalBlock(comfy, running)
+  if (blocked) return { sumN: total ? `${total} ${total > 1 ? 'images' : 'image'}` : '—', sumT: blocked }
   const unit = quality === 'realisme' ? (bank?.avg_duration ?? 55) : quality === 'rapide' ? 32 : 22
   const toneLabel = (creative?.tones ?? []).find((t) => t.key === tone)
   return {

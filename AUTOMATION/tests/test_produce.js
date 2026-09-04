@@ -150,7 +150,7 @@ const PANNEAU = '#gearPanel[data-open]';
     console.log('      (aucune scene a pose imposee dans ce lot)');
   }
 
-  console.log('\n[5] PIEGE §5.6-3 : le bouton suit le PLAN, sans clignoter');
+  console.log('\n[5] PIEGE §5.6-3 : le bouton suit le PLAN, sans clignoter (§B1 : et dit pourquoi sinon)');
   plans = 0;
   await page.click(CARTE);
   // le plan est debounce : on attend qu'il ait repondu
@@ -158,7 +158,17 @@ const PANNEAU = '#gearPanel[data-open]';
     const b = document.querySelector('#btnRun');
     return b && !b.disabled;
   }, null, { timeout: 15000 }).catch(() => {});
-  dire(!(await inerte()), '« Générer » s arme une fois une scène cochée et le plan rendu');
+  // §B1 : ComfyUI hors ligne est desormais une raison DITE par #sumT, pas
+  // seulement un bouton mort — verifie sur cet etat reel plutot que suppose.
+  const comfyEnLigne = await page.evaluate(async () =>
+    (await (await fetch('/api/state?character=lena')).json()).comfy);
+  if (comfyEnLigne){
+    dire(!(await inerte()), '« Générer » s arme une fois une scène cochée et le plan rendu');
+  } else {
+    dire(await inerte(), '« Générer » reste inerte — ComfyUI est hors ligne sur ce poste');
+    dire((await texte('#sumT')).includes('ComfyUI est hors ligne'),
+         `et la barre le dit desormais, au lieu d'un bouton mort sans un mot : « ${await texte('#sumT')} »`);
+  }
   dire(/\d+ image/.test(await texte('#sumN')), `la barre compte : « ${await texte('#sumN')} »`);
   /* La fenetre exacte ou les deux minuteurs de l'ancien frontend se disputaient
      l'attribut : le tick de production (1,5 s) et refreshPlan. On regarde

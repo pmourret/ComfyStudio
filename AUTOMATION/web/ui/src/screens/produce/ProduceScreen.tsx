@@ -261,6 +261,8 @@ export function ProduceScreen() {
     tier,
     bank,
     creative,
+    comfy,
+    running,
   })
 
   // --------------------------------------------------------------- render
