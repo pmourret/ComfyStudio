@@ -256,6 +256,53 @@ def test_garde_fou_visage():
     verifie(taxo, "creative.json est propre")
 
 
+def test_amendements_fragment():
+    print("\n[8] amendements par fragment pour ce lancement (screen-3-produire §B4)")
+    data = lb.load_json(SCENES)
+    scene_id = data["scenes"][0]["id"]
+
+    sans = lb.build_jobs(SCENES, filtres(scene=[scene_id]), character_id="lena", creative=CREATIVE)
+    verifie(bool(sans), "au moins un job produit, pour comparer")
+    if not sans:
+        return
+    sources_sans = {f["source"] for f in sans[0]["fragments"]}
+    verifie(not ({"lumière", "expression", "pose", "vêtements"} & sources_sans),
+            "sans amendement, aucun des quatre nouveaux fragments n'apparait")
+
+    avec = lb.build_jobs(
+        SCENES,
+        filtres(scene=[scene_id], light_override="soft window light",
+                expression_override="gentle smile", pose_override="leaning on the doorframe",
+                outfit_override="oversized cardigan"),
+        character_id="lena", creative=CREATIVE)
+    verifie(bool(avec), "toujours au moins un job avec les quatre amendements poses")
+    if not avec:
+        return
+    fragments = {f["source"]: f["texte"] for f in avec[0]["fragments"]}
+    verifie(fragments.get("lumière") == "soft window light", "fragment lumière present et exact")
+    verifie(fragments.get("expression") == "gentle smile", "fragment expression present et exact")
+    verifie(fragments.get("pose") == "leaning on the doorframe", "fragment pose present et exact")
+    verifie(fragments.get("vêtements") == "oversized cardigan", "fragment vêtements present et exact")
+    verifie("soft window light" in avec[0]["prompt"] and "oversized cardigan" in avec[0]["prompt"],
+            "les quatre amendements rejoignent bien le prompt assemble")
+    # le prompt SANS amendement doit rester identique a l'octet pres au job
+    # calcule plus haut : les quatre nouveaux champs, absents par defaut,
+    # ne doivent rien avoir deplace dans l'assemblage existant.
+    verifie(sans[0]["prompt"] == lb.build_jobs(
+        SCENES, filtres(scene=[scene_id]), character_id="lena", creative=CREATIVE)[0]["prompt"],
+        "le chemin par defaut (aucun amendement) reste stable")
+
+    # meme garde-fou visage que scene_override : pas de porte derobee.
+    leve = False
+    try:
+        lb.build_jobs(SCENES, filtres(scene=[scene_id],
+                                       expression_override="close shot, almond eyes"),
+                      character_id="lena", creative=CREATIVE)
+    except lb.FaceInPromptError:
+        leve = True
+    verifie(leve, "un amendement qui decrit le visage est rejete, comme scene_override")
+
+
 def test_composeur():
     print("\n[7] composeur : normalisation d'une proposition")
     import compose
@@ -308,7 +355,7 @@ def main():
     print("=" * 72)
     for t in (test_compatibilite, test_no_variants, test_filtrage_intensite,
               test_assemblage_nouveau, test_wardrobe, test_garde_fou_visage,
-              test_composeur):
+              test_amendements_fragment, test_composeur):
         t()
     print("\n" + "=" * 72)
     if ECHECS:

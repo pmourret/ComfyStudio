@@ -65,6 +65,14 @@ class RunPayload(BaseModel):
     # scene amendment for THIS launch, never saved. Kept only when a single
     # scene is selected, and put through the same face check as saved scenes.
     scene_override: Optional[str] = None
+    # Four short, per-fragment amendments for THIS launch (screen-3-produire
+    # §B4) — same rule as scene_override (single scene, never saved, same
+    # face check), one field each rather than folded into scene_override so
+    # the preview can label each fragment by what it actually changed.
+    light_override: Optional[str] = None
+    expression_override: Optional[str] = None
+    pose_override: Optional[str] = None
+    outfit_override: Optional[str] = None
 
 
 # --------------------------------------------------------------- /api/plan

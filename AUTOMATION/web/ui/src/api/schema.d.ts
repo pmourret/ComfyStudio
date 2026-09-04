@@ -2859,6 +2859,14 @@ export interface components {
             generer_avant: boolean;
             /** Scene Override */
             scene_override?: string | null;
+            /** Light Override */
+            light_override?: string | null;
+            /** Expression Override */
+            expression_override?: string | null;
+            /** Pose Override */
+            pose_override?: string | null;
+            /** Outfit Override */
+            outfit_override?: string | null;
         } & {
             [key: string]: unknown;
         };

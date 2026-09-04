@@ -451,6 +451,16 @@ def build_jobs(scenes_file, args, character_id, creative=None):
         # pas scenes.json. N'a de sens qu'avec une seule scene retenue — c'est a
         # l'appelant de ne le passer que dans ce cas.
         texte_scene = getattr(args, "scene_override", None) or scene["prompt"]
+        # Quatre amendements COURTS, meme regle, meme portee (screen-3-produire
+        # §B4) : lumiere/expression/pose/vetements pour CE lancement seulement,
+        # jamais ecrits dans scenes.json. Absents par defaut (getattr replie
+        # sur ""), donc un appel qui ne les connait pas encore (CLI, ancien
+        # payload) assemble un prompt identique a l'octet pres — c'est ce que
+        # verrouille tests/test_build_jobs.py.
+        amend_lumiere = getattr(args, "light_override", None) or ""
+        amend_expression = getattr(args, "expression_override", None) or ""
+        amend_pose = getattr(args, "pose_override", None) or ""
+        amend_vetements = getattr(args, "outfit_override", None) or ""
 
         for tenue in tenues:
             for variant in variants:
@@ -469,6 +479,10 @@ def build_jobs(scenes_file, args, character_id, creative=None):
                 # ecrit la scene — et deux fragments peuvent se contredire sans
                 # que rien ne le signale (mesure du 26/08/2026).
                 controles = [*corps,
+                             ("lumière", amend_lumiere),
+                             ("expression", amend_expression),
+                             ("pose", amend_pose),
+                             ("vêtements", amend_vetements),
                              ("ton", (tone or {}).get("prompt_add", "")),
                              ("intention", (intention or {}).get("prompt_add", "")),
                              ("intensité", palier.get("prompt_add", "")),

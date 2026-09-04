@@ -77,20 +77,43 @@ def clamped_int(payload, key, minimum=None, maximum=None):
     return n
 
 
+def bounded_to_one_scene(text, scenes):
+    """A per-launch amendment, kept only when exactly one scene is ticked.
+
+    With several scenes, « the » scene designates nothing, and applying the
+    same text to all of them would overwrite all of them. It is also what
+    keeps the amendment legible in the preview — there is only one prompt to
+    show. Shared by `scene_override` and the four fragment amendments of
+    screen-3-produire §B4 (`run_amendments`) — same rule, five fields.
+    """
+    txt = (text or "").strip()
+    return txt if txt and len(scenes or []) == 1 else None
+
+
 def run_scene_override(payload):
     """Scene text amended FOR THIS LAUNCH, never saved.
-
-    Bounded to a single selected scene: with several scenes, « the » scene
-    designates nothing, and applying the same text to all of them would
-    overwrite all of them. It is also what makes the amendment legible in the
-    preview — there is only one prompt to show.
 
     The text goes through the same `assert_no_face` as saved scenes:
     `build_jobs` checks it along with the other fragments, there is no back
     door to a prompt that would describe the face.
     """
-    txt = (payload.scene_override or "").strip()
-    return txt if txt and len(payload.scenes or []) == 1 else None
+    return bounded_to_one_scene(payload.scene_override, payload.scenes)
+
+
+def run_amendments(payload):
+    """The four short, per-fragment amendments of screen-3-produire §B4 —
+    light / expression / pose / outfit, none saved to `scenes.json`. Same
+    single-scene rule as `run_scene_override`, and the same face check:
+    `build_jobs` runs them through `assert_no_face` along with every other
+    fragment, no back door.
+    """
+    scenes = payload.scenes
+    return {
+        "light": bounded_to_one_scene(payload.light_override, scenes),
+        "expression": bounded_to_one_scene(payload.expression_override, scenes),
+        "pose": bounded_to_one_scene(payload.pose_override, scenes),
+        "outfit": bounded_to_one_scene(payload.outfit_override, scenes),
+    }
 
 
 def filters_from(payload):
@@ -100,8 +123,13 @@ def filters_from(payload):
     RUNNER, which knows nothing about HTTP and must keep knowing nothing. The
     schema stops at the edge of this module.
     """
+    amendments = run_amendments(payload)
     return SimpleNamespace(
         scene_override=run_scene_override(payload),
+        light_override=amendments["light"],
+        expression_override=amendments["expression"],
+        pose_override=amendments["pose"],
+        outfit_override=amendments["outfit"],
         scene=payload.scenes or None,
         category=payload.categories or None,
         format=payload.format or None,
