@@ -1110,14 +1110,200 @@ prouvent la généralisation — pas juste Léna renommée.
       l'image plutôt que sur le fond), plus 3 compléments sur le modèle de
       l'éditeur de pose : bascule original/rendu, indicateur « non
       enregistré », annuler/rétablir (Ctrl+Z) sur les curseurs.
-  - Éditeur photo existant (`screens/review/PhotoEditor.tsx`) : à revoir
-    à cette même aune une fois le patron ci-dessous stabilisé sur un
-    deuxième outil
+    - **Refonte pro one-page + capacités + a11y, fait, 2026-09-04** —
+      `DOCS/design-pass/screen-expression-editor.md`, handoff validé mais
+      jamais implémenté (vérifié via `git log` avant de commencer, pas via
+      le statut affiché dans le doc lui-même — voir aussi l'erreur de
+      lecture symétrique sur le thème Phase 0b plus haut). `ParamRow` passe
+      de 3 lignes empilées à une seule (case+libellé, curseur, essai,
+      min/mn/max/mx) ; la borne `[lo, hi]` jusque-là toujours visible est
+      retirée plutôt que déplacée en `title` — `InfoHint` la porte déjà en
+      `data-hint-text`, dupliquer en hover-only aurait réintroduit le
+      pattern que `conventions-ux-ui.md` §3 proscrit. Colonnes passées de
+      `1fr/360px` à 50/50 (nécessaire : le budget de 360px ne laissait pas
+      la place pour caser tout un `ParamRow` sur une ligne). Compteur
+      `N/M inclus` par groupe. Sélection de 1 à 3 photos à la fois
+      (`useExpressionEditor` : `photo`/`previewUrl` singuliers →
+      `selectedPhotos`/`results` indexé par nom), un rendu par photo, échec
+      isolé par carte (son propre message + retry), toast explicite à la
+      4ᵉ photo plutôt qu'un clic mort. Menu « Copier depuis… » (popover
+      `role="menu"`, calqué sur `chrome/IdentityMenu.tsx`, en plus simple)
+      applique la plage d'un autre ton en un seul geste d'historique
+      (`applyParamsAction`, pas `updateParams` — un seul Ctrl+Z doit tout
+      annuler). Vignettes : `title` → `data-hint-text`. `test_expression_editor.js`
+      étendu (compteur de groupe, sélection multi-photo, limite à 3, menu
+      copier) — suite verte, plus `test_expression_isolation.py` (aucun
+      changement backend, sert de garde-fou). **Trouvé mais volontairement
+      hors scope** : la case à cocher de chaque paramètre n'a aucun anneau
+      de focus visible (`chrome.css` : `input:focus{outline:0}`, appuyé sur
+      un changement de `border-color` à la place) — règle globale de
+      l'appli, pas une régression de ce chantier, à traiter séparément.
+    - **Alignement du rail + modal « Copier depuis… », fait, 2026-09-04** —
+      retour utilisateur sur capture d'écran réelle : colonnes non alignées
+      et chevauchement visible sous le menu « Copier depuis… ». **Trois bugs
+      réels en cascade, chacun mesuré avant/après, aucun deviné** :
+      1. Le libellé sans largeur fixe (mesure précédente) faisait dériver
+         `essai`/`min`/`max` de jusqu'à 80px d'une ligne à l'autre — remis à
+         largeur fixe, mais **cette fois mesurée** (170px = largeur réelle
+         maximale des 12 libellés, jamais 180px au hasard).
+      2. Une fois la largeur fixée, la ligne entière ne tenait plus dans
+         l'aside à une fenêtre réaliste (~1180px, mesuré ~458px d'aside) :
+         `mx` se rendait à x=1268, hors du viewport à 1180 — aucun retour à
+         la ligne, aucun clip visible, un **débordement horizontal
+         silencieux** sans indice pour l'utilisateur. Corrigé en masquant
+         visuellement (`clip-path`, jamais `display:none`) les légendes
+         `essai`/`min`/`max` répétées 12× (remplacées par un unique en-tête
+         collant `sticky top-0`, ses cellules étant des copies invisibles
+         des vrais boutons — ne peut pas se désaligner des lignes) et en
+         resserrant les champs numériques.
+      3. **Le plus retors** : une fois le libellé large fixe posé, la case à
+         cocher elle-même s'est mise à occuper 140px et à écraser tout le
+         texte (mesuré : la largeur rendue du texte était 0px) — la règle
+         globale `chrome.css` `input{width:100%}` n'avait jamais eu de
+         largeur DÉFINIE à résoudre avant ; en lui en donnant une, elle
+         s'y accrochait. Corrigé (`w-auto` sur la case) — le même piège
+         guette toute autre case à cocher qui gagnerait un jour un ancêtre à
+         largeur définie, non traqué ailleurs dans le studio.
+      Gain net : hauteur de ligne 79px → 55px, les 12 paramètres tiennent
+      maintenant SANS le moindre défilement interne à cette fenêtre (avant :
+      défilement nécessaire). Le popover « Copier depuis… » (droite de
+      l'aside) chevauchait 6 à 8 des 12 lignes une fois les lignes
+      raccourcies — remplacé par une vraie modale (`chrome/Dialog.tsx`, même
+      primitif que `NewPoseModal.tsx`) sur choix explicite de l'utilisateur
+      (question posée : garder le popover contraint vs modale — modale
+      choisie). `test_expression_editor.js` : sélecteur `.tiny:has-text
+      ("Bouche")` corrigé en `"Bouche —"` (collision avec le sous-titre du
+      nouveau modal, qui contient aussi le mot "bouche" en minuscule) ;
+      assertions du modal portées sur `#copyFromToneBox` (dialog natif) au
+      lieu de `role="menu"`. Suite verte.
+    - **Barre d'actions du haut regroupée, fait, 2026-09-04** — retour
+      utilisateur : « Copier depuis… » seul sur sa propre ligne, aligné à
+      droite, flottait sans rien à sa gauche quand l'écran n'était pas
+      modifié (mesuré sur capture). Fusionné avec « Enregistrer la plage »
+      sur une seule ligne — les deux sont des actions de niveau ton, pas
+      juste voisines par hasard — `flex-1` retiré du bouton Enregistrer
+      (il dominait hors de proportion une fois à côté d'un petit bouton
+      secondaire) ; annuler/rétablir restent groupés à droite (des
+      contrôles d'historique, pas des actions de ton). Le message « non
+      enregistré » descend sur sa propre ligne, affiché seulement si
+      `dirty`, plus besoin du `<span/>` de réservation d'espace. Une ligne
+      entière de hauteur récupérée en plus. Suite verte.
+  - **Éditeur photo — 7a (modal) + fondation 7b (avancé), fait,
+    2026-09-04** — `DOCS/design-pass/screen-photo-editor.md`. Le patron
+    pose/expression étant stabilisé sur un deuxième outil, le tour de
+    l'éditeur photo (noté ci-dessus) venait logiquement.
+    1. **7a** (`screens/review/PhotoEditor.tsx`) — le seul écart réel vs
+       CLAUDE.md §1 comblé : `dirty` dérivé de l'écart avec l'état
+       d'ouverture (NEUTRAL/pas de cadre), ✕/annuler passent par la
+       confirmation partagée si `dirty` (Échap reste un dismiss direct,
+       par construction du design demandé — pas une incohérence), lien
+       « Éditeur avancé → » vers 7b. Aucun changement serveur.
+    2. **Décision d'architecture pour 7b** : le compositing des calques
+       reste ENTIÈREMENT CLIENT (Canvas2D, même stratégie « aperçu à
+       taille écran, pleine résolution seulement à l'enregistrement » que
+       `PhotoEditor.tsx`), pas d'endpoint `/preview` serveur — le
+       design-pass suggérait un rendu serveur, mais un aller-retour par
+       tick de curseur serait la mauvaise latence pour un outil qui se
+       veut instant. Le backend (`api/routers+services/photo_editor.py`,
+       suivant le patron `expression.py`) ne fait que persister la pile
+       (sidecar `<nom>.layers.json`, même convention que
+       `pose_tools.py::_chemin_points`) et enregistrer le résultat déjà
+       composité — même contrat copie/écrase que `/api/edit/save`.
+       `apply_overwrite_side_effects` factorisé dans `services/journal.py`
+       (vignette oubliée, mesures effacées, export refait) : deuxième
+       appelant réel, pas une abstraction prématurée. Vérifié manuellement
+       de bout en bout : le chemin `remplacer=true` de `/api/edit/save`
+       n'avait AUCUNE couverture automatisée existante avant ce chantier.
+       `test_photo_editor_isolation.py` neuf (calqué sur
+       `test_expression_isolation.py`) — piège trouvé en le lançant : les
+       deux personnages jetables partageaient d'abord le même nom de
+       photo, donc la requête croisée résolvait légitimement SA PROPRE
+       photo au lieu de 404 — le test ne prouvait rien tant que seul un
+       des deux personnages avait le fichier.
+    3. **Écran** (`screens/photo-editor-advanced/`) — calques réels
+       (`layers[0]` = sommet de la pile, le calque `photo` verrouillé
+       toujours en dernier), 4 curseurs de base par calque
+       (expo/contraste/sat/temp), historique en tableau + curseur (pas
+       deux piles) pour que le panneau Historique saute à un état
+       arbitraire en un clic tout en filtrant les entrées non
+       structurantes (curseurs coalescés) de celles qui le sont
+       (ajout/suppression de calque, préréglage) — design-pass §7b. Deux
+       bugs réels trouvés EN TESTANT, aucun à la lecture du JSX :
+       - le raccourci Ctrl+Z était posé sur la barre du haut plutôt que
+         sur le conteneur englobant tout l'écran (même piège que
+         `PoseEditorScreen.tsx` a déjà résolu pour lui-même) — un focus
+         dans le panneau droit (un curseur) ne faisait jamais remonter
+         l'évènement jusqu'au gestionnaire, une SIBLING n'étant pas un
+         ancestor ;
+       - une fois ce premier bug corrigé, un second est apparu : la
+         coalescence par temps (`push()`) relisait `lastPushAt.current`
+         DANS le updater passé à `setHist`, alors que la ligne juste après
+         l'appel de `setHist` le réécrivait de façon synchrone — React
+         n'exécute pas forcément le updater avant cette ligne suivante, si
+         bien que chaque poussée mesurait `now - now = 0` et fusionnait
+         TOUJOURS avec l'entrée précédente, quel que soit le temps réel
+         écoulé (confirmé en isolant : un seul Ctrl+Z annulait à la fois
+         le réglage d'un curseur ET l'ajout du calque qui venait de
+         l'introduire). Corrigé en décidant `coalesce` une seule fois,
+         avant `setHist`, et en ne capturant que ce booléen dans le
+         updater — jamais relire une ref mutée juste après l'appel de
+         `setState` depuis l'intérieur de son propre updater.
+    4. **Audit UX/UI, fait** — deux findings réels mesurés (pas devinés),
+       corrigés : les boutons icône du panneau Calques (visibilité,
+       réordonner, supprimer) mesuraient 11-18px, sous le minimum WCAG 2.2
+       AA (24×24, SC 2.5.8) et très en-deçà des boutons icône déjà établis
+       ailleurs (`UndoRedoButtons.tsx`, 35×34px mesuré) — élargis à 24×24
+       pile. Le calque de base n'expliquait nulle part dans la LISTE
+       pourquoi il n'a ni réordonnement ni suppression (seul le panneau
+       Colorimétrie le disait, et seulement une fois sélectionné) — tag
+       « verrouillé » ajouté. Colatéral : « Enregistrer une copie » de la
+       barre du haut n'avait pas de poids `primary`, contrairement au
+       bouton d'enregistrement de CHAQUE éditeur frère (pose, expression,
+       7a lui-même) — corrigé (`btn primary sm`, même combo que
+       `ExpressionEditorScreen.tsx`).
+    `test_photo_editor_advanced.js` neuf (14 étapes : chargement, ajout de
+    calque en un geste d'historique, undo/redo distinguant le curseur
+    coalescé de l'ajout structurant, clic sur une entrée d'Historique,
+    préréglage, réordonner/masquer/supprimer un calque non-base, base
+    jamais supprimable, avant/après, écraser confirmé puis toujours
+    annulé, enregistrer une copie en aller-retour réel par l'API). Suite
+    review/pose/expression/bank rejouée verte à plusieurs reprises.
+    **Volontairement hors de cette passe** (pas des coquilles à moitié
+    finies, leur propre étape à venir) : courbes par canal, niveaux, HSL
+    par bande, netteté/flou sélectif avec les 6 modes de masquage (auto
+    sujet/ciel/arrière-plan désactivés « bientôt » — backend de
+    segmentation à fournir, même statut que la retouche IA),
+    recadrage avancé (perspective H/V), panneau Retouche IA
+    maquetté-inerte. À ce moment-là : revisiter si le compositing
+    client-side tient encore la route pour des opérations plus lourdes ou
+    s'il faut basculer une partie sur un rendu serveur.
 - Le patron d'interface du compositeur de scène (tabs + panneaux + champs
   de prompt + catalogues + navigation Suivant/Précédent) est candidat à
   être repris par les outils ci-dessus, mais **pas généralisé en composant
   partagé avant un deuxième vrai consommateur** — cohérent avec CLAUDE.md
   contre l'abstraction prématurée
+- **Renommage nav « Banque » → « Ateliers », fait, 2026-09-04** — le mot
+  « Banque » ne décrivait pas correctement ce sous-menu (composeur de
+  scènes + éditeur de poses + éditeur de tons). Uniquement le libellé de
+  nav et tout texte visible (aria-label, data-hint-text, titres, messages
+  de confirmation/erreur) sur `routes.ts`, `BankScreen.tsx`,
+  `SceneInspector.tsx`, `DirtyBar.tsx`, `WorldBanner.tsx`,
+  `useSceneWorkbench.tsx`, `WorldPlacesScreen.tsx`,
+  `ScenesStoreContext.tsx`, `SceneComposer.tsx`, `runSummary.ts`,
+  `ExpressionEditorScreen.tsx`, `PoseEditorScreen.tsx`,
+  `produce/SceneCard.tsx`, `produce/SceneDevelopPanel.tsx` — jamais les
+  clés internes (`key: 'bank'`, routes `/bank/*`, ids `#bankView`/
+  `#bankDocument`, noms de fichiers/composants), jamais les commentaires
+  de code ni les fichiers générés (`schema.d.ts`, `openapi.json`).
+  « Ateliers » (majuscule) quand le texte cite l'écran/la destination,
+  « atelier » (minuscule, singulier) quand le texte désigne LE document
+  d'un personnage précis. Un vrai bug de sélecteur trouvé en testant : la
+  fumigation `test_pose_editor.js` cliquait `a:has-text("Retour à la
+  banque")`, cassé par le renommage — corrigé. Six fumigations
+  (`test_bank`, `test_pose_editor`, `test_produce`, `test_expression_editor`,
+  `test_pose_bank`, `test_pose_extract`) rejouées vertes ; confirmé à
+  l'écran (capture) que l'entrée de nav s'affiche bien « Ateliers » et
+  reste allumée sur `/bank/*`.
 
 ## V2 — Extensions
 
