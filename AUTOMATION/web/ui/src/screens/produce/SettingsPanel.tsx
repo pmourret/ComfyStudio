@@ -385,12 +385,17 @@ function SettingRow({
         <span className="text-[13px] font-semibold tabular-nums text-acc" id={`v_${item.id}`}>
           {fmtVal(item, value as string)}
         </span>
+        {/* `tabIndex={0}` + `data-hint-text` (design pass écran 3, §A3) —
+            same contract as the pose badge (§A2): a plain `title` only
+            reaches a mouse, this reaches the keyboard and a screen reader
+            too. The base fact ("mesuré" / not) stays in visible text. */}
         <span
           className={`${BADGE_BASE} ${measured ? BADGE_ON : BADGE_OFF}`}
           id={`m_${item.id}`}
           data-mes
           data-off={measured ? undefined : '1'}
-          title={`valeur mesurée du projet : ${hasReference ? fmtVal(item, reference as number) : '—'}`}
+          tabIndex={0}
+          data-hint-text={`valeur mesurée du projet : ${hasReference ? fmtVal(item, reference as number) : '—'}`}
         >
           mesuré
         </span>

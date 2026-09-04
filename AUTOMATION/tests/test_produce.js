@@ -140,6 +140,16 @@ const PANNEAU = '#gearPanel[data-open]';
     console.log('      (pas assez de scenes pour exercer la recherche/le tri)');
   }
 
+  // §A2 : le badge "pose imposee" d'une carte de scene, s'il y en a une dans
+  // ce lot, doit etre joignable au clavier — plus seulement au survol.
+  const badgePose = await page.$(CARTE + ' [data-hint-text*="pose imposée"]');
+  if (badgePose){
+    dire((await badgePose.getAttribute('tabindex')) === '0', 'le badge pose est dans l ordre de tabulation');
+    dire(!(await badgePose.evaluate(e => e.hasAttribute('title'))), 'sans le title redondant');
+  } else {
+    console.log('      (aucune scene a pose imposee dans ce lot)');
+  }
+
   console.log('\n[5] PIEGE §5.6-3 : le bouton suit le PLAN, sans clignoter');
   plans = 0;
   await page.click(CARTE);
@@ -286,6 +296,14 @@ const PANNEAU = '#gearPanel[data-open]';
   dire(mesures.every(off => !off),
        'toutes allumees a l ouverture : le panneau part des valeurs mesurees');
   dire((await texte('#gearDiff')) === '', 'et le compteur d ecarts est vide');
+  // §A3 : la valeur de reference passe par data-hint-text + tabIndex, plus
+  // par un `title` qui ne reagit qu'a la souris (design pass ecran 3).
+  const badgesMesures = await page.$$eval('#gearBody [data-mes]',
+    e => e.map(x => ({ hint: x.dataset.hintText || '', tab: x.getAttribute('tabindex'), title: x.hasAttribute('title') })));
+  dire(badgesMesures.every(b => b.hint.includes('valeur mesurée du projet')),
+       'chaque pastille porte sa valeur de reference en data-hint-text');
+  dire(badgesMesures.every(b => b.tab === '0'), 'et un tabIndex qui la rend joignable au clavier');
+  dire(badgesMesures.every(b => !b.title), 'sans le title redondant');
 
   console.log('\n[12] un prereglage REMPLIT le panneau au lieu de le court-circuiter');
   const refiner = () => page.isChecked('#refiner');
@@ -317,6 +335,16 @@ const PANNEAU = '#gearPanel[data-open]';
   dire(crans.length >= 3, `${crans.length} crans : ${crans.join(' · ')}`);
   dire(/exportable|hors export/.test(await texte('#intHint')),
        `le cran courant dit s il exporte : « ${await texte('#intHint')} »`);
+  // §A1 : le fragment de prompt du palier actif, s'il y en a un, se lit
+  // desormais dans cette meme ligne visible — plus seulement au survol.
+  const sansTitleIntensite = await page.$$eval('#intSel button', e => e.every(x => !x.hasAttribute('title')));
+  dire(sansTitleIntensite, 'aucun bouton de palier ne porte plus le title redondant');
+  const hintActif = await texte('#intHint');
+  if (hintActif.includes('ajoute :')){
+    dire(true, `le palier actif dit aussi ce qu il ajoute au prompt (« ${hintActif} »)`);
+  } else {
+    console.log(`      (le palier actif n ajoute rien au prompt : « ${hintActif} »)`);
+  }
   const edit = await page.$('#intSel button[data-edit]');
   if (edit){
     await edit.click();

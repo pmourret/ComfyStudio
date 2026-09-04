@@ -86,13 +86,17 @@ export function SceneCard({
           </div>
         )}
         {meta?.pose && (
-          /* imposed pose (ControlNet) */
+          /* imposed pose (ControlNet). `tabIndex={0}` + `data-hint-text`
+             (design pass écran 7, §A2) — same contract as the Banque's own
+             pose badge (`SceneComposer.tsx`): a plain `title` only reaches a
+             mouse, this reaches the keyboard and a screen reader too. */
           <div
             className="absolute top-[8px] right-[8px] rounded-[10px] bg-scrim px-[7px] py-px
                        text-[10.5px] font-bold text-[#9fd8ff]"
-            title={`pose imposée : ${meta.pose}`}
+            tabIndex={0}
+            data-hint-text={`pose imposée : ${meta.pose}`}
           >
-            ⛓ pose
+            <span aria-hidden="true">⛓ </span>pose
           </div>
         )}
         {/* a scene added and not yet saved exists in the grid but NOT in

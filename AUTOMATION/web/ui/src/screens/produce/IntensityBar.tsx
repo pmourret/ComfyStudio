@@ -78,7 +78,6 @@ export function IntensityBar({
                 className={`${entry.level === level ? 'on ' : ''}px-[16px]! py-[6px]! ${
                   entry.level === level ? TIER_TINT[tierKey(entry)] ?? '' : ''
                 }`}
-                title={entry.prompt_add || 'aucun ajout de prompt'}
                 data-hint-text={
                   isEditTier(entry)
                     ? "N'engendre rien : reprend une image déjà validée."
@@ -95,7 +94,8 @@ export function IntensityBar({
         </div>
         <span className="tiny" id="intHint">
           {tier
-            ? `${tier.export ? 'exportable' : 'hors export'} · ${tier.scenes} ${unit}${plural} ${unit === 'image' ? 'éditable' : 'disponible'}${plural}`
+            ? `${tier.export ? 'exportable' : 'hors export'} · ${tier.scenes} ${unit}${plural} ${unit === 'image' ? 'éditable' : 'disponible'}${plural}` +
+              (tier.prompt_add ? ` · ajoute : ${tier.prompt_add}` : '')
             : ''}
         </span>
         {editing && (
