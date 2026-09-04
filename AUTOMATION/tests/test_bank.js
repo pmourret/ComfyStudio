@@ -49,6 +49,19 @@
    back and checks it matches. Nothing is left behind — verified at the end,
    including the scene it creates itself.
 
+   `edite`, NOT `cible`, IS THE EDIT TARGET (2026-09-04). A prior world-catalog
+   migration left all 16 of lena's real scenes `origin: "world"` — their 3
+   prompt fragments are therefore all LOCKED (ADR-0015), which broke every
+   check here that used to type into one on `cible` (the first real card,
+   established in [4]). `cible` still serves the checks that only need an
+   EXISTING id — search ([4quater]), filter ([10], [13]) — nothing about
+   world-linking touches those. Everything that types into a prompt fragment
+   now runs on `edite`, a scene created fresh in [5ter] (never linked to a
+   world, so never locked) and kept open through [11], where its first save
+   also folds in what a separate `idNeuf` scene used to check on its own
+   (world stamp, `origin: "manual"`, the default wardrobe never joining the
+   prompt) — one scene created and round-tripped instead of two.
+
    test_pose_extraction stays separate: it needs ComfyUI online and a real GPU
    job, and it ignores itself without one.
 
@@ -79,6 +92,17 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   // le 31/08/2026, mais le selecteur reste tolerant si elle revenait un jour
   const CARTE = '[data-scene-card]:not([data-new])';
   const champ = f => `#sceneInspector [data-f="${f}"]`;
+  // la carte d'un id PRECIS, pas juste « la premiere du DOM » — necessaire
+  // depuis que `edite` (voir [5ter]) coexiste avec les 16 scenes reelles :
+  // son id ne trie pas forcement en tete du groupe une fois la liste
+  // regroupee par intention
+  const carteDe = async (id) => {
+    for (const c of await page.$$(CARTE)) {
+      const t = await c.$eval('[data-card-id]', e => e.textContent).catch(() => null);
+      if (t === id) return c;
+    }
+    return null;
+  };
   // le compositeur (31/08/2026) est un tablist : un champ n'est dans le DOM
   // que si son onglet est ouvert — voir bank/composer/SceneComposer.tsx
   const onglet = async cle => {
@@ -215,11 +239,19 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   // le compositeur doit remplir la HAUTEUR disponible (demande explicite),
   // pas seulement la largeur de son propre contenu — verifie que le panneau
   // visible (bordure + fond) atteint bien la hauteur de son conteneur
-  // `#bankInspector`, pas seulement celle de l'onglet General (le plus court)
+  // `#bankInspector`, pas seulement celle de l'onglet General (le plus court).
+  // `cible` est desormais TOUJOURS origin=world (voir la note de tete de
+  // fichier) : `#bankInspector` porte alors AUSSI le groupe de bascule
+  // « Personnage | Monde » (BankScreen.tsx) au-dessus de #sceneInspector —
+  // sa hauteur (+ sa marge) fait partie du conteneur mais pas du panneau, a
+  // deduire plutot que d exiger une egalite stricte qui ne peut plus tenir.
   const hAside = await page.$eval('#bankInspector', e => e.getBoundingClientRect().height);
   const hPanel = await page.$eval('#sceneInspector', e => e.getBoundingClientRect().height);
-  dire(Math.abs(hAside - hPanel) < 2,
-       `le panneau (${Math.round(hPanel)}px) remplit son conteneur (${Math.round(hAside)}px), pas seulement son contenu`);
+  const hBascule = await page
+    .$eval('#bankInspector [role="group"]', e => e.getBoundingClientRect().height + 10 /* mb-[10px] */)
+    .catch(() => 0);
+  dire(Math.abs(hAside - hPanel - hBascule) < 2,
+       `le panneau (${Math.round(hPanel)}px) + la bascule Personnage/Monde (${Math.round(hBascule)}px) remplissent le conteneur (${Math.round(hAside)}px)`);
   dire((await page.$$eval('#sceneInspector [role="tab"]', e => e.length)) === 7,
        'le compositeur ouvre sur ses 7 onglets (wireframe 31/08/2026)');
   // audit UX/UI (M2) : aria-controls doit resoudre a un id REELLEMENT present
@@ -244,10 +276,30 @@ const SCENES = BASE + '/bank/scenes?character=lena';
     champsAttendus.forEach(f => dire(presents.includes(f), `onglet ${cle} : champ « ${f} »`));
   }
 
+  // CIBLE D EDITION (2026-09-04) : les 16 scenes REELLES de lena sont
+  // desormais TOUTES origin=world (migration du catalogue de lieux,
+  // anterieure et hors perimetre de cette fumigation) — leurs 3 fragments
+  // de prompt sont donc TOUS verrouilles (ADR-0015, worldLinked). `cible`
+  // (la premiere carte du DOM, etablie en [4]) ne peut plus servir a
+  // tester l'edition d'un fragment de prompt : elle reste utilisee la ou
+  // seule une carte EXISTANTE compte (recherche en [4quater], filtre en
+  // [10]). `edite` est une scene neuve — jamais liee a un monde, donc
+  // jamais verrouillee — creee ici et gardee ouverte jusqu'a [13] : c'est
+  // elle que [5ter] a [13] editent et enregistrent desormais.
+  console.log('\n[5ter] scene d edition : une scene neuve (jamais liee a un monde, donc jamais verrouillee)');
+  await page.click('#btnAddScene');
+  await page.waitForSelector('#sceneInspector');
+  dire((await page.$eval('[data-tab="general"]', e => e.getAttribute('aria-selected'))) === 'true',
+       'une scene neuve (comme une autre) ouvre sur l onglet General');
+  dire(await vu('#dirtyBar'),
+       'elle n existe que dans la page tant qu on n enregistre pas — le bandeau le dit');
+  const idEdite = 'fumigation_edition_' + Date.now();
+  await page.fill(champ('id'), idEdite);
+
   // audit UX/UI (m1) : les miroirs du recapitulatif disent qu'ils sont le
   // MEME champ que leur onglet d'origine (pas une copie propre au recap),
   // et editer l'un met bien a jour l'autre — pas juste le libelle qui le dit
-  console.log('\n[5ter] les miroirs du recapitulatif se disent lies a leur onglet, et le sont vraiment');
+  console.log('\n[5ter bis] les miroirs du recapitulatif se disent lies a leur onglet, et le sont vraiment');
   await onglet('recap');
   const libelleLumiereRecap = await page.$eval(
     `label[for="scene-prompt-prompt_light_recap"] span`, e => e.textContent);
@@ -261,9 +313,10 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   await page.fill(champ('prompt_light_recap'), '');
 
   await onglet('general');
-  dire((await page.$eval(champ('id'), e => e.value)) === cible.id,
+  dire((await page.$eval(champ('id'), e => e.value)) === idEdite,
        'et c est bien LA scene ouverte qui est editee');
-  dire(await page.$eval(CARTE, e => e.getAttribute('aria-pressed')) === 'true',
+  const carteEdite = await carteDe(idEdite);
+  dire(Boolean(carteEdite) && (await carteEdite.getAttribute('aria-pressed')) === 'true',
        'la carte ouverte se dit selectionnee (pas seulement par sa bordure)');
 
   // direction "studio IA" (2026-09-01) : le compositeur montre une image et
@@ -272,8 +325,8 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   console.log('\n[5quater] en-tete persistant : vignette + prompt compose en direct, sur tous les onglets');
   dire(await vu('#scenePreviewThumb'), 'la vignette de la scene est visible des l ouverture');
   const previewInitial = await page.$eval('#scenePromptPreview', e => e.textContent.trim());
-  dire(previewInitial === (cible.prompt || '— vide —'),
-       `le prompt compose initial correspond au prompt enregistre (« ${previewInitial.slice(0, 40)}… »)`);
+  dire(previewInitial === '— vide —',
+       `une scene neuve n a pas encore de prompt compose (« ${previewInitial.slice(0, 40)}… »)`);
   await onglet('light');
   dire(await vu('#scenePreviewThumb') && await vu('#scenePromptPreview'),
        'l en-tete reste visible en changeant d onglet — ce n est pas un contenu d onglet');
@@ -305,7 +358,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   dire(await vu('#bankDocument'), "l'inspecteur revient aux reglages de la banque");
   dire(await page.evaluate(() => document.activeElement?.dataset?.uid !== undefined),
        'le focus est revenu sur la carte, pas en haut du document');
-  await page.click(CARTE);
+  await (await carteDe(idEdite)).click();
   await page.waitForSelector('#sceneInspector');
 
   console.log('\n[6bis] Echap dans une modale de prompt ne ferme QUE la modale, pas tout le compositeur');
@@ -410,7 +463,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   await page.click('.tabs [data-s="bank"]');
   await page.waitForTimeout(500);
   await page.waitForSelector(CARTE);
-  await page.click(CARTE);
+  await (await carteDe(idEdite)).click();
   await page.waitForSelector('#sceneInspector');
   await onglet('clothing');
   dire(await page.$eval(champ('wardrobe_3'), e => e.value) === tenues,
@@ -419,24 +472,31 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   console.log('\n[10] FILTRER retrecit la grille, jamais le document');
   // `cible` est deja etabli en [4] — la premiere carte reelle du DOM, pas une
   // hypothese sur l'ordre du document (le regroupement par intention reordonne
-  // l'affichage)
+  // l'affichage). Le total attendu est celui de la banque + `edite`, la scene
+  // d'edition ajoutee en [5ter] — elle existe deja dans la grille bien
+  // qu'encore non enregistree (meme raisonnement que le compte affiche).
+  const totalAvecEdite = avant.scenes.length + 1;
   await page.fill('#sceneFilter', cible.id);
   await page.waitForTimeout(200);
   const filtrees = await page.$$eval(CARTE, e => e.length);
-  dire(filtrees < avant.scenes.length && filtrees >= 1,
+  dire(filtrees < totalAvecEdite && filtrees >= 1,
        `${filtrees} carte(s) pour « ${cible.id} »`);
-  dire((await texte('#nScenes')).includes(String(avant.scenes.length)),
-       'le compte rappelle le total du document, pas seulement ce qui est montre');
+  dire((await texte('#nScenes')).includes(String(totalAvecEdite)),
+       'le compte rappelle le total du document (banque + edite), pas seulement ce qui est montre');
   await page.fill('#sceneFilter', '');
   await page.waitForTimeout(200);
-  dire(await page.$$eval(CARTE, e => e.length) === avant.scenes.length,
-       'vider le filtre rend toute la banque');
+  dire(await page.$$eval(CARTE, e => e.length) === totalAvecEdite,
+       'vider le filtre rend toute la banque, edite comprise');
 
-  console.log('\n[11] ALLER-RETOUR : on modifie 2 fragments dans 2 onglets, et rien d autre ne bouge');
-  await page.click(CARTE);
+  console.log('\n[11] ALLER-RETOUR : on modifie 2 fragments dans 2 onglets sur `edite`, et rien d autre ne bouge');
+  // `edite` (creee en [5ter]) n a encore JAMAIS ete enregistree — ce premier
+  // "Enregistrer" est donc aussi celui qui la fait naitre sur le disque
+  // (ex-[12], fusionne ici : meme geste, memes verifications, une seule
+  // scene neuve plutot que deux).
+  await (await carteDe(idEdite)).click();
   await page.waitForSelector('#sceneInspector');
   await onglet('recap');
-  const marque = (cible.prompt || '') + ' _FUMIGATION_';
+  const marque = 'a quiet fumigation corner';
   await page.fill(champ('prompt_base'), marque);
   const eclairage = 'fumigation lumiere marker';
   await page.fill(champ('prompt_light_recap'), eclairage);
@@ -444,23 +504,37 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   const promptAttendu = `${marque}, ${eclairage}`;
   dire((await page.$eval('#sceneInspector textarea[readonly]', e => e.value)) === promptAttendu,
        'le "prompt compose" affiche deja la jointure des 2 fragments, virgule separee');
+  dire(await vu('#dirtyBar'),
+       'elle n existe que dans la page tant qu on n enregistre pas — le bandeau le dit');
   await page.click('#btnSaveScenes');
   await page.waitForTimeout(1400);
   dire((await texte('#scMsg')).includes('enregistré'), `la barre le confirme : « ${await texte('#scMsg')} »`);
   dire(!(await vu('#dirtyBar')), 'le bandeau disparait : plus rien en attente');
 
   const apres = await banque();
-  dire(apres.scenes.length === avant.scenes.length,
-       `toujours ${apres.scenes.length} scenes — aucune perdue`);
-  dire(apres.scenes.find(s => s.id === cible.id).prompt === promptAttendu,
+  dire(apres.scenes.length === avant.scenes.length + 1,
+       `${avant.scenes.length} scene(s) d origine + edite = ${apres.scenes.length} — aucune perdue`);
+  const edite = apres.scenes.find(s => s.id === idEdite);
+  dire(Boolean(edite), 'edite est bien arrivee sur le disque');
+  dire(edite && edite.prompt === promptAttendu,
        'les 2 fragments tapes dans des onglets differents ont bien ete joints, virgule separee');
+  dire(edite && edite.world === avant.world, `elle porte le monde du personnage (${edite && edite.world})`);
+  dire(edite && edite.origin === 'manual', 'et son origine dit d ou elle vient');
+  // NEW_SCENE nait avec `wardrobe: {"0": "everyday clothing"}` (ScenesStoreContext) :
+  // une valeur connue, pas une donnee reelle imprevisible, pour verifier que la
+  // tenue ne se glisse JAMAIS dans le prompt (elle est injectee a part, par
+  // niveau — voir le commentaire de SceneDraft).
+  dire(edite && !edite.prompt.includes('everyday clothing'),
+       'et la tenue par defaut de la scene neuve n a jamais rejoint le prompt');
 
-  // LE POINT DU TEST : tout ce que l'inspecteur ne montre pas doit avoir traverse
+  // LE POINT DU TEST : tout ce que l'inspecteur ne montre pas doit avoir
+  // traverse — sur les scenes D ORIGINE, `edite` est ajoutee en fin de
+  // tableau (addScene() ne fait qu ajouter), donc les index 0..15
+  // continuent de s aligner sur `avant.scenes`
   const ecarts = [];
   avant.scenes.forEach((s, i) => {
     const a = apres.scenes[i] || {};
     Object.keys(s).forEach(k => {
-      if (k === 'prompt' && s.id === cible.id) return;      // le champ modifie
       if (k === 'category') return;                        // cle morte, retiree a l'enregistrement
       if (JSON.stringify(s[k]) !== JSON.stringify(a[k]))
         ecarts.push(`${s.id}.${k} : ${JSON.stringify(s[k])} -> ${JSON.stringify(a[k])}`);
@@ -476,42 +550,10 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   dire(JSON.stringify(apres.direction) === JSON.stringify(avant.direction),
        'la note de direction aussi');
 
-  console.log('\n[12] AJOUTER une scene : un draft perso, tamponne du monde du perso');
-  await page.click('#btnAddScene');
-  await page.waitForSelector('#sceneInspector');
-  dire(await vu('#sceneInspector'), 'la scene neuve ouvre dans l inspecteur — pas creee a l aveugle');
-  dire((await page.$eval('[data-tab="general"]', e => e.getAttribute('aria-selected'))) === 'true',
-       'une scene neuve (comme une autre) ouvre sur l onglet General');
-  const idNeuf = 'fumigation_scene_neuve';
-  await page.fill(champ('id'), idNeuf);
-  await onglet('recap');
-  await page.fill(champ('prompt_base'), 'a quiet corner used by the smoke test');
-  await page.waitForTimeout(150);
-  dire(await vu('#dirtyBar'),
-       'elle n existe que dans la page tant qu on n enregistre pas — le bandeau le dit');
-  await page.click('#btnSaveScenes');
-  await page.waitForTimeout(1400);
-  const avecNeuve = await banque();
-  const neuve = avecNeuve.scenes.find(s => s.id === idNeuf);
-  dire(Boolean(neuve), 'la scene neuve est bien arrivee sur le disque');
-  dire(neuve && neuve.world === avant.world,
-       `elle porte le monde du personnage (${neuve && neuve.world})`);
-  dire(neuve && neuve.origin === 'manual', 'et son origine dit d ou elle vient');
-  dire(avecNeuve.scenes.length === avant.scenes.length + 1,
-       'une scene de plus, aucune de moins');
-  dire(neuve && neuve.prompt === 'a quiet corner used by the smoke test',
-       'seul le fragment de base tape a ete ecrit — les 3 autres, restes vides, ne rejoignent rien');
-  // NEW_SCENE nait avec `wardrobe: {"0": "everyday clothing"}` (ScenesStoreContext) :
-  // une valeur connue, pas une donnee reelle imprevisible, pour verifier que la
-  // tenue ne se glisse JAMAIS dans le prompt (elle est injectee a part, par
-  // niveau — voir le commentaire de SceneDraft).
-  dire(neuve && !neuve.prompt.includes('everyday clothing'),
-       'et la tenue par defaut de la scene neuve n a jamais rejoint le prompt');
-
   console.log('\n[13] une tenue sans niveau REFUSE l enregistrement');
-  // la scene ajoutee en [12] a pu rejoindre un groupe affiche AVANT celui de
-  // `cible` — on la retrouve par filtre plutot que de supposer qu elle est
-  // toujours la premiere carte du DOM
+  // `cible` (une scene EXISTANTE, etablie en [4]) — `edite` vient d etre
+  // enregistree avec un wardrobe valide en [11], ce test veut le cas
+  // REFUSE sur une scene qui en a deja un, pas sur une scene neuve
   await page.fill('#sceneFilter', cible.id);
   await page.waitForTimeout(200);
   await page.click(CARTE);
@@ -591,7 +633,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   dire(remis === true, 'la banque d origine est reecrite');
   await page.goto(SCENES, { waitUntil: 'networkidle' });
   const final = await banque();
-  dire(!final.scenes.some(s => s.id === idNeuf),
+  dire(!final.scenes.some(s => s.id === idEdite),
        'la scene creee par la fumigation a bien disparu');
   const restant = [];
   avant.scenes.forEach((s, i) => {
