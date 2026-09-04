@@ -33,7 +33,7 @@ import { useSystemState } from '../../state/SystemStateContext'
 import { useTaxonomy } from '../../state/TaxonomyContext'
 import { PATHS } from '../../app/routes'
 import { EditStep } from './EditStep'
-import { PromptPreview } from './PromptPreview'
+import { PromptPreview, EMPTY_AMENDMENTS, type SceneAmendments } from './PromptPreview'
 import { QueueRail } from './QueueRail'
 import { IntensityBar } from './IntensityBar'
 import { IntentRail, type Intention } from './IntentRail'
@@ -82,6 +82,7 @@ export function ProduceScreen() {
   const [quality, setQuality] = useState('realisme')
   const [previewOpen, setPreviewOpen] = useState(false)
   const [override, setOverride] = useState('')
+  const [amendments, setAmendments] = useState<SceneAmendments>(EMPTY_AMENDMENTS)
   const [instruction, setInstruction] = useState('')
   const [launching, setLaunching] = useState(false)
 
@@ -152,9 +153,17 @@ export function ProduceScreen() {
       // scene amendment for THIS launch: the server only keeps it when a single
       // scene is ticked, and passes it through the same face check
       scene_override: override,
+      // screen-3-produire §B4: four more amendments, same rule, one field
+      // per fragment rather than folded into scene_override — the server
+      // keeps each only when a single scene is ticked (see run_amendments,
+      // routers/production.py).
+      light_override: amendments.light,
+      expression_override: amendments.expression,
+      pose_override: amendments.pose,
+      outfit_override: amendments.outfit,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selected, values, level, tone, intent, instruction, picked, override],
+    [selected, values, level, tone, intent, instruction, picked, override, amendments],
   )
 
   /* The plan runs in editing mode even with nothing ticked: it is what renders
@@ -195,6 +204,7 @@ export function ProduceScreen() {
     }
     setLevelState(next)
     setOverride('')
+    setAmendments(EMPTY_AMENDMENTS)
   }
 
   /* Out-of-band scenes disappear when the level changes: the selection is
@@ -319,6 +329,7 @@ export function ProduceScreen() {
     /* An amendment is written FOR a scene: changing the selection makes it
        void, and applying it in silence to another scene would be worse. */
     setOverride('')
+    setAmendments(EMPTY_AMENDMENTS)
   }
 
   /* "Retenir" in the comparison view: the run narrows to this one candidate.
@@ -327,6 +338,7 @@ export function ProduceScreen() {
   const keepOnly = (id: string) => {
     setSelected(new Set([id]))
     setOverride('')
+    setAmendments(EMPTY_AMENDMENTS)
   }
 
   const preview = (plan?.apercu ?? null) as Preview | null
@@ -649,6 +661,8 @@ export function ProduceScreen() {
             singleScene={selected.size === 1 && !editing}
             override={override}
             onOverride={setOverride}
+            amendments={amendments}
+            onAmendmentChange={(field, value) => setAmendments((current) => ({ ...current, [field]: value }))}
             onClose={() => setPreviewOpen(false)}
           />
         )}

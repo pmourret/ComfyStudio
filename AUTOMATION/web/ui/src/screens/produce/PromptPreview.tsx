@@ -20,20 +20,38 @@ import { useRef } from 'react'
 import type { Preview } from './useProduceState'
 import { useOverlayPanel } from './useOverlayPanel'
 
+/** The four short, per-fragment amendments — screen-3-produire §B4. Same
+    single-scene rule as `override` (the free-text scene rewrite): the
+    server keeps a field only when exactly one scene is ticked. */
+export type SceneAmendments = { light: string; expression: string; pose: string; outfit: string }
+
+export const EMPTY_AMENDMENTS: SceneAmendments = { light: '', expression: '', pose: '', outfit: '' }
+
+const AMENDMENT_FIELDS: [keyof SceneAmendments, string, string][] = [
+  ['light', 'Lumière', 'ex : soft window light'],
+  ['expression', 'Expression', 'ex : gentle smile'],
+  ['pose', 'Pose', 'ex : leaning on the doorframe'],
+  ['outfit', 'Vêtements', 'ex : oversized cardigan'],
+]
+
 export function PromptPreview({
   preview,
   /** The amendment only means something on ONE scene: with several, « the »
       scene designates nothing. The server applies the same rule
-      (scene_override). */
+      (scene_override, and the four fields below). */
   singleScene,
   override,
   onOverride,
+  amendments,
+  onAmendmentChange,
   onClose,
 }: {
   preview: Preview | null
   singleScene: boolean
   override: string
   onOverride: (value: string) => void
+  amendments: SceneAmendments
+  onAmendmentChange: (field: keyof SceneAmendments, value: string) => void
   onClose: () => void
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -164,6 +182,39 @@ export function PromptPreview({
               onChange={(event) => onOverride(event.target.value)}
             />
           </label>
+        </div>
+
+        {/* screen-3-produire §B4: four short amendments, one per fragment,
+            rather than folding them into the free-text override above — a
+            reader of the panel above can tell "the light changed" from
+            "the pose changed" instead of parsing one paragraph for both.
+            Same rule, same field, same server-side guard (single scene,
+            never saved, put through the same face check as scene_override). */}
+        <div
+          className={`mt-[12px] border-t border-t-line pt-[10px] ${
+            singleScene ? '' : 'opacity-45'
+          }`}
+          id="fragmentAmendments"
+        >
+          <span className="tiny mb-[8px] block">
+            amender un fragment précis pour ce lancement
+          </span>
+          <div className="grid grid-cols-2 gap-[10px]">
+            {AMENDMENT_FIELDS.map(([field, label, placeholder]) => (
+              <label className="f" key={field}>
+                <span>{label}</span>
+                <input
+                  type="text"
+                  id={`amend_${field}`}
+                  spellCheck={false}
+                  placeholder={placeholder}
+                  disabled={!singleScene}
+                  value={amendments[field]}
+                  onChange={(event) => onAmendmentChange(field, event.target.value)}
+                />
+              </label>
+            ))}
+          </div>
         </div>
       </div>
     </div>

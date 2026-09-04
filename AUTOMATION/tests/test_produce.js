@@ -243,6 +243,23 @@ const PANNEAU = '#gearPanel[data-open]';
   dire(plans >= 1, `${plans} appel(s) a /api/plan pour ${lettres} frappes — il est bien rejoue`);
   dire(plans < lettres, `et debounce : ${plans} < ${lettres}`);
 
+  console.log('\n[7b] les 4 amendements par fragment rejoignent l apercu (design pass ecran 3, §B4)');
+  dire(await vu('#amend_light'), 'les 4 champs sont proposes (une seule scène cochée)');
+  await page.fill('#amend_light', 'soft window light amendment');
+  await page.fill('#amend_expression', 'gentle smile');
+  await page.fill('#amend_pose', 'leaning on the doorframe');
+  await page.fill('#amend_outfit', 'oversized cardigan');
+  await page.waitForTimeout(1200);
+  const lignes = await page.$$eval('#apFrags [data-fragment]', e => e.map(x => ({
+    source: x.querySelector('[data-source]').textContent.trim(),
+    texte: x.querySelector('[data-source]').nextElementSibling.textContent.trim(),
+  })));
+  const parSource = Object.fromEntries(lignes.map(l => [l.source, l.texte]));
+  dire(parSource['lumière'] === 'soft window light amendment', `fragment lumière : « ${parSource['lumière']} »`);
+  dire(parSource['expression'] === 'gentle smile', `fragment expression : « ${parSource['expression']} »`);
+  dire(parSource['pose'] === 'leaning on the doorframe', `fragment pose : « ${parSource['pose']} »`);
+  dire(parSource['vêtements'] === 'oversized cardigan', `fragment vêtements : « ${parSource['vêtements']} »`);
+
   console.log('\n[8] L APERCU montre le prompt REELLEMENT envoye');
   await page.waitForTimeout(600);
   const frags = await page.$$eval('#apFrags [data-source]', e => e.map(x => x.textContent.trim()));
