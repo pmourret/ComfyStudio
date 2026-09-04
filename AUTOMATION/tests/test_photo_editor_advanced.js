@@ -233,6 +233,27 @@ process.on('exit', nettoyer);
   await page.waitForTimeout(200);
   dire((await hueField.inputValue()) === '12', 'le champ teinte de la bande "rouges" retient la valeur saisie');
 
+  console.log('\n[8ter] Recadrage avancé : perspective H/V deforme et laisse des coins transparents');
+  const perspDetails = page.locator('details.adv:has-text("Recadrage avancé")');
+  await perspDetails.locator('summary').click();
+  await page.waitForTimeout(200);
+  const cornerAlpha = () => page.evaluate(() => {
+    const c = document.querySelector('#peCanvas');
+    return c.getContext('2d').getImageData(2, 2, 1, 1).data[3];
+  });
+  const alphaAvant = await cornerAlpha();
+  dire(alphaAvant === 255, `coin plein avant toute perspective (alpha ${alphaAvant})`);
+  const perspHSlider = page.locator('#pe-perspH');
+  await perspHSlider.scrollIntoViewIfNeeded();
+  await regler('#pe-perspH', 30);
+  await page.waitForTimeout(300);
+  const alphaApres = await cornerAlpha();
+  dire(alphaApres === 0, `coin transparent a l extreme (alpha ${alphaApres}) — pas de recadrage automatique`);
+  await regler('#pe-perspH', 0);
+  await page.waitForTimeout(300);
+  const alphaReset = await cornerAlpha();
+  dire(alphaReset === 255, `revient plein a 0° (alpha ${alphaReset})`);
+
   console.log('\n[9] reordonner, masquer, supprimer un calque non-base — jamais la base elle-meme');
   await page.click('button:has-text("+ Ajouter un calque")');
   await page.waitForSelector('#addLayerBox[open]');

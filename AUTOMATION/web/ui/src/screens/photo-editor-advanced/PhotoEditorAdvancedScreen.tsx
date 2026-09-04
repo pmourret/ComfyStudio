@@ -20,6 +20,7 @@ import { Histogram } from './Histogram'
 import { HistoryPanel } from './HistoryPanel'
 import { LayerList } from './LayerList'
 import { LayerSettingsPanel } from './LayerSettingsPanel'
+import { PerspectivePanel } from './PerspectivePanel'
 import { composeLayers, computeHistogram, NEUTRAL_SETTINGS } from './photoEditorLayersPixels'
 import { PresetsPanel } from './PresetsPanel'
 import { usePhotoEditorAdvanced } from './usePhotoEditorAdvanced'
@@ -264,6 +265,7 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
               <>
                 <LayerSettingsPanel layer={selectedLayer} onChange={updateSelectedSettings} />
                 <AdvancedColorPanel layer={selectedLayer} onChange={updateSelectedSettings} />
+                <PerspectivePanel layer={selectedLayer} onChange={updateSelectedSettings} />
               </>
             )}
           </aside>

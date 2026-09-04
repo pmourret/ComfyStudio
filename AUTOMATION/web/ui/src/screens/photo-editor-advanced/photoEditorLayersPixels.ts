@@ -29,6 +29,7 @@
 import type { Schema } from '../../api/client'
 import { buildCurveLut, isIdentityCurve, type CurvePoint } from './curvesMath'
 import { applyHslShift, isHslNeutral } from './hslMath'
+import { warpPerspective } from './perspectiveMath'
 import { applyTemperature, cssFilter } from '../review/photoEditorPixels'
 
 export type Layer = Schema<'Layer'>
@@ -184,9 +185,11 @@ function applyTonePass(ctx: CanvasRenderingContext2D, width: number, height: num
 }
 
 /** Renders ONE layer, fully, onto its own transparent-backed canvas —
-    basic sliders via `ctx.filter` (fast, native), then the combined tone
-    pass. Perspective/sharpen/selective-blur join this pipeline in their
-    own steps (ROADMAP.md); nothing here is a half-built stand-in for them. */
+    basic sliders via `ctx.filter` (fast, native), the combined tone pass,
+    then the perspective warp (geometric — must run AFTER colour so it
+    moves already-graded pixels, not raw ones). Sharpen/selective-blur join
+    this pipeline in their own step (ROADMAP.md); nothing here is a
+    half-built stand-in for them. */
 function renderLayerToCanvas(image: CanvasImageSource, width: number, height: number, layer: Layer): HTMLCanvasElement {
   const canvas = document.createElement('canvas')
   canvas.width = width
@@ -202,6 +205,7 @@ function renderLayerToCanvas(image: CanvasImageSource, width: number, height: nu
   // header note on why that replaces scaling each paint op individually.
   applyTemperature(ctx, width, height, layer.settings.temp, 1)
   applyTonePass(ctx, width, height, layer.settings)
+  warpPerspective(ctx, width, height, layer.settings.perspH, layer.settings.perspV)
   return canvas
 }
 
