@@ -28,6 +28,7 @@ export function SceneCard({
   imageUrl,
   onClick,
   onPoint,
+  onEdit,
 }: {
   scene: Scene
   meta?: { tones?: string[]; tags?: string[]; pose?: string }
@@ -42,6 +43,9 @@ export function SceneCard({
       (`onClick`). Optional: only the Produire grid points, the same card
       renders fine without it. */
   onPoint?: () => void
+  /** screen-3-produire §B3: opens this scene in the Banque's composer,
+      pre-selected. Optional, same reason as `onPoint`. */
+  onEdit?: (id: string) => void
 }) {
   const { qc } = useConfig()
   const dot =
@@ -56,16 +60,22 @@ export function SceneCard({
   const tags = (meta?.tags ?? []).slice(0, 3).join(' · ')
 
   return (
-    <button
-      type="button"
-      className={`${CARD} text-left ${selected ? 'border-acc' : CARD_IDLE}`}
-      data-scene-card
-      data-on={selected ? '1' : undefined}
-      aria-pressed={selected}
-      onClick={onClick}
-      onMouseEnter={onPoint}
-      onFocus={onPoint}
-    >
+    /* The card is a `<div>`, NOT a `<button>` (screen-3-produire §B3): once
+       the ✎ shortcut needed its own click target, ticking the scene and
+       editing it became two SIBLING buttons rather than one nested inside
+       the other — a button inside a button is invalid HTML and breaks
+       screen-reader semantics (same reasoning already applied to the
+       Revue's tiles, `review/Tile.tsx`, whose selection checkbox sits next
+       to its thumbnail button for the same reason). */
+    <div className={`${CARD} ${selected ? 'border-acc' : CARD_IDLE}`} data-scene-card data-on={selected ? '1' : undefined}>
+      <button
+        type="button"
+        className="block w-full cursor-pointer bg-transparent p-0 text-left [border:0]"
+        aria-pressed={selected}
+        onClick={onClick}
+        onMouseEnter={onPoint}
+        onFocus={onPoint}
+      >
       <div
         className={`relative aspect-[4/5] bg-panel2 bg-cover bg-center ${
           preview
@@ -89,9 +99,13 @@ export function SceneCard({
           /* imposed pose (ControlNet). `tabIndex={0}` + `data-hint-text`
              (design pass écran 7, §A2) — same contract as the Banque's own
              pose badge (`SceneComposer.tsx`): a plain `title` only reaches a
-             mouse, this reaches the keyboard and a screen reader too. */
+             mouse, this reaches the keyboard and a screen reader too.
+             Stacked BELOW the selection circle rather than sharing its
+             corner — the two used to overlap on a scene that is both
+             pose-locked and ticked, found while giving §B3's edit button
+             the bottom-right corner. */
           <div
-            className="absolute top-[8px] right-[8px] rounded-[10px] bg-scrim px-[7px] py-px
+            className="absolute top-[34px] right-[8px] rounded-[10px] bg-scrim px-[7px] py-px
                        text-[10.5px] font-bold text-[#9fd8ff]"
             tabIndex={0}
             data-hint-text={`pose imposée : ${meta.pose}`}
@@ -121,7 +135,10 @@ export function SceneCard({
           ✓
         </div>
       </div>
-      <div className="px-[11px] py-[9px]">
+      <div className="px-[11px] py-[9px] pr-[30px]">
+        {/* `pr-[30px]`: room for the ✎ button, a sibling of this text block
+           overlaying the card's bottom-right corner (see below) — without
+           it a long tag line ran under the icon. */}
         <b className="block truncate text-[13px] font-semibold">{scene.id}</b>
         <span className="text-[11.5px] text-dim">
           {scene.format || '4:5'} · {scene.count || 1} img
@@ -155,7 +172,24 @@ export function SceneCard({
         )}
         {tags && <div className="mt-[5px] truncate text-[10.5px] text-dim2">{tags}</div>}
       </div>
-    </button>
+      </button>
+      {onEdit && (
+        <button
+          type="button"
+          className="absolute bottom-[8px] right-[8px] z-[1] flex h-[24px] w-[24px]
+                     items-center justify-center rounded-[50%] border border-line2
+                     bg-scrim text-[12px] text-txt hover:bg-panel2"
+          aria-label={`éditer la scène ${scene.id} dans la Banque`}
+          data-hint-text="Ouvrir cette scène dans la Banque, pré-sélectionnée"
+          onClick={(event) => {
+            event.stopPropagation()
+            onEdit(scene.id)
+          }}
+        >
+          ✎
+        </button>
+      )}
+    </div>
   )
 }
 

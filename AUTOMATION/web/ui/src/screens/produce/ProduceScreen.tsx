@@ -278,6 +278,11 @@ export function ProduceScreen() {
   })
 
   const goCompose = () => navigate(PATHS.bankScenes)
+  /* screen-3-produire §B3: retouching a scene used to mean leaving for the
+     Banque and finding it again in its list by hand. `?scene=<id>` asks
+     `BankScreen`/`useSceneWorkbench` to open it pre-selected — see there
+     for the other half of this wire. */
+  const goEditScene = (id: string) => navigate(`${PATHS.bankScenes}?scene=${encodeURIComponent(id)}`)
 
   const pickIntent = (key: string) => {
     if (intent === key) return
@@ -570,6 +575,7 @@ export function ProduceScreen() {
                             imageUrl={api.image}
                             onClick={() => toggleScene(scene.id)}
                             onPoint={() => setPointedId(scene.id)}
+                            onEdit={goEditScene}
                           />
                         ))}
 <NewSceneCard onClick={goCompose} />
@@ -613,6 +619,7 @@ export function ProduceScreen() {
             tone={tone}
             isSelected={pointedScene ? selected.has(pointedScene.id) : false}
             onToggleSelect={toggleScene}
+            onEdit={goEditScene}
             imageUrl={api.image}
           />
         )}

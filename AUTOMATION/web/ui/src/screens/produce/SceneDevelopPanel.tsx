@@ -45,6 +45,7 @@ export function SceneDevelopPanel({
   tone,
   isSelected,
   onToggleSelect,
+  onEdit,
   imageUrl,
 }: {
   /** The scene currently pointed (hovered/focused) in the grid — `null` when
@@ -56,6 +57,8 @@ export function SceneDevelopPanel({
   tone: string
   isSelected: boolean
   onToggleSelect: (id: string) => void
+  /** screen-3-produire §B3: opens this scene in the Banque's composer. */
+  onEdit: (id: string) => void
   imageUrl: (ref: Record<string, unknown>) => string
 }) {
   const api = useApi()
@@ -204,14 +207,26 @@ export function SceneDevelopPanel({
             />
           )}
 
-          <button
-            type="button"
-            id="developSelect"
-            className={`btn sm${isSelected ? ' on' : ''}`}
-            onClick={() => onToggleSelect(scene.id)}
-          >
-            {isSelected ? 'Retirer de la sélection' : 'Sélectionner'}
-          </button>
+          <div className="flex gap-[8px]">
+            <button
+              type="button"
+              id="developSelect"
+              className={`btn sm flex-1${isSelected ? ' on' : ''}`}
+              onClick={() => onToggleSelect(scene.id)}
+            >
+              {isSelected ? 'Retirer de la sélection' : 'Sélectionner'}
+            </button>
+            <button
+              type="button"
+              id="developEdit"
+              className="btn sm"
+              aria-label={`éditer la scène ${scene.id} dans la Banque`}
+              data-hint-text="Ouvrir cette scène dans la Banque, pré-sélectionnée"
+              onClick={() => onEdit(scene.id)}
+            >
+              ✎
+            </button>
+          </div>
         </div>
       ) : (
         <p className="tiny m-0 text-dim">survole ou choisis une scène pour voir son détail</p>

@@ -37,8 +37,8 @@
    `.launch`/`.inner`/`.sum` classes stay defined in the shared stylesheet and
    in use by `ProduceScreen`/`WizardScreen` — only this screen stops reaching
    for them. */
-import { useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { useApi } from '../../api/useApi'
 import { Icon } from '../../chrome/Icon'
@@ -100,6 +100,30 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' | 'tones' }) {
   const bench = useSceneWorkbench()
   const [status, setStatus] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  /* screen-3-produire §B3: Produire's ✎ shortcut opens a scene directly by
+     its id (`?scene=<id>`) — the caller knows the scene, never the draft's
+     internal `uid` `useSceneWorkbench` selects on. Consumed once: the param
+     is dropped from the URL right after opening it, so it does not fight a
+     later `select(null)` or survive a manual re-navigation to the bare
+     route. */
+  useEffect(() => {
+    if (view !== 'scenes') return
+    const wanted = searchParams.get('scene')
+    if (!wanted || !drafts.length) return
+    const draft = drafts.find((d) => d.base.id === wanted)
+    if (draft) bench.select(draft.uid)
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous)
+        next.delete('scene')
+        return next
+      },
+      { replace: true },
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, drafts, searchParams])
 
   // Monde | Personnage (ADR-0015) — the catalog of the CHARACTER's world,
   // loaded once and shared by every scene the Banque opens.

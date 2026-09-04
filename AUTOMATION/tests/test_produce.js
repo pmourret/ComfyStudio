@@ -192,14 +192,17 @@ const PANNEAU = '#gearPanel[data-open]';
        'elle est deja cochee pour ce lot — le bouton le dit');
   await page.click('#developSelect');
   await page.waitForTimeout(200);
-  dire((await carteCliquee.getAttribute('aria-pressed')) === 'false',
+  // `data-on`, sur la carte (le `<div data-scene-card>` racine) — la case
+  // aria-pressed a migre sur le bouton interne le jour ou ✎ a demande un
+  // second bouton SIBLING plutot qu imbrique (§B3, SceneCard.tsx).
+  dire(!(await carteCliquee.getAttribute('data-on')),
        'retirer via le panneau decoche vraiment la carte dans la grille');
   dire((await texte('#sumT')).includes('sélectionne au moins une scène'),
        'la barre de lancement le sait aussitot');
   dire((await texte('#developSelect')) === 'Sélectionner', 'et le bouton change de libelle');
   await page.click('#developSelect');
   await page.waitForTimeout(200);
-  dire((await carteCliquee.getAttribute('aria-pressed')) === 'true',
+  dire((await carteCliquee.getAttribute('data-on')) === '1',
        'la re-cocher depuis le panneau la remet dans la selection');
 
   console.log('\n[6b] COMPARAISON cote a cote (design pass ecran 3, §S)');
@@ -221,7 +224,7 @@ const PANNEAU = '#gearPanel[data-open]';
     await page.waitForTimeout(400);
     dire(!(await vu('#compareGrid')), 'Retenir referme la comparaison — un seul candidat, plus rien a comparer');
     dire(await vu('#sceneGrid'), 'la grille normale revient');
-    const restantes = await page.$$eval(CARTE_REELLE + '[aria-pressed="true"] b', e => e.map(x => x.textContent));
+    const restantes = await page.$$eval(CARTE_REELLE + '[data-on] b', e => e.map(x => x.textContent));
     dire(JSON.stringify(restantes) === JSON.stringify([idCliquee]),
          `seule « ${idCliquee} » reste cochee`);
   } else {
@@ -416,12 +419,34 @@ const PANNEAU = '#gearPanel[data-open]';
     console.log('      (aucune image source à ce niveau, §B2 non exercé)');
   }
 
-  console.log('\n[16] rien n a ete lance');
+  console.log('\n[16] §B3 : le raccourci ✎ ouvre la Banque sur la bonne scène');
+  // revient au cran de generation (0 = SFW strict) : le raccourci se lit
+  // depuis la grille de scènes, pas depuis le cran d'edition.
+  await page.click('#intSel button[data-lv="0"]');
+  await page.waitForTimeout(600);
+  const carteAEditer = await page.$(CARTE_REELLE);
+  if (carteAEditer){
+    const idAEditer = await carteAEditer.$eval('b', e => e.textContent);
+    await carteAEditer.hover();
+    await page.waitForTimeout(200);
+    dire(await vu('#developEdit'), 'le bouton ✎ est proposé dans le panneau de développement');
+    await page.click('#developEdit');
+    await page.waitForSelector('#sceneInspector', { timeout: 8000 }).catch(() => {});
+    dire((await page.evaluate(() => location.pathname)) === '/bank/scenes',
+         'navigue vers /bank/scenes');
+    const idOuvert = await page.$eval('#sceneInspector [data-f="id"]', e => e.value).catch(() => null);
+    dire(idOuvert === idAEditer,
+         `la Banque ouvre directement « ${idAEditer} » (lu : « ${idOuvert} »), pas une liste à chercher à la main`);
+  } else {
+    console.log('      (aucune scène disponible pour vérifier le raccourci ✎)');
+  }
+
+  console.log('\n[17] rien n a ete lance');
   const fin = await compteurs();
   dire(JSON.stringify(fin) === JSON.stringify(depart),
        `les dossiers sont intacts : ${JSON.stringify(fin)}`);
 
-  console.log('\n[17] aucune erreur JS sur tout le parcours');
+  console.log('\n[18] aucune erreur JS sur tout le parcours');
   dire(erreurs.length === 0, `${erreurs.length} erreur(s)`);
   erreurs.forEach(e => console.log('      ' + e.slice(0, 150)));
 
