@@ -24,6 +24,7 @@ moved on disk. They log and carry on.
 import csv
 from pathlib import Path
 
+import mesures as mes
 import nsfw_batch
 import shared_state as ss
 
@@ -113,6 +114,33 @@ def export_image(src, journal_name, space, character_id):
     except Exception as e:
         ss.push_log(f"export impossible pour {Path(src).name} : {e}")
         return ""
+
+
+def apply_overwrite_side_effects(image_path, name, bucket, space, character_id):
+    """The three consequences of overwriting a file IN PLACE (F3.3) — factored
+    out so `/api/edit/save?remplacer` and the advanced photo editor's own
+    save stay in lockstep instead of drifting apart, now that both are real
+    callers of the exact same contract:
+
+      - the thumbnail is forgotten (`oublier_vignette`) — its mtime would
+        eventually catch up, but making it certain costs nothing;
+      - the realism MEASUREMENTS were about the OLD pixels: erased
+        (`mes.demesurer`), the image becomes "unmeasured" again. The human
+        judgment (`flag`) is a different field entirely and stays untouched;
+      - the publishable export (OK/sfw only) is redone from the new bytes.
+
+    `image_path` is the ALREADY-RESOLVED, already-overwritten file — this
+    never re-derives `bucket_dir` itself, both callers already have it.
+    `space` must already be CANONICAL (`ss.space_id`'s own output): both
+    callers resolve it once, up front, same as before this was factored out.
+
+    Returns the export's new name, or "" if nothing was (re)exported.
+    """
+    ss.oublier_vignette(name, bucket, space, character_id)
+    mes.demesurer(name)
+    if bucket == "OK" and space == "sfw":
+        return export_image(image_path, name, space, character_id)
+    return ""
 
 
 def remove_export(name, character_id):

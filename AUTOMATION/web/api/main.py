@@ -22,7 +22,7 @@ from fastapi import FastAPI
 from .errors import install_error_handlers
 from .routers import app as app_router
 from .routers import (
-    bank, images, production, review, state,
+    bank, images, photo_editor, production, review, state,
 )
 # aliased: this module's own name would otherwise shadow AUTOMATION/expression.py,
 # which routers/expression.py itself already imports as the bare `expression` module
@@ -77,6 +77,7 @@ def create_app() -> FastAPI:
     app.include_router(bank.router)
     app.include_router(expression_router.router)
     app.include_router(images.router)
+    app.include_router(photo_editor.router)
     app.include_router(production.router)
     app.include_router(review.router)
     app.include_router(worlds_router.router)

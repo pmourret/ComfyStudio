@@ -35,7 +35,8 @@ from ..schemas.review import (
     UndoResponse,
 )
 from ..services.journal import (
-    export_image, nsfw_journal_index, record_bucket, remove_export,
+    apply_overwrite_side_effects, export_image, nsfw_journal_index, record_bucket,
+    remove_export,
 )
 
 router = APIRouter(responses=ERROR_RESPONSES)
@@ -368,11 +369,7 @@ async def save_edit(payload: EditSaveRequest, character_id: RequiredCharacterId)
                             status_code=404)
     if replace:
         (dest_dir / name).write_bytes(data)
-        ss.oublier_vignette(name, bucket, space, cid)
-        mes.demesurer(name)
-        exported = ""
-        if bucket == "OK" and space == "sfw":
-            exported = export_image(dest_dir / name, name, space, cid)
+        exported = apply_overwrite_side_effects(dest_dir / name, name, bucket, space, cid)
         ss.push_log(f"{name} remplacée par sa version éditée"
                     + (f" (export {exported} refait)" if exported else ""))
         return {"ok": True, "name": name, "remplace": True, "export": exported}
