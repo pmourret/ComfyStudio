@@ -4102,6 +4102,103 @@
         ],
         "title": "CreativeTone"
       },
+      "CurvePoint": {
+        "properties": {
+          "x": {
+            "type": "number",
+            "maximum": 255.0,
+            "minimum": 0.0,
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "maximum": 255.0,
+            "minimum": 0.0,
+            "title": "Y"
+          }
+        },
+        "type": "object",
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "CurvePoint"
+      },
+      "Curves": {
+        "properties": {
+          "rgb": {
+            "items": {
+              "$ref": "#/components/schemas/CurvePoint"
+            },
+            "type": "array",
+            "title": "Rgb",
+            "default": [
+              {
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "x": 255.0,
+                "y": 255.0
+              }
+            ]
+          },
+          "r": {
+            "items": {
+              "$ref": "#/components/schemas/CurvePoint"
+            },
+            "type": "array",
+            "title": "R",
+            "default": [
+              {
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "x": 255.0,
+                "y": 255.0
+              }
+            ]
+          },
+          "g": {
+            "items": {
+              "$ref": "#/components/schemas/CurvePoint"
+            },
+            "type": "array",
+            "title": "G",
+            "default": [
+              {
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "x": 255.0,
+                "y": 255.0
+              }
+            ]
+          },
+          "b": {
+            "items": {
+              "$ref": "#/components/schemas/CurvePoint"
+            },
+            "type": "array",
+            "title": "B",
+            "default": [
+              {
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "x": 255.0,
+                "y": 255.0
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "Curves",
+        "description": "One list of control points per channel — `curveChannel` (on\n`LayerSettings`) only says which of these four the editor currently\nshows, it does not pick which one is \"active\": all four always apply\ntogether when rendering (design-pass: courbe RGB puis par canal)."
+      },
       "DeclineDryResponse": {
         "properties": {
           "ok": {
@@ -5104,6 +5201,42 @@
         "title": "GalleryResponse",
         "description": "Content of one sorting folder — of THIS character, and of it alone.\n\n`sans_mesure` is counted over the WHOLE folder, not over the 200 items\ndisplayed: the button announces what /api/mesurer will really have to do,\nand that one walks everything. The two figures contradicted each other as\nsoon as a folder went past 200 images."
       },
+      "GradientDef": {
+        "properties": {
+          "x1": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "X1"
+          },
+          "y1": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y1"
+          },
+          "x2": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "X2"
+          },
+          "y2": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y2"
+          }
+        },
+        "type": "object",
+        "required": [
+          "x1",
+          "y1",
+          "x2",
+          "y2"
+        ],
+        "title": "GradientDef"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -5116,6 +5249,27 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "HslBand": {
+        "properties": {
+          "h": {
+            "type": "number",
+            "title": "H",
+            "default": 0
+          },
+          "s": {
+            "type": "number",
+            "title": "S",
+            "default": 0
+          },
+          "l": {
+            "type": "number",
+            "title": "L",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "HslBand"
       },
       "ImageNotFound": {
         "properties": {
@@ -5344,7 +5498,62 @@
               "expo": 0.0,
               "contrast": 0.0,
               "sat": 0.0,
-              "temp": 0.0
+              "temp": 0.0,
+              "curveChannel": "rgb",
+              "curves": {
+                "b": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 255.0,
+                    "y": 255.0
+                  }
+                ],
+                "g": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 255.0,
+                    "y": 255.0
+                  }
+                ],
+                "r": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 255.0,
+                    "y": 255.0
+                  }
+                ],
+                "rgb": [
+                  {
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  {
+                    "x": 255.0,
+                    "y": 255.0
+                  }
+                ]
+              },
+              "levelBlack": 0.0,
+              "levelMid": 0.0,
+              "levelWhite": 0.0,
+              "hsl": {},
+              "sharpen": 0.0,
+              "blurOn": false,
+              "blurRadius": 0.02,
+              "blurStrength": 50.0,
+              "perspH": 0.0,
+              "perspV": 0.0,
+              "aiBrushSize": 0.05,
+              "aiPrompt": ""
             }
           }
         },
@@ -5376,11 +5585,223 @@
             "type": "number",
             "title": "Temp",
             "default": 0
+          },
+          "curveChannel": {
+            "type": "string",
+            "enum": [
+              "rgb",
+              "r",
+              "g",
+              "b"
+            ],
+            "title": "Curvechannel",
+            "default": "rgb"
+          },
+          "curves": {
+            "$ref": "#/components/schemas/Curves",
+            "default": {
+              "rgb": [
+                {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                {
+                  "x": 255.0,
+                  "y": 255.0
+                }
+              ],
+              "r": [
+                {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                {
+                  "x": 255.0,
+                  "y": 255.0
+                }
+              ],
+              "g": [
+                {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                {
+                  "x": 255.0,
+                  "y": 255.0
+                }
+              ],
+              "b": [
+                {
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                {
+                  "x": 255.0,
+                  "y": 255.0
+                }
+              ]
+            }
+          },
+          "levelBlack": {
+            "type": "number",
+            "title": "Levelblack",
+            "default": 0
+          },
+          "levelMid": {
+            "type": "number",
+            "title": "Levelmid",
+            "default": 0
+          },
+          "levelWhite": {
+            "type": "number",
+            "title": "Levelwhite",
+            "default": 0
+          },
+          "hsl": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/HslBand"
+            },
+            "propertyNames": {
+              "enum": [
+                "rouges",
+                "jaunes",
+                "verts",
+                "cyans",
+                "bleus",
+                "magentas"
+              ]
+            },
+            "type": "object",
+            "title": "Hsl",
+            "default": {}
+          },
+          "sharpen": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Sharpen",
+            "default": 0
+          },
+          "blurOn": {
+            "type": "boolean",
+            "title": "Bluron",
+            "default": false
+          },
+          "blurMask": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Mask"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "blurRadius": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Blurradius",
+            "default": 0.02
+          },
+          "blurStrength": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Blurstrength",
+            "default": 50
+          },
+          "perspH": {
+            "type": "number",
+            "title": "Persph",
+            "default": 0
+          },
+          "perspV": {
+            "type": "number",
+            "title": "Perspv",
+            "default": 0
+          },
+          "aiMask": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Mask"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "aiBrushSize": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Aibrushsize",
+            "default": 0.05
+          },
+          "aiPrompt": {
+            "type": "string",
+            "title": "Aiprompt",
+            "default": ""
           }
         },
         "type": "object",
         "title": "LayerSettings",
-        "description": "Bounds copied from `photoEditorPixels.ts`'s own `SLIDERS` — the same\n4 adjustments, so a value the client's own slider could never produce\nis rejected here too, rather than silently clamped."
+        "description": "Bounds for `expo`/`contrast`/`sat`/`temp` copied from\n`photoEditorPixels.ts`'s own `SLIDERS` — the same 4 adjustments, so a\nvalue the client's own slider could never produce is rejected here too,\nrather than silently clamped. Same discipline for every field added\nsince."
+      },
+      "Mask": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "sujet",
+              "ciel",
+              "arriere-plan",
+              "pinceau",
+              "degrade",
+              "radial"
+            ],
+            "title": "Mode",
+            "default": "pinceau"
+          },
+          "brushRadius": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Brushradius",
+            "default": 0.05
+          },
+          "strokes": {
+            "items": {
+              "$ref": "#/components/schemas/Stroke"
+            },
+            "type": "array",
+            "title": "Strokes",
+            "default": []
+          },
+          "gradient": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GradientDef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "radial": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RadialDef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "Mask",
+        "description": "Shared by selective blur AND AI retouch (design-pass §7b: \"remplace\nle pinceau simple partout où une zone doit être ciblée\"). `sujet`/\n`ciel`/`arriere-plan` are selectable but produce no actual mask this\npass — no segmentation backend exists yet, same status as AI retouch\nitself; the frontend keeps them visibly inert rather than pretending\nthey work."
       },
       "MeasureRequest": {
         "properties": {
@@ -5939,6 +6360,29 @@
         "title": "PlannedJob",
         "description": "One image of the plan. Same fields `build_jobs` produced — the route\nprojects them, it does not invent any."
       },
+      "Point01": {
+        "properties": {
+          "x": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y"
+          }
+        },
+        "type": "object",
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "Point01",
+        "description": "A point in NORMALIZED image space — see this module's own header."
+      },
       "PoseBankEntry": {
         "properties": {
           "nom": {
@@ -6269,6 +6713,54 @@
         ],
         "title": "PromptPreview",
         "description": "What actually goes out, shown before launching."
+      },
+      "RadialDef": {
+        "properties": {
+          "cx": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Cx"
+          },
+          "cy": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Cy"
+          },
+          "rx": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Rx"
+          },
+          "ry": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Ry"
+          },
+          "rotation": {
+            "type": "number",
+            "title": "Rotation",
+            "default": 0
+          },
+          "feather": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Feather",
+            "default": 20
+          }
+        },
+        "type": "object",
+        "required": [
+          "cx",
+          "cy",
+          "rx",
+          "ry"
+        ],
+        "title": "RadialDef"
       },
       "RecentImage": {
         "properties": {
@@ -6912,6 +7404,29 @@
         ],
         "title": "SortResponse",
         "description": "`export` is the name of the published JPEG when the gesture produced\none, \"\" otherwise. `undo` is the depth of the undo stack FOR THIS\nCHARACTER — the stack is shared, the reading is scoped."
+      },
+      "Stroke": {
+        "properties": {
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/Point01"
+            },
+            "type": "array",
+            "title": "Points"
+          },
+          "radius": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Radius"
+          }
+        },
+        "type": "object",
+        "required": [
+          "points",
+          "radius"
+        ],
+        "title": "Stroke"
       },
       "SystemStateResponse": {
         "properties": {

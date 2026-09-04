@@ -1819,6 +1819,78 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** CurvePoint */
+        CurvePoint: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /**
+         * Curves
+         * @description One list of control points per channel — `curveChannel` (on
+         *     `LayerSettings`) only says which of these four the editor currently
+         *     shows, it does not pick which one is "active": all four always apply
+         *     together when rendering (design-pass: courbe RGB puis par canal).
+         */
+        Curves: {
+            /**
+             * Rgb
+             * @default [
+             *       {
+             *         "x": 0,
+             *         "y": 0
+             *       },
+             *       {
+             *         "x": 255,
+             *         "y": 255
+             *       }
+             *     ]
+             */
+            rgb: components["schemas"]["CurvePoint"][];
+            /**
+             * R
+             * @default [
+             *       {
+             *         "x": 0,
+             *         "y": 0
+             *       },
+             *       {
+             *         "x": 255,
+             *         "y": 255
+             *       }
+             *     ]
+             */
+            r: components["schemas"]["CurvePoint"][];
+            /**
+             * G
+             * @default [
+             *       {
+             *         "x": 0,
+             *         "y": 0
+             *       },
+             *       {
+             *         "x": 255,
+             *         "y": 255
+             *       }
+             *     ]
+             */
+            g: components["schemas"]["CurvePoint"][];
+            /**
+             * B
+             * @default [
+             *       {
+             *         "x": 0,
+             *         "y": 0
+             *       },
+             *       {
+             *         "x": 255,
+             *         "y": 255
+             *       }
+             *     ]
+             */
+            b: components["schemas"]["CurvePoint"][];
+        };
         /**
          * DeclineDryResponse
          * @description What is available on this image, and under which locks.
@@ -2233,10 +2305,39 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** GradientDef */
+        GradientDef: {
+            /** X1 */
+            x1: number;
+            /** Y1 */
+            y1: number;
+            /** X2 */
+            x2: number;
+            /** Y2 */
+            y2: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HslBand */
+        HslBand: {
+            /**
+             * H
+             * @default 0
+             */
+            h: number;
+            /**
+             * S
+             * @default 0
+             */
+            s: number;
+            /**
+             * L
+             * @default 0
+             */
+            l: number;
         };
         /**
          * ImageNotFound
@@ -2368,16 +2469,73 @@ export interface components {
              *       "expo": 0,
              *       "contrast": 0,
              *       "sat": 0,
-             *       "temp": 0
+             *       "temp": 0,
+             *       "curveChannel": "rgb",
+             *       "curves": {
+             *         "b": [
+             *           {
+             *             "x": 0,
+             *             "y": 0
+             *           },
+             *           {
+             *             "x": 255,
+             *             "y": 255
+             *           }
+             *         ],
+             *         "g": [
+             *           {
+             *             "x": 0,
+             *             "y": 0
+             *           },
+             *           {
+             *             "x": 255,
+             *             "y": 255
+             *           }
+             *         ],
+             *         "r": [
+             *           {
+             *             "x": 0,
+             *             "y": 0
+             *           },
+             *           {
+             *             "x": 255,
+             *             "y": 255
+             *           }
+             *         ],
+             *         "rgb": [
+             *           {
+             *             "x": 0,
+             *             "y": 0
+             *           },
+             *           {
+             *             "x": 255,
+             *             "y": 255
+             *           }
+             *         ]
+             *       },
+             *       "levelBlack": 0,
+             *       "levelMid": 0,
+             *       "levelWhite": 0,
+             *       "hsl": {},
+             *       "sharpen": 0,
+             *       "blurOn": false,
+             *       "blurRadius": 0.02,
+             *       "blurStrength": 50,
+             *       "perspH": 0,
+             *       "perspV": 0,
+             *       "aiBrushSize": 0.05,
+             *       "aiPrompt": ""
              *     }
              */
             settings: components["schemas"]["LayerSettings"];
         };
         /**
          * LayerSettings
-         * @description Bounds copied from `photoEditorPixels.ts`'s own `SLIDERS` — the same
-         *     4 adjustments, so a value the client's own slider could never produce
-         *     is rejected here too, rather than silently clamped.
+         * @description Bounds for `expo`/`contrast`/`sat`/`temp` copied from
+         *     `photoEditorPixels.ts`'s own `SLIDERS` — the same 4 adjustments, so a
+         *     value the client's own slider could never produce is rejected here too,
+         *     rather than silently clamped. Same discipline for every field added
+         *     since.
          */
         LayerSettings: {
             /**
@@ -2400,6 +2558,150 @@ export interface components {
              * @default 0
              */
             temp: number;
+            /**
+             * Curvechannel
+             * @default rgb
+             * @enum {string}
+             */
+            curveChannel: "rgb" | "r" | "g" | "b";
+            /**
+             * @default {
+             *       "rgb": [
+             *         {
+             *           "x": 0,
+             *           "y": 0
+             *         },
+             *         {
+             *           "x": 255,
+             *           "y": 255
+             *         }
+             *       ],
+             *       "r": [
+             *         {
+             *           "x": 0,
+             *           "y": 0
+             *         },
+             *         {
+             *           "x": 255,
+             *           "y": 255
+             *         }
+             *       ],
+             *       "g": [
+             *         {
+             *           "x": 0,
+             *           "y": 0
+             *         },
+             *         {
+             *           "x": 255,
+             *           "y": 255
+             *         }
+             *       ],
+             *       "b": [
+             *         {
+             *           "x": 0,
+             *           "y": 0
+             *         },
+             *         {
+             *           "x": 255,
+             *           "y": 255
+             *         }
+             *       ]
+             *     }
+             */
+            curves: components["schemas"]["Curves"];
+            /**
+             * Levelblack
+             * @default 0
+             */
+            levelBlack: number;
+            /**
+             * Levelmid
+             * @default 0
+             */
+            levelMid: number;
+            /**
+             * Levelwhite
+             * @default 0
+             */
+            levelWhite: number;
+            /**
+             * Hsl
+             * @default {}
+             */
+            hsl: {
+                [key: string]: components["schemas"]["HslBand"];
+            };
+            /**
+             * Sharpen
+             * @default 0
+             */
+            sharpen: number;
+            /**
+             * Bluron
+             * @default false
+             */
+            blurOn: boolean;
+            blurMask?: components["schemas"]["Mask"] | null;
+            /**
+             * Blurradius
+             * @default 0.02
+             */
+            blurRadius: number;
+            /**
+             * Blurstrength
+             * @default 50
+             */
+            blurStrength: number;
+            /**
+             * Persph
+             * @default 0
+             */
+            perspH: number;
+            /**
+             * Perspv
+             * @default 0
+             */
+            perspV: number;
+            aiMask?: components["schemas"]["Mask"] | null;
+            /**
+             * Aibrushsize
+             * @default 0.05
+             */
+            aiBrushSize: number;
+            /**
+             * Aiprompt
+             * @default
+             */
+            aiPrompt: string;
+        };
+        /**
+         * Mask
+         * @description Shared by selective blur AND AI retouch (design-pass §7b: "remplace
+         *     le pinceau simple partout où une zone doit être ciblée"). `sujet`/
+         *     `ciel`/`arriere-plan` are selectable but produce no actual mask this
+         *     pass — no segmentation backend exists yet, same status as AI retouch
+         *     itself; the frontend keeps them visibly inert rather than pretending
+         *     they work.
+         */
+        Mask: {
+            /**
+             * Mode
+             * @default pinceau
+             * @enum {string}
+             */
+            mode: "sujet" | "ciel" | "arriere-plan" | "pinceau" | "degrade" | "radial";
+            /**
+             * Brushradius
+             * @default 0.05
+             */
+            brushRadius: number;
+            /**
+             * Strokes
+             * @default []
+             */
+            strokes: components["schemas"]["Stroke"][];
+            gradient?: components["schemas"]["GradientDef"] | null;
+            radial?: components["schemas"]["RadialDef"] | null;
         };
         /**
          * MeasureRequest
@@ -2685,6 +2987,16 @@ export interface components {
             [key: string]: unknown;
         };
         /**
+         * Point01
+         * @description A point in NORMALIZED image space — see this module's own header.
+         */
+        Point01: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /**
          * PoseBankEntry
          * @description One skeleton of the bank, WITH its metadata — what `PosesView.tsx`
          *     needs to show under a thumbnail (label) and as a provenance badge
@@ -2917,6 +3229,27 @@ export interface components {
             fragments: components["schemas"]["PromptFragment"][];
             /** Echos */
             echos: components["schemas"]["PromptEcho"][];
+        };
+        /** RadialDef */
+        RadialDef: {
+            /** Cx */
+            cx: number;
+            /** Cy */
+            cy: number;
+            /** Rx */
+            rx: number;
+            /** Ry */
+            ry: number;
+            /**
+             * Rotation
+             * @default 0
+             */
+            rotation: number;
+            /**
+             * Feather
+             * @default 20
+             */
+            feather: number;
         };
         /**
          * RecentImage
@@ -3222,6 +3555,13 @@ export interface components {
             undo: number;
         } & {
             [key: string]: unknown;
+        };
+        /** Stroke */
+        Stroke: {
+            /** Points */
+            points: components["schemas"]["Point01"][];
+            /** Radius */
+            radius: number;
         };
         /**
          * SystemStateResponse
