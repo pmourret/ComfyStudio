@@ -135,10 +135,13 @@ export function SceneCard({
           ✓
         </div>
       </div>
-      <div className="px-[11px] py-[9px] pr-[30px]">
-        {/* `pr-[30px]`: room for the ✎ button, a sibling of this text block
+      <div className="px-[11px] py-[9px] pr-[34px]">
+        {/* `pr-[34px]`: room for the ✎ button, a sibling of this text block
            overlaying the card's bottom-right corner (see below) — without
-           it a long tag line ran under the icon. */}
+           it a long tag line ran under the icon. Measured in the browser
+           (audit-ux-ui, end of chantier): 30px still let the tags line
+           touch the button by ~2px on a real card (`extérieur · jour ·
+           assise`) — 34px clears it. */}
         <b className="block truncate text-[13px] font-semibold">{scene.id}</b>
         <span className="text-[11.5px] text-dim">
           {scene.format || '4:5'} · {scene.count || 1} img

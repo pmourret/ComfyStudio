@@ -104,6 +104,13 @@ export function IntentRail({
                   key={entry.key}
                   className={`${ROW} ${ROW_VOID}`}
                   data-k={entry.key}
+                  /* "en composer une" moved to a hint bubble (audit-ux-ui,
+                     end of chantier — measured in the browser): inline in a
+                     170px row it left barely 120px for icon + label, which
+                     truncated a name as short as "Self-care" down to
+                     "Self…". The button is already focusable, so the hint
+                     reaches the keyboard the same way A1-A3's badges do. */
+                  data-hint-text="en composer une"
                   onClick={goCompose}
                 >
                   <span
@@ -113,7 +120,6 @@ export function IntentRail({
                     {entry.icon}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-dim2">{entry.label}</span>
-                  <span className="flex-none text-[10.5px] text-dim2">en composer une</span>
                 </button>
               ))}
             </div>

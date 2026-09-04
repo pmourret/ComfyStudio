@@ -90,8 +90,11 @@ const PANNEAU = '#gearPanel[data-open]';
       e => e.map(x => x.querySelector('span:nth-child(2)').textContent));
     dire((await texte('#railIntentVides [data-sep]')).includes('à peupler'),
          `les vides passent sous un separateur (${vides.join(', ')})`);
-    dire(await page.$eval('#railIntentVides button span:nth-child(3)', e => e.textContent) === 'en composer une',
-         'et proposent d aller en composer une');
+    // §audit-ux-ui : "en composer une" a migre en bulle (data-hint-text) —
+    // inline elle laissait a peine 120px pour icone+libelle dans le rail
+    // 170px, tronquant "Self-care" en "Self…".
+    dire(await page.$eval('#railIntentVides button', e => e.dataset.hintText) === 'en composer une',
+         'et proposent d aller en composer une, en bulle plutot qu en texte permanent');
   } else {
     console.log('      (aucune intention vide dans cette banque)');
   }

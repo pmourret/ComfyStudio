@@ -550,7 +550,15 @@ export function ProduceScreen() {
                       id="btnCompare"
                       className={`btn sm${compareOpen ? ' on' : ''}`}
                       disabled={!compareOpen && selected.size < 2}
-                      data-hint-text="Compare côte à côte les scènes cochées — utile pour n'en retenir qu'une."
+                      /* §audit-ux-ui : la bulle suit le libelle du bouton —
+                         elle decrivait encore « Comparer » une fois bascule
+                         sur « Fermer la comparaison », mesure dans le
+                         navigateur. */
+                      data-hint-text={
+                        compareOpen
+                          ? 'Revenir à la grille normale.'
+                          : "Compare côte à côte les scènes cochées — utile pour n'en retenir qu'une."
+                      }
                       onClick={() => setCompareOpen((v) => !v)}
                     >
                       {compareOpen ? 'Fermer la comparaison' : `Comparer (${selected.size})`}
