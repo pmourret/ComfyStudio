@@ -46,7 +46,9 @@
       "Bash(npm i *)",
       "Bash(node -e \"require.resolve\\('playwright'\\); console.log\\('playwright OK'\\)\")",
       "Bash(\"H:/ComfyUI/ComfyUI_windows_portable/python_embeded/python.exe\" AUTOMATION/wf_check.py --help)",
-      "Bash(\"H:/ComfyUI/ComfyUI_windows_portable/python_embeded/python.exe\" AUTOMATION/tests/test_model_family_sdxl.py)"
+      "Bash(\"H:/ComfyUI/ComfyUI_windows_portable/python_embeded/python.exe\" AUTOMATION/tests/test_model_family_sdxl.py)",
+      "Bash(python AUTOMATION/tools/toolchain.py build)",
+      "Bash(python AUTOMATION/wf_check.py WORKFLOWS/platform/upscale_ui.json --essai)"
     ],
     "deny": [
       "Read(INPUTS/**)",

@@ -57,3 +57,4 @@ __pycache__/
 /.toolchain/
 node_modules/
 /AUTOMATION/web/ui/dist/
+.claude/settings.json
