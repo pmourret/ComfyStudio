@@ -78,7 +78,14 @@ const PANNEAU = '#gearPanel[data-open]';
   dire(await inerte(), '« Générer » reste inerte : aucune scène cochée');
   dire((await texte('#sumT')).includes('sélectionne au moins une scène'),
        'la barre dit ce qui manque desormais — pas « choisis une intention », deja fait');
-  dire(!(await vu('#queueRail')), 'la bande de file (QueueRail) ne se peint pas sans rien a montrer — permanente, pas decorative');
+  // §fix 2026-09-04 (retour utilisateur) : QueueRail ne porte plus de carte
+  // de compte-rendu qui restait affichee indefiniment une fois le lot
+  // termine — un lot fini se signale desormais par un TOAST (une seule
+  // fois, chrome/ToastContext.tsx), et ce composant ne garde que le journal
+  // technique, replie par defaut.
+  dire(await vu('#queueRail'), 'le journal technique est la (replie)');
+  dire(!(await vu('#queueRail [open]')), 'replie par defaut — pas de contenu qui deborde au repos');
+  dire(!(await vu('#queueHistory')), "l'ancienne bande de compte-rendu a disparu");
   // §audit-ux-ui 2026-09-04 : le Stop d'un lot vit desormais dans le bandeau
   // (chrome/Header.tsx), pas dans une carte de la grille — absent tant que
   // rien ne tourne, sur CET ecran comme sur les autres (bandeau commun).
