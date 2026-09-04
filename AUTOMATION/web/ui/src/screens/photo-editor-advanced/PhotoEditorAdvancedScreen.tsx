@@ -16,6 +16,7 @@ import { screenForImage } from '../../app/routes'
 import { useConfirm } from '../../chrome/ConfirmContext'
 import { useToast } from '../../chrome/ToastContext'
 import { AdvancedColorPanel } from './AdvancedColorPanel'
+import { AiRetouchPanel } from './AiRetouchPanel'
 import { Histogram } from './Histogram'
 import { HistoryPanel } from './HistoryPanel'
 import { LayerList } from './LayerList'
@@ -57,15 +58,19 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
   const stageRef = useRef<HTMLDivElement | null>(null)
   const [histogram, setHistogram] = useState<number[] | null>(null)
 
-  /* Selective-blur mask placement (design-pass §7b masquage) happens ON
-     THE PREVIEW ITSELF — pinceau/dégradé/radial need to see the image, not
-     just a slider. Exits automatically on a layer switch: painting on the
-     wrong layer's mask because "Modifier sur l'aperçu" silently survived a
-     selection change would be a real trap, not a hypothetical one. */
-  const [maskEditing, setMaskEditing] = useState(false)
-  const maskDrag = useRef<{ mask: Mask } | null>(null)
+  /* Mask placement (design-pass §7b masquage — shared by selective blur
+     AND AI retouch, same `Mask` field shape, different `LayerSettings`
+     key) happens ON THE PREVIEW ITSELF: pinceau/dégradé/radial need to see
+     the image, not just a slider. `null` = not editing either;
+     'blur'/'ai' says which of `blurMask`/`aiMask` the live gesture below
+     reads and writes. Exits automatically on a layer switch: painting on
+     the wrong layer's mask because "Modifier sur l'aperçu" silently
+     survived a selection change would be a real trap, not a hypothetical
+     one. */
+  const [maskEditTarget, setMaskEditTarget] = useState<'blur' | 'ai' | null>(null)
+  const maskDrag = useRef<{ field: 'blurMask' | 'aiMask'; mask: Mask } | null>(null)
   useLayoutEffect(() => {
-    setMaskEditing(false)
+    setMaskEditTarget(null)
   }, [selectedLayerId])
 
   useLayoutEffect(() => {
@@ -88,12 +93,13 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
     const displayLayers = beforeAfter ? layers.map((l) => ({ ...l, settings: NEUTRAL_SETTINGS })) : layers
     composeLayers(ctx, canvas.width, canvas.height, imageEl, displayLayers)
     setHistogram(computeHistogram(ctx, canvas.width, canvas.height))
-    // A red tint over whatever the current blur mask currently covers —
-    // painted OVER the composited result, on this same canvas, only while
-    // actively editing it. Never persisted: the very next redraw (any
-    // layers/beforeAfter change) recomputes from `composeLayers` fresh.
-    if (maskEditing && selectedLayer) {
-      const mask = selectedLayer.settings.blurMask ?? DEFAULT_MASK
+    // A red tint over whatever the currently-edited mask (blur or AI)
+    // currently covers — painted OVER the composited result, on this same
+    // canvas, only while actively editing it. Never persisted: the very
+    // next redraw (any layers/beforeAfter change) recomputes from
+    // `composeLayers` fresh.
+    if (maskEditTarget && selectedLayer) {
+      const mask = (maskEditTarget === 'blur' ? selectedLayer.settings.blurMask : selectedLayer.settings.aiMask) ?? DEFAULT_MASK
       const maskAlpha = renderMaskAlpha(mask, canvas.width, canvas.height)
       if (maskAlpha) {
         const overlay = ctx.getImageData(0, 0, canvas.width, canvas.height)
@@ -109,7 +115,7 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
         ctx.putImageData(overlay, 0, 0)
       }
     }
-  }, [imageEl, layers, beforeAfter, maskEditing, selectedLayer])
+  }, [imageEl, layers, beforeAfter, maskEditTarget, selectedLayer])
 
   const toImageSpace = (event: { clientX: number; clientY: number }) => {
     const canvas = canvasRef.current
@@ -151,7 +157,7 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
       }
     } else return
     state.mask = next
-    updateSelectedSettings({ blurMask: next })
+    updateSelectedSettings({ [state.field]: next })
   }
 
   const stopMaskDrag = () => {
@@ -160,10 +166,11 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
   }
 
   const onMaskPointerDown = (event: React.PointerEvent) => {
-    if (!maskEditing || !selectedLayer) return
+    if (!maskEditTarget || !selectedLayer) return
     const p = toImageSpace(event)
     if (!p) return
-    const current = selectedLayer.settings.blurMask ?? DEFAULT_MASK
+    const field = maskEditTarget === 'blur' ? 'blurMask' : 'aiMask'
+    const current = selectedLayer.settings[field] ?? DEFAULT_MASK
     let next: Mask
     if (current.mode === 'pinceau') {
       next = { ...current, strokes: [...current.strokes, { points: [p], radius: current.brushRadius }] }
@@ -174,8 +181,8 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
     } else {
       return
     }
-    maskDrag.current = { mask: next }
-    updateSelectedSettings({ blurMask: next })
+    maskDrag.current = { field, mask: next }
+    updateSelectedSettings({ [field]: next })
     document.addEventListener('pointermove', onMaskDragMove)
     document.addEventListener('pointerup', stopMaskDrag, { once: true })
   }
@@ -348,11 +355,11 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
               <canvas
                 id="peCanvas"
                 ref={canvasRef}
-                className={`block max-h-full max-w-full rounded-[2px]${maskEditing ? ' cursor-crosshair' : ''}`}
-                onPointerDown={maskEditing ? onMaskPointerDown : undefined}
+                className={`block max-h-full max-w-full rounded-[2px]${maskEditTarget ? ' cursor-crosshair' : ''}`}
+                onPointerDown={maskEditTarget ? onMaskPointerDown : undefined}
               />
             )}
-            {maskEditing && (
+            {maskEditTarget && (
               <p className="tiny absolute bottom-[8px] left-1/2 -translate-x-1/2 rounded-[6px] bg-scrim px-[10px] py-[4px] text-txt" role="status">
                 glisser sur l’image pour placer le masque — teinte rouge = zone couverte
               </p>
@@ -382,10 +389,16 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
                 <SharpenBlurPanel
                   layer={selectedLayer}
                   onChange={updateSelectedSettings}
-                  editingMask={maskEditing}
-                  onToggleMaskEdit={() => setMaskEditing((v) => !v)}
+                  editingMask={maskEditTarget === 'blur'}
+                  onToggleMaskEdit={() => setMaskEditTarget((v) => (v === 'blur' ? null : 'blur'))}
                 />
                 <PerspectivePanel layer={selectedLayer} onChange={updateSelectedSettings} />
+                <AiRetouchPanel
+                  layer={selectedLayer}
+                  onChange={updateSelectedSettings}
+                  editingMask={maskEditTarget === 'ai'}
+                  onToggleMaskEdit={() => setMaskEditTarget((v) => (v === 'ai' ? null : 'ai'))}
+                />
               </>
             )}
           </aside>

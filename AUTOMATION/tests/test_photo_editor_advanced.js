@@ -292,7 +292,9 @@ process.on('exit', nettoyer);
   const varZonePeinteAvant = await patchVariance(cxCanvas, cyCanvas);
   const varZoneLoinAvant = await patchVariance(20, 20);
 
-  const editBtn = page.locator('button:has-text("Modifier sur l’aperçu")');
+  // scope au panneau Netteté/flou : la Retouche IA porte le MEME bouton
+  // (sélecteur de masque partagé), `page.locator` seul matcherait les deux
+  const editBtn = netteteDetails.locator('button:has-text("Modifier sur l’aperçu")');
   await editBtn.scrollIntoViewIfNeeded();
   await editBtn.click();
   await page.waitForTimeout(200);
@@ -316,11 +318,27 @@ process.on('exit', nettoyer);
   dire(Math.abs(varZoneLoinApres - varZoneLoinAvant) < 5,
        `une zone hors du trait n'est pas affectee (${varZoneLoinAvant.toFixed(1)} -> ${varZoneLoinApres.toFixed(1)})`);
 
-  await page.locator('text=effacer le masque').click();
+  // scope au meme panneau, pour la meme raison que editBtn ci-dessus
+  await netteteDetails.locator('text=effacer le masque').click();
   await page.waitForTimeout(300);
   const varApresEffacement = await patchVariance(cxCanvas, cyCanvas);
   dire(Math.abs(varApresEffacement - varZonePeinteAvant) < 5,
        'effacer le masque retire le flou (variance revenue proche de l originale)');
+
+  console.log('\n[8quinquies] Retouche IA : maquettee, VOLONTAIREMENT inerte (design-pass §7b)');
+  const iaDetails = page.locator('details.adv:has-text("Retouche IA")');
+  await iaDetails.locator('summary').click();
+  await page.waitForTimeout(200);
+  dire(await vu('text=bientôt'), 'badge "bientôt" visible');
+  const genererBtn = page.locator('button:has-text("Générer la retouche")');
+  dire(await genererBtn.isDisabled(), 'bouton "Générer la retouche" desactive');
+  const hintIa = await genererBtn.getAttribute('data-hint-text');
+  dire(hintIa === "Backend d'édition IA pas encore branché (F5.2) — l'interface est prête à recevoir le résultat",
+       `data-hint-text porte la raison exacte du design-pass (${hintIa})`);
+  dire(!(await genererBtn.getAttribute('title')), 'jamais un `title` (CLAUDE.md §3) — data-hint-text seulement');
+  await page.locator('textarea#pe-ai-prompt').fill('retirer la tache sur le mur');
+  dire((await page.locator('textarea#pe-ai-prompt').inputValue()) === 'retirer la tache sur le mur',
+       'le champ instruction retient le texte saisi (sans consequence, le bouton reste inerte)');
 
   console.log('\n[9] reordonner, masquer, supprimer un calque non-base — jamais la base elle-meme');
   await page.click('button:has-text("+ Ajouter un calque")');
