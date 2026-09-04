@@ -86,16 +86,28 @@ export function applyGrain(ctx: CanvasRenderingContext2D, w: number, h: number, 
 
 /* Light approximation: a warm/cold overlay wash rather than a true white
    balance, which a simple canvas filter cannot do without walking every pixel in
-   a colour space. */
-export function applyTemperature(ctx: CanvasRenderingContext2D, w: number, h: number, value: number) {
+   a colour space.
+
+   `strength` (default 1, unused by every existing caller): the advanced
+   editor's layer compositor (photoEditorLayersPixels.ts) scales it by a
+   layer's own opacity, so a half-opacity layer's wash reads as half as
+   strong once composited — same formula, reused rather than duplicated. */
+export function applyTemperature(
+  ctx: CanvasRenderingContext2D, w: number, h: number, value: number, strength = 1,
+) {
   if (!value) return
   ctx.save()
   ctx.globalCompositeOperation = 'overlay'
-  ctx.globalAlpha = Math.min(0.18, (Math.abs(value) / 50) * 0.18)
+  ctx.globalAlpha = Math.min(0.18, (Math.abs(value) / 50) * 0.18) * strength
   ctx.fillStyle = value > 0 ? '#ff9d3d' : '#3daaff'
   ctx.fillRect(0, 0, w, h)
   ctx.restore()
 }
 
-export const cssFilter = (s: Settings) =>
+/* `Pick`, not the full `Settings`: the advanced editor's layer compositor
+   (photoEditorLayersPixels.ts) has no `rot`/`flip`/`straighten`/`grain` of
+   its own to fabricate just to satisfy this signature — and a real
+   `Settings` object still satisfies the narrower type structurally, so
+   this is not a breaking change for the one existing caller below. */
+export const cssFilter = (s: Pick<Settings, 'bright' | 'contrast' | 'sat'>) =>
   `brightness(${1 + s.bright / 100}) contrast(${1 + s.contrast / 100}) saturate(${1 + s.sat / 100})`

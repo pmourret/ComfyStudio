@@ -894,6 +894,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/photo-editor/layers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pile de calques d'une photo (ou le calque de base par défaut) */
+        get: operations["get_layers_api_photo_editor_layers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/photo-editor/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enregistrer la pile de calques et l'image composée
+         * @description Same copy/overwrite contract as `/api/edit/save` (`routers/review.py`
+         *     ::save_edit), plus the layer stack sidecar written alongside. A copy
+         *     gets its OWN sidecar (a snapshot of the stack at save time) so reopening
+         *     it in this editor continues where the copy left off, independent of
+         *     whatever the source's own stack does afterwards.
+         */
+        post: operations["save_photo_editor_api_photo_editor_save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/plan": {
         parameters: {
             query?: never;
@@ -2293,6 +2334,73 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /** Layer */
+        Layer: {
+            /** Id */
+            id: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "photo" | "reglage" | "image" | "retouche";
+            /**
+             * Visible
+             * @default true
+             */
+            visible: boolean;
+            /**
+             * Opacity
+             * @default 100
+             */
+            opacity: number;
+            /**
+             * Locked
+             * @default false
+             */
+            locked: boolean;
+            /**
+             * @default {
+             *       "expo": 0,
+             *       "contrast": 0,
+             *       "sat": 0,
+             *       "temp": 0
+             *     }
+             */
+            settings: components["schemas"]["LayerSettings"];
+        };
+        /**
+         * LayerSettings
+         * @description Bounds copied from `photoEditorPixels.ts`'s own `SLIDERS` — the same
+         *     4 adjustments, so a value the client's own slider could never produce
+         *     is rejected here too, rather than silently clamped.
+         */
+        LayerSettings: {
+            /**
+             * Expo
+             * @default 0
+             */
+            expo: number;
+            /**
+             * Contrast
+             * @default 0
+             */
+            contrast: number;
+            /**
+             * Sat
+             * @default 0
+             */
+            sat: number;
+            /**
+             * Temp
+             * @default 0
+             */
+            temp: number;
+        };
         /**
          * MeasureRequest
          * @description Catches up the missing realism measurements of a folder, IN BATCHES.
@@ -2429,6 +2537,52 @@ export interface components {
             label: string;
             /** Family */
             family?: string | null;
+        };
+        /** PhotoEditorLayersResponse */
+        PhotoEditorLayersResponse: {
+            /** Layers */
+            layers: components["schemas"]["Layer"][];
+        };
+        /**
+         * PhotoEditorSaveRequest
+         * @description Same copy/overwrite contract as `EditSaveRequest` (`schemas/review.py`)
+         *     — `data_base64` is the already-composited PNG, computed client-side
+         *     (Canvas2D, no server render for this pass).
+         */
+        PhotoEditorSaveRequest: {
+            /** Name */
+            name: string;
+            /** Bucket */
+            bucket: string;
+            /** Space */
+            space?: string | null;
+            /**
+             * Remplacer
+             * @default false
+             */
+            remplacer: boolean;
+            /** Layers */
+            layers: components["schemas"]["Layer"][];
+            /**
+             * Data Base64
+             * @default
+             */
+            data_base64: string;
+        };
+        /**
+         * PhotoEditorSaveResponse
+         * @description Mirrors `EditSaveResponse` field for field — same two paths, same
+         *     `export` semantics (filled on overwrite only).
+         */
+        PhotoEditorSaveResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Name */
+            name: string;
+            /** Remplace */
+            remplace: boolean;
+            /** Export */
+            export?: string | null;
         };
         /**
          * Place
@@ -4868,6 +5022,109 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ImageNotFound"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_layers_api_photo_editor_layers_get: {
+        parameters: {
+            query: {
+                bucket: string;
+                space: string;
+                name: string;
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
+                character?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhotoEditorLayersResponse"];
+                };
+            };
+            /** @description Requête refusée */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Photo introuvable */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_photo_editor_api_photo_editor_save_post: {
+        parameters: {
+            query?: {
+                /** @description Identifiant du personnage (registre CHARACTERS/). Obligatoire. */
+                character?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhotoEditorSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhotoEditorSaveResponse"];
+                };
+            };
+            /** @description Requête refusée */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Image d'origine introuvable */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

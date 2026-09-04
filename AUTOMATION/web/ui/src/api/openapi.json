@@ -1990,6 +1990,166 @@
         }
       }
     },
+    "/api/photo-editor/layers": {
+      "get": {
+        "summary": "Pile de calques d'une photo (ou le calque de base par défaut)",
+        "operationId": "get_layers_api_photo_editor_layers_get",
+        "parameters": [
+          {
+            "name": "bucket",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bucket"
+            }
+          },
+          {
+            "name": "space",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Space"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoEditorLayersResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Photo introuvable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/photo-editor/save": {
+      "post": {
+        "summary": "Enregistrer la pile de calques et l'image composée",
+        "description": "Same copy/overwrite contract as `/api/edit/save` (`routers/review.py`\n::save_edit), plus the layer stack sidecar written alongside. A copy\ngets its OWN sidecar (a snapshot of the stack at save time) so reopening\nit in this editor continues where the copy left off, independent of\nwhatever the source's own stack does afterwards.",
+        "operationId": "save_photo_editor_api_photo_editor_save_post",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire.",
+              "title": "Character"
+            },
+            "description": "Identifiant du personnage (registre CHARACTERS/). Obligatoire."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhotoEditorSaveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoEditorSaveResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête refusée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Image d'origine introuvable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/plan": {
       "post": {
         "summary": "Plan à blanc du lancement",
@@ -5140,6 +5300,88 @@
         "title": "JournalResponse",
         "description": "Last 300 production rows, filtered on the character, reverse order.\nRows are raw CSV records — the column set varies with journal migrations,\nhence the free dict rather than a fixed model."
       },
+      "Layer": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "photo",
+              "reglage",
+              "image",
+              "retouche"
+            ],
+            "title": "Kind"
+          },
+          "visible": {
+            "type": "boolean",
+            "title": "Visible",
+            "default": true
+          },
+          "opacity": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Opacity",
+            "default": 100
+          },
+          "locked": {
+            "type": "boolean",
+            "title": "Locked",
+            "default": false
+          },
+          "settings": {
+            "$ref": "#/components/schemas/LayerSettings",
+            "default": {
+              "expo": 0.0,
+              "contrast": 0.0,
+              "sat": 0.0,
+              "temp": 0.0
+            }
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind"
+        ],
+        "title": "Layer"
+      },
+      "LayerSettings": {
+        "properties": {
+          "expo": {
+            "type": "number",
+            "title": "Expo",
+            "default": 0
+          },
+          "contrast": {
+            "type": "number",
+            "title": "Contrast",
+            "default": 0
+          },
+          "sat": {
+            "type": "number",
+            "title": "Sat",
+            "default": 0
+          },
+          "temp": {
+            "type": "number",
+            "title": "Temp",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "LayerSettings",
+        "description": "Bounds copied from `photoEditorPixels.ts`'s own `SLIDERS` — the same\n4 adjustments, so a value the client's own slider could never produce\nis rejected here too, rather than silently clamped."
+      },
       "MeasureRequest": {
         "properties": {
           "bucket": {
@@ -5376,6 +5618,105 @@
         ],
         "title": "PackOption",
         "description": "One entry of the pack picker on the world-creation form. `family` is\nshown so the form can explain what `compatible_families` will be derived\nto — never typed by hand (ADR-0016)."
+      },
+      "PhotoEditorLayersResponse": {
+        "properties": {
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/Layer"
+            },
+            "type": "array",
+            "title": "Layers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "layers"
+        ],
+        "title": "PhotoEditorLayersResponse"
+      },
+      "PhotoEditorSaveRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "bucket": {
+            "type": "string",
+            "title": "Bucket"
+          },
+          "space": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Space"
+          },
+          "remplacer": {
+            "type": "boolean",
+            "title": "Remplacer",
+            "default": false
+          },
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/Layer"
+            },
+            "type": "array",
+            "title": "Layers"
+          },
+          "data_base64": {
+            "type": "string",
+            "title": "Data Base64",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "bucket",
+          "layers"
+        ],
+        "title": "PhotoEditorSaveRequest",
+        "description": "Same copy/overwrite contract as `EditSaveRequest` (`schemas/review.py`)\n— `data_base64` is the already-composited PNG, computed client-side\n(Canvas2D, no server render for this pass)."
+      },
+      "PhotoEditorSaveResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "remplace": {
+            "type": "boolean",
+            "title": "Remplace"
+          },
+          "export": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Export"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "name",
+          "remplace"
+        ],
+        "title": "PhotoEditorSaveResponse",
+        "description": "Mirrors `EditSaveResponse` field for field — same two paths, same\n`export` semantics (filled on overwrite only)."
       },
       "Place": {
         "properties": {

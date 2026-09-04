@@ -26,6 +26,7 @@ import { ConfigProvider } from '../state/ConfigContext'
 import { LightboxProvider } from '../chrome/LightboxContext'
 import { BankPosesScreen, BankScenesScreen, BankTonesScreen } from '../screens/bank/BankScreen'
 import { ExpressionEditorScreen } from '../screens/expression-editor/ExpressionEditorScreen'
+import { PhotoEditorAdvancedScreen } from '../screens/photo-editor-advanced/PhotoEditorAdvancedScreen'
 import { PoseEditorScreen } from '../screens/pose-editor/PoseEditorScreen'
 import { WorldPlacesScreen } from '../screens/worlds/WorldPlacesScreen'
 import { WorldsScreen } from '../screens/worlds/WorldsScreen'
@@ -88,6 +89,10 @@ export function App() {
                       tone, only tunes the range of one that already exists;
                       a bare visit falls through to `path="*"` below. */}
                   <Route path={`${PATHS.expressionEditor}/:tone`} element={<ExpressionEditorScreen />} />
+                  {/* Design-pass screen-photo-editor.md §7b — `:name`
+                      required, `bucket`/`space` as query params (routes.ts's
+                      own note on why). */}
+                  <Route path={`${PATHS.photoEditorAdvanced}/:name`} element={<PhotoEditorAdvancedScreen />} />
                   {/* ADR-0016: the world registry, and its catalog editor —
                       the id is a route param, like the review/gallery image
                       name below. */}
