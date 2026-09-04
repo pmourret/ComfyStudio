@@ -65,6 +65,7 @@ TESTS = [
     "test_bank",          # banque de scenes + poses + rail d'outils (ecran 5)
     "test_review",        # Revue et Galerie, pieges `v` et /api/mesurer (ecran 6)
     "test_editor",        # editeur photo : recadrage, copie, ecrasement (ecran 6)
+    "test_photo_editor_advanced",  # editeur photo avance : calques, courbes/HSL, perspective, masques (ecran 6)
     "test_produce",       # Produire : pieges /api/plan et #btnRun (ecran 7)
     "test_pose_extract",  # ComfyUI requis (s'ignore sinon) : extraction reelle
     "test_pose_editor",   # aucun ComfyUI requis : preset -> canvas -> save local

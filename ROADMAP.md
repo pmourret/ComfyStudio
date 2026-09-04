@@ -1277,6 +1277,102 @@ prouvent la généralisation — pas juste Léna renommée.
     maquetté-inerte. À ce moment-là : revisiter si le compositing
     client-side tient encore la route pour des opérations plus lourdes ou
     s'il faut basculer une partie sur un rendu serveur.
+  - **Éditeur photo avancé — les 4 panneaux différés, fait, 2026-09-05** —
+    suite directe de l'entrée précédente : Colorimétrie avancée,
+    Netteté/flou sélectif, Recadrage avancé, Retouche IA
+    (`DOCS/design-pass/screen-photo-editor.md` §7b), niveau Lightroom
+    demandé explicitement. Tout reste compositing client (Canvas2D),
+    cohérent avec la décision de la fondation.
+    1. **Pipeline restructuré** — chaque calque rend désormais sur son
+       PROPRE canvas offscreen avant composition sur le canvas partagé :
+       `ctx.filter` (expo/contraste/sat) → une passe pixel UNIQUE
+       (niveaux → courbes → HSL par bande, une seule lecture/écriture
+       d'`ImageData`) → déformation de perspective → netteté → flou
+       sélectif masqué. Non-régression stricte vérifiée sur les 4
+       curseurs de base après le refactor (pixel témoin identique).
+    2. **Courbes** — LUT 256 entrées par canal, interpolation cubique
+       monotone (Fritsch-Carlson) : une spline naïve produirait une LUT
+       non monotone (bande de couleur visible). Éditeur SVG 4 canaux.
+    3. **Niveaux + HSL** — point noir/moyen/blanc classique ; HSL 6
+       bandes avec poids de mélange TRIANGULAIRE entre bandes adjacentes
+       (pas de frontière dure, comme Lightroom) — les deux pliés dans la
+       même passe pixel que les courbes.
+    4. **Perspective** — homographie 2 angles (Paul Heckbert,
+       square-to-quad + inversion 3×3 + échantillonnage bilinéaire),
+       Canvas2D n'ayant aucune transformation projective native. Coin
+       hors-source = transparent, pas de recadrage auto (le redressement
+       fin reste dans le modal 7a, volontairement pas dupliqué ici).
+    5. **Masquage partagé** (flou sélectif ET retouche IA, même
+       composant `MaskPicker`) — pinceau/dégradé/radial via les
+       primitives natives Canvas2D (`createLinearGradient`/
+       `createRadialGradient`/traits arrondis), jamais un rasterizeur
+       maison ; traits stockés en coordonnées NORMALISÉES 0-1 pour
+       survivre au redimensionnement aperçu↔export. Sujet/Ciel/
+       Arrière-plan restent des entrées sélectionnables mais INERTES
+       (pas de backend de segmentation) — même statut que la Retouche
+       IA, `data-hint-text` explicite plutôt qu'un `disabled` muet.
+    6. **Retouche IA** — panneau maquetté-inerte, réutilise le même
+       `MaskPicker` + taille de pinceau + prompt. « Générer la
+       retouche » PERMANENTEMENT désactivé (`data-hint-text`, jamais
+       `title`), aucun appel réseau.
+    Bugs réels trouvés EN TESTANT (aucun à la lecture du JSX) :
+    - `Field(default_factory=X)` en Pydantic v2 n'émet pas de clé
+      `default` dans le JSON Schema OpenAPI généré → `openapi-typescript`
+      marque le champ TS optionnel alors qu'il ne devrait pas l'être.
+      Tous les nouveaux champs objet/liste/dict de `LayerSettings`
+      utilisent une instance littérale (`= Curves()`) à la place — sûr en
+      Pydantic v2 (deep-copy par instance, pas d'état mutable partagé).
+    - `CurvesEditor` : glisser un point de courbe juste après en avoir
+      ajouté un lisait un `points.length` PÉRIMÉ (2 au lieu de 3) — un
+      listener `pointermove` posé sur `document` de façon synchrone voit
+      les props React encore périmées avant que le `setState` d'ajout
+      n'ait fini de re-rendre. Corrigé par un `useRef` dédié au geste
+      live, mis à jour de façon synchrone à chaque mouvement, jamais lu
+      depuis les props pendant un geste en cours — la même bascule a été
+      appliquée PROACTIVEMENT au drag de placement de masque avant de
+      l'écrire, resté sans bug dès le premier test.
+    - `aspect-square` + `max-h-[200px]` ensemble sur le SVG de courbe
+      produisaient une boîte non carrée (354×200), donc un `viewBox`
+      256×256 en letterbox à 200×200 — tout rétrécissait de ~40%, cibles
+      de points de courbe comprises. `max-h` retiré (le panneau défile
+      déjà, une courbe plus haute est acceptable).
+    - Points de courbe à 8×8px puis 14×14/25×14 anisotropes : sous le
+      minimum WCAG 2.2 SC 2.5.8 (24×24). Corrigé par un cercle de visée
+      invisible (r=9) derrière le point visible (r=5/6.5) — pattern déjà
+      utilisé pour les boutons icône de `LayerList` (entrée précédente).
+    7. **Audit UX/UI final (assemblage complet), fait** — chaque étape
+       avait déjà sa vérification à la construction ; ce passage porte
+       sur les 5 panneaux repliables assemblés dans l'aside 380px :
+       aucun chevauchement entre panneaux ouverts simultanément (mesuré),
+       aside scrollable (`scrollHeight` 1666 > `clientHeight` 768,
+       `overflow-y:auto`), ordre de tabulation cohérent de bout en
+       écran, bascule flou→IA→flou sur le `MaskPicker` partagé sans
+       fuite d'état ni double bandeau. Deux findings réels :
+       - **`input[type=range]:focus` n'a AUCUN indicateur visible** —
+         `input:focus{outline:0;border-color:var(--acc)}` (chrome.css)
+         suppose un input avec bordure visible, mais le rendu natif
+         Chromium d'un curseur ignore ce `border-color` (confirmé par
+         capture avant/après identique au pixel). Pré-existant sur TOUT
+         le studio (même pattern que `ExpressionSliders.tsx`), mais cet
+         écran porte à lui seul désormais le plus de curseurs de toute
+         l'app (niveaux, HSL, netteté, flou, pinceaux, perspective) —
+         corrigé au niveau commun (`chrome.css`, une règle
+         `input[type=range]:focus-visible`), pas dans les fichiers de
+         l'écran, pour bénéficier à tout curseur existant plutôt que
+         créer une incohérence entre écrans. Reconfirmé par capture
+         avant/après (anneau visible) et non plus seulement mesure CSS.
+       - `test_photo_editor_advanced.js` existait et passait depuis
+         l'étape 1 mais n'avait jamais rejoint la liste `TESTS` de
+         `run_browser_tests.py` — lancé à la main (`node ...`) à chaque
+         étape de ce chantier, absent de la fumigation officielle.
+         Ajouté à la liste.
+    Suite complète rejouée : 9/11 verts ; les 2 échecs restants
+    (`test_application` flaky isolé — repasse vert seul ;
+    `test_review` — le venv de dev n'a pas `cv2`, `/api/mesurer` y
+    répond 500, limitation déjà connue et non liée à ce chantier) sont
+    sans rapport avec ces changements.
+    **Toujours inerte, volontairement** : Sujet/Ciel/Arrière-plan (pas de
+    backend de segmentation), Retouche IA (F5.2 pas branché).
 - Le patron d'interface du compositeur de scène (tabs + panneaux + champs
   de prompt + catalogues + navigation Suivant/Précédent) est candidat à
   être repris par les outils ci-dessus, mais **pas généralisé en composant

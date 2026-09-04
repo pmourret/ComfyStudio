@@ -346,3 +346,8 @@ label.f span{display:block;font-size:12px;color:var(--dim);margin-bottom:5px}
 input,select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);
   border-radius:7px;padding:8px 10px}
 input:focus,select:focus,textarea:focus{outline:0;border-color:var(--acc)}
+/* type=range ignores the border-color trick above (native track/thumb
+   rendering does not draw the input's own border), so it needs its own
+   focus-visible ring like buttons get -- otherwise keyboard focus on a
+   slider is invisible (confirmed via before/after screenshot). */
+input[type=range]:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
