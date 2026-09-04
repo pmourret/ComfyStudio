@@ -54,6 +54,10 @@ const PATHS: Record<string, string> = {
   ram: '<rect x="2.5" y="6" width="15" height="8" rx="1.5"/><path d="M5.5 14v2.5M10 14v2.5M14.5 14v2.5M6 9h8"/>',
   vram: '<rect x="2" y="5" width="16" height="10" rx="1.5"/><circle cx="7" cy="10" r="2.4"/><path d="M12 8.5h3.5M12 11.5h3.5"/>',
   temp: '<path d="M12 11.5V4a2 2 0 10-4 0v7.5a3.5 3.5 0 104 0z"/><path d="M10 7.5v6"/>',
+  // header quick-access shutdown buttons (`useProcessControls`) — the
+  // standard power-button glyph, same one for both: dashboard and ComfyUI,
+  // told apart by their aria-label/hint, not by two different icons.
+  power: '<path d="M10 3v6"/><path d="M6.1 5.6a6 6 0 1 0 7.8 0"/>',
 }
 
 export type IconName = keyof typeof PATHS

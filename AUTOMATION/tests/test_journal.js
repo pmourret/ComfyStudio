@@ -72,6 +72,23 @@ const JOURNAL = `${BASE}/app/journal?character=lena`;
   dire((await page.textContent('.brand')).includes('Léna'), 'le nom du personnage');
   dire(await page.isVisible('.brand .brand-app'), "le nom de l'application reste visible");
 
+  console.log('\n[3b] arret rapide depuis le bandeau : memes confirmations que l ecran Application');
+  for (const [bouton, attendu] of [
+    ['#btnHeaderComfyStop', 'Arrêter ComfyUI'],
+    ['#btnHeaderAppStop', 'Arrêter le tableau de bord'],
+  ]){
+    dire(await page.isVisible(bouton), `${bouton} est dans le bandeau, sur cet ecran comme sur tous`);
+    await page.click(bouton);
+    await page.waitForSelector('#armBox[open]');
+    const t = await page.textContent('#armBox h3');
+    dire(t.includes(attendu), `${bouton} -> « ${t} »`);
+    // ANNULATION SYSTEMATIQUE : confirmer couperait le serveur teste, comme
+    // dans test_application.js section [6] pour les memes boutons.
+    await page.click('#cfNon');
+    await page.waitForTimeout(200);
+    dire(!(await page.isVisible('#armBox[open]')), '   annulee');
+  }
+
   console.log('\n[4] le journal lit /api/journal et peint ses lignes');
   const total = await lignes();
   const info = await page.textContent('#jInfo');

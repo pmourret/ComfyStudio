@@ -9,14 +9,15 @@
    graceful shutdown signal, TerminateProcess cuts mid-job) — said before acting,
    not after. */
 import { useCallback, useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 
 import { errorOf, type Schema } from '../api/client'
 import { useApi } from '../api/useApi'
 import { useCharacter } from '../character/CharacterContext'
 import { useConfirm } from '../chrome/ConfirmContext'
+import { Takeover } from '../chrome/Takeover'
 import { useToast } from '../chrome/ToastContext'
+import { useProcessControls } from '../chrome/useProcessControls'
 import { useComfyStats } from '../state/ComfyStatsContext'
 import { useServerLog } from '../state/ServerLogContext'
 import { useSystemState } from '../state/SystemStateContext'
@@ -34,27 +35,6 @@ type ActionResponse = Schema<'ActionResponse'>
    this does not double the nvidia-smi spawns. */
 const SCREEN_PROBE_MS = 2000
 
-/* Full-screen takeover. The whole dashboard is about to become unreachable, so
-   there is no point keeping tiles and buttons on screen — they would answer
-   nothing. */
-function Takeover({ children }: { children: React.ReactNode }) {
-  /* Portalled to <body> and fixed over everything: the chrome must go too. The
-     navbar would otherwise keep offering destinations that answer nothing. The
-     legacy screen replaced `document.body.innerHTML` for the same reason; a
-     portal does it without destroying the React tree that has to poll for the
-     server coming back. */
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center
-                 bg-bg p-[40px] text-center text-txt [font:var(--font)]"
-      role="status"
-    >
-      <div>{children}</div>
-    </div>,
-    document.body,
-  )
-}
-
 export function ApplicationScreen() {
   const api = useApi()
   const confirm = useConfirm()
@@ -64,6 +44,11 @@ export function ApplicationScreen() {
   const { lines, append } = useServerLog()
   const { sheet } = useCharacter()
   const [takeover, setTakeover] = useState<React.ReactNode>(null)
+  /* Stop THIS dashboard / stop ComfyUI: shared with the header's own
+     quick-access buttons, same confirmation, same consequence — see
+     chrome/useProcessControls.tsx. Restart and unload stay local: only
+     this screen offers them. */
+  const { stopApp, stopComfy, takeover: stopTakeover } = useProcessControls()
 
   usePolling(refreshProbes, { intervalMs: SCREEN_PROBE_MS, pauseWhenHidden: true })
 
@@ -136,55 +121,6 @@ export function ApplicationScreen() {
     setTakeover('Redémarrage du tableau de bord…')
   }
 
-  const onAppStop = async () => {
-    const ok = await confirm({
-      title: 'Arrêter le tableau de bord ?',
-      button: 'Arrêter',
-      body: (
-        <p>
-          Coupe le serveur web local. Cette page ne répondra plus tant qu'il n'est
-          pas relancé à la main (<code>AUTOMATION/run_web.bat</code>). Une
-          génération en cours serait interrompue.
-        </p>
-      ),
-    })
-    if (!ok) return
-    await api.post('/api/app/stop')
-    setTakeover(
-      <>
-        Tableau de bord arrêté.
-        <br />
-        <span className="text-[13px]">
-          Relance <code>run_web.bat</code> pour y revenir.
-        </span>
-      </>,
-    )
-  }
-
-  const onComfyStop = async () => {
-    const ok = await confirm({
-      title: 'Arrêter ComfyUI ?',
-      button: 'Arrêter ComfyUI',
-      body: (
-        <p>
-          {running && (
-            <b>
-              Une génération est en cours sur ce tableau de bord — elle sera
-              perdue.{' '}
-            </b>
-          )}
-          Windows ne permet pas un arrêt propre : le processus est coupé net, sans
-          le temps de finir un job.
-        </p>
-      ),
-    })
-    if (!ok) return
-    if (!(await post('/api/app/comfy/stop'))) return
-    append('ComfyUI arrêté')
-    toast('ComfyUI arrêté')
-    refreshProbes()
-  }
-
   const onComfyRestart = async () => {
     const ok = await confirm({
       title: 'Redémarrer ComfyUI ?',
@@ -224,7 +160,7 @@ export function ApplicationScreen() {
     return () => window.clearInterval(timer)
   }, [waitingForRestart])
 
-  if (takeover) return <Takeover>{takeover}</Takeover>
+  if (takeover || stopTakeover) return <Takeover>{takeover || stopTakeover}</Takeover>
 
   return (
     <div className="screen" id="appli">
@@ -247,7 +183,7 @@ export function ApplicationScreen() {
           <button className="btn" id="btnAppRestart" onClick={onAppRestart}>
             Redémarrer
           </button>
-          <button className="btn danger" id="btnAppStop" onClick={onAppStop}>
+          <button className="btn danger" id="btnAppStop" onClick={stopApp}>
             Arrêter
           </button>
         </div>
@@ -278,7 +214,7 @@ export function ApplicationScreen() {
           <button className="btn" id="btnComfyRestart" onClick={onComfyRestart}>
             Redémarrer
           </button>
-          <button className="btn danger" id="btnComfyStop" onClick={onComfyStop}>
+          <button className="btn danger" id="btnComfyStop" onClick={stopComfy}>
             Arrêter
           </button>
         </div>

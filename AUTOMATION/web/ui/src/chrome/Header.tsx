@@ -12,8 +12,11 @@ import { useEffect } from 'react'
 
 import { initialOf, useCharacter } from '../character/CharacterContext'
 import { useSystemState } from '../state/SystemStateContext'
+import { Icon } from './Icon'
 import { IdentityMenu } from './IdentityMenu'
 import { ProbeStrip } from './ProbeStrip'
+import { Takeover } from './Takeover'
+import { useProcessControls } from './useProcessControls'
 
 const APP = 'Soulglade'
 
@@ -60,11 +63,46 @@ function Brand() {
   )
 }
 
+/* Quick-access shutdown, icon-only. Same confirmation, same consequence as
+   the Application screen's own buttons (`useProcessControls`) — this is the
+   « I'm done, cut it now » path for someone who does not want to leave
+   Produire to reach it. Danger colours only on hover/focus: at rest it
+   reads as a neutral chrome control, not a permanent warning sign next to
+   probes one glances at all day. */
+function ShutdownButton({
+  id,
+  label,
+  hint,
+  onClick,
+}: {
+  id: string
+  label: string
+  hint: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      id={id}
+      className="flex h-[24px] w-[24px] flex-none items-center justify-center
+                 rounded-[6px] text-dim hover:border hover:border-danger-line
+                 hover:bg-danger-bg hover:text-danger-txt
+                 focus-visible:outline-2 focus-visible:outline-[var(--focus)]"
+      aria-label={label}
+      data-hint-text={hint}
+      onClick={onClick}
+    >
+      <Icon name="power" className="h-[15px] w-[15px]" />
+    </button>
+  )
+}
+
 /* ComfyUI reachable or not (the dot) plus the progress of the running batch,
    straight from /api/state. A queue of pending jobs does not exist server-side
    yet. */
 function StatusZone() {
   const { state } = useSystemState()
+  const { stopApp, stopComfy, takeover } = useProcessControls()
 
   const offline = state === null
   const running = state?.running
@@ -82,6 +120,20 @@ function StatusZone() {
           MACHINE: without it, « prêt » and « 45 % » read as one sentence */}
       <span className="status-sep" aria-hidden="true" />
       <ProbeStrip />
+      <span className="status-sep" aria-hidden="true" />
+      <ShutdownButton
+        id="btnHeaderComfyStop"
+        label="Arrêter ComfyUI"
+        hint="Arrêter ComfyUI — coupe net, sans le temps de finir un job."
+        onClick={stopComfy}
+      />
+      <ShutdownButton
+        id="btnHeaderAppStop"
+        label="Arrêter le tableau de bord"
+        hint="Arrêter le tableau de bord — cette page ne répondra plus."
+        onClick={stopApp}
+      />
+      {takeover && <Takeover>{takeover}</Takeover>}
     </div>
   )
 }
