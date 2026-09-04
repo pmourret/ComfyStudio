@@ -31,7 +31,11 @@ export function EditStep({
   alerts,
   output,
 }: {
-  number: number
+  /** Numbered when this is one step of a short sequence (the tier that
+      generates THEN edits, after the scene grid). Omitted when EditStep is
+      the whole right-column panel instead (screen-3-produire §S — the tier
+      that edits outright, nothing else to number it against). */
+  number?: number
   instruction: string
   onInstruction: (value: string) => void
   alerts: string[]
@@ -70,9 +74,21 @@ export function EditStep({
           : 'var(--bad)'
 
   return (
-    <div className="mb-[30px]" id="stepEdit">
+    <div
+      className={
+        number != null
+          ? 'mb-[30px]'
+          : 'sticky top-[12px] max-h-[calc(100vh-150px)] overflow-auto max-[1100px]:static max-[1100px]:max-h-none'
+      }
+      id="stepEdit"
+    >
       <h2 className="flex items-baseline gap-[10px]">
-        <i className="not-italic text-acc" data-num>{number}</i> · Instruction d'édition{' '}
+        {number != null && (
+          <>
+            <i className="not-italic text-acc" data-num>{number}</i> ·{' '}
+          </>
+        )}
+        Instruction d'édition{' '}
         <span className="tiny normal-case tracking-normal">— en anglais, court et concret</span>
       </h2>
 

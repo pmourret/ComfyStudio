@@ -33,7 +33,6 @@ import { useSystemState } from '../../state/SystemStateContext'
 import { useTaxonomy } from '../../state/TaxonomyContext'
 import { PATHS } from '../../app/routes'
 import { EditStep } from './EditStep'
-import { Inspector } from './Inspector'
 import { PromptPreview } from './PromptPreview'
 import { QueueRail } from './QueueRail'
 import { IntensityBar } from './IntensityBar'
@@ -400,13 +399,29 @@ export function ProduceScreen() {
             <>
               <div className="mb-[30px]" id="stepSource">
                 <h2 className="flex items-baseline gap-[10px]">
-                  <i className="not-italic text-acc" data-num>1</i> · Image source{' '}
+                  Image source{' '}
                   <span className="tiny normal-case tracking-normal" id="srcHint">
                     {sources.length
                       ? `— ${picked.size} cochée${picked.size > 1 ? 's' : ''} sur ${sources.length} éditable${sources.length > 1 ? 's' : ''}`
                       : ''}
                   </span>
                 </h2>
+                {sources.length > 0 && (
+                  <div className="mb-[10px]">
+                    <button
+                      type="button"
+                      className="btn sm"
+                      id="btnAllSources"
+                      onClick={() =>
+                        setPicked((current) =>
+                          current.size > 0 ? new Set() : new Set(sources.map((s) => s.name)),
+                        )
+                      }
+                    >
+                      {picked.size > 0 ? 'Tout décocher' : 'Tout cocher'}
+                    </button>
+                  </div>
+                )}
                 <div
                   className="grid max-h-[330px] gap-[10px] overflow-auto p-[3px]
                              grid-cols-[repeat(auto-fill,minmax(130px,1fr))]"
@@ -471,14 +486,6 @@ export function ProduceScreen() {
                   )}
                 </div>
               </div>
-
-              <EditStep
-                number={2}
-                instruction={instruction}
-                onInstruction={setInstruction}
-                alerts={(plan?.alertes ?? []) as string[]}
-                output={nsfwOut}
-              />
             </>
           ) : (
             <>
@@ -589,7 +596,12 @@ export function ProduceScreen() {
         </div>
 
         {editing ? (
-          <Inspector />
+          <EditStep
+            instruction={instruction}
+            onInstruction={setInstruction}
+            alerts={(plan?.alertes ?? []) as string[]}
+            output={nsfwOut}
+          />
         ) : (
           <SceneDevelopPanel
             scene={pointedScene}

@@ -332,8 +332,10 @@ const PANNEAU = '#gearPanel[data-open]';
          "elle dit que le cran n'engendre rien");
     dire(await vu('#stepSource'), 'le bloc « Image source » remplace les intentions');
     dire(!(await vu('#railIntent')), 'le rail Intention/Ton disparait — rien a y choisir sur ce cran');
-    dire((await texte('#stepSource h2 [data-num]')) === '1', 'la numerotation repart a 1');
-    dire((await texte('#stepEdit h2 [data-num]')) === '2', 'et va jusqu a 2');
+    // screen-3-produire §S : plus de pas-a-pas numerote sur ce cran — la
+    // grille de sources est le hero, l'instruction est LE panneau, verifie
+    // en detail a la section [15].
+    dire(!(await vu('#stepSource h2 [data-num]')), "« Image source » n'est plus numerotee");
     dire(await inerte(), '« Éditer » est inerte tant que rien n est coche');
     dire(await page.isDisabled('#qual button[data-q="rapide"]'),
          "les prereglages qui coupent la repasse sont inertes ici");
@@ -352,13 +354,29 @@ const PANNEAU = '#gearPanel[data-open]';
     console.log("      (aucun cran d'edition : personnage desarme ou pack sans graphe)");
   }
 
-  console.log('\n[15] L INSPECTEUR montre du PASSE, et le dit');
-  dire(await vu('#inspector'), 'la colonne de droite est la');
-  dire((await texte('#insRole')).includes("pas l'aperçu du prochain run"),
-       "elle dit qu'elle ne montre pas l'image a venir");
-  const src = await texte('#insSrc');
-  dire(/dernier batch|banque/.test(src) || src === '',
-       `elle nomme sa source : « ${src || '(rien encore)'} »`);
+  console.log('\n[15] LE PANNEAU DE DROITE bascule sur l instruction d edition (design pass ecran 3, §S)');
+  dire(!(await vu('#inspector')), "l'inspecteur n'existe plus sur ce cran — EditStep le remplace");
+  dire(await vu('#stepEdit'), "le panneau d'instruction est la, a droite");
+  dire((await texte('#stepEdit h2')).includes("Instruction d'édition"), 'et dit ce qu il est');
+  dire(!(await vu('#stepEdit h2 [data-num]')),
+       "sans numero d'etape — ce n'est plus un pas parmi d'autres, c'est LE panneau");
+  dire(await vu('#editInstr'), "le champ d'instruction est utilisable depuis le panneau");
+
+  const nSources = await page.$$eval('#srcGrid [data-src]', e => e.length);
+  if (nSources > 0){
+    dire(await vu('#btnAllSources'), 'Tout cocher/décocher est proposé (§B2)');
+    await page.click('#btnAllSources');
+    await page.waitForTimeout(200);
+    const cochees = await page.$$eval('#srcGrid [data-src][aria-pressed="true"]', e => e.length);
+    dire(cochees === nSources, `Tout cocher coche vraiment les ${nSources} source(s)`);
+    dire((await texte('#btnAllSources')) === 'Tout décocher', 'et le bouton change de libellé');
+    await page.click('#btnAllSources');
+    await page.waitForTimeout(200);
+    const decochees = await page.$$eval('#srcGrid [data-src][aria-pressed="true"]', e => e.length);
+    dire(decochees === 0, 'Tout décocher les retire toutes');
+  } else {
+    console.log('      (aucune image source à ce niveau, §B2 non exercé)');
+  }
 
   console.log('\n[16] rien n a ete lance');
   const fin = await compteurs();
