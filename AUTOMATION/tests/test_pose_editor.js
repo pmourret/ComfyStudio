@@ -432,7 +432,11 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
   await page.waitForSelector('#sceneInspector');
   await page.click('[data-tab="pose"]');
   await page.waitForSelector('[data-tabpanel="pose"]');
-  const vignette = await page.$(`[data-tabpanel="pose"] button[title="${nouveau}"]`);
+  // `title` porte le LIBELLE humain, pas le nom de fichier (design pass
+  // ecran 7, §A1 — SceneComposer.tsx : `title={label || name}`) : NOM_POSE
+  // est ce que la modale a fait ecrire, `nouveau` reste le nom de fichier
+  // reellement ecrit sur le disque, jamais ce que la vignette annonce ici.
+  const vignette = await page.$(`[data-tabpanel="pose"] button[title="${NOM_POSE}"]`);
   dire(Boolean(vignette), 'la pose creee est choisissable dans le compositeur');
   await vignette.click();
   await page.waitForTimeout(200);
