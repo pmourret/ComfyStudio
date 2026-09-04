@@ -8,14 +8,17 @@
    serves those bytes (the file lives outside PROD/, on the ComfyUI input side)
    and inventing one that reads that folder without a character_id bound would
    reopen the leak the isolation of 29/08/2026 closed. Deferred, not forgotten. */
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
+import { errorOf, type ActionLike } from '../api/client'
+import { useApi } from '../api/useApi'
 import { initialOf, useCharacter } from '../character/CharacterContext'
 import { useSystemState } from '../state/SystemStateContext'
 import { Icon } from './Icon'
 import { IdentityMenu } from './IdentityMenu'
 import { ProbeStrip } from './ProbeStrip'
 import { Takeover } from './Takeover'
+import { useToast } from './ToastContext'
 import { useProcessControls } from './useProcessControls'
 
 const APP = 'Soulglade'
@@ -110,8 +113,11 @@ function ShutdownButton({
    straight from /api/state. A queue of pending jobs does not exist server-side
    yet. */
 function StatusZone() {
+  const api = useApi()
+  const toast = useToast()
   const { state } = useSystemState()
   const { stopApp, stopComfy, takeover } = useProcessControls()
+  const [stopping, setStopping] = useState(false)
 
   const offline = state === null
   const running = state?.running
@@ -119,12 +125,42 @@ function StatusZone() {
     : 'prêt'
   const text = offline ? 'état indisponible' : state?.comfy ? running : 'ComfyUI hors ligne'
 
+  /* screen-3-produire §S/audit 2026-09-04: the running batch's own Stop
+     lives HERE now, not in a card buried in the scene grid's scroll — this
+     status line is the one place on screen that survives scrolling, so it
+     is the only honest home for a control that must stay reachable while a
+     batch runs. No confirmation: stopping a batch was never destructive the
+     way stopping ComfyUI or the dashboard is — images already produced stay
+     on disk either way (same no-confirm contract RunPanel.tsx's `#btnStop`
+     always had). */
+  const stopBatch = async () => {
+    setStopping(true)
+    const response = await api.post<ActionLike>('/api/stop')
+    const failure = errorOf(response)
+    setStopping(false)
+    if (failure) toast(failure || 'arrêt impossible')
+  }
+
   return (
     <div className="status">
       {/* a small label lifts the ambiguity of the dot (ComfyUI up or down) */}
       <span className="status-lab">Comfy</span>
       <span className={`dot${!offline && state?.comfy ? ' on' : ''}`} id="dot" />
       <span id="stTxt">{text}</span>
+      {state?.running && (
+        <button
+          type="button"
+          id="btnHeaderStopBatch"
+          className="rounded-[6px] border border-line2 bg-transparent px-[8px] py-[2px]
+                     text-[11.5px] text-dim hover:border-danger-line hover:text-danger-txt
+                     disabled:opacity-40"
+          disabled={stopping}
+          data-hint-text="Arrêter le lot en cours — les images déjà produites restent."
+          onClick={stopBatch}
+        >
+          Arrêter
+        </button>
+      )}
       {/* the rule that separates the state of the DASHBOARD from that of the
           MACHINE: without it, « prêt » and « 45 % » read as one sentence */}
       <span className="status-sep" aria-hidden="true" />

@@ -79,6 +79,10 @@ const PANNEAU = '#gearPanel[data-open]';
   dire((await texte('#sumT')).includes('sélectionne au moins une scène'),
        'la barre dit ce qui manque desormais — pas « choisis une intention », deja fait');
   dire(!(await vu('#queueRail')), 'la bande de file (QueueRail) ne se peint pas sans rien a montrer — permanente, pas decorative');
+  // §audit-ux-ui 2026-09-04 : le Stop d'un lot vit desormais dans le bandeau
+  // (chrome/Header.tsx), pas dans une carte de la grille — absent tant que
+  // rien ne tourne, sur CET ecran comme sur les autres (bandeau commun).
+  dire(!(await vu('#btnHeaderStopBatch')), "l'Arreter du bandeau n'apparait que si un lot tourne");
 
   console.log('\n[2] les intentions VIDES ne restent pas grisees dans le rail');
   const pleines = await page.$$eval('#railIntent button',
@@ -351,17 +355,17 @@ const PANNEAU = '#gearPanel[data-open]';
   dire(await refiner(), '« Valeurs mesurées » remet tout en place');
   dire((await texte('#gearDiff')) === '', 'et le compteur repart a zero');
 
-  console.log('\n[13] DEUX boutons, UN panneau');
+  console.log('\n[13] UN SEUL point d entree vers le panneau de reglages (rail d outils retire)');
   dire(await vu(PANNEAU), 'le panneau est ouvert');
   await page.click('#btnGear');
   await page.waitForTimeout(300);
   dire(!(await vu(PANNEAU)), "l'engrenage de la barre le referme");
-  dire(!(await page.isDisabled('#railGear')), "l'engrenage du RAIL est actif sur Produire");
-  await page.click('#railGear');
-  await page.waitForTimeout(300);
-  dire(await vu(PANNEAU), 'et il ouvre LE MEME panneau');
-  await page.click('#railGear');
-  await page.waitForTimeout(300);
+  // §audit-ux-ui 2026-09-04 : le rail d'outils (Poses/Editeur d'image, plus
+  // sa propre entree vers ce meme panneau) est retire de Produire — son
+  // propre rail d'intention et le ⚙ de la barre de lancement couvraient
+  // deja tout ce qu'il offrait ici. Ne reste qu'UN point d'entree.
+  dire(!(await vu('#toolRail')), "le rail d'outils n'existe plus sur cet ecran");
+  dire(!(await vu('#railGear')), 'et son entree vers le panneau avec lui');
 
   console.log('\n[14] le curseur d intensite dit ce que chaque cran FAIT');
   const crans = await page.$$eval('#intSel button', e => e.map(x => x.textContent.trim()));

@@ -376,6 +376,15 @@ export function ProduceScreen() {
 
   return (
     <div className="screen" id="creer">
+      {/* Full-width bar first, ABOVE the rail/content/panel row — not nested
+         inside it. It used to bleed out of a padded column via negative
+         margins, back when the column it lived in was the only thing on
+         screen; once the rail became a NEIGHBOUR column at the same row,
+         that trick left the bar and the rail starting at different tops,
+         visibly overlapping (user report 2026-09-04). A real top-level
+         sibling has no such margin to keep in sync. */}
+      <IntensityBar tiers={tiers} level={level} editing={editing} onPick={setLevel} />
+
       {/* Three columns once an intention exists to pick from: the permanent
           rail, the working column, and the sticky inspector. The tier that
           EDITS has nothing for the rail to choose (no intention/tone there),
@@ -407,13 +416,6 @@ export function ProduceScreen() {
         )}
 
         <div className="min-w-0">
-          <IntensityBar
-            tiers={tiers}
-            level={level}
-            editing={editing}
-            onPick={setLevel}
-          />
-
           {editing ? (
             <>
               <div className="mb-[30px]" id="stepSource">
@@ -742,12 +744,3 @@ export function ProduceScreen() {
     </div>
   )
 }
-
-/* The intensity bar. It is out of the scrolling <main> so it stays on screen,
-   but it is NOT global chrome: it drives only this screen, which is why it lives
-   here now rather than in the shell.
-
-   `intMode` is the TRADE badge: painted only when the current tier edits a
-   validated image instead of generating one. Empty and hidden at rest — the
-   default case, generation, has nothing to announce, and a permanent badge would
-   become decoration again. */

@@ -24,9 +24,13 @@ export type Intention = {
   defaults?: { tone?: string }
 }
 
+/* `bg-transparent`: a bare row <button> with no background class falls back
+   to the browser's own light button face (same bug found and fixed on the
+   header's shutdown buttons, chrome/Header.tsx — the root cause here too). */
 const ROW =
   'flex w-full items-center gap-[8px] rounded-[8px] border border-transparent' +
-  ' px-[10px] py-[8px] text-left text-[13px] [transition:border-color_.12s,background-color_.12s]' +
+  ' bg-transparent px-[10px] py-[8px] text-left text-[13px]' +
+  ' [transition:border-color_.12s,background-color_.12s]' +
   ' focus-visible:outline-2 focus-visible:outline-[var(--focus)] focus-visible:outline-offset-[-2px]'
 const ROW_ON = 'border-acc bg-panel2'
 const ROW_IDLE = 'hover:bg-panel2'

@@ -4,7 +4,15 @@
    It says the TRUTH of the tier rather than its rank — the tier that EDITS
    announces that it engenders nothing and takes back a validated image, and
    it counts SOURCE IMAGES, not scenes (`unite` comes from the server).
-   Announcing « 16 scènes » there was false. */
+   Announcing « 16 scènes » there was false.
+
+   A FULL-WIDTH BAR ABOVE EVERYTHING (rail, grid, develop panel) — not
+   scoped to the content column. Rendered as a direct sibling of the grid in
+   ProduceScreen.tsx, not nested inside it: it used to bleed out of a padded
+   column via negative margins, which broke the moment a rail column became
+   its neighbour — the rail and the bar started at different tops, and their
+   content visibly overlapped (found live, user report 2026-09-04). A real
+   top-level bar has no margin trick to keep in sync with its container. */
 import { useRovingChoice } from '../../chrome/useRovingChoice'
 import { isEditTier, type IntensityTier } from './useProduceState'
 
@@ -50,10 +58,7 @@ export function IntensityBar({
   const roving = useRovingChoice(ids, level != null ? String(level) : null)
 
   return (
-    <div
-      className="mx-[-20px] mt-[-24px] mb-[22px] flex-none border-b border-b-line bg-panel
-                 px-[20px] py-[9px]"
-    >
+    <div className="w-full flex-none border-b border-b-line bg-panel px-[20px] py-[9px]">
       <div className="flex flex-wrap items-center gap-[14px]">
         <span className="text-[12px] font-semibold uppercase tracking-[.9px] text-dim">
           Intensité
