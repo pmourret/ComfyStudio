@@ -59,41 +59,52 @@ const PANNEAU = '#gearPanel[data-open]';
 
   console.log('\n[0] etat de depart');
   await page.goto(BASE + '/produce?character=lena', { waitUntil: 'networkidle' });
-  await page.waitForSelector('#intentGrid .it');
+  await page.waitForSelector('#railIntent button');
   const depart = await compteurs();
   console.log(`      ${JSON.stringify(depart)}`);
 
-  console.log('\n[1] le parcours est LINEAIRE : un bloc, une decision');
-  dire(await vu('#stepIntent'), 'le bloc 1 (Intention) est la');
-  dire(!(await vu('#stepTone')), "le bloc 2 (Ton) n'existe pas encore");
-  dire(!(await vu('#stepScenes')), "le bloc 3 (Scènes) non plus");
-  dire(await inerte(), '« Générer » est inerte');
-  dire((await texte('#sumT')).includes('choisis une intention'),
-       'la barre dit ce qui manque, elle ne se contente pas de refuser');
+  console.log('\n[1] LE RAIL EST PERMANENT : intention/ton et scenes sont la sans un clic');
+  /* screen-3-produire §S : la premiere intention peuplee est presilectionnee
+     au montage, donc la grille de scenes est deja le hero — plus un mur a
+     franchir avant d'en voir une. */
+  dire(await vu('#railIntent'), 'le rail Intention est la');
+  dire(await vu('#stepScenes'), 'la grille de scenes aussi, sans avoir rien clique');
+  const premiereChoisie = await page.$eval('#railIntent button[aria-checked="true"]',
+    e => e.getAttribute('data-k')).catch(() => null);
+  dire(!!premiereChoisie, `une intention est deja choisie par defaut (« ${premiereChoisie} »)`);
+  dire(await inerte(), '« Générer » reste inerte : aucune scène cochée');
+  dire((await texte('#sumT')).includes('sélectionne au moins une scène'),
+       'la barre dit ce qui manque desormais — pas « choisis une intention », deja fait');
 
-  console.log('\n[2] les intentions VIDES ne restent pas grisees en tete de grille');
-  const pleines = await page.$$eval('#intentGrid .it b', e => e.map(x => x.textContent));
+  console.log('\n[2] les intentions VIDES ne restent pas grisees dans le rail');
+  const pleines = await page.$$eval('#railIntent button',
+    e => e.map(x => x.querySelector('span:nth-child(2)').textContent));
   dire(pleines.length > 0, `${pleines.length} intention(s) peuplee(s) : ${pleines.join(', ')}`);
   dire(pleines.includes('Toutes'), '« Toutes » est proposee avec les autres');
-  if (await vu('#intentVides')){
-    const vides = await page.$$eval('#intentVideGrid .it b', e => e.map(x => x.textContent));
-    dire((await texte('#intentVides [data-sep]')).includes('à peupler'),
+  if (await vu('#railIntentVides')){
+    const vides = await page.$$eval('#railIntentVides button',
+      e => e.map(x => x.querySelector('span:nth-child(2)').textContent));
+    dire((await texte('#railIntentVides [data-sep]')).includes('à peupler'),
          `les vides passent sous un separateur (${vides.join(', ')})`);
-    dire(await page.$eval('#intentVideGrid .it span:last-child', e => e.textContent) === 'en composer une',
+    dire(await page.$eval('#railIntentVides button span:nth-child(3)', e => e.textContent) === 'en composer une',
          'et proposent d aller en composer une');
   } else {
     console.log('      (aucune intention vide dans cette banque)');
   }
 
-  console.log('\n[3] choisir une intention ouvre la suite, et elle seule');
-  await page.click('#intentGrid .it');
-  await page.waitForTimeout(400);
-  dire(await vu('#stepTone'), 'le bloc Ton apparait');
-  dire(await vu('#stepScenes'), 'le bloc Scènes aussi');
-  dire((await texte('#stepTone h2 [data-num]')) === '2', 'numerote 2');
-  dire((await texte('#stepScenes h2 [data-num]')) === '3', 'et 3');
-  dire(await inerte(), '« Générer » reste inerte : aucune scène cochée');
-  dire((await texte('#sumT')).includes('sélectionne au moins une scène'), 'et le dit');
+  console.log('\n[3] changer d intention dans le rail change la grille, rien d autre');
+  if (pleines.length > 1){
+    const avant = await page.$$eval(CARTE, e => e.length);
+    await page.click('#railIntent button:nth-child(2)');
+    await page.waitForTimeout(400);
+    dire(await page.$eval('#railIntent button:nth-child(2)', e => e.getAttribute('aria-checked')) === 'true',
+         'la 2e intention est maintenant cochee');
+    dire(await vu('#stepScenes'), 'le bloc Scènes reste affiche — jamais reconstruit depuis zero');
+    const apres = await page.$$eval(CARTE, e => e.length);
+    console.log(`      ${avant} -> ${apres} scène(s) dans la grille`);
+  } else {
+    console.log('      (une seule intention peuplee dans cette banque, rien a changer)');
+  }
 
   console.log('\n[4] PIEGE §5.6-3 : le bouton suit le PLAN, sans clignoter');
   plans = 0;
@@ -240,7 +251,7 @@ const PANNEAU = '#gearPanel[data-open]';
     dire((await texte('#intMode')).includes("n'engendre rien"),
          "elle dit que le cran n'engendre rien");
     dire(await vu('#stepSource'), 'le bloc « Image source » remplace les intentions');
-    dire(!(await vu('#stepIntent')), 'le bloc Intention disparait');
+    dire(!(await vu('#railIntent')), 'le rail Intention/Ton disparait — rien a y choisir sur ce cran');
     dire((await texte('#stepSource h2 [data-num]')) === '1', 'la numerotation repart a 1');
     dire((await texte('#stepEdit h2 [data-num]')) === '2', 'et va jusqu a 2');
     dire(await inerte(), '« Éditer » est inerte tant que rien n est coche');

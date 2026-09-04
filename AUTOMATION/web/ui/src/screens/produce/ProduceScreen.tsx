@@ -37,7 +37,7 @@ import { Inspector } from './Inspector'
 import { PromptPreview } from './PromptPreview'
 import { RunPanel } from './RunPanel'
 import { IntensityBar } from './IntensityBar'
-import { IntentCard, type Intention } from './IntentCard'
+import { IntentRail, type Intention } from './IntentRail'
 import { NewSceneCard, SceneCard } from './SceneCard'
 import { useNsfwSources } from './useNsfwSources'
 import { useSceneChoice } from './useSceneChoice'
@@ -275,6 +275,17 @@ export function ProduceScreen() {
     setTone(entry?.defaults?.tone || tone || (creative?.tones?.[0]?.key ?? ''))
   }
 
+  /* screen-3-produire, §S: the rail is always on screen, so the screen no
+     longer waits for a click to show a scene grid — the first non-empty
+     intention is picked as soon as the taxonomy makes one available. Guarded
+     on `intent === null` alone: the level-change effect above already clears
+     `intent` when it empties out, which makes this the single place a
+     default gets chosen, whatever caused the previous one to go away. */
+  useEffect(() => {
+    if (intent === null && full.length > 0) pickIntent(full[0][0].key)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intent, full.length])
+
   const toggleScene = (id: string) => {
     setSelected((current) => {
       const next = new Set(current)
@@ -288,23 +299,16 @@ export function ProduceScreen() {
 
   const preview = (plan?.apercu ?? null) as Preview | null
 
-  /* screen-3-produire: three more single-choice groups, same radiogroup
-     mechanics as the wizard and IntensityBar. `#intentVideGrid` (cards with
-     no scene, which lead to the composer) stays OUTSIDE this group: it is a
-     list of actions, never a state that stays checked — same reasoning as
-     the wizard's instruction library. */
-  const intentIds = full.map(([entry]) => entry.key)
-  const intentRoving = useRovingChoice(intentIds, intent)
   /* The NSFW pipeline disables Rapide/Brut (see the button below) — excluded
      from the roving id list so arrows skip them exactly as Tab already does
      for a `disabled` button, rather than "selecting" an option the user
-     could not have reached by mouse. */
+     could not have reached by mouse. Intention and tone have the same
+     roving-radiogroup mechanics, now owned by IntentRail (screen-3-produire
+     §S — the rail replaced the two revealing steps that used to live here). */
   const qualityAvailable = QUALITY_OPTIONS.filter(
     ([key]) => !(editTier && key !== 'realisme'),
   ).map(([key]) => key)
   const qualityRoving = useRovingChoice(qualityAvailable, quality)
-  const toneIds = (creative?.tones ?? []).map((entry) => entry.key)
-  const toneRoving = useRovingChoice(toneIds, tone)
 
   const pickQuality = (key: string) => {
     setQuality(key)
@@ -315,16 +319,36 @@ export function ProduceScreen() {
 
   return (
     <div className="screen" id="creer">
-      {/* Two columns: the steps and the execution band on the left, the sticky
-          inspector on the right. Under 1100 px the right column goes UNDER, never
-          as an overlay: it is a sheet one reads, not a notification. */}
+      {/* Three columns once an intention exists to pick from: the permanent
+          rail, the working column, and the sticky inspector. The tier that
+          EDITS has nothing for the rail to choose (no intention/tone there),
+          so it keeps the two-column layout. Under 1100 px every column goes
+          full width and stacks, never as an overlay: it is a sheet one
+          reads, not a notification. */}
       {/* FULL WIDTH: Produire leaves the « centred article » model — `--maxw`
           left ~200 px of gutter on each side of a working screen. */}
       <div
-        className="wrap m-0 grid w-full max-w-none gap-[22px] [align-items:start]
-                   grid-cols-[minmax(0,1fr)_clamp(280px,22vw,420px)]
-                   max-[1100px]:grid-cols-[1fr]"
+        className={`wrap m-0 grid w-full max-w-none gap-[22px] [align-items:start]
+                   ${
+                     editing
+                       ? 'grid-cols-[minmax(0,1fr)_clamp(280px,22vw,420px)]'
+                       : 'grid-cols-[170px_minmax(0,1fr)_clamp(280px,22vw,420px)]'
+                   }
+                   max-[1100px]:grid-cols-[1fr]`}
       >
+        {!editing && (
+          <IntentRail
+            full={full}
+            empty={empty}
+            intent={intent}
+            onPickIntent={pickIntent}
+            goCompose={goCompose}
+            tones={creative?.tones ?? []}
+            tone={tone}
+            onPickTone={setTone}
+          />
+        )}
+
         <div className="min-w-0">
           <IntensityBar
             tiers={tiers}
@@ -421,96 +445,10 @@ export function ProduceScreen() {
             </>
           ) : (
             <>
-              <div className="mb-[30px]" id="stepIntent">
-                <h2 className="flex items-baseline gap-[10px]">
-                  <i className="not-italic text-acc" data-num>1</i> · Intention
-                </h2>
-                <div
-                  className="intents"
-                  id="intentGrid"
-                  role="radiogroup"
-                  aria-label="Intention"
-                >
-                  {full.map(([entry, n]) => (
-                    <IntentCard
-                      key={entry.key}
-                      entry={entry}
-                      count={n}
-                      active={entry.key === intent}
-                      onClick={() => pickIntent(entry.key)}
-                      radio={{
-                        tabIndex: intentRoving.tabIndexFor(entry.key),
-                        elementRef: intentRoving.registerRef(entry.key),
-                        onKeyDown: (event) => intentRoving.onKeyDown(event, entry.key, pickIntent),
-                      }}
-                    />
-                  ))}
-                </div>
-                {/* Intentions with no scene do not stay greyed at the head of the
-                    grid: they move below a separator, and the click leads to the
-                    composer. Two dead cards out of eight, at the very first
-                    decision of the walk, was the observation of 26/08/2026. */}
-                {empty.length > 0 && (
-                  <div id="intentVides">
-                    <div
-                      className="mt-[22px] mb-[12px] flex items-center gap-[12px] text-[12px]
-                                 uppercase tracking-[.6px] text-dim
-                                 after:h-px after:flex-1 after:bg-line after:content-['']"
-                      data-sep
-                    >
-                      à peupler — aucune scène à ce niveau
-                    </div>
-                    <div className="intents" id="intentVideGrid">
-                      {empty.map(([entry, n]) => (
-                        <IntentCard
-                          key={entry.key}
-                          entry={entry}
-                          count={n}
-                          active={false}
-                          onClick={goCompose}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {intent && (
-                <div className="mb-[30px]" id="stepTone">
-                  <h2 className="flex items-baseline gap-[10px]">
-                    <i className="not-italic text-acc" data-num>2</i> · Ton{' '}
-                    <span className="tiny normal-case tracking-normal" id="toneHint">
-                      {(() => {
-                        const t = (creative?.tones ?? []).find((x) => x.key === tone)
-                        return t ? `— ${t.prompt_add}` : ''
-                      })()}
-                    </span>
-                  </h2>
-                  <div className="chips" id="toneRow" role="radiogroup" aria-label="Ton">
-                    {(creative?.tones ?? []).map((entry) => (
-                      <button
-                        type="button"
-                        key={entry.key}
-                        ref={toneRoving.registerRef(entry.key)}
-                        role="radio"
-                        aria-checked={entry.key === tone}
-                        tabIndex={toneRoving.tabIndexFor(entry.key)}
-                        className={`chip-t${entry.key === tone ? ' on' : ''}`}
-                        data-k={entry.key}
-                        onClick={() => setTone(entry.key)}
-                        onKeyDown={(event) => toneRoving.onKeyDown(event, entry.key, setTone)}
-                      >
-                        {entry.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {intent && (
                 <div className="mb-[30px]" id="stepScenes">
                   <h2 className="flex items-baseline gap-[10px]">
-                    <i className="not-italic text-acc" data-num>3</i> · Scènes{' '}
+                    Scènes{' '}
                     <span className="tiny normal-case tracking-normal" id="sceneHint">
                       {visibleScenes.length} disponible{visibleScenes.length > 1 ? 's' : ''} à ce
                       niveau
@@ -540,7 +478,7 @@ export function ProduceScreen() {
 
               {editTier && intent && (
                 <EditStep
-                  number={4}
+                  number={1}
                   instruction={instruction}
                   onInstruction={setInstruction}
                   alerts={(plan?.alertes ?? []) as string[]}
