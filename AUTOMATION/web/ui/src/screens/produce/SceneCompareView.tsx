@@ -72,7 +72,7 @@ export function SceneCompareView({
               <button
                 type="button"
                 className="absolute top-[8px] right-[8px] flex h-[24px] w-[24px] items-center
-                           justify-center rounded-[50%] border border-line2 bg-scrim text-[13px]
+                           justify-center rounded-[50%] border border-line2 bg-scrim p-0 text-[13px]
                            text-txt"
                 aria-label={`retirer ${scene.id} de la comparaison`}
                 onClick={() => onRemove(scene.id)}

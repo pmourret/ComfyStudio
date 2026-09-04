@@ -126,7 +126,12 @@ export function QueueRail({ state }: { state: SystemState | null }) {
             <button
               key={entry.batchId}
               type="button"
-              className={`rounded-[999px] border px-[9px] py-[3px] text-[11.5px] ${
+              /* `bg-transparent` on the base chain: a bare <button> with no
+                 background class falls back to the browser's own light
+                 button face — real bug, found on the header's shutdown
+                 buttons (chrome/Header.tsx), same root cause here for the
+                 index > 0 (unstyled) chips. */
+              className={`rounded-[999px] border bg-transparent px-[9px] py-[3px] text-[11.5px] ${
                 index === 0 ? 'border-line2 bg-panel2 text-txt' : 'border-line text-dim'
               }`}
               onClick={() => goTo(entry)}

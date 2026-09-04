@@ -84,9 +84,18 @@ function ShutdownButton({
     <button
       type="button"
       id={id}
+      /* `[border:0] p-0 bg-transparent`: without this reset a bare <button>
+         falls back to the browser's own UA chrome (Chromium: ~1px 6px
+         padding, a 2px outset border, a light face) — found live (audit,
+         2026-09-04): that padding alone left only 8px of content width in a
+         24px box, and the flex layout SHRANK the icon's SVG down to fit,
+         rendering it all but invisible. `border border-transparent` (not
+         `border-0`) so the hover border adds no layout shift — same
+         zero-shift idiom already used for `.btn`'s own hover state. */
       className="flex h-[24px] w-[24px] flex-none items-center justify-center
-                 rounded-[6px] text-dim hover:border hover:border-danger-line
-                 hover:bg-danger-bg hover:text-danger-txt
+                 rounded-[6px] border border-transparent bg-transparent p-0
+                 text-dim hover:border-danger-line hover:bg-danger-bg
+                 hover:text-danger-txt
                  focus-visible:outline-2 focus-visible:outline-[var(--focus)]"
       aria-label={label}
       data-hint-text={hint}

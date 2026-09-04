@@ -179,9 +179,14 @@ export function SceneCard({
       {onEdit && (
         <button
           type="button"
+          /* `p-0`: a bare <button> without it falls back to the browser's own
+             UA padding (found live on the header's shutdown buttons, same
+             root cause — see chrome/Header.tsx) — harmless here on a single
+             text glyph, but the same contract gap, fixed for the same
+             reason. */
           className="absolute bottom-[8px] right-[8px] z-[1] flex h-[24px] w-[24px]
                      items-center justify-center rounded-[50%] border border-line2
-                     bg-scrim text-[12px] text-txt hover:bg-panel2"
+                     bg-scrim p-0 text-[12px] text-txt hover:bg-panel2"
           aria-label={`éditer la scène ${scene.id} dans la Banque`}
           data-hint-text="Ouvrir cette scène dans la Banque, pré-sélectionnée"
           onClick={(event) => {

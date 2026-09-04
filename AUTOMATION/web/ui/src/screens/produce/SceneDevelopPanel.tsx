@@ -116,7 +116,7 @@ export function SceneDevelopPanel({
         <button
           type="button"
           className="relative h-[56px] w-[44px] flex-none overflow-hidden rounded-[6px]
-                     border border-line bg-panel2 disabled:cursor-default"
+                     border border-line bg-panel2 p-0 disabled:cursor-default"
           disabled={!last || !lastThumb}
           onClick={() => last && openLightbox(api.image(last))}
           aria-label={last ? `dernière image — ${last.scene ?? ''}` : 'aucune image encore'}
