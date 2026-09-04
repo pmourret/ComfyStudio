@@ -84,6 +84,29 @@ const PANNEAU = '#gearPanel[data-open]';
   // rien ne tourne, sur CET ecran comme sur les autres (bandeau commun).
   dire(!(await vu('#btnHeaderStopBatch')), "l'Arreter du bandeau n'apparait que si un lot tourne");
 
+  console.log('\n[1b] la selection se voit vraiment (design pass ecran 3, retour utilisateur)');
+  // §fix 2026-09-04 : ROW_ON perdait border-acc/bg-panel2 face aux
+  // transparents de la chaine de base (meme ordre-de-feuille-generee que
+  // SceneCard.tsx/IntensityBar.tsx) — verifie sur la COULEUR REELLE, pas
+  // seulement aria-checked, qui restait vrai pendant que rien ne se voyait.
+  const accentAttendu = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue('--acc').trim());
+  const intentBorder = await page.$eval('#railIntent button[aria-checked="true"]',
+    e => getComputedStyle(e).borderColor);
+  dire(intentBorder !== 'rgba(0, 0, 0, 0)' && intentBorder.length > 0,
+       `l'intention choisie porte un contour visible (${intentBorder}, --acc = ${accentAttendu})`);
+  // §fix 2026-09-04 : .chip-t.on n'existait plus dans screens.css depuis la
+  // scission React (trou documente sur place, jamais comble) — un ton
+  // choisi restait indiscernable des autres.
+  const toneBg = await page.$eval('#railTone button', e => getComputedStyle(e).backgroundColor);
+  await page.click('#railTone button');
+  await page.waitForTimeout(200);
+  const toneBgApres = await page.$eval('#railTone button', e => getComputedStyle(e).backgroundColor);
+  dire(await page.$eval('#railTone button', e => e.getAttribute('aria-checked')) === 'true',
+       'le premier ton est maintenant coche');
+  dire(toneBgApres !== toneBg,
+       `et ca se voit — fond avant/apres : ${toneBg} -> ${toneBgApres}`);
+
   console.log('\n[2] les intentions VIDES ne restent pas grisees dans le rail');
   const pleines = await page.$$eval('#railIntent button',
     e => e.map(x => x.querySelector('span:nth-child(2)').textContent));

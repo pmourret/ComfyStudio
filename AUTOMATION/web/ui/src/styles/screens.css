@@ -75,22 +75,17 @@ details.adv summary:focus-visible{outline:2px solid var(--focus);outline-offset:
    « autre ton » of the decline box. It came from `screens/review.css`, which
    was the wrong home for something Produire uses as well.
 
-   IT HAS NO `.on` RULE, AND THAT IS A HOLE, not an omission of this move. The
-   legacy `components.css` carried
-
-       .chip-t.on{background:var(--txt);border-color:var(--txt);
-                  color:var(--bg);font-weight:600}
-
-   and the React split dropped it. Produire still writes `on` on the selected
-   tone and nothing paints it — the chosen tone is indistinguishable from the
-   others. Restoring the rule is a VISIBLE change, so it is not smuggled into a
-   migration meant to be invisible; it is written down here so the next reader
-   does not have to rediscover it. */
+   `.on` RESTORED 2026-09-04 (user report: picking a tone showed nothing).
+   The React split of the legacy `components.css` had dropped it — Produire
+   kept writing `on` on the selected tone, and nothing painted it. This is
+   the rule `components.css` always had; nothing new invented here. */
 .chips{display:flex;gap:9px;flex-wrap:wrap}
 .chip-t{font-family:inherit;color:inherit;
         background:var(--panel2);border:1px solid var(--line);border-radius:20px;
         padding:8px 16px;cursor:pointer;font-size:13.5px;user-select:none}
 .chip-t:hover{border-color:var(--line2)}
+.chip-t.on{background:var(--txt);border-color:var(--txt);
+           color:var(--bg);font-weight:600}
 
 /* -------------------------------------------------------- empty states */
 .empty{text-align:center;color:var(--dim);padding:60px 20px}

@@ -32,7 +32,14 @@ const ROW =
   ' bg-transparent px-[10px] py-[8px] text-left text-[13px]' +
   ' [transition:border-color_.12s,background-color_.12s]' +
   ' focus-visible:outline-2 focus-visible:outline-[var(--focus)] focus-visible:outline-offset-[-2px]'
-const ROW_ON = 'border-acc bg-panel2'
+/* `!` on both: `ROW` already names `border-transparent`/`bg-transparent` at
+   rest, and two utilities setting the SAME property are decided by their
+   order in the GENERATED sheet, not by their order in this string — found
+   live (user report 2026-09-04): the selected row's accent border and its
+   panel background were both silently losing to the base chain's
+   transparents. Same trap already documented on SceneCard.tsx/
+   IntensityBar.tsx; missed here when this file was written. */
+const ROW_ON = 'border-acc! bg-panel2!'
 const ROW_IDLE = 'hover:bg-panel2'
 const ROW_VOID = 'opacity-[.72] hover:border-acc hover:opacity-100'
 
