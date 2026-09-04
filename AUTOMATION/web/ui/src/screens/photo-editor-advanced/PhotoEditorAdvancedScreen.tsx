@@ -20,9 +20,12 @@ import { Histogram } from './Histogram'
 import { HistoryPanel } from './HistoryPanel'
 import { LayerList } from './LayerList'
 import { LayerSettingsPanel } from './LayerSettingsPanel'
+import { renderMaskAlpha } from './maskMath'
+import { DEFAULT_MASK } from './MaskPicker'
 import { PerspectivePanel } from './PerspectivePanel'
-import { composeLayers, computeHistogram, NEUTRAL_SETTINGS } from './photoEditorLayersPixels'
+import { composeLayers, computeHistogram, NEUTRAL_SETTINGS, type Mask } from './photoEditorLayersPixels'
 import { PresetsPanel } from './PresetsPanel'
+import { SharpenBlurPanel } from './SharpenBlurPanel'
 import { usePhotoEditorAdvanced } from './usePhotoEditorAdvanced'
 import { UndoRedoButtons } from '../pose-editor/UndoRedoButtons'
 
@@ -54,6 +57,17 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
   const stageRef = useRef<HTMLDivElement | null>(null)
   const [histogram, setHistogram] = useState<number[] | null>(null)
 
+  /* Selective-blur mask placement (design-pass §7b masquage) happens ON
+     THE PREVIEW ITSELF — pinceau/dégradé/radial need to see the image, not
+     just a slider. Exits automatically on a layer switch: painting on the
+     wrong layer's mask because "Modifier sur l'aperçu" silently survived a
+     selection change would be a real trap, not a hypothetical one. */
+  const [maskEditing, setMaskEditing] = useState(false)
+  const maskDrag = useRef<{ mask: Mask } | null>(null)
+  useLayoutEffect(() => {
+    setMaskEditing(false)
+  }, [selectedLayerId])
+
   useLayoutEffect(() => {
     const canvas = canvasRef.current
     const stage = stageRef.current
@@ -74,7 +88,97 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
     const displayLayers = beforeAfter ? layers.map((l) => ({ ...l, settings: NEUTRAL_SETTINGS })) : layers
     composeLayers(ctx, canvas.width, canvas.height, imageEl, displayLayers)
     setHistogram(computeHistogram(ctx, canvas.width, canvas.height))
-  }, [imageEl, layers, beforeAfter])
+    // A red tint over whatever the current blur mask currently covers —
+    // painted OVER the composited result, on this same canvas, only while
+    // actively editing it. Never persisted: the very next redraw (any
+    // layers/beforeAfter change) recomputes from `composeLayers` fresh.
+    if (maskEditing && selectedLayer) {
+      const mask = selectedLayer.settings.blurMask ?? DEFAULT_MASK
+      const maskAlpha = renderMaskAlpha(mask, canvas.width, canvas.height)
+      if (maskAlpha) {
+        const overlay = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const data = overlay.data
+        for (let p = 0; p < maskAlpha.length; p++) {
+          const a = maskAlpha[p] * 0.5
+          if (a <= 0) continue
+          const i = p * 4
+          data[i] = Math.round(data[i] * (1 - a) + 255 * a)
+          data[i + 1] = Math.round(data[i + 1] * (1 - a))
+          data[i + 2] = Math.round(data[i + 2] * (1 - a))
+        }
+        ctx.putImageData(overlay, 0, 0)
+      }
+    }
+  }, [imageEl, layers, beforeAfter, maskEditing, selectedLayer])
+
+  const toImageSpace = (event: { clientX: number; clientY: number }) => {
+    const canvas = canvasRef.current
+    if (!canvas) return null
+    const rect = canvas.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return null
+    return {
+      x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
+      y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
+    }
+  }
+
+  /* Same fix as CurvesEditor.tsx's own drag: the LIVE gesture reads/writes
+     a ref, never the React-rendered `selectedLayer` prop — `commit()`
+     (via `updateSelectedSettings`) only queues a state update, and a
+     `pointermove` listener attached before that update lands would
+     otherwise see a stale mask on its very first move. */
+  const onMaskDragMove = (event: PointerEvent) => {
+    const state = maskDrag.current
+    if (!state) return
+    const p = toImageSpace(event)
+    if (!p) return
+    let next: Mask
+    if (state.mask.mode === 'pinceau') {
+      const strokes = [...state.mask.strokes]
+      const last = strokes[strokes.length - 1]
+      strokes[strokes.length - 1] = { ...last, points: [...last.points, p] }
+      next = { ...state.mask, strokes }
+    } else if (state.mask.mode === 'degrade' && state.mask.gradient) {
+      next = { ...state.mask, gradient: { ...state.mask.gradient, x2: p.x, y2: p.y } }
+    } else if (state.mask.mode === 'radial' && state.mask.radial) {
+      next = {
+        ...state.mask,
+        radial: {
+          ...state.mask.radial,
+          rx: Math.max(0.01, Math.abs(p.x - state.mask.radial.cx)),
+          ry: Math.max(0.01, Math.abs(p.y - state.mask.radial.cy)),
+        },
+      }
+    } else return
+    state.mask = next
+    updateSelectedSettings({ blurMask: next })
+  }
+
+  const stopMaskDrag = () => {
+    document.removeEventListener('pointermove', onMaskDragMove)
+    maskDrag.current = null
+  }
+
+  const onMaskPointerDown = (event: React.PointerEvent) => {
+    if (!maskEditing || !selectedLayer) return
+    const p = toImageSpace(event)
+    if (!p) return
+    const current = selectedLayer.settings.blurMask ?? DEFAULT_MASK
+    let next: Mask
+    if (current.mode === 'pinceau') {
+      next = { ...current, strokes: [...current.strokes, { points: [p], radius: current.brushRadius }] }
+    } else if (current.mode === 'degrade') {
+      next = { ...current, gradient: { x1: p.x, y1: p.y, x2: p.x, y2: p.y } }
+    } else if (current.mode === 'radial') {
+      next = { ...current, radial: { cx: p.x, cy: p.y, rx: 0.01, ry: 0.01, rotation: 0, feather: 30 } }
+    } else {
+      return
+    }
+    maskDrag.current = { mask: next }
+    updateSelectedSettings({ blurMask: next })
+    document.addEventListener('pointermove', onMaskDragMove)
+    document.addEventListener('pointerup', stopMaskDrag, { once: true })
+  }
 
   const onAsideKeyDown = (event: React.KeyboardEvent) => {
     if (!(event.ctrlKey || event.metaKey)) return
@@ -241,7 +345,17 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
             {imageError ? (
               <p className="tiny text-danger-txt">échec du chargement de l'image</p>
             ) : (
-              <canvas id="peCanvas" ref={canvasRef} className="block max-h-full max-w-full rounded-[2px]" />
+              <canvas
+                id="peCanvas"
+                ref={canvasRef}
+                className={`block max-h-full max-w-full rounded-[2px]${maskEditing ? ' cursor-crosshair' : ''}`}
+                onPointerDown={maskEditing ? onMaskPointerDown : undefined}
+              />
+            )}
+            {maskEditing && (
+              <p className="tiny absolute bottom-[8px] left-1/2 -translate-x-1/2 rounded-[6px] bg-scrim px-[10px] py-[4px] text-txt" role="status">
+                glisser sur l’image pour placer le masque — teinte rouge = zone couverte
+              </p>
             )}
           </div>
 
@@ -265,6 +379,12 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
               <>
                 <LayerSettingsPanel layer={selectedLayer} onChange={updateSelectedSettings} />
                 <AdvancedColorPanel layer={selectedLayer} onChange={updateSelectedSettings} />
+                <SharpenBlurPanel
+                  layer={selectedLayer}
+                  onChange={updateSelectedSettings}
+                  editingMask={maskEditing}
+                  onToggleMaskEdit={() => setMaskEditing((v) => !v)}
+                />
                 <PerspectivePanel layer={selectedLayer} onChange={updateSelectedSettings} />
               </>
             )}

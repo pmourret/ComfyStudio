@@ -27,8 +27,10 @@
    two are only equivalent when opacity is 100%, which is why the base
    layer — always rendered at full strength — never showed the difference). */
 import type { Schema } from '../../api/client'
+import { applySelectiveBlur, applySharpen } from './blurMath'
 import { buildCurveLut, isIdentityCurve, type CurvePoint } from './curvesMath'
 import { applyHslShift, isHslNeutral } from './hslMath'
+import { renderMaskAlpha } from './maskMath'
 import { warpPerspective } from './perspectiveMath'
 import { applyTemperature, cssFilter } from '../review/photoEditorPixels'
 
@@ -36,6 +38,8 @@ export type Layer = Schema<'Layer'>
 export type LayerSettings = Schema<'LayerSettings'>
 export type LayerKind = Layer['kind']
 export type Curves = Schema<'Curves'>
+export type Mask = Schema<'Mask'>
+export type MaskMode = Mask['mode']
 
 const IDENTITY_CURVE: CurvePoint[] = [{ x: 0, y: 0 }, { x: 255, y: 255 }]
 
@@ -184,12 +188,14 @@ function applyTonePass(ctx: CanvasRenderingContext2D, width: number, height: num
   ctx.putImageData(image, 0, 0)
 }
 
-/** Renders ONE layer, fully, onto its own transparent-backed canvas —
-    basic sliders via `ctx.filter` (fast, native), the combined tone pass,
-    then the perspective warp (geometric — must run AFTER colour so it
-    moves already-graded pixels, not raw ones). Sharpen/selective-blur join
-    this pipeline in their own step (ROADMAP.md); nothing here is a
-    half-built stand-in for them. */
+/** Renders ONE layer, fully, onto its own transparent-backed canvas — basic
+    sliders via `ctx.filter` (fast, native), the combined tone pass, the
+    perspective warp (geometric — must run AFTER colour so it moves
+    already-graded pixels, not raw ones), then sharpen and selective blur
+    LAST (both are neighbourhood ops over whatever the layer looks like
+    once every earlier step has already run, including the warp — blurring
+    then warping would blur across what used to be the transparent
+    corner). */
 function renderLayerToCanvas(image: CanvasImageSource, width: number, height: number, layer: Layer): HTMLCanvasElement {
   const canvas = document.createElement('canvas')
   canvas.width = width
@@ -206,6 +212,11 @@ function renderLayerToCanvas(image: CanvasImageSource, width: number, height: nu
   applyTemperature(ctx, width, height, layer.settings.temp, 1)
   applyTonePass(ctx, width, height, layer.settings)
   warpPerspective(ctx, width, height, layer.settings.perspH, layer.settings.perspV)
+  applySharpen(ctx, width, height, layer.settings.sharpen)
+  if (layer.settings.blurOn && layer.settings.blurMask) {
+    const maskAlpha = renderMaskAlpha(layer.settings.blurMask, width, height)
+    if (maskAlpha) applySelectiveBlur(ctx, width, height, maskAlpha, layer.settings.blurRadius, layer.settings.blurStrength)
+  }
   return canvas
 }
 

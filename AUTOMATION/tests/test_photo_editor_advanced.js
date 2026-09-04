@@ -254,6 +254,74 @@ process.on('exit', nettoyer);
   const alphaReset = await cornerAlpha();
   dire(alphaReset === 255, `revient plein a 0° (alpha ${alphaReset})`);
 
+  console.log('\n[8quater] Netteté / flou sélectif : contraste local monte, masque pinceau limite le flou a sa zone');
+  // variance locale d'un patch 5x5 — netteté ET flou changent le CONTRASTE
+  // local, une seule valeur de pixel ne le montre pas de façon fiable
+  const patchVariance = (x, y) => page.evaluate(([x, y]) => {
+    const c = document.querySelector('#peCanvas');
+    const { data } = c.getContext('2d').getImageData(x - 2, y - 2, 5, 5);
+    const vals = [];
+    for (let i = 0; i < data.length; i += 4) vals.push(data[i]);
+    const moyenne = vals.reduce((a, b) => a + b, 0) / vals.length;
+    return vals.reduce((a, b) => a + (b - moyenne) ** 2, 0) / vals.length;
+  }, [x, y]);
+  const cxCanvas = await page.evaluate(() => Math.floor(document.querySelector('#peCanvas').width / 2));
+  const cyCanvas = await page.evaluate(() => Math.floor(document.querySelector('#peCanvas').height / 2));
+
+  const netteteDetails = page.locator('details.adv:has-text("Netteté / flou sélectif")');
+  await netteteDetails.locator('summary').click();
+  await page.waitForTimeout(200);
+  const varAvantNettete = await patchVariance(cxCanvas, cyCanvas);
+  const sharpenSlider = page.locator('#pe-sharpen');
+  await sharpenSlider.scrollIntoViewIfNeeded();
+  await regler('#pe-sharpen', 100);
+  await page.waitForTimeout(300);
+  const varApresNettete = await patchVariance(cxCanvas, cyCanvas);
+  dire(varApresNettete > varAvantNettete,
+       `la nettete accentue le contraste local (variance ${varAvantNettete.toFixed(1)} -> ${varApresNettete.toFixed(1)})`);
+  await regler('#pe-sharpen', 0);
+  await page.waitForTimeout(200);
+
+  await page.locator('label:has-text("flou sélectif") input[type=checkbox]').check();
+  await page.waitForTimeout(200);
+  const blurStrengthSlider = page.locator('#pe-blur-strength');
+  await blurStrengthSlider.scrollIntoViewIfNeeded();
+  await regler('#pe-blur-strength', 100);
+  await regler('#pe-blur-radius', 12);
+  await page.waitForTimeout(200);
+  const varZonePeinteAvant = await patchVariance(cxCanvas, cyCanvas);
+  const varZoneLoinAvant = await patchVariance(20, 20);
+
+  const editBtn = page.locator('button:has-text("Modifier sur l’aperçu")');
+  await editBtn.scrollIntoViewIfNeeded();
+  await editBtn.click();
+  await page.waitForTimeout(200);
+  dire(await vu('text=glisser sur l’image'), 'le bandeau de mode edition de masque apparait');
+  const canvasBox = await page.locator('#peCanvas').boundingBox();
+  const cxEcran = canvasBox.x + cxCanvas;
+  const cyEcran = canvasBox.y + cyCanvas;
+  await page.mouse.move(cxEcran - 40, cyEcran);
+  await page.mouse.down();
+  await page.mouse.move(cxEcran, cyEcran, { steps: 6 });
+  await page.mouse.move(cxEcran + 40, cyEcran, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  await page.locator('button:has-text("Terminé")').click();
+  await page.waitForTimeout(300);
+
+  const varZonePeinteApres = await patchVariance(cxCanvas, cyCanvas);
+  const varZoneLoinApres = await patchVariance(20, 20);
+  dire(varZonePeinteApres < varZonePeinteAvant,
+       `la zone peinte est floutee (variance ${varZonePeinteAvant.toFixed(1)} -> ${varZonePeinteApres.toFixed(1)})`);
+  dire(Math.abs(varZoneLoinApres - varZoneLoinAvant) < 5,
+       `une zone hors du trait n'est pas affectee (${varZoneLoinAvant.toFixed(1)} -> ${varZoneLoinApres.toFixed(1)})`);
+
+  await page.locator('text=effacer le masque').click();
+  await page.waitForTimeout(300);
+  const varApresEffacement = await patchVariance(cxCanvas, cyCanvas);
+  dire(Math.abs(varApresEffacement - varZonePeinteAvant) < 5,
+       'effacer le masque retire le flou (variance revenue proche de l originale)');
+
   console.log('\n[9] reordonner, masquer, supprimer un calque non-base — jamais la base elle-meme');
   await page.click('button:has-text("+ Ajouter un calque")');
   await page.waitForSelector('#addLayerBox[open]');
