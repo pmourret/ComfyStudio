@@ -115,7 +115,7 @@ function PoseEditorInner({
       <div className="screen" id="poseEditor">
         <div className="wrap">
           <Link className="btn sm" to={PATHS.bankPoses}>
-            ← Retour à la banque
+            ← Retour aux ateliers
           </Link>
           <div className="empty mt-[16px] rounded-card border border-line bg-panel px-[16px] py-[28px] text-[13px]">
             {loadError || 'squelette introuvable'}
@@ -226,7 +226,7 @@ function PoseEditorInner({
         </LabeledCanvas>
         <aside className="flex min-h-0 w-[320px] shrink-0 flex-col gap-[10px]">
           <Link className="link" to={PATHS.bankPoses}>
-            ← Retour à la banque
+            ← Retour aux ateliers
           </Link>
           <b className="mt-[4px] truncate text-[13px]">
             {pose.label || name || 'Nouvelle pose'}

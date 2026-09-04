@@ -220,8 +220,8 @@ export function SceneDevelopPanel({
               type="button"
               id="developEdit"
               className="btn sm"
-              aria-label={`éditer la scène ${scene.id} dans la Banque`}
-              data-hint-text="Ouvrir cette scène dans la Banque, pré-sélectionnée"
+              aria-label={`éditer la scène ${scene.id} dans les Ateliers`}
+              data-hint-text="Ouvrir cette scène dans les Ateliers, pré-sélectionnée"
               onClick={() => onEdit(scene.id)}
             >
               ✎

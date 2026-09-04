@@ -188,7 +188,7 @@ export function useSceneWorkbench() {
         button: 'Retirer',
         body: (
           <p>
-            Elle quitte la banque au prochain enregistrement, et la production
+            Elle quitte l'atelier au prochain enregistrement, et la production
             ne la proposera plus. Les images déjà produites, elles, restent sur
             le disque.
           </p>

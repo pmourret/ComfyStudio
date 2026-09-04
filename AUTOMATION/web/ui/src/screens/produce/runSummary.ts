@@ -94,7 +94,7 @@ export function runSummary({
       sumT:
         unsaved.join(', ') +
         (unsaved.length > 1 ? ' ne sont pas enregistrées' : " n'est pas enregistrée") +
-        ' — écran Banque, bouton Enregistrer',
+        ' — écran Ateliers, bouton Enregistrer',
     }
   if (plan?.erreur) return { sumN: '—', sumT: plan.erreur }
   const total = plan?.total ?? 0

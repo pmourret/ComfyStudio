@@ -473,7 +473,7 @@ const PANNEAU = '#gearPanel[data-open]';
     console.log('      (aucune image source à ce niveau, §B2 non exercé)');
   }
 
-  console.log('\n[16] §B3 : le raccourci ✎ ouvre la Banque sur la bonne scène');
+  console.log('\n[16] §B3 : le raccourci ✎ ouvre les Ateliers sur la bonne scène');
   // revient au cran de generation (0 = SFW strict) : le raccourci se lit
   // depuis la grille de scènes, pas depuis le cran d'edition.
   await page.click('#intSel button[data-lv="0"]');
@@ -490,7 +490,7 @@ const PANNEAU = '#gearPanel[data-open]';
          'navigue vers /bank/scenes');
     const idOuvert = await page.$eval('#sceneInspector [data-f="id"]', e => e.value).catch(() => null);
     dire(idOuvert === idAEditer,
-         `la Banque ouvre directement « ${idAEditer} » (lu : « ${idOuvert} »), pas une liste à chercher à la main`);
+         `les Ateliers ouvrent directement « ${idAEditer} » (lu : « ${idOuvert} »), pas une liste à chercher à la main`);
   } else {
     console.log('      (aucune scène disponible pour vérifier le raccourci ✎)');
   }

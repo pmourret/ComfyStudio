@@ -101,7 +101,7 @@ export function WorldPlacesScreen() {
       body: (
         <p>
           Toute scène de personnage qui le référence (`world_ref`) perdra son cadre au prochain
-          enregistrement de sa banque — elle ne sera plus produisible sans être réassignée.
+          enregistrement de son atelier — elle ne sera plus produisible sans être réassignée.
         </p>
       ),
     })

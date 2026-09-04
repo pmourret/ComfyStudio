@@ -187,8 +187,8 @@ export function SceneCard({
           className="absolute bottom-[8px] right-[8px] z-[1] flex h-[24px] w-[24px]
                      items-center justify-center rounded-[50%] border border-line2
                      bg-scrim p-0 text-[12px] text-txt hover:bg-panel2"
-          aria-label={`éditer la scène ${scene.id} dans la Banque`}
-          data-hint-text="Ouvrir cette scène dans la Banque, pré-sélectionnée"
+          aria-label={`éditer la scène ${scene.id} dans les Ateliers`}
+          data-hint-text="Ouvrir cette scène dans les Ateliers, pré-sélectionnée"
           onClick={(event) => {
             event.stopPropagation()
             onEdit(scene.id)

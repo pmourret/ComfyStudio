@@ -128,7 +128,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   const onglets = await page.$$eval('#bankView [data-vue]', e => e.map(x => x.dataset.vue));
   dire(onglets.join(',') === 'scenes,poses,tones', 'les trois sous-vues sont offertes');
   const allume = await page.$$eval('.tabs .nav-item.on', e => e.map(x => x.dataset.s));
-  dire(allume.join(',') === 'bank', "l'entree Banque de la navbar est allumee");
+  dire(allume.join(',') === 'bank', "l'entree Ateliers de la navbar est allumee");
 
   console.log('\n[1bis] pas de barre fixe en bas : reglages + enregistrement vivent en haut, a cote du switch (01/09/2026)');
   dire(!(await vu('.launch')), "la banque n'a plus de barre de lancement fixe au bas de l'ecran");
@@ -145,7 +145,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   const hautReglages = await page.$eval('#btnBankDocument', e => e.getBoundingClientRect().top);
   const hautSave = await page.$eval('#btnSaveScenes', e => e.getBoundingClientRect().top);
   dire(Math.abs(hautNav - hautReglages) < 6 && Math.abs(hautNav - hautSave) < 6,
-       `« Réglages de la banque » et « Enregistrer » sont a la meme hauteur que le switch Scenes/Poses (${Math.round(hautNav)} / ${Math.round(hautReglages)} / ${Math.round(hautSave)} px)`);
+       `« Réglages de l'atelier » et « Enregistrer » sont a la meme hauteur que le switch Scenes/Poses (${Math.round(hautNav)} / ${Math.round(hautReglages)} / ${Math.round(hautSave)} px)`);
 
   console.log('\n[2] LE RAIL D OUTILS n apparait PAS sur Scenes (31/08/2026)');
   dire(!(await vu('#toolRail')),
@@ -230,12 +230,12 @@ const SCENES = BASE + '/bank/scenes?character=lena';
 
   console.log('\n[5] OUVRIR une carte remplit l inspecteur');
   dire(await vu('#bankDocument'),
-       'sans selection, l inspecteur tient les reglages de la banque (ancre, direction)');
+       'sans selection, l inspecteur tient les reglages de l atelier (ancre, direction)');
   dire(await vu('#anchor') && await vu('#direction'),
        "l'ancre d'identite et la note de direction y sont");
   await page.click(CARTE);
   await page.waitForSelector('#sceneInspector');
-  dire(!(await vu('#bankDocument')), 'la scene ouverte remplace les reglages de banque');
+  dire(!(await vu('#bankDocument')), 'la scene ouverte remplace les reglages de l atelier');
   // le compositeur doit remplir la HAUTEUR disponible (demande explicite),
   // pas seulement la largeur de son propre contenu — verifie que le panneau
   // visible (bordure + fond) atteint bien la hauteur de son conteneur
@@ -355,7 +355,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   console.log('\n[6] Echap referme et rend le focus a sa carte');
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
-  dire(await vu('#bankDocument'), "l'inspecteur revient aux reglages de la banque");
+  dire(await vu('#bankDocument'), "l'inspecteur revient aux reglages de l atelier");
   dire(await page.evaluate(() => document.activeElement?.dataset?.uid !== undefined),
        'le focus est revenu sur la carte, pas en haut du document');
   await (await carteDe(idEdite)).click();
@@ -369,7 +369,7 @@ const SCENES = BASE + '/bank/scenes?character=lena';
   await page.waitForTimeout(200);
   dire(!(await vu('dialog[open]')), 'la modale se referme');
   dire(await vu('#sceneInspector'), 'mais le compositeur reste ouvert — la scene reste selectionnee');
-  dire(!(await vu('#bankDocument')), 'et Echap ne retombe pas sur les reglages de la banque');
+  dire(!(await vu('#bankDocument')), 'et Echap ne retombe pas sur les reglages de l atelier');
 
   // audit UX/UI (m2) : sur un onglet COURT (Lumiere n'a qu'un champ), la
   // barre Suivant/Precedent doit rester proche du bas du panneau plein-hauteur

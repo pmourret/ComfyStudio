@@ -106,7 +106,7 @@ export const DESTINATIONS: Destination[] = [
   },
   {
     key: 'bank',
-    label: 'Banque',
+    label: 'Ateliers',
     path: PATHS.bankScenes,
     icon: 'bank',
     activePrefix: '/bank',

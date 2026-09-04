@@ -424,8 +424,8 @@ export function ScenesStoreProvider({ children }: { children: ReactNode }) {
         !response
           ? 'serveur injoignable'
           : errorOf(response) ||
-            (document_ && Array.isArray(document_.scenes) ? null : 'banque de scènes illisible')
-      report('banque de scènes', failure)
+            (document_ && Array.isArray(document_.scenes) ? null : 'scènes illisibles')
+      report('ateliers', failure)
       if (failure) {
         /* Keep the previous bank if we had one: a possibly stale screen that
            SAYS so beats an empty one that says nothing. */

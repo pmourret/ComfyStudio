@@ -386,7 +386,7 @@ const BASE = process.env.DASHBOARD_URL || 'http://127.0.0.1:8199';
        'le panneau affiche le nom saisi dans la modale, pas le nom de fichier');
 
   console.log('\n[7] la banque la montre, AVEC son propre lien "editer"');
-  await page.click('a:has-text("Retour à la banque")');
+  await page.click('a:has-text("Retour aux ateliers")');
   await page.waitForSelector('#poseGrid');
   await page.waitForTimeout(300);
   const apres = await squelettes();

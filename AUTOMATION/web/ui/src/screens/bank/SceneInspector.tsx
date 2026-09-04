@@ -256,10 +256,10 @@ export function DocumentPane({
   return (
     <section
       id="bankDocument"
-      aria-label="Réglages de la banque"
+      aria-label="Réglages de l'atelier"
       className="h-full rounded-card border border-line bg-panel p-[16px]"
     >
-      <h2 className="mt-0 mb-[4px]">Réglages de la banque</h2>
+      <h2 className="mt-0 mb-[4px]">Réglages de l'atelier</h2>
       <p className="tiny mt-0 mb-[16px]">
         Ce que les {count} scènes partagent. Ouvre une scène dans la grille pour
         l'éditer.

@@ -452,7 +452,7 @@ function SceneHeader({
                          disabled:cursor-not-allowed disabled:opacity-30
                          focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
               aria-label="Scène précédente"
-              data-hint-text="Scène précédente — même liste que la banque, flèche Haut"
+              data-hint-text="Scène précédente — même liste que les ateliers, flèche Haut"
               disabled={!onPrevScene}
               onClick={onPrevScene}
             >
@@ -466,7 +466,7 @@ function SceneHeader({
                          disabled:cursor-not-allowed disabled:opacity-30
                          focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2"
               aria-label="Scène suivante"
-              data-hint-text="Scène suivante — même liste que la banque, flèche Bas"
+              data-hint-text="Scène suivante — même liste que les ateliers, flèche Bas"
               disabled={!onNextScene}
               onClick={onNextScene}
             >
@@ -944,7 +944,7 @@ function PosePanel({
         </button>
         {options.length === 0 ? (
           <div className="empty col-span-full p-[16px] text-[12px]">
-            aucun squelette en banque — l'éditeur de pose en extrait depuis une photo
+            aucun squelette dans les ateliers — l'éditeur de pose en extrait depuis une photo
           </div>
         ) : (
           options.map(({ name, label }) => (

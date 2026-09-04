@@ -183,7 +183,7 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' | 'tones' }) {
             block drop to its own line rather than overflow on a narrow
             window. */}
         <div className="mb-[22px] flex flex-wrap items-center justify-between gap-[12px]">
-          <nav className="seg" id="bankView" aria-label="Sous-vue de la banque">
+          <nav className="seg" id="bankView" aria-label="Sous-vue des ateliers">
             <SubViewLink to={PATHS.bankScenes} label="Scènes" active={view === 'scenes'} vue="scenes" />
             <SubViewLink to={PATHS.bankPoses} label="Poses" active={view === 'poses'} vue="poses" />
             <SubViewLink to={PATHS.bankTones} label="Tons" active={view === 'tones'} vue="tones" />
@@ -197,7 +197,7 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' | 'tones' }) {
                 aria-pressed={!bench.selected}
                 onClick={() => bench.select(null)}
               >
-                Réglages de la banque
+                Réglages de l'atelier
               </button>
             )}
             <div className="flex items-center gap-[10px]">
@@ -298,7 +298,7 @@ export function BankScreen({ view }: { view: 'scenes' | 'poses' | 'tones' }) {
 
                 {drafts.length === 0 ? (
                   <div className="empty rounded-card border border-line bg-panel px-[16px] py-[28px] text-[13px]">
-                    <b className="block mb-[4px]">Banque vide</b>
+                    <b className="block mb-[4px]">Atelier vide</b>
                     Ajoute une première scène avec « + Ajouter une scène » ci-dessus.
                   </div>
                 ) : bench.shown.length === 0 ? (

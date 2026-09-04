@@ -28,10 +28,10 @@ export function WorldBanner({
   if (!world) return null
   const drift =
     documentWorld == null
-      ? 'cette banque ne porte pas encore son monde — le prochain enregistrement sera refusé ' +
+      ? 'cet atelier ne porte pas encore son monde — le prochain enregistrement sera refusé ' +
         'tant que la migration n’est pas passée'
       : documentWorld !== world.id
-        ? `cette banque est estampillée « ${documentWorld} » : elle n’appartient pas à ce ` +
+        ? `cet atelier est estampillé « ${documentWorld} » : il n’appartient pas à ce ` +
           'personnage, l’enregistrement la refusera'
         : null
 

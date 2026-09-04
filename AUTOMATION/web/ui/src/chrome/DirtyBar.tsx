@@ -20,7 +20,7 @@ export function DirtyBar() {
       body: (
         <p>
           Toutes les modifications faites dans cette page depuis le dernier
-          enregistrement seront perdues — la banque revient à ce que
+          enregistrement seront perdues — l'atelier revient à ce que
           <code> scenes.json</code> contient déjà sur disque.
         </p>
       ),
