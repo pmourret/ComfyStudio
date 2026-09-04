@@ -15,6 +15,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { screenForImage } from '../../app/routes'
 import { useConfirm } from '../../chrome/ConfirmContext'
 import { useToast } from '../../chrome/ToastContext'
+import { AdvancedColorPanel } from './AdvancedColorPanel'
 import { Histogram } from './Histogram'
 import { HistoryPanel } from './HistoryPanel'
 import { LayerList } from './LayerList'
@@ -259,7 +260,12 @@ function PhotoEditorAdvancedInner({ bucket, space, name }: { bucket: string; spa
               onOpacity={setOpacity}
               onReorder={reorder}
             />
-            {selectedLayer && <LayerSettingsPanel layer={selectedLayer} onChange={updateSelectedSettings} />}
+            {selectedLayer && (
+              <>
+                <LayerSettingsPanel layer={selectedLayer} onChange={updateSelectedSettings} />
+                <AdvancedColorPanel layer={selectedLayer} onChange={updateSelectedSettings} />
+              </>
+            )}
           </aside>
         </div>
       </div>

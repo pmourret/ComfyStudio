@@ -178,6 +178,61 @@ process.on('exit', nettoyer);
   dire(histoApresPreset.some(t => t.includes('Préréglage appliqué')), 'et porte son propre libelle d historique');
   await page.click('[role="tab"]:has-text("Préréglages")');
 
+  console.log('\n[8bis] Colorimétrie avancée : courbes (RGB + par canal), niveaux, HSL par bande');
+  const details = page.locator('details.adv:has-text("Colorimétrie avancée")');
+  await details.locator('summary').click();
+  await page.waitForTimeout(200);
+  dire(await vu('details.adv[open]'), 'le panneau se déplie');
+
+  const svg = details.locator('svg[role="img"]').first();
+  // le panneau scrolle (aside overflow-y-auto) — sans ce scroll explicite,
+  // le SVG mesure une position hors du viewport visible et un clic à ses
+  // coordonnées nominales n'atteint rien (piège trouvé en testant : aucun
+  // point ajouté, aucune erreur non plus, juste un geste qui ne fait rien).
+  await svg.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(150);
+  const curveBox = await svg.boundingBox();
+  const dragCurveMidpointUp = async () => {
+    const midX = curveBox.x + curveBox.width * 0.5;
+    const midY = curveBox.y + curveBox.height * 0.5;
+    await page.mouse.move(midX, midY);
+    await page.mouse.down();
+    await page.mouse.move(midX, midY - curveBox.height * 0.25, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(250);
+  };
+
+  const avantCourbeRgb = await pixelCentre();
+  await dragCurveMidpointUp();
+  const apresCourbeRgb = await pixelCentre();
+  dire(JSON.stringify(avantCourbeRgb) !== JSON.stringify(apresCourbeRgb),
+       `la courbe RGB change vraiment les pixels (${avantCourbeRgb} -> ${apresCourbeRgb})`);
+  const circlesRgb = await svg.locator('circle').count();
+  dire(circlesRgb === 6, `un point ajouté (2 cercles par point — visible + cible tactile), ${circlesRgb} cercles pour 3 points`);
+
+  await details.getByRole('tab', { name: 'R', exact: true }).click();
+  await page.waitForTimeout(150);
+  const avantCourbeR = await pixelCentre();
+  await dragCurveMidpointUp();
+  const apresCourbeR = await pixelCentre();
+  dire(apresCourbeR[0] > avantCourbeR[0] && apresCourbeR[2] === avantCourbeR[2],
+       `la courbe du canal R n'affecte QUE le rouge (rouge ${avantCourbeR[0]}->${apresCourbeR[0]}, bleu ${avantCourbeR[2]}->${apresCourbeR[2]} inchangé)`);
+
+  const avantNiveaux = await pixelCentre();
+  const blackSlider = page.locator('#pe-levelBlack');
+  await blackSlider.scrollIntoViewIfNeeded();
+  await regler('#pe-levelBlack', 20);
+  await page.waitForTimeout(250);
+  const apresNiveaux = await pixelCentre();
+  dire(JSON.stringify(avantNiveaux) !== JSON.stringify(apresNiveaux), 'le point noir des niveaux change aussi les pixels');
+
+  const hueField = page.locator('[data-hsl-band="rouges"] input').first();
+  await hueField.scrollIntoViewIfNeeded();
+  await hueField.fill('12');
+  await hueField.blur();
+  await page.waitForTimeout(200);
+  dire((await hueField.inputValue()) === '12', 'le champ teinte de la bande "rouges" retient la valeur saisie');
+
   console.log('\n[9] reordonner, masquer, supprimer un calque non-base — jamais la base elle-meme');
   await page.click('button:has-text("+ Ajouter un calque")');
   await page.waitForSelector('#addLayerBox[open]');

@@ -150,6 +150,17 @@ finally:
     shutil.rmtree(OFM / "CHARACTERS" / CHAR_B, ignore_errors=True)
     shutil.rmtree(OFM / "PROD" / CHAR_A.upper(), ignore_errors=True)
     shutil.rmtree(OFM / "PROD" / CHAR_B.upper(), ignore_errors=True)
+    # [5]'s overwrite triggers `export_image` (bucket=="OK", space=="sfw") —
+    # `export_dir(character_id)` is a SEPARATE tree (`PROD/EXPORT/<cid>/`,
+    # lowercase, not `PROD/<CID>/`) that the two lines above never touch.
+    # Left uncleaned after the very first run of this test: `exp_dir.mkdir
+    # (parents=True, exist_ok=True)` in journal.py::export_image runs before
+    # `Image.open()` can fail on the fake PNG bytes this test sends, so an
+    # EMPTY `PROD/EXPORT/probe-photoed-a/` (and `-b`) tree survived every
+    # run since — found by `test_coherence_base.py`'s own image counter
+    # drifting between sessions, not by reading this file.
+    shutil.rmtree(OFM / "PROD" / "EXPORT" / CHAR_A, ignore_errors=True)
+    shutil.rmtree(OFM / "PROD" / "EXPORT" / CHAR_B, ignore_errors=True)
     # [3] inscrit la copie en base via record_bucket (meme discipline que
     # /api/edit/save, cf. `nettoyer_artefacts_test.py`'s own note) — sans ce
     # nettoyage, la ligne survit aux deux personnages jetables et
