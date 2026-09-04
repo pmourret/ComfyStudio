@@ -28,7 +28,7 @@ import { useConfirm } from '../../chrome/ConfirmContext'
 import { useToast } from '../../chrome/ToastContext'
 import { useRovingChoice } from '../../chrome/useRovingChoice'
 import { useConfig } from '../../state/ConfigContext'
-import { useScenes } from '../../state/ScenesStoreContext'
+import { useScenes, type Scene } from '../../state/ScenesStoreContext'
 import { useSystemState } from '../../state/SystemStateContext'
 import { useTaxonomy } from '../../state/TaxonomyContext'
 import { PATHS } from '../../app/routes'
@@ -39,6 +39,7 @@ import { RunPanel } from './RunPanel'
 import { IntensityBar } from './IntensityBar'
 import { IntentRail, type Intention } from './IntentRail'
 import { NewSceneCard, SceneCard } from './SceneCard'
+import { SceneCompareView } from './SceneCompareView'
 import { SceneDevelopPanel } from './SceneDevelopPanel'
 import { useNsfwSources } from './useNsfwSources'
 import { useSceneChoice, type SceneSort } from './useSceneChoice'
@@ -114,6 +115,7 @@ export function ProduceScreen() {
       subject, distinct from `selected` (screen-3-produire §S: pointing at a
       scene and picking it for the run are two different gestures). */
   const [pointedId, setPointedId] = useState<string | null>(null)
+  const [compareOpen, setCompareOpen] = useState(false)
   const { meta, stats, sceneList, scenesOf, visibleScenes } = useSceneChoice({
     bank,
     drafts,
@@ -295,6 +297,13 @@ export function ProduceScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intent, full.length])
 
+  /* Comparing fewer than 2 candidates is not a comparison — the selection
+     dropping under that (untick from the grid, or "Retenir" itself) closes
+     the view rather than leaving a one-card side-by-side on screen. */
+  useEffect(() => {
+    if (compareOpen && selected.size < 2) setCompareOpen(false)
+  }, [compareOpen, selected])
+
   const toggleScene = (id: string) => {
     setSelected((current) => {
       const next = new Set(current)
@@ -306,7 +315,20 @@ export function ProduceScreen() {
     setOverride('')
   }
 
+  /* "Retenir" in the comparison view: the run narrows to this one candidate.
+     Same override-clearing rule as `toggleScene` — a selection change voids
+     an amendment written for the scene(s) it used to point at. */
+  const keepOnly = (id: string) => {
+    setSelected(new Set([id]))
+    setOverride('')
+  }
+
   const preview = (plan?.apercu ?? null) as Preview | null
+
+  const previewsMap = (bank?.previews ?? {}) as Record<
+    string,
+    { name: string; bucket: string; space?: string; v?: number }
+  >
 
   /* Falls back to the last-toggled scene when nothing has been pointed at
      yet this session — a freshly opened screen shows something useful
@@ -314,11 +336,7 @@ export function ProduceScreen() {
      pointed id can outlive a search/sort/tone change that would drop it. */
   const pointed = pointedId ?? [...selected].slice(-1)[0] ?? null
   const pointedScene = pointed ? (sceneList.find((s) => s.id === pointed) ?? null) : null
-  const pointedPreview = pointedScene
-    ? (bank?.previews as Record<string, { name: string; bucket: string; space?: string; v?: number }>)?.[
-        pointedScene.id
-      ]
-    : undefined
+  const pointedPreview = pointedScene ? previewsMap[pointedScene.id] : undefined
 
   /* The NSFW pipeline disables Rapide/Brut (see the button below) — excluded
      from the roving id list so arrows skip them exactly as Tab already does
@@ -486,6 +504,7 @@ export function ProduceScreen() {
                       value={sceneSearch}
                       onChange={(event) => setSceneSearch(event.target.value)}
                       aria-label="Rechercher une scène par identifiant"
+                      disabled={compareOpen}
                     />
                     <label className="flex items-center gap-[6px] text-[12.5px] text-dim">
                       trier
@@ -494,6 +513,7 @@ export function ProduceScreen() {
                         id="sceneSortBy"
                         value={sceneSort}
                         onChange={(event) => setSceneSort(event.target.value as SceneSort)}
+                        disabled={compareOpen}
                       >
                         <option value="affinity">affinité de ton</option>
                         <option value="never">jamais produites</option>
@@ -501,31 +521,58 @@ export function ProduceScreen() {
                         <option value="name">nom</option>
                       </select>
                     </label>
+                    <button
+                      type="button"
+                      id="btnCompare"
+                      className={`btn sm${compareOpen ? ' on' : ''}`}
+                      disabled={!compareOpen && selected.size < 2}
+                      data-hint-text="Compare côte à côte les scènes cochées — utile pour n'en retenir qu'une."
+                      onClick={() => setCompareOpen((v) => !v)}
+                    >
+                      {compareOpen ? 'Fermer la comparaison' : `Comparer (${selected.size})`}
+                    </button>
                   </div>
-                  <div
-                    className="grid gap-[14px] grid-cols-[repeat(auto-fill,minmax(178px,1fr))]"
-                    id="sceneGrid"
-                  >
-                    {visibleScenes.map((scene) => (
-                      <SceneCard
-                        key={scene.id}
-                        scene={scene}
-                        meta={meta[scene.id]}
-                        stats={stats[scene.id]}
-                        preview={(bank?.previews as Record<string, { name: string; bucket: string; space?: string; v?: number }>)?.[scene.id]}
-                        tone={tone}
-                        selected={selected.has(scene.id)}
-                        imageUrl={api.image}
-                        onClick={() => toggleScene(scene.id)}
-                        onPoint={() => setPointedId(scene.id)}
-                      />
-                    ))}
+                  {compareOpen ? (
+                    <SceneCompareView
+                      candidates={[...selected]
+                        .map((id) => sceneList.find((s) => s.id === id))
+                        .filter((s): s is Scene => Boolean(s))}
+                      meta={meta}
+                      stats={stats}
+                      previews={previewsMap}
+                      tone={tone}
+                      imageUrl={api.image}
+                      onRemove={toggleScene}
+                      onKeep={keepOnly}
+                    />
+                  ) : (
+                    <>
+                      <div
+                        className="grid gap-[14px] grid-cols-[repeat(auto-fill,minmax(178px,1fr))]"
+                        id="sceneGrid"
+                      >
+                        {visibleScenes.map((scene) => (
+                          <SceneCard
+                            key={scene.id}
+                            scene={scene}
+                            meta={meta[scene.id]}
+                            stats={stats[scene.id]}
+                            preview={previewsMap[scene.id]}
+                            tone={tone}
+                            selected={selected.has(scene.id)}
+                            imageUrl={api.image}
+                            onClick={() => toggleScene(scene.id)}
+                            onPoint={() => setPointedId(scene.id)}
+                          />
+                        ))}
 <NewSceneCard onClick={goCompose} />
-                  </div>
-                  {visibleScenes.length === 0 && sceneSearch.trim() && (
-                    <div className="empty px-[16px] py-[24px] text-[13px]">
-                      aucune scène ne correspond à « {sceneSearch.trim()} »
-                    </div>
+                      </div>
+                      {visibleScenes.length === 0 && sceneSearch.trim() && (
+                        <div className="empty px-[16px] py-[24px] text-[13px]">
+                          aucune scène ne correspond à « {sceneSearch.trim()} »
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}

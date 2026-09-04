@@ -181,6 +181,32 @@ const PANNEAU = '#gearPanel[data-open]';
   dire((await carteCliquee.getAttribute('aria-pressed')) === 'true',
        'la re-cocher depuis le panneau la remet dans la selection');
 
+  console.log('\n[6b] COMPARAISON cote a cote (design pass ecran 3, §S)');
+  const secondId = await page.$$eval(CARTE_REELLE + ' b', (e, exclu) =>
+    e.map(x => x.textContent).find(t => t !== exclu), idCliquee);
+  if (secondId){
+    await page.click(`${CARTE_REELLE}:has(b:text-is("${secondId}"))`);
+    await page.waitForTimeout(400);
+    dire((await texte('#btnCompare')).includes('(2)'), 'le bouton Comparer compte les scènes cochées');
+    await page.click('#btnCompare');
+    await page.waitForSelector('#compareGrid');
+    const cartes = await page.$$eval('#compareGrid [data-compare-card] b', e => e.map(x => x.textContent));
+    dire(cartes.length === 2 && cartes.includes(idCliquee) && cartes.includes(secondId),
+         `les deux candidates sont la (${cartes.join(', ')})`);
+    dire(!(await vu('#sceneGrid')), 'la grille normale cede la place a la comparaison');
+    // Retenir sur la carte de la scène cliquee au [6] : la suite du parcours
+    // (section [8]) attend `cafe_terrasse` comme SEULE scène cochee.
+    await page.click(`#compareGrid [data-compare-card]:has(b:text-is("${idCliquee}")) button:has-text("Retenir")`);
+    await page.waitForTimeout(400);
+    dire(!(await vu('#compareGrid')), 'Retenir referme la comparaison — un seul candidat, plus rien a comparer');
+    dire(await vu('#sceneGrid'), 'la grille normale revient');
+    const restantes = await page.$$eval(CARTE_REELLE + '[aria-pressed="true"] b', e => e.map(x => x.textContent));
+    dire(JSON.stringify(restantes) === JSON.stringify([idCliquee]),
+         `seule « ${idCliquee} » reste cochee`);
+  } else {
+    console.log('      (une seule scène disponible a ce niveau, rien a comparer)');
+  }
+
   console.log('\n[7] PIEGE §5.6-2 : /api/plan est rejoue a la frappe, mais debounce');
   await page.click('#btnApercu');
   await page.waitForSelector('#apercuPanel');
