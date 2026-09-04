@@ -22,9 +22,11 @@
        the only path of this screen that destroys anything, and it says what it
        costs. */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { errorOf, type ActionLike } from '../../api/client'
 import { useApi } from '../../api/useApi'
+import { PATHS } from '../../app/routes'
 import {
   applyGrain,
   applyTemperature,
@@ -61,6 +63,7 @@ export function PhotoEditor({
   const api = useApi()
   const confirm = useConfirm()
   const toast = useToast()
+  const navigate = useNavigate()
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
@@ -87,6 +90,17 @@ export function PhotoEditor({
      rotation/mirror/straighten too — exactly what "sans recadrage ni
      rotation" forbids. */
   const [beforeAfter, setBeforeAfter] = useState(false)
+
+  /* Everything this editor edits is opened fresh every time (no prior retouch
+     is ever loaded back in) — so "dirty" is simply "differs from the state it
+     OPENED with", i.e. `NEUTRAL`/no crop/no ratio. `beforeAfter` stays out of
+     the comparison on purpose: it never touches `settings` (see its own
+     declaration above), so including it would flag the editor dirty on a mere
+     preview toggle that changed nothing. */
+  const settingsDirty = (Object.keys(NEUTRAL) as (keyof Settings)[]).some(
+    (key) => settings[key] !== NEUTRAL[key],
+  )
+  const dirty = settingsDirty || crop !== null || ratio !== null
 
   /* #edRatio, roving radiogroup (a11y audit, design-pass screen-5) — same
      gabarit as the other four groups of ReviewScreen.tsx. `data-r` and the
@@ -442,6 +456,41 @@ export function PhotoEditor({
     setCrop(null)
   }
 
+  /* Shared gate for every gesture that would throw pending settings away
+     without saving — ✕, "annuler", and the jump to the advanced editor
+     below. Escape and a backdrop click are deliberately NOT routed through
+     this (design-pass §7a): only the two explicit buttons gain the
+     confirmation, `Dialog`'s own `onDismiss={onClose}` stays untouched. */
+  const confirmDiscard = async (): Promise<boolean> => {
+    if (!dirty) return true
+    return confirm({
+      title: 'Abandonner les modifications ?',
+      button: 'Abandonner',
+      body: (
+        <p>
+          Les réglages en attente sur <b>{item.name}</b> seront perdus — rien
+          n'a été enregistré.
+        </p>
+      ),
+    })
+  }
+
+  const requestClose = async () => {
+    if (await confirmDiscard()) onClose()
+  }
+
+  /* "Éditeur avancé →" (design-pass §7a, point 3). A real route change, not
+     local state: `bucket`/`space` travel as query params, `name` as the path
+     segment — `?character=` is kept in sync by CharacterContext on every
+     navigation, it does not need to be added by hand here. Leaving this modal
+     is itself a discard of anything not yet saved, so it goes through the
+     same gate as closing. */
+  const goAdvanced = async () => {
+    if (!(await confirmDiscard())) return
+    const query = new URLSearchParams({ bucket: item.bucket, space: item.space })
+    navigate(`${PATHS.photoEditorAdvanced}/${encodeURIComponent(item.name)}?${query.toString()}`)
+  }
+
   const k = displayScale()
   const cropStyle = crop
     ? { left: crop.x * k, top: crop.y * k, width: crop.w * k, height: crop.h * k }
@@ -487,8 +536,18 @@ export function PhotoEditor({
 
         <div className={SIDE}>
           <div className={HEAD}>
-            <h3 className="m-0 text-[16px]">Éditer</h3>
-            <button className={CLOSE} id="edClose" aria-label="Fermer l'éditeur" onClick={onClose}>
+            <div className="flex min-w-0 items-center gap-[10px]">
+              <h3 className="m-0 text-[16px]">Éditer</h3>
+              <button type="button" className="link shrink-0" id="edAdvanced" onClick={() => void goAdvanced()}>
+                Éditeur avancé →
+              </button>
+            </div>
+            <button
+              className={CLOSE}
+              id="edClose"
+              aria-label="Fermer l'éditeur"
+              onClick={() => void requestClose()}
+            >
               ✕
             </button>
           </div>
@@ -683,11 +742,16 @@ export function PhotoEditor({
             <p className="tiny" id="edMsg" role="status">
               {message || (beforeAfter ? 'original — réglages non appliqués' : '')}
             </p>
+            {dirty && (
+              <p className="tiny" id="edDirty" role="status">
+                modifications non enregistrées
+              </p>
+            )}
             <div className={BTNS}>
               <button className="btn sm w-full" id="edReset" onClick={reset}>
                 Réinitialiser
               </button>
-              <button className="link" id="edCancel" onClick={onClose}>
+              <button className="link" id="edCancel" onClick={() => void requestClose()}>
                 annuler
               </button>
               <button

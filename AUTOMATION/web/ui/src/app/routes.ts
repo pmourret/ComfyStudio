@@ -26,6 +26,13 @@ export const PATHS = {
   poseEditor: '/bank/poses/edit',
   bankTones: '/bank/tones',
   expressionEditor: '/bank/tones/edit',
+  /** The Lightroom-style layered editor (design-pass screen-photo-editor,
+      §7b) — reached from the simplified modal's "Éditeur avancé →" link.
+      `bucket`/`space` travel as query params (`?bucket=&space=`), `:name`
+      as the path segment: a photo resolves fully from those three, so the
+      URL stays complete and reloadable, unlike the from-scratch pose
+      flow's router `state`. */
+  photoEditorAdvanced: '/photo-editor',
   worlds: '/worlds',
   application: '/app',
   journal: '/app/journal',

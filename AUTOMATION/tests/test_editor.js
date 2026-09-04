@@ -258,6 +258,55 @@ process.on('exit', nettoyer);
   dire((await page.textContent('#v_edStraighten')) === '0°', 'angle remis a zero');
   dire((await page.textContent('#v_edGrain')) === '0', 'grain remis a zero');
 
+  console.log('\n[7bis] indicateur "modifications non enregistrees" + confirmation de fermeture (design-pass 7a)');
+  const reouvrir = async () => {
+    await page.click(`[data-tile][data-k="${kSource}"] [data-tacts] [data-e]`);
+    await page.waitForSelector('#editorBox[open]');
+    await page.waitForFunction(() => {
+      const c = document.querySelector('#edCanvas');
+      return c && c.width > 40;
+    }, null, { timeout: 20000 });
+  };
+
+  dire(!(await vu('#edDirty')), 'rien a signaler juste apres Reinitialiser');
+  dire(await vu('#edAdvanced'), 'le lien "Editeur avance ->" est present');
+  await regler('#edBright', 15);
+  await page.waitForTimeout(300);
+  dire(await vu('#edDirty'), 'un reglage touche -> l indicateur s affiche');
+
+  // clic sur X : confirmation, puis ANNULER -- l editeur doit rester ouvert
+  await page.click('#edClose');
+  await page.waitForSelector('#armBox[open]');
+  const dConf = await page.textContent('#armBox');
+  dire(dConf.includes('Abandonner les modifications'), 'la confirmation nomme le geste');
+  dire(dConf.includes(SOURCE), "et cite le fichier en cours d'edition");
+  await page.click('#cfNon');
+  await page.waitForTimeout(300);
+  dire(!(await vu('#armBox[open]')), 'annuler la confirmation la referme');
+  dire(await vu('#editorBox[open]'), "et l'editeur, lui, reste ouvert");
+  dire(await vu('#edDirty'), 'le reglage en attente est toujours la');
+
+  // meme geste, cette fois on confirme l abandon : l editeur ferme reellement
+  await page.click('#edClose');
+  await page.waitForSelector('#armBox[open]');
+  await page.click('#cfOui');
+  await page.waitForTimeout(400);
+  dire(!(await vu('#editorBox[open]')), 'confirmer « Abandonner » ferme reellement l editeur');
+  dire(!(await page.evaluate(() => document.body.classList.contains('editing'))),
+       'le marqueur d edition part avec lui');
+  await reouvrir();
+  dire(!(await vu('#edDirty')), 'reouverte sur la meme image, elle repart neutre');
+
+  // Echap N EST PAS intercepte differemment : meme avec un reglage en
+  // attente, il ferme directement, sans passer par la confirmation
+  await regler('#edBright', 10);
+  await page.waitForTimeout(300);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  dire(!(await vu('#armBox[open]')), 'Echap ne demande rien, meme modifie');
+  dire(!(await vu('#editorBox[open]')), 'et ferme directement');
+  await reouvrir();
+
   console.log('\n[8] les raccourcis du studio ne percolent pas sous le voile');
   for (const k of ['v', 'x', 'a']) await page.keyboard.press(k);
   await page.waitForTimeout(500);
