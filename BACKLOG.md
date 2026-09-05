@@ -37,6 +37,16 @@ pas à l'écriture.
   jamais le graphe lui-même — la vigilance du §7 de `DOCS/cadrage/
   2026-09-04-architecture-quatre-couches.md` s'applique (contrat de
   titres de nœuds, custom nodes cachés, licence avant publication).
+- **`edit_workflow` SDXL pour `rpg-personnage`** (noté 2026-09-05,
+  décision P2.4 de clôture V1 : absence assumée, non bloquante).
+  Abyssiaelle peut être armée NSFW mais n'a pas de cran d'édition — le
+  pack ne déclare pas de clé `edit` (`PACKS/rpg-personnage/
+  universe.json`, notes de fin de fichier). L'étage d'édition lui-même
+  (Qwen) serait réutilisable tel quel ; ce qui manque est l'équivalent
+  SDXL/LoRA de l'étage « identité restaurée » du graphe Flux
+  (PuLID + FaceDetailer) — un graphe neuf à écrire, plus une mesure par
+  personnage à l'onboarding. Jamais de repli sur le graphe d'une autre
+  famille de modèle.
 
 ## Distribution & monétisation
 

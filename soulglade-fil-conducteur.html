@@ -188,9 +188,9 @@ const ROADMAP_DATA = {
 
   phase2: {
     title: "Phase 2 — Clôture V1",
-    status: "active",
-    tagLabel: "en cours",
-    summary: "Fermer V1 au sens produit, pas au sens jalons techniques. Périmètre volontairement étroit — réaction directe à la dérive Studio IA.",
+    status: "done",
+    tagLabel: "terminée",
+    summary: "Fermer V1 au sens produit, pas au sens jalons techniques. Périmètre volontairement étroit — réaction directe à la dérive Studio IA. Les quatre étapes closes le 05/09/2026.",
     ref: "DOCS/cadrage/2026-09-05-phase-2-cloture-v1.md",
     steps: [
       { code: "P2.1", title: "Suite de tests verte pour de vrai", done: true,
@@ -199,8 +199,8 @@ const ROADMAP_DATA = {
         desc: "Fait le 05/09, depuis l'inventaire réel (App.tsx/routes.ts), pas une supposition : Personnages, Wizard, Application, Produire, Revue, Galerie. Mondes en sort (le wizard fournit déjà un monde par type), Application y entre (seul chemin pour démarrer ComfyUI)." },
       { code: "P2.3", title: "Audit UX/UI du parcours nominal", done: true,
         desc: "Fait le 05/09, vérifié en vrai (fumigations + dashboard réel connecté à ComfyUI). Un Majeur trouvé et corrigé : la porte d'entrée avait l'air en panne sans personnage chargé, pile à l'aha moment. Rien d'autre trouvé sur les six écrans." },
-      { code: "P2.4", title: "Décision écrite Abyssiaelle / SDXL", done: false,
-        desc: "Pas de code : trancher et documenter si l'absence d'outil d'édition NSFW pour Abyssiaelle (graphe SDXL manquant) est assumée pour V1 ou bloquante." }
+      { code: "P2.4", title: "Décision écrite Abyssiaelle / SDXL", done: true,
+        desc: "Tranché le 05/09 : absence assumée, non bloquante. Abyssiaelle peut être armée NSFW, le cran d'édition n'apparaît juste pas (raison déjà à l'écran depuis J7). Le graphe SDXL manquant part en BACKLOG.md." }
     ]
   },
 

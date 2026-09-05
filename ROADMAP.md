@@ -1613,9 +1613,16 @@ volontairement étroit — cadrage complet dans `DOCS/cadrage/
   rendu « ComfyUI hors ligne » avec un personnage chargé n'a pas été
   capturé en vrai (aurait exigé d'arrêter la vraie instance ComfyUI de
   ce poste pendant l'audit) — confirmé seulement à la lecture du code.
-- [ ] **P2.4 — Décision écrite Abyssiaelle/SDXL.** Pas de code : trancher
-  et documenter si l'absence d'outil d'édition NSFW pour Abyssiaelle
-  (graphe SDXL manquant) est assumée pour V1 ou bloquante.
+- [x] **P2.4 — Décision écrite Abyssiaelle/SDXL.** Tranché le
+  05/09/2026 : **absence assumée, non bloquante pour V1.** NSFW est
+  activable par personnage (`PROJET.md`) — rien n'impose que les deux
+  mondes de démo l'aient tous les deux. Abyssiaelle peut être armée
+  NSFW, le cran d'édition n'apparaît simplement pas (`rpg-personnage`
+  ne déclare pas de clé `edit`, jamais un repli sur le graphe d'une
+  autre famille de modèle) — motif déjà donné à l'écran Application
+  depuis J7 (ADR-0013/0018), raison technique déjà écrite dans
+  `PACKS/rpg-personnage/universe.json`. Chantier (graphe SDXL
+  d'édition + mesure par personnage) noté en `BACKLOG.md`, pas ici.
 
 ## V2 — Extensions
 
