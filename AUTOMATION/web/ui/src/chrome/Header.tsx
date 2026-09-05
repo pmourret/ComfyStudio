@@ -115,10 +115,21 @@ function ShutdownButton({
 function StatusZone() {
   const api = useApi()
   const toast = useToast()
+  const { claimed } = useCharacter()
   const { state } = useSystemState()
   const { stopApp, stopComfy, takeover } = useProcessControls()
   const [stopping, setStopping] = useState(false)
 
+  /* `state` is null in two different situations, and only one of them is a
+     problem: no character claimed yet (SystemStateContext skips `/api/state`
+     entirely — nothing to poll for) versus a real fetch failure once one is
+     claimed (already surfaced through the fault/toast system separately).
+     Reusing the same red dot and "état indisponible" copy for both made the
+     entry gate — the very first screen, before any character is loaded —
+     look like ComfyUI was down when nothing was actually wrong (P2.3,
+     05/09/2026). The dot/text pair is simply not shown pre-claim now; the
+     probes and shutdown buttons below stay, they read the machine, not a
+     character's state. */
   const offline = state === null
   const running = state?.running
     ? `production ${state.index}/${state.total}` + (state.eta ? ` · ~${mmss(state.eta)}` : '')
@@ -143,10 +154,14 @@ function StatusZone() {
 
   return (
     <div className="status">
-      {/* a small label lifts the ambiguity of the dot (ComfyUI up or down) */}
-      <span className="status-lab">Comfy</span>
-      <span className={`dot${!offline && state?.comfy ? ' on' : ''}`} id="dot" />
-      <span id="stTxt">{text}</span>
+      {claimed && (
+        <>
+          {/* a small label lifts the ambiguity of the dot (ComfyUI up or down) */}
+          <span className="status-lab">Comfy</span>
+          <span className={`dot${!offline && state?.comfy ? ' on' : ''}`} id="dot" />
+          <span id="stTxt">{text}</span>
+        </>
+      )}
       {state?.running && (
         <button
           type="button"
@@ -162,8 +177,10 @@ function StatusZone() {
         </button>
       )}
       {/* the rule that separates the state of the DASHBOARD from that of the
-          MACHINE: without it, « prêt » and « 45 % » read as one sentence */}
-      <span className="status-sep" aria-hidden="true" />
+          MACHINE: without it, « prêt » and « 45 % » read as one sentence.
+          Nothing to separate from when the dashboard side is hidden
+          (unclaimed) — a lone rule at the start would be a stray mark. */}
+      {claimed && <span className="status-sep" aria-hidden="true" />}
       <ProbeStrip />
       <span className="status-sep" aria-hidden="true" />
       <ShutdownButton
