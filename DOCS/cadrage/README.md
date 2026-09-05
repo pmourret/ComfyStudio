@@ -10,6 +10,14 @@ Sessions à ce jour :
 - `2026-08-25-vision-initiale.md` — document de vision macro
 - `2026-08-26-univers-personnage-nsfw.md` — passage point par point
   (univers, personnage, registre de création, NSFW, style)
+- `2026-09-04-architecture-quatre-couches.md` — modèle de responsabilités
+  plateforme/pack/monde/personnage, découpage du chantier J8 en 5 étapes
+- `2026-09-05-cadrage-v1-et-discipline.md` — refonte du cadrage
+  stratégique, cinq règles de discipline, fichiers `PROJET.md`/
+  `BACKLOG.md`/`DOCS/retros/` créés à partir de cette session
+- `2026-09-05-phase-2-cloture-v1.md` — découpage de la clôture réelle de
+  V1 en 4 étapes testables (tests verts, périmètre du parcours nominal,
+  audit UX/UI, décision Abyssiaelle/SDXL)
 
 **Ce ne sont pas des documents de référence à jour.** Ils capturent la
 réflexion telle qu'elle s'est déroulée, y compris des formulations depuis

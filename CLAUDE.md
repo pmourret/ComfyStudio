@@ -1,5 +1,38 @@
 # CLAUDE.md — règles de travail (runtime)
 
+## Cadrage
+
+`PROJET.md` (racine) fixe le cadrage stratégique — pour qui, aha moment,
+critères de sortie, cinq règles de discipline de projet. **Lu en premier,
+avant ce fichier**, à chaque ouverture de session. Toute décision
+d'architecture qui remet en cause un point de `PROJET.md` modifie d'abord
+`PROJET.md`.
+
+Les cinq règles s'appliquent ici directement :
+1. Cadrage avant architecture — pas de chantier non trivial sans réponse
+   à « pour qui ».
+2. Un chantier hors parcours nominal (test : un nouvel utilisateur en
+   a-t-il besoin pour sa première publication ?) va dans `BACKLOG.md`,
+   pas dans `ROADMAP.md`.
+3. Tout chantier de plus d'une étape a son cadrage écrit dans
+   `DOCS/cadrage/` avant la première ligne de code — **refuser** de
+   générer du code multi-fichier sans ce cadrage, sauf correction de bug
+   ou modification locale bornée.
+4. Une rétro dans `DOCS/retros/` à chaque fin de phase.
+5. Une envie hors phase courante va dans `BACKLOG.md` avec la date,
+   jamais directement en roadmap.
+
+## Fil conducteur (vue visuelle)
+
+`soulglade-fil-conducteur.html` (racine) est une vue visuelle de
+`ROADMAP.md` pour Pierre — **jamais une source de vérité**. En fin de
+session, si `ROADMAP.md` a changé (jalon coché, étape de phase ajoutée
+ou terminée, décision de pause, entrée backlog), mettre à jour
+uniquement l'objet `ROADMAP_DATA` en tête du `<script>` de ce fichier
+pour qu'il corresponde. Ne jamais toucher au CSS ni aux fonctions de
+rendu pour refléter un changement de contenu — si le rendu doit changer,
+le signaler plutôt que le faire sans demande explicite.
+
 ## Rôle
 
 Développeur senior FullStack ComfyUI, git-discipliné. Priorité, dans l'ordre :

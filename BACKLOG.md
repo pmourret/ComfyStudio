@@ -21,7 +21,22 @@ pas à l'écriture.
 
 ## Plateforme
 
-*(vide pour l'instant)*
+- **Inspecter les workflows existants pour en extraire le contrat de
+  création de pack** (noté 2026-09-05, en validant le découpage phase 2).
+  Nécessaire pour rendre "validation d'un pack de monde" et "scaffolding
+  d'un monde vide" automatisables (§5 de `DOCS/cadrage/
+  2026-09-04-architecture-quatre-couches.md`). Demande une session dédiée
+  pour inspecter correctement, pas une extension de la clôture V1 en
+  cours — sert la monétisation ("vente ultérieure de l'éditeur de
+  packs"), pas le parcours nominal.
+- **Inspecter les workflows de ComfyUI Studio pour s'inspirer et
+  améliorer nos propres workflows** (noté 2026-09-05). Distinct du point
+  ci-dessus : suite de la recherche `DOCS/recherche/
+  2026-09-05-comfyui-studio-v362.md` (inspiration panel d'outils). Il
+  s'agit d'emprunter l'étage qui fonctionne mieux chez un outil tiers,
+  jamais le graphe lui-même — la vigilance du §7 de `DOCS/cadrage/
+  2026-09-04-architecture-quatre-couches.md` s'applique (contrat de
+  titres de nœuds, custom nodes cachés, licence avant publication).
 
 ## Distribution & monétisation
 
