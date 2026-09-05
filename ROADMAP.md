@@ -3,10 +3,13 @@
 Document vivant, pas figé. Méthode : jalons courts, chaque jalon livrable et
 testé seul — pas de big-bang (cf. `CLAUDE.md`, §10).
 
-## V1 — Fondations : généraliser sans perdre l'existant
+## V1 — Fondations : généraliser sans perdre l'existant ✅ *(terminée 2026-09-05)*
 
 Objectif : le repo Léna devient la plateforme, avec **deux univers réels** qui
-prouvent la généralisation — pas juste Léna renommée.
+prouvent la généralisation — pas juste Léna renommée. Neuf jalons
+techniques, tous livrés — mais fondations ≠ V1 au sens des critères de
+sortie de `PROJET.md` (objet de la phase 2 ci-dessous). Rétro dans
+`DOCS/retros/2026-09-05-phase-1-v1-fondations.md`.
 
 **J0 — Stabiliser avant de forker** ✅ *(terminé 2026-08-26)*
 - Commit du travail en cours (bloquant, déjà identifié)
@@ -1530,11 +1533,12 @@ cadrage du même jour) n'a pas statué sur leur priorité. Restent visibles
 dans la navigation pour ne pas couper l'élan (Règle 5, `PROJET.md`). Voir
 `DOCS/cadrage/2026-09-05-cadrage-v1-et-discipline.md`.
 
-## Phase 2 — Clôture V1
+## Phase 2 — Clôture V1 ✅ *(terminée 2026-09-05)*
 
 Objectif : fermer V1 au sens des critères de sortie de `PROJET.md`, pas
 au sens des jalons techniques de "V1 Fondations" ci-dessus. Périmètre
 volontairement étroit — cadrage complet dans `DOCS/cadrage/
+2026-09-05-phase-2-cloture-v1.md`, rétro dans `DOCS/retros/
 2026-09-05-phase-2-cloture-v1.md`.
 
 - [x] **P2.1 — Suite de tests verte pour de vrai.** Corrigée le
