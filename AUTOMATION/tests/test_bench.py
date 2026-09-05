@@ -18,6 +18,7 @@ un personnage reel. [1]-[3] ne touchent jamais ComfyUI.
 
 Lancer :  python_embeded\\python.exe AUTOMATION\\tests\\test_bench.py
 """
+import importlib.util
 import sys
 import urllib.request
 from pathlib import Path
@@ -225,10 +226,16 @@ try:
     except Exception:
         comfy_up = False
 
+    cv2_ok = importlib.util.find_spec("cv2") is not None
+
     if not comfy_up:
         print("  note  ComfyUI injoignable sur http://127.0.0.1:8188 — [4] non verifie ici,")
         print("        pas simule comme si ca l'etait. Relancer ce test ComfyUI demarre pour")
         print("        la preuve complete.")
+    elif not cv2_ok:
+        print("  note  ComfyUI joignable mais cv2/insightface absents de cet interpreteur")
+        print("        (attendu sous .venv — ADR-0008, requirements.txt) — [4] non verifie")
+        print("        ici. Relancer avec python_embeded\\python.exe pour la preuve complete.")
     else:
         import bench as _bench_source
         source = Path(_bench_source.__file__).read_text(encoding="utf-8")

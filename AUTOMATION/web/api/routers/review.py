@@ -209,7 +209,7 @@ async def measure_batch(payload: MeasureRequest, character_id: RequiredCharacter
             ss.push_log(f"corpus de reference : {n}/{total} image(s) mesurée(s)")
         for f in chunk:
             try:
-                mes.mesurer(f, checker=checker)
+                mes.mesurer(f, checker=checker, character_id=cid)
             except Exception as e:
                 ss.push_log(f"mesure impossible sur {f.name} : {e}")
         return len(chunk)

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Soulglade — Fil conducteur</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14161d;
+    --surface:#1b1e27;
+    --surface-active:#21242f;
+    --border:#2a2e3a;
+    --border-active:#5a441f;
+    --text:#e8e6df;
+    --text-muted:#9a9eab;
+    --text-dim:#5c6170;
+    --accent:#c9954f;
+    --accent-soft:rgba(201,149,79,.10);
+    --done:#6fa88b;
+    --done-soft:rgba(111,168,139,.10);
+    --font-display:'Fraunces', serif;
+    --font-body:'IBM Plex Sans', sans-serif;
+    --font-mono:'IBM Plex Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page{ max-width:720px; margin:0 auto; padding:2.75rem 1.5rem 5rem; }
+  header{ margin-bottom:1.75rem; }
+  h1{
+    font-family:var(--font-display); font-optical-sizing:auto; font-weight:600;
+    font-size:1.9rem; margin:0 0 .3rem; letter-spacing:-.01em;
+  }
+  .meta{ font-family:var(--font-mono); font-size:.78rem; color:var(--text-dim); }
+
+  .compass{
+    border-left:3px solid var(--accent); background:var(--accent-soft);
+    border-radius:0 8px 8px 0; padding:.9rem 1.1rem; margin:1.5rem 0 2.5rem;
+    font-family:var(--font-display); font-size:1.02rem; font-style:italic; color:var(--text);
+  }
+  .compass strong{ font-style:normal; color:var(--accent); }
+
+  .thread{ position:relative; padding-left:1.75rem; }
+  .thread::before{
+    content:''; position:absolute; left:.4rem; top:.5rem; bottom:.5rem;
+    width:2px; background:var(--border);
+  }
+  .node{ position:relative; margin-bottom:1.4rem; }
+  .node::before{
+    content:''; position:absolute; left:-1.75rem; top:.45rem;
+    width:11px; height:11px; border-radius:50%;
+    background:var(--text-dim); border:2px solid var(--bg); box-shadow:0 0 0 2px var(--border);
+  }
+  .node[data-status="done"]::before{ background:var(--done); box-shadow:0 0 0 2px var(--done-soft); }
+  .node[data-status="active"]::before{ background:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1.1rem 1.25rem; }
+  .node[data-status="active"] .card{ background:var(--surface-active); border-color:var(--border-active); }
+
+  .card summary{
+    list-style:none; cursor:pointer; display:flex;
+    align-items:baseline; justify-content:space-between; gap:1rem;
+  }
+  .card summary::-webkit-details-marker{ display:none; }
+  .card summary .chev{
+    font-family:var(--font-mono); color:var(--text-dim); font-size:.85rem;
+    transition:transform .15s ease; flex-shrink:0;
+  }
+  .card[open] summary .chev{ transform:rotate(90deg); }
+
+  .card h2{ font-family:var(--font-display); font-size:1.15rem; font-weight:600; margin:0; color:var(--text); }
+  .node[data-status="paused"] h2, .node[data-status="backlog"] h2{ color:var(--text-muted); }
+
+  .tag{ font-family:var(--font-mono); font-size:.68rem; padding:.15em .5em; border-radius:4px; white-space:nowrap; }
+  .tag.done{ background:var(--done-soft); color:var(--done); }
+  .tag.active{ background:var(--accent-soft); color:var(--accent); }
+  .tag.paused{ background:rgba(255,255,255,.04); color:var(--text-dim); }
+
+  .card-body{ margin-top:.85rem; color:var(--text-muted); font-size:.92rem; }
+  .card-body p{ margin:.4rem 0 .8rem; }
+  .card-body ul{ margin:.4rem 0; padding-left:1.1rem; }
+  .card-body li{ margin:.25rem 0; }
+  .ref{ font-family:var(--font-mono); font-size:.78rem; color:var(--text-dim); display:block; margin-top:.8rem; }
+
+  .progress-row{
+    display:flex; align-items:center; gap:.6rem; margin-top:.6rem;
+    font-family:var(--font-mono); font-size:.78rem; color:var(--text-muted);
+  }
+  .progress-track{ flex:1; height:5px; background:rgba(255,255,255,.06); border-radius:3px; overflow:hidden; }
+  .progress-fill{ height:100%; background:var(--accent); }
+
+  .steps{ margin-top:1rem; display:flex; flex-direction:column; gap:.6rem; }
+  .step{
+    display:flex; gap:.7rem; align-items:flex-start; border:1px solid var(--border);
+    border-radius:8px; padding:.65rem .8rem; background:rgba(255,255,255,.015);
+  }
+  .step .mark{
+    margin-top:.15rem; width:16px; height:16px; border-radius:4px; flex-shrink:0;
+    border:1.5px solid var(--text-dim); display:flex; align-items:center; justify-content:center;
+    font-size:.7rem; color:var(--bg); font-weight:700;
+  }
+  .step.done .mark{ background:var(--done); border-color:var(--done); }
+  .step.done .mark::after{ content:'✓'; }
+  .step-body strong{
+    font-family:var(--font-mono); font-size:.82rem; color:var(--accent); display:block; margin-bottom:.15rem;
+  }
+  .step.done{ opacity:.55; }
+  .step.done .step-title{ text-decoration:line-through; }
+  .step-title{ color:var(--text); font-size:.93rem; }
+  .step-desc{ color:var(--text-muted); font-size:.85rem; margin-top:.15rem; }
+
+  .flat-item{ margin:.7rem 0; }
+  .flat-item .flat-title{ color:var(--text); font-size:.93rem; font-weight:500; }
+  .flat-item .flat-desc{ color:var(--text-muted); font-size:.85rem; margin-top:.15rem; }
+
+  footer{ margin-top:3rem; padding-top:1.5rem; border-top:1px solid var(--border); }
+  footer h3{ font-family:var(--font-mono); font-size:.75rem; color:var(--text-dim); font-weight:400; margin:0 0 .8rem; }
+  .lookup{ display:grid; grid-template-columns:1fr 1fr; gap:.5rem 1.5rem; font-size:.82rem; }
+  .lookup div{ display:flex; justify-content:space-between; gap:.6rem; border-bottom:1px dotted var(--border); padding-bottom:.35rem; }
+  .lookup .k{ color:var(--text-muted); }
+  .lookup .v{ font-family:var(--font-mono); color:var(--text-dim); text-align:right; }
+
+  @media (max-width:480px){ .lookup{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <h1>Soulglade — fil conducteur</h1>
+    <div class="meta" id="meta-updated"></div>
+  </header>
+
+  <div class="compass" id="compass"></div>
+
+  <div class="thread" id="thread"></div>
+
+  <footer>
+    <h3>où chercher</h3>
+    <div class="lookup" id="lookup"></div>
+  </footer>
+
+</div>
+
+<script>
+/* ============================================================
+   ROADMAP_DATA — seule zone que Claude Code doit modifier.
+   Reflète ROADMAP.md (source de vérité). En fin de session, si
+   ROADMAP.md a changé (jalon coché, étape ajoutée/terminée,
+   décision de pause, entrée backlog), mettre à jour cet objet
+   pour qu'il corresponde exactement. Ne jamais modifier le CSS
+   ni les fonctions de rendu plus bas pour refléter un changement
+   de contenu — seul ce bloc doit bouger.
+
+   status possibles pour phase1/phase2 : "done" | "active"
+   done (étape de phase2)  : true | false — doit correspondre au
+   [x] / [ ] de la ligne équivalente dans ROADMAP.md.
+   ============================================================ */
+const ROADMAP_DATA = {
+  updated: "2026-09-05",
+
+  compass: "<strong>J8</strong> a été cadré par écrit avant le code — bouclé en une journée. <strong>Studio IA</strong> a été ouvert sans critère de sortie — il tourne encore. Le cadrage ne ralentit pas ; son absence coûte cher.",
+
+  phase1: {
+    title: "Phase 1 — V1 Fondations",
+    status: "done",
+    tagLabel: "terminée",
+    summary: "Neuf jalons (J0 → J9), objectif : le repo Léna devient la plateforme, avec deux univers réels qui prouvent la généralisation. Tous ✅ au 2026-09-03/05.",
+    jalons: [
+      "J0 — cohérence disque ↔ base",
+      "J1 — config ComfyUI explicite, vocabulaire générique",
+      "J2–J7 — pipeline, registre de création, packs",
+      "J8.1–J8.5 — quatre couches, capacités, héritage monde→personnage, plateforme, banc",
+      "J9 — provisioning ComfyUI par manifeste"
+    ],
+    note: "<strong style=\"color:var(--text)\">Mais</strong> : \"V1 Fondations\" ≠ \"V1\" au sens de <span class=\"ref\" style=\"display:inline;margin:0;\">PROJET.md</span>. Deux critères de sortie restent ouverts — objet de la phase 2.",
+    ref: "DOCS/retros/2026-09-05-phase-1-v1-fondations.md"
+  },
+
+  phase2: {
+    title: "Phase 2 — Clôture V1",
+    status: "active",
+    tagLabel: "en cours",
+    summary: "Fermer V1 au sens produit, pas au sens jalons techniques. Périmètre volontairement étroit — réaction directe à la dérive Studio IA.",
+    ref: "DOCS/cadrage/2026-09-05-phase-2-cloture-v1.md",
+    steps: [
+      { code: "P2.1", title: "Suite de tests verte pour de vrai", done: true,
+        desc: "Fait le 05/09 : le vrai bug était une confusion \"ComfyUI joignable\" / \"cv2 dispo dans cet interpréteur\" (ADR-0008), pas une dépendance manquante. Au passage, un vrai bug de production trouvé et corrigé (le bouton Mesurer n'écrivait jamais en base). 37 tests, tout vert." },
+      { code: "P2.2", title: "Définir le parcours nominal", done: false,
+        desc: "Lister par écrit les écrans du chemin néant→publication à partir de l'inventaire réel (AUTOMATION/web/ui/src/screens/). Préalable obligatoire à P2.3." },
+      { code: "P2.3", title: "Audit UX/UI du parcours nominal", done: false,
+        desc: "Un design-pass par écran listé en P2.2, vérifié en usage réel. Vise l'absence de blocage, pas le niveau professionnel. Le plus gros morceau de la phase." },
+      { code: "P2.4", title: "Décision écrite Abyssiaelle / SDXL", done: false,
+        desc: "Pas de code : trancher et documenter si l'absence d'outil d'édition NSFW pour Abyssiaelle (graphe SDXL manquant) est assumée pour V1 ou bloquante." }
+    ]
+  },
+
+  paused: {
+    title: "En pause fonctionnelle",
+    tagLabel: "visible, pas actif",
+    summary: "Code committé et navigable, motivation préservée — mais plus de développement actif tant que la phase 2 n'a pas statué.",
+    items: [
+      { title: "Studio IA — éditeur photo avancé", desc: "Ambition \"niveau professionnel\" par écran, ouverte le 01/09 sans hiérarchie ni date de fin. Hors périmètre de la clôture V1." },
+      { title: "Banc de comparaison de variantes (J8.5)", desc: "Outil de power-user pour valider un réglage ou mesurer les seuils d'un nouveau monde. Pas requis pour publier une première image." },
+      { title: "J9 — URLs modèle incomplètes", desc: "Une quinzaine d'entrées du manifeste ComfyUI sans URL vérifiée. Non bloquant, à compléter au fil de l'eau." },
+      { title: "qc.threshold_high non recalibré", desc: "Valeur provisoire (0.74) depuis J1, acceptable en l'état." }
+    ]
+  },
+
+  backlog: {
+    title: "Backlog",
+    tagLabel: "hors phase courante",
+    summary: "Rien ici n'entre en roadmap avant que la V1 soit vivante ET qu'un signal existe. Noté pour ne pas être perdu, pas pour être fait.",
+    items: [
+      { title: "Contrat de création de pack", desc: "Inspecter les workflows existants pour rendre automatisables la validation et le scaffolding d'un monde. Sert la monétisation, pas le parcours nominal." },
+      { title: "Inspiration ComfyUI Studio", desc: "Regarder ce qu'un outil tiers fait mieux (l'étage, jamais le graphe) pour le panel d'outils. Recherche déjà commencée : DOCS/recherche/2026-09-05-comfyui-studio-v362.md" },
+      { title: "Test commercial de l'idée pack", desc: "Poster à l'audience Léna/Abyssiaelle l'idée de mondes/packs et observer la réaction. Devrait précéder tout arbitrage sur la vision long terme." },
+      { title: "Vision long terme", desc: "Vidéo, univers \"art pur\", musique/voix, assets 3D, écriture type maître de jeu, messagerie type SillyTavern. Le personnage reste le fil conducteur — aucun arbitrage avant signal V1." },
+      { title: "Catalogue illustré / importeur d'assets", desc: "Le parcours nominal fonctionne en texte libre aujourd'hui. Pas bloquant." }
+    ]
+  },
+
+  lookup: [
+    { k: "Cadrage stratégique", v: "PROJET.md" },
+    { k: "Séquencement (quoi, quand)", v: "ROADMAP.md" },
+    { k: "Invariants techniques", v: "CLAUDE.md" },
+    { k: "Idées hors phase", v: "BACKLOG.md" },
+    { k: "Raisonnement des sessions", v: "DOCS/cadrage/" },
+    { k: "Rétros de phase", v: "DOCS/retros/" },
+    { k: "Décisions d'architecture", v: "DOCS/adr/" },
+    { k: "Écrans repris (design-pass)", v: "DOCS/design-pass/" }
+  ]
+};
+/* ======================= fin de ROADMAP_DATA ======================= */
+
+
+/* ============================================================
+   Rendu — ne dépend que de ROADMAP_DATA ci-dessus. Ne pas éditer
+   pour un simple changement de statut ou de contenu.
+   ============================================================ */
+function el(html){ const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; }
+
+function renderPhase1(p){
+  return `
+  <section class="node" data-status="${p.status}">
+    <details class="card">
+      <summary><h2>${p.title} <span class="tag done">${p.tagLabel}</span></h2><span class="chev">▸</span></summary>
+      <div class="card-body">
+        <p>${p.summary}</p>
+        <ul>${p.jalons.map(j => `<li>${j}</li>`).join('')}</ul>
+        <p>${p.note}</p>
+        <span class="ref">Rétro : ${p.ref}</span>
+      </div>
+    </details>
+  </section>`;
+}
+
+function renderPhase2(p){
+  const done = p.steps.filter(s => s.done).length;
+  const total = p.steps.length;
+  const stepsHtml = p.steps.map(s => `
+    <div class="step ${s.done ? 'done' : ''}">
+      <div class="mark"></div>
+      <div class="step-body">
+        <strong>${s.code}</strong>
+        <div class="step-title">${s.title}</div>
+        <div class="step-desc">${s.desc}</div>
+      </div>
+    </div>`).join('');
+  return `
+  <section class="node" data-status="${p.status}">
+    <details class="card" open>
+      <summary><h2>${p.title} <span class="tag active">${p.tagLabel}</span></h2><span class="chev">▸</span></summary>
+      <div class="card-body">
+        <p>${p.summary}</p>
+        <div class="progress-row">
+          <span>${done} / ${total} étapes</span>
+          <div class="progress-track"><div class="progress-fill" style="width:${(done/total*100)}%"></div></div>
+        </div>
+        <div class="steps">${stepsHtml}</div>
+        <span class="ref">Cadrage : ${p.ref}</span>
+      </div>
+    </details>
+  </section>`;
+}
+
+function renderFlatSection(p, status){
+  const itemsHtml = p.items.map(i => `
+    <div class="flat-item">
+      <div class="flat-title">${i.title}</div>
+      <div class="flat-desc">${i.desc}</div>
+    </div>`).join('');
+  return `
+  <section class="node" data-status="${status}">
+    <details class="card">
+      <summary><h2>${p.title} <span class="tag paused">${p.tagLabel}</span></h2><span class="chev">▸</span></summary>
+      <div class="card-body">
+        <p>${p.summary}</p>
+        ${itemsHtml}
+      </div>
+    </details>
+  </section>`;
+}
+
+function render(){
+  document.getElementById('meta-updated').textContent = 'mis à jour le ' + ROADMAP_DATA.updated + ' · où on en est, et où continuer';
+  document.getElementById('compass').innerHTML = ROADMAP_DATA.compass;
+
+  const thread = document.getElementById('thread');
+  thread.appendChild(el(renderPhase1(ROADMAP_DATA.phase1)));
+  thread.appendChild(el(renderPhase2(ROADMAP_DATA.phase2)));
+  thread.appendChild(el(renderFlatSection(ROADMAP_DATA.paused, 'paused')));
+  thread.appendChild(el(renderFlatSection(ROADMAP_DATA.backlog, 'backlog')));
+
+  const lookup = document.getElementById('lookup');
+  ROADMAP_DATA.lookup.forEach(row => {
+    lookup.appendChild(el(`<div><span class="k">${row.k}</span><span class="v">${row.v}</span></div>`));
+  });
+}
+
+render();
+</script>
+
+</body>
+</html>

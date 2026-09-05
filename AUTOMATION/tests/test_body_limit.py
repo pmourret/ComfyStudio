@@ -182,9 +182,9 @@ try:
     # ==================================================================== [4]
     print("\n[4] en negatif : un corps normal passe toujours")
     petit = json.dumps({"scenes": [], "intensity": 0}).encode()
-    r = CLIENT.post("/api/plan", content=petit, headers=ENTETES)
+    r = CLIENT.post("/api/plan?character=lena", content=petit, headers=ENTETES)
     verifie(r.status_code == 200, f"corps normal, Content-Length : 200 ({r.status_code})")
-    r = CLIENT.post("/api/plan", content=iter([petit]), headers=ENTETES)
+    r = CLIENT.post("/api/plan?character=lena", content=iter([petit]), headers=ENTETES)
     verifie(r.status_code == 200,
             f"corps normal, chunked : 200 aussi ({r.status_code})")
 

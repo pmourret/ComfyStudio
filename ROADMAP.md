@@ -1522,6 +1522,49 @@ prouvent la généralisation — pas juste Léna renommée.
   qu'une URL devinée ; `comfy_provision` les signale comme manquantes sans
   planter. À compléter au fil de l'eau
 
+**Décision de cadrage — 2026-09-05** : le banc de comparaison (J8.5),
+l'éditeur photo avancé (Studio IA) et J9 passent en **pause
+fonctionnelle** — code committé, navigable, mais plus de développement
+actif dessus tant que le découpage en phases (issu de la refonte de
+cadrage du même jour) n'a pas statué sur leur priorité. Restent visibles
+dans la navigation pour ne pas couper l'élan (Règle 5, `PROJET.md`). Voir
+`DOCS/cadrage/2026-09-05-cadrage-v1-et-discipline.md`.
+
+## Phase 2 — Clôture V1
+
+Objectif : fermer V1 au sens des critères de sortie de `PROJET.md`, pas
+au sens des jalons techniques de "V1 Fondations" ci-dessus. Périmètre
+volontairement étroit — cadrage complet dans `DOCS/cadrage/
+2026-09-05-phase-2-cloture-v1.md`.
+
+- [x] **P2.1 — Suite de tests verte pour de vrai.** Corrigée le
+  05/09/2026. Le vrai coupable n'était pas une dépendance manquante :
+  `test_bench.py`/`test_platform_capabilities.py` confondaient « ComfyUI
+  joignable » et « cv2/insightface disponibles dans CET interpréteur » —
+  faux dès que ComfyUI tourne en tâche de fond pendant que la suite passe
+  sous `.venv` (ADR-0008 : cv2 n'y est délibérément pas). Les deux tests
+  détectent maintenant `cv2` directement et s'ignorent proprement sinon.
+  En creusant "aucun autre échec caché" : `test_body_limit.py` était en
+  retard sur l'exigence `?character=` du 01/09 (corrigé) ; et surtout
+  `test_coherence_base.py` a débusqué un vrai bug — le bouton « Mesurer »
+  de la revue (`mesures.mesurer`) n'écrivait que dans `mesures.json`,
+  jamais en base, contrairement à la génération normale. Corrigé
+  (`character_id` double désormais l'écriture, testé dans
+  `test_mesurer_double_ecriture.py`), 4 images NSFW réelles rattrapées,
+  1 déchet de test nettoyé, et le test lui-même appris à reconnaître une
+  copie éditée (`source`) comme expliquée plutôt qu'orpheline. Suite
+  complète (37 `test_*.py`) verte sous `.venv`, ComfyUI actif en tâche de
+  fond — la condition qui faisait échouer avant.
+- [ ] **P2.2 — Définir le parcours nominal.** Lister par écrit les
+  écrans du chemin néant→publication à partir de l'inventaire réel
+  (`AUTOMATION/web/ui/src/screens/`). Préalable obligatoire à P2.3.
+- [ ] **P2.3 — Audit UX/UI du parcours nominal.** Un design-pass par
+  écran listé en P2.2, vérifié en usage réel. Vise l'absence de blocage,
+  pas le niveau professionnel (ça, c'est Studio IA, hors périmètre ici).
+- [ ] **P2.4 — Décision écrite Abyssiaelle/SDXL.** Pas de code : trancher
+  et documenter si l'absence d'outil d'édition NSFW pour Abyssiaelle
+  (graphe SDXL manquant) est assumée pour V1 ou bloquante.
+
 ## V2 — Extensions
 
 - Mise en scène de plusieurs personnages ensemble (verrous d'identité

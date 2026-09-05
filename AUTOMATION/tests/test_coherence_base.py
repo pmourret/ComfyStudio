@@ -115,7 +115,7 @@ def main():
 
     with db.ouvrir() as cx:
         images = {r["fichier"]: r for r in cx.execute(
-            "SELECT fichier, character_id, espace, bucket, role FROM image")}
+            "SELECT fichier, character_id, espace, bucket, role, source FROM image")}
         scores = {}
         for r in cx.execute("SELECT i.fichier, s.genre, s.valeur FROM score s "
                             "JOIN image i ON i.id = s.image_id"):
@@ -244,10 +244,18 @@ def main():
     # le reecrit pas), et le corpus de realisme comme la base gelee vivent dans
     # INPUTS/, pas dans PROD/. Ce qui serait fautif, c'est une ligne qui ne
     # s'explique par aucune source — le signe d'une ecriture parasite.
+    #
+    # Une copie editee (`/api/edit/save`, colonne `source` = l'image d'origine)
+    # n'a JAMAIS de ligne de journal ni de mesures.json a elle : `record_bucket`
+    # est son seul acte d'existence en base. Supprimee ensuite via `/api/delete`
+    # (qui ne retire jamais la ligne, par choix — voir sa docstring), elle reste
+    # sur disque une trace vraie sans etre une ecriture parasite. `source` non
+    # vide est le signal, au meme titre que `role`.
     print("\n[4] les lignes de la base sans fichier sur le disque s'expliquent")
     connus = set(jsfw) | set(jnsfw) | set(mesures)
     orphelines = [n for n, r in images.items()
-                  if n not in disque and not r["role"] and n not in connus]
+                  if n not in disque and not r["role"] and not r["source"]
+                  and n not in connus]
     verifie(not orphelines, "aucune ligne orpheline"
             + (f" — {detail(orphelines)}" if orphelines else ""))
 

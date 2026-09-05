@@ -147,12 +147,20 @@ def poser_flag(nom, flag, character_id):
         return e
 
 
-def mesurer(path, checker=None, bbox=None, identite=None):
+def mesurer(path, checker=None, bbox=None, identite=None, character_id=None):
     """Mesure une image et range le resultat. Retourne l'entree.
 
     Si `checker` est fourni et que la bbox n'est pas connue, la passe InsightFace
     sert aux deux : score d'identite ET cadre du visage. C'est la partie couteuse
     (~190 ms) ; les mesures de realisme n'ajoutent que ~32 ms.
+
+    `character_id` double l'ecriture en base (meme genres que
+    `runner.sortie.ranger_mesures` a la generation) — sans lui ce fichier reste
+    la seule source, ce qui a laisse la base en retard pour toute image
+    RE-mesuree depuis la revue plutot que notee a la generation (P2.1,
+    05/09/2026). Omis pour le corpus de reference (`mesurer_references`) : il
+    n'appartient a aucun personnage, la base l'a deja sous 'lena' par
+    convention historique (migrer_base.py), pas par appelant courant.
     """
     import qc_realisme
     path = Path(path)
@@ -162,8 +170,20 @@ def mesurer(path, checker=None, bbox=None, identite=None):
     r = qc_realisme.mesure(path, bbox)
     if r is None:
         return None
-    return maj(path.name, identite=identite,
-               mesure_le=datetime.now().isoformat(timespec="seconds"), **r)
+    quand = datetime.now().isoformat(timespec="seconds")
+    entree = maj(path.name, identite=identite, mesure_le=quand, **r)
+    if character_id:
+        try:
+            import base
+            with base.ouvrir() as cx:
+                iid = base.enregistrer_image(cx, path.name, character_id=character_id)
+                base.enregistrer_score(cx, iid, "identite", identite, quand)
+                for genre, v in r.items():
+                    base.enregistrer_score(cx, iid, genre, v, quand)
+                cx.commit()
+        except Exception:
+            pass                    # la base ne doit jamais bloquer une mesure
+    return entree
 
 
 def _quantiles(vals, n_min, source):
