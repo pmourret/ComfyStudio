@@ -1589,9 +1589,30 @@ volontairement étroit — cadrage complet dans `DOCS/cadrage/
   remontée est actionnable, retour temps réel pendant la génération,
   actions haute fréquence (tri, valider/rejeter) opérables au clavier
   (`.claude/rules/frontend.md`).
-- [ ] **P2.3 — Audit UX/UI du parcours nominal.** Un design-pass par
-  écran listé en P2.2, vérifié en usage réel. Vise l'absence de blocage,
-  pas le niveau professionnel (ça, c'est Studio IA, hors périmètre ici).
+- [x] **P2.3 — Audit UX/UI du parcours nominal.** Fait le 05/09/2026,
+  vérifié en vrai (build réel, 5 fumigations navigateur sous
+  `python_embeded`, dashboard connecté à la vraie instance ComfyUI et
+  aux vraies données de Léna, captures + sondes DOM) — pas à la
+  lecture. Détail complet : `DOCS/design-pass/
+  2026-09-05-p2.3-parcours-nominal.md`.
+
+  Un Majeur trouvé et corrigé : `/characters` et `/characters/new`
+  affichaient « ● état indisponible » (pastille rouge) alors que
+  ComfyUI était réellement joignable — `state` vaut `null` aussi bien
+  sans personnage chargé (rien à interroger, comportement voulu) qu'en
+  cas de vraie panne, et les deux partageaient le même texte d'alerte.
+  Au tout premier écran du studio, pile l'aha moment de `PROJET.md`,
+  ça donnait l'impression que l'installation avait échoué. Corrigé
+  (`Header.tsx`, commit `6f56318`) : le bloc Comfy ne s'affiche plus
+  sans personnage réclamé, les sondes machine restent visibles.
+  Revérifié en vrai après coup, 5 fumigations repassées vertes.
+
+  Rien d'autre trouvé malgré le passage réel sur les six écrans (0
+  erreur console, états vides et `disabled` corrects, personnage +
+  sonde + job visibles sans changer d'écran). Limite assumée : le
+  rendu « ComfyUI hors ligne » avec un personnage chargé n'a pas été
+  capturé en vrai (aurait exigé d'arrêter la vraie instance ComfyUI de
+  ce poste pendant l'audit) — confirmé seulement à la lecture du code.
 - [ ] **P2.4 — Décision écrite Abyssiaelle/SDXL.** Pas de code : trancher
   et documenter si l'absence d'outil d'édition NSFW pour Abyssiaelle
   (graphe SDXL manquant) est assumée pour V1 ou bloquante.

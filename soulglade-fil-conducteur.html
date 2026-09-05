@@ -197,8 +197,8 @@ const ROADMAP_DATA = {
         desc: "Fait le 05/09 : le vrai bug était une confusion \"ComfyUI joignable\" / \"cv2 dispo dans cet interpréteur\" (ADR-0008), pas une dépendance manquante. Au passage, un vrai bug de production trouvé et corrigé (le bouton Mesurer n'écrivait jamais en base). 37 tests, tout vert." },
       { code: "P2.2", title: "Définir le parcours nominal", done: true,
         desc: "Fait le 05/09, depuis l'inventaire réel (App.tsx/routes.ts), pas une supposition : Personnages, Wizard, Application, Produire, Revue, Galerie. Mondes en sort (le wizard fournit déjà un monde par type), Application y entre (seul chemin pour démarrer ComfyUI)." },
-      { code: "P2.3", title: "Audit UX/UI du parcours nominal", done: false,
-        desc: "Un design-pass par écran listé en P2.2, vérifié en usage réel. Vise l'absence de blocage, pas le niveau professionnel. Le plus gros morceau de la phase." },
+      { code: "P2.3", title: "Audit UX/UI du parcours nominal", done: true,
+        desc: "Fait le 05/09, vérifié en vrai (fumigations + dashboard réel connecté à ComfyUI). Un Majeur trouvé et corrigé : la porte d'entrée avait l'air en panne sans personnage chargé, pile à l'aha moment. Rien d'autre trouvé sur les six écrans." },
       { code: "P2.4", title: "Décision écrite Abyssiaelle / SDXL", done: false,
         desc: "Pas de code : trancher et documenter si l'absence d'outil d'édition NSFW pour Abyssiaelle (graphe SDXL manquant) est assumée pour V1 ou bloquante." }
     ]
