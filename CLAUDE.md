@@ -54,6 +54,9 @@ repo et skills en **français**.
     `config.json` ne porte aucun chemin de graphe.
 11. Toute exposition MCP reste **lecture et validation seulement** — jamais de
     génération, d'écriture, ni de raccourci qui court-circuite QC ou tri.
+12. Un custom node ou un modèle qu'un workflow committé introduit se déclare
+    dans `AUTOMATION/comfyui_manifest.json` dans le même commit — jamais une
+    dépendance implicite qui ne se découvre qu'en production (ADR-0022).
 
 ## Données
 

@@ -192,6 +192,12 @@ def ensure(url=DEFAULT_URL, timeout=240, log=_say):
         log(f"ComfyUI deja actif sur {url}")
         return "deja-actif"
 
+    # Provisioning (custom nodes + modeles du manifeste) seulement ici, jamais
+    # pendant qu'un ComfyUI tourne deja : un nœud ajoute ne serait de toute
+    # facon visible qu'apres un redemarrage (ADR-0022).
+    import comfy_provision
+    comfy_provision.ensure_all(log=log)
+
     log("ComfyUI hors ligne -> demarrage dans une fenetre separee, patience "
         "(chargement des custom nodes)...")
     proc = start(url)

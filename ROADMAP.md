@@ -1473,6 +1473,55 @@ prouvent la généralisation — pas juste Léna renommée.
   l'écran (capture) que l'entrée de nav s'affiche bien « Ateliers » et
   reste allumée sur `/bank/*`.
 
+**J9 — Instance ComfyUI provisionnée par manifeste** ✅ *(terminé
+2026-09-05, vérifié contre ComfyUI réel)*
+- `AUTOMATION/comfyui_manifest.json` déclare tout ce qu'une installation
+  ComfyUI doit porter en plus de son cœur — 9 custom nodes (3 en checkout
+  git épinglé par commit, 6 résolus via le Comfy Registry par publisher +
+  version) et 30 fichiers modèles. Un module,
+  `AUTOMATION/comfy_provision.py`, comble les écarts (clone/checkout/patch/
+  pip, ou téléchargement) sans jamais rien retirer de ce qui existe déjà ;
+  `comfy_server.ensure()` l'appelle juste avant `start()`, jamais pendant
+  que ComfyUI tourne. Le cœur ComfyUI reste un prérequis apporté par la
+  personne qui installe (`ensure_core()` affiche l'instruction au lieu
+  d'échouer sans explication) — même split que Node dans
+  `AUTOMATION/tools/toolchain.py`. `DOCS/adr/
+  0022-manifeste-comfyui-provisionne.md` écrit ; ADR-0008 non modifié
+  (ce chantier se pose par-dessus, ne le supersède pas)
+- Trouvé en auditant l'installation réelle pour peupler le manifeste :
+  `ComfyUI_PuLID_Flux_ll` (verrou d'identité Flux) tournait avec un **patch
+  local non versionné nulle part dans le repo** (corrige un `TypeError`
+  avec ComfyUI ≥ 0.26, signature de `forward_orig` changée en amont) — un
+  clone frais ne pouvait pas reproduire un pack Flux qui marche. Extrait en
+  `AUTOMATION/comfyui_patches/pulid_flux_ll.patch`
+- **Validation réelle, en deux temps, sur l'installation existante** : (1)
+  `comfy_provision.py --check` contre le vrai `COMFYUI_ROOT` : zéro écart
+  sur les 9 custom nodes, un seul modèle manquant et c'est exactement celui
+  déjà repéré comme absent (checkpoint Krea d'un workflow expérimental).
+  (2) Deux nœuds déplacés à la main puis reprovisionnés pour de vrai :
+  `ComfyUI-Crystools` (chemin registre — résolution API, téléchargement,
+  extraction, pip `--no-deps` ; dossier résultant comparé à l'original,
+  identique à `__pycache__` près) et `ComfyUI_PuLID_Flux_ll` (chemin git —
+  clone, checkout au commit épinglé, patch appliqué ; `PulidFluxHook.py`
+  résultant comparé **octet à octet** au fichier patché de production,
+  identique). Les deux restaurés à l'identique après vérification —
+  aucune trace laissée sur l'installation réelle
+- `comfyui-custom-nodes/SKILL.md` et `workflow-comfyui/references/
+  modeles-par-pack.md` mis à jour (le second allégé : garde le pourquoi
+  pack/famille de modèle, renvoie au manifeste pour la liste exacte).
+  `CLAUDE.md` invariant 12 ajouté : tout custom node/modèle qu'un workflow
+  committé introduit se déclare dans le manifeste dans le même commit
+- `AUTOMATION/tests/test_comfy_provision.py` : manifeste bien formé,
+  message actionnable quand `main.py` est absent, et surtout le chemin
+  rapide — aucun appel git/pip/réseau tenté quand un nœud ou un modèle est
+  déjà à la version épinglée (c'est ce qui permet de brancher le
+  provisioning sur chaque lancement sans le ralentir)
+- Limite assumée, non bloquante : une quinzaine d'entrées modèle (surtout
+  des checkpoints/LoRA communautaires, probablement CivitAI) n'ont pas
+  d'URL de téléchargement vérifiée — `"url": null` avec une note plutôt
+  qu'une URL devinée ; `comfy_provision` les signale comme manquantes sans
+  planter. À compléter au fil de l'eau
+
 ## V2 — Extensions
 
 - Mise en scène de plusieurs personnages ensemble (verrous d'identité

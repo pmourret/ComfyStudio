@@ -1,0 +1,131 @@
+{
+  "_comment": "Ce que les workflows de CE repo demandent a une installation ComfyUI. Le coeur ComfyUI lui-meme reste un prerequis apporte par la personne qui installe (ADR-0022) ; ce fichier ne couvre que ce qui se pose PAR-DESSUS. Verifie contre une installation reelle le 2026-09-05 -- voir DOCS/adr/0022-manifeste-comfyui-provisionne.md.",
+  "comfyui_core": {
+    "min_version": "0.26.0",
+    "note": "Verifie, jamais installe automatiquement. Absence de main.py -> comfy_provision affiche l'instruction (git clone du coeur, ou pointer un ComfyUI portable deja present) au lieu d'echouer sans explication."
+  },
+  "custom_nodes": [
+    {
+      "id": "ComfyUI_PuLID_Flux_ll",
+      "source": "git",
+      "repo": "https://github.com/lldacing/ComfyUI_PuLID_Flux_ll",
+      "commit": "7c7362b806c2c0f4bde8742ada9e7cb05b44d249",
+      "pip": "no-deps",
+      "patches": ["pulid_flux_ll.patch"],
+      "packs": ["instagram-influenceur"],
+      "note": "Verrou d'identite Flux. Le patch corrige un TypeError avec ComfyUI >= 0.26 (timestep_zero_index absent de la signature amont) -- voir pieges-noeuds-custom.md."
+    },
+    {
+      "id": "ComfyUI_IPAdapter_plus",
+      "source": "git",
+      "repo": "https://github.com/cubiq/ComfyUI_IPAdapter_plus",
+      "commit": "a0f451a5113cf9becb0847b92884cb10cbdec0ef",
+      "pip": "no-deps",
+      "patches": [],
+      "packs": ["rpg-personnage"]
+    },
+    {
+      "id": "comfyui_controlnet_aux",
+      "source": "git",
+      "repo": "https://github.com/Fannovel16/comfyui_controlnet_aux",
+      "commit": "e8b689a513c3e6b63edc44066560ca5919c0576e",
+      "pip": "skip",
+      "patches": [],
+      "packs": ["platform"],
+      "note": "Ne JAMAIS installer son requirements.txt -- tire mediapipe, qui installe un second cv2 et casse InsightFace (pieges-noeuds-custom.md). Les poids DWPose (~200 Mo) se telechargent seuls dans custom_nodes/comfyui_controlnet_aux/ckpts/ au premier lancement -- ne pas les lister dans models[]."
+    },
+    {
+      "id": "comfyui-impact-pack",
+      "source": "registry",
+      "publisher": "drltdata",
+      "version": "8.28.3",
+      "repo": "https://github.com/ltdrdata/ComfyUI-Impact-Pack",
+      "pip": "no-deps",
+      "patches": [],
+      "packs": ["platform"]
+    },
+    {
+      "id": "comfyui-impact-subpack",
+      "source": "registry",
+      "publisher": "drltdata",
+      "version": "1.3.5",
+      "repo": "https://github.com/ltdrdata/ComfyUI-Impact-Subpack",
+      "pip": "no-deps",
+      "patches": [],
+      "packs": ["platform"]
+    },
+    {
+      "id": "comfyui_essentials",
+      "source": "registry",
+      "publisher": "matteo",
+      "version": "1.1.0",
+      "repo": "https://github.com/cubiq/ComfyUI_essentials",
+      "pip": "no-deps",
+      "patches": [],
+      "packs": ["platform"]
+    },
+    {
+      "id": "ComfyUI-Crystools",
+      "source": "registry",
+      "publisher": "crystian",
+      "version": "1.27.4",
+      "repo": "https://github.com/crystian/ComfyUI-Crystools",
+      "pip": "no-deps",
+      "patches": [],
+      "packs": ["platform"]
+    },
+    {
+      "id": "ComfyUI-KJNodes",
+      "source": "registry",
+      "publisher": "kijai",
+      "version": "1.4.7",
+      "repo": "https://github.com/kijai/ComfyUI-KJNodes",
+      "pip": "no-deps",
+      "patches": [],
+      "packs": ["platform"]
+    },
+    {
+      "id": "comfyui-advancedliveportrait",
+      "source": "registry",
+      "publisher": "starmapking",
+      "version": "1.0.0",
+      "repo": "https://github.com/PowerHouseMan/ComfyUI-AdvancedLivePortrait",
+      "pip": "no-deps",
+      "patches": [],
+      "packs": ["platform"],
+      "note": "Fournit ExpressionEditor, construit par AUTOMATION/expression.py -- n'apparait dans aucun WORKFLOWS/*.json (graphe assemble en Python), a verifier a la main si expression.py change."
+    }
+  ],
+  "models": [
+    {"filename": "flux1-dev-fp8.safetensors", "dest": "checkpoints", "url": "https://huggingface.co/lllyasviel/flux1_dev/resolve/main/flux1-dev-fp8.safetensors", "packs": ["instagram-influenceur"]},
+    {"filename": "pulid_flux_v0.9.1.safetensors", "dest": "pulid", "url": "https://huggingface.co/guozinan/PuLID/resolve/main/pulid_flux_v0.9.1.safetensors", "packs": ["instagram-influenceur"]},
+    {"filename": "FLUX.1-dev-ControlNet-Union-Pro-2.0.safetensors", "dest": "controlnet", "url": "https://huggingface.co/Shakker-Labs/FLUX.1-dev-ControlNet-Union-Pro-2.0/resolve/main/diffusion_pytorch_model.safetensors", "packs": ["instagram-influenceur"]},
+    {"filename": "Realistic_Adult_Flux_10-000001.safetensors", "dest": "loras", "url": null, "packs": ["instagram-influenceur"], "note": "URL a renseigner par l'utilisateur (source non HuggingFace verifiee)."},
+
+    {"filename": "juggernautXL_ragnarok.safetensors", "dest": "checkpoints", "url": null, "packs": ["rpg-personnage"], "note": "URL a renseigner (probablement CivitAI) -- non trouve dans une source verifiee."},
+    {"filename": "intorealismUltra_sdxlV1NoLightning.safetensors", "dest": "checkpoints", "url": null, "packs": ["rpg-personnage"], "note": "URL a renseigner (probablement CivitAI)."},
+    {"filename": "controlnet-canny-sdxl-1.0.safetensors", "dest": "controlnet", "url": null, "packs": ["rpg-personnage"], "note": "URL a renseigner."},
+
+    {"filename": "qwen_image_vae.safetensors", "dest": "vae", "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors", "packs": ["platform"]},
+    {"filename": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "dest": "clip/qwen", "url": "https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors", "packs": ["platform"]},
+    {"filename": "qwen_image_edit_2511_bf16.safetensors", "dest": "diffusion_models", "url": null, "packs": ["platform"], "note": "URL a renseigner -- variante 2511 pas trouvee dans la source croisee (seule la 2509 fp8 y figurait)."},
+    {"filename": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors", "dest": "loras", "url": "https://huggingface.co/lightx2v/Qwen-Image-Edit-2511-Lightning/resolve/main/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors", "packs": ["platform"]},
+    {"filename": "Qwen-Rapid-AIO-NSFW-v23.safetensors", "dest": "diffusion_models", "url": null, "packs": ["nsfw"], "note": "URL a renseigner."},
+    {"filename": "face_yolov8m.pt", "dest": "ultralytics/bbox", "url": "https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov8m.pt", "packs": ["platform"]},
+    {"filename": "4x_NMKD-Siax_200k.pth", "dest": "upscale_models", "url": null, "packs": ["platform"], "note": "URL a renseigner (upscaler communautaire, source exacte non verifiee)."},
+
+    {"filename": "flux1-krea-dev-fp8.safetensors", "dest": "checkpoints", "url": null, "packs": ["experimental"], "note": "Absent de l'installation reelle au 2026-09-05 -- workflow experiments/krea_nsfw_test_ui.json possiblement non fonctionnel actuellement."},
+    {"filename": "krea2_turbo_fp8_scaled.safetensors", "dest": "diffusion_models", "url": null, "packs": ["experimental"], "note": "URL a renseigner."},
+    {"filename": "krea2_warmpastel.safetensors", "dest": "loras", "url": null, "packs": ["experimental"], "note": "URL a renseigner."},
+    {"filename": "qwen3vl_4b_fp8_scaled.safetensors", "dest": "text_encoders", "url": null, "packs": ["experimental"], "note": "URL a renseigner."},
+
+    {"filename": "abyss1a_v1.safetensors", "dest": "loras", "url": null, "packs": ["rpg-personnage"], "note": "LoRA de personnage (Abyssiaelle) -- verifier si elle appartient vraiment ici ou dans CHARACTERS/ (hors repo, ADR-0005) plutot que dans ce manifeste plateforme."},
+
+    {"filename": "gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors", "dest": "loras", "url": null, "packs": ["nsfw", "experimental"], "note": "URL a renseigner -- pipeline video LTX-2.3, WIP."},
+    {"filename": "gemma_3_12B_it_fp4_mixed.safetensors", "dest": "text_encoders", "url": "https://huggingface.co/datasets/comfyuistudio/gemma/resolve/main/gemma_3_12B_it_fp4_mixed.safetensors", "packs": ["nsfw", "experimental"]},
+    {"filename": "ltx-2.3-spatial-upscaler-x2-1.1.safetensors", "dest": "latent_upscale_models", "url": null, "packs": ["nsfw", "experimental"], "note": "URL a renseigner."},
+    {"filename": "ltx-av-step-1751000_vocoder_24K.safetensors", "dest": null, "url": null, "packs": ["nsfw", "experimental"], "note": "Absent de l'installation reelle au 2026-09-05, dest inconnue -- pipeline video LTX-2.3, WIP, a confirmer."},
+    {"filename": "ltx_2.3_22b_distilled_1.1_lora_dynamic_fro09_avg_rank_111_bf16.safetensors", "dest": "loras", "url": null, "packs": ["nsfw", "experimental"], "note": "URL a renseigner."},
+    {"filename": "ltx-2.3-22b-dev-fp8.safetensors", "dest": null, "url": null, "packs": ["nsfw", "experimental"], "note": "Absent de l'installation reelle au 2026-09-05, dest inconnue -- WIP, a confirmer."}
+  ]
+}

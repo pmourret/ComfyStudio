@@ -158,6 +158,14 @@ Un nœud dont le schéma change après qu'il a été câblé quelque part est un
 changement cassant. Si des inputs doivent être ajoutés, les ajouter **à la
 fin** et en `optional`.
 
+Tout nœud custom nouvellement câblé dans un workflow committé (ou dans un
+graphe construit en Python, ex. `expression.py`) s'ajoute dans le même
+commit à `AUTOMATION/comfyui_manifest.json` — source (commit git épinglé ou
+version du Comfy Registry), politique `pip`, patch local éventuel. C'est ce
+que `comfy_provision.py` lit pour reproduire l'installation ailleurs
+(CLAUDE.md §12, ADR-0022) ; sans cette entrée, le nœud reste une dépendance
+invisible d'un `git clone`.
+
 ## Forme de la réponse attendue
 
 Dire ce que le nœud ajoute comme dette avant de le proposer. Écrire le

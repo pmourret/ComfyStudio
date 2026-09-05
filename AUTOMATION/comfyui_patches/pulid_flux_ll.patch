@@ -1,0 +1,29 @@
+diff --git a/PulidFluxHook.py b/PulidFluxHook.py
+index f750920..e3c6759 100644
+--- a/PulidFluxHook.py
++++ b/PulidFluxHook.py
+@@ -1,3 +1,4 @@
++import logging
+ import torch
+ from einops import rearrange
+ from torch import Tensor
+@@ -146,9 +147,19 @@ def pulid_forward_orig(
+     y: Tensor,
+     guidance: Tensor = None,
+     control = None,
++    timestep_zero_index=None,
+     transformer_options={},
+     attn_mask: Tensor = None,
++    **kwargs,
+ ) -> Tensor:
++    # [PATCH LOCAL OFM] ComfyUI >= 0.26 passe timestep_zero_index a forward_orig.
++    # Sans ce parametre, ApplyPulidFlux plante avec :
++    #   pulid_forward_orig() got an unexpected keyword argument 'timestep_zero_index'
++    # timestep_zero_index n'est renseigne que pour les latents de reference facon
++    # Kontext, non utilises par le pipeline Lena : on avertit et on ignore.
++    if timestep_zero_index is not None:
++        logging.warning("[PuLID Flux] timestep_zero_index ignore : les latents de "
++                        "reference (Kontext) ne sont pas geres par le patch PuLID.")
+     patches_replace = transformer_options.get("patches_replace", {})
+ 
+     if img.ndim != 3 or txt.ndim != 3:

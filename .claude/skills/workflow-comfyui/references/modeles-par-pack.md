@@ -1,10 +1,16 @@
 # Modèles et nœuds par pack
 
-Consulté par le skill `workflow-comfyui` pour savoir quelle famille de
-modèle et quels nœuds appartiennent à quel pack (voir `CLAUDE.md` §4 —
-le verrou d'identité appartient au pack, pas au personnage). Un
-personnage hérite intégralement de ce qui est listé pour son pack ; il
-n'a pas à re-choisir sa famille de modèle.
+Consulté par le skill `workflow-comfyui` pour savoir POURQUOI quelle
+famille de modèle et quel verrou d'identité appartiennent à quel pack
+(voir `CLAUDE.md` §4 — le verrou d'identité appartient au pack, pas au
+personnage). Un personnage hérite intégralement de ce qui est listé pour
+son pack ; il n'a pas à re-choisir sa famille de modèle.
+
+**La liste exacte et engageante (commit git épinglé ou version registre,
+fichier modèle + URL) vit dans `AUTOMATION/comfyui_manifest.json`, pas
+ici** (ADR-0022) — ce fichier reste la doc de contexte, pas la source que
+`comfy_provision.py` lit. Un nom cité ci-dessous peut désigner une famille
+de modèle plus large que ce qu'un workflow committé référence aujourd'hui.
 
 ## Pack `instagram-influenceur` — famille Flux
 
