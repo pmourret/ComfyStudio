@@ -195,8 +195,8 @@ const ROADMAP_DATA = {
     steps: [
       { code: "P2.1", title: "Suite de tests verte pour de vrai", done: true,
         desc: "Fait le 05/09 : le vrai bug était une confusion \"ComfyUI joignable\" / \"cv2 dispo dans cet interpréteur\" (ADR-0008), pas une dépendance manquante. Au passage, un vrai bug de production trouvé et corrigé (le bouton Mesurer n'écrivait jamais en base). 37 tests, tout vert." },
-      { code: "P2.2", title: "Définir le parcours nominal", done: false,
-        desc: "Lister par écrit les écrans du chemin néant→publication à partir de l'inventaire réel (AUTOMATION/web/ui/src/screens/). Préalable obligatoire à P2.3." },
+      { code: "P2.2", title: "Définir le parcours nominal", done: true,
+        desc: "Fait le 05/09, depuis l'inventaire réel (App.tsx/routes.ts), pas une supposition : Personnages, Wizard, Application, Produire, Revue, Galerie. Mondes en sort (le wizard fournit déjà un monde par type), Application y entre (seul chemin pour démarrer ComfyUI)." },
       { code: "P2.3", title: "Audit UX/UI du parcours nominal", done: false,
         desc: "Un design-pass par écran listé en P2.2, vérifié en usage réel. Vise l'absence de blocage, pas le niveau professionnel. Le plus gros morceau de la phase." },
       { code: "P2.4", title: "Décision écrite Abyssiaelle / SDXL", done: false,

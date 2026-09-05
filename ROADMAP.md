@@ -1555,9 +1555,40 @@ volontairement étroit — cadrage complet dans `DOCS/cadrage/
   copie éditée (`source`) comme expliquée plutôt qu'orpheline. Suite
   complète (37 `test_*.py`) verte sous `.venv`, ComfyUI actif en tâche de
   fond — la condition qui faisait échouer avant.
-- [ ] **P2.2 — Définir le parcours nominal.** Lister par écrit les
-  écrans du chemin néant→publication à partir de l'inventaire réel
-  (`AUTOMATION/web/ui/src/screens/`). Préalable obligatoire à P2.3.
+- [x] **P2.2 — Définir le parcours nominal.** Tranché le 05/09/2026 à
+  partir de l'inventaire réel (`App.tsx`, `routes.ts`), pas d'une
+  supposition — deux écarts avec la supposition initiale de cadrage :
+  **Mondes** sort du périmètre (le wizard choisit un monde déjà fourni
+  par le type, `currentType.worlds` — jamais besoin de l'écran séparé
+  pour une première publication) et **Application** y entre (démarrer
+  ComfyUI ne se fait que depuis cet écran, aucun raccourci ailleurs).
+  **Fiche personnage** volontairement exclue malgré son statut d'écran
+  simple : après le wizard, l'app redirige vers Produire, jamais vers
+  la fiche — pas strictement requise pour publier.
+
+  Parcours nominal (périmètre exact de P2.3), les six écrans :
+  1. **Personnages** (`/characters`) — porte d'entrée, choix/création
+  2. **Wizard** (`/characters/new`) — type → style → monde → base
+     d'identité
+  3. **Application** (`/app`) — démarrer ComfyUI (seul chemin), armer
+     le NSFW
+  4. **Produire** (`/produce`) — génération, scène créée à la volée
+     (texte libre, pas besoin de la banque)
+  5. **Revue** (`/review`) — tri, c'est ici que part l'export
+     prêt-à-poster
+  6. **Galerie** (`/gallery`) — consultation des images publiées
+
+  Hors périmètre (Studio IA / power-user) : Fiche personnage
+  (`/character`), Mondes (`/worlds` + catalogue de lieux), Banque
+  scènes/poses/tons (`/bank/*`), éditeur de pose, éditeur d'expression,
+  éditeur photo avancé (déjà en pause), Journal (`/app/journal`).
+
+  Critères UI/UX détaillés que `PROJET.md` renvoyait à cette étape,
+  formalisés ici pour P2.3 : absence de piège ou de blocage sur ces six
+  écrans, pas l'élégance — aucun crash silencieux, toute erreur
+  remontée est actionnable, retour temps réel pendant la génération,
+  actions haute fréquence (tri, valider/rejeter) opérables au clavier
+  (`.claude/rules/frontend.md`).
 - [ ] **P2.3 — Audit UX/UI du parcours nominal.** Un design-pass par
   écran listé en P2.2, vérifié en usage réel. Vise l'absence de blocage,
   pas le niveau professionnel (ça, c'est Studio IA, hors périmètre ici).
